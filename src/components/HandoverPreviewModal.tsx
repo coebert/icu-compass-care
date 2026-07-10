@@ -149,165 +149,176 @@ export function HandoverPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[92vh] max-w-[min(96vw,1200px)] flex-col gap-4">
-        <DialogHeader>
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col gap-3 rounded-none p-4 sm:h-[92vh] sm:w-auto sm:max-w-[min(96vw,1200px)] sm:gap-4 sm:rounded-lg sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Handover PDF preview</DialogTitle>
         </DialogHeader>
 
-        {/* Header / footer presets */}
-        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/40 p-3">
-          <div className="min-w-[180px] flex-1 space-y-1">
-            <Label htmlFor="pdf-preset" className="text-xs">Saved preset</Label>
-            <Select
-              value={selectedPresetId}
-              onValueChange={applyPreset}
-              disabled={presets.length === 0}
-            >
-              <SelectTrigger id="pdf-preset">
-                <SelectValue placeholder={presets.length ? "Load a preset…" : "No saved presets"} />
-              </SelectTrigger>
-              <SelectContent>
-                {presets.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[180px] flex-1 space-y-1">
-            <Label htmlFor="pdf-preset-name" className="text-xs">Preset name</Label>
-            <Input
-              id="pdf-preset-name"
-              value={presetName}
-              onChange={(e) => setPresetName(e.target.value)}
-              placeholder="e.g. Night handover"
-            />
-          </div>
-          <Button variant="secondary" className="gap-1.5" onClick={handleSavePreset}>
-            <Save className="h-4 w-4" /> Save
-          </Button>
-          <Button
-            variant="outline"
-            className="gap-1.5"
-            onClick={handleDeletePreset}
-            disabled={!selectedPresetId}
-          >
-            <Trash2 className="h-4 w-4" /> Delete
-          </Button>
-        </div>
-
-        {/* Header / footer configuration */}
-
-        <div className="grid gap-3 rounded-md border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <Label htmlFor="pdf-title" className="text-xs">Header title</Label>
-            <Input
-              id="pdf-title"
-              value={headerTitle}
-              onChange={(e) => setHeaderTitle(e.target.value)}
-              placeholder="ICU Handover Sheet"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pdf-subtitle" className="text-xs">Subtitle (optional)</Label>
-            <Input
-              id="pdf-subtitle"
-              value={subtitle}
-              onChange={(e) => setSubtitle(e.target.value)}
-              placeholder="e.g. Critical Care Unit"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pdf-filename" className="text-xs">
-              Filename format
-              <span className="ml-1 font-normal text-muted-foreground">({"{title}, {timestamp}, {date}"})</span>
-            </Label>
-            <Input
-              id="pdf-filename"
-              value={filenameFormat}
-              onChange={(e) => setFilenameFormat(e.target.value)}
-              placeholder="{title} - {timestamp}.pdf"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Download: {formatHandoverFilename(headerTitle, filenameFormat, new Date())}
-            </p>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pdf-footer" className="text-xs">Footer text</Label>
-            <Input
-              id="pdf-footer"
-              value={footerText}
-              onChange={(e) => setFooterText(e.target.value)}
-              placeholder="Confidential…"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Switch id="pdf-timestamp" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
-            <Label htmlFor="pdf-timestamp" className="text-xs">Show generated timestamp</Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch id="pdf-pages" checked={showPageNumbers} onCheckedChange={setShowPageNumbers} />
-            <Label htmlFor="pdf-pages" className="text-xs">Show page numbers</Label>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pdf-pagesize" className="text-xs">Page size</Label>
-            <Select value={pageSize} onValueChange={(v) => setPageSize(v as HandoverPageSize)}>
-              <SelectTrigger id="pdf-pagesize">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="a4">A4</SelectItem>
-                <SelectItem value="letter">Letter</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pdf-margin" className="text-xs">Margin: {marginX} mm</Label>
-            <Slider
-              id="pdf-margin"
-              min={2}
-              max={30}
-              step={1}
-              value={[marginX]}
-              onValueChange={([v]) => setMarginX(v)}
-              className="pt-2"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="pdf-fontscale" className="text-xs">Font scale: {Math.round(fontScale * 100)}%</Label>
-            <Slider
-              id="pdf-fontscale"
-              min={0.6}
-              max={1.6}
-              step={0.05}
-              value={[fontScale]}
-              onValueChange={([v]) => setFontScale(v)}
-              className="pt-2"
-            />
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-muted">
-          {url ? (
-            <iframe
-              title="Handover PDF preview"
-              src={`${url}#toolbar=1&view=FitH`}
-              className="h-full w-full"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Preparing preview…
+        {/* Scrollable body: presets, configuration and preview.
+            Scrolls as one column on mobile so no control is ever off-screen;
+            on desktop the preview flexes to fill remaining height. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:gap-4 sm:overflow-visible">
+          {/* Header / footer presets */}
+          <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="space-y-1 sm:min-w-[180px] sm:flex-1">
+              <Label htmlFor="pdf-preset" className="text-xs">Saved preset</Label>
+              <Select
+                value={selectedPresetId}
+                onValueChange={applyPreset}
+                disabled={presets.length === 0}
+              >
+                <SelectTrigger id="pdf-preset" className="h-11 sm:h-10">
+                  <SelectValue placeholder={presets.length ? "Load a preset…" : "No saved presets"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {presets.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            <div className="space-y-1 sm:min-w-[180px] sm:flex-1">
+              <Label htmlFor="pdf-preset-name" className="text-xs">Preset name</Label>
+              <Input
+                id="pdf-preset-name"
+                className="h-11 sm:h-10"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder="e.g. Night handover"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none" onClick={handleSavePreset}>
+                <Save className="h-4 w-4" /> Save
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
+                onClick={handleDeletePreset}
+                disabled={!selectedPresetId}
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
+            </div>
+          </div>
+
+          {/* Header / footer configuration */}
+          <div className="grid gap-3 rounded-md border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-1">
+              <Label htmlFor="pdf-title" className="text-xs">Header title</Label>
+              <Input
+                id="pdf-title"
+                className="h-11 sm:h-10"
+                value={headerTitle}
+                onChange={(e) => setHeaderTitle(e.target.value)}
+                placeholder="ICU Handover Sheet"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pdf-subtitle" className="text-xs">Subtitle (optional)</Label>
+              <Input
+                id="pdf-subtitle"
+                className="h-11 sm:h-10"
+                value={subtitle}
+                onChange={(e) => setSubtitle(e.target.value)}
+                placeholder="e.g. Critical Care Unit"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pdf-filename" className="text-xs">
+                Filename format
+                <span className="ml-1 font-normal text-muted-foreground">({"{title}, {timestamp}, {date}"})</span>
+              </Label>
+              <Input
+                id="pdf-filename"
+                className="h-11 sm:h-10"
+                value={filenameFormat}
+                onChange={(e) => setFilenameFormat(e.target.value)}
+                placeholder="{title} - {timestamp}.pdf"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Download: {formatHandoverFilename(headerTitle, filenameFormat, new Date())}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pdf-footer" className="text-xs">Footer text</Label>
+              <Input
+                id="pdf-footer"
+                className="h-11 sm:h-10"
+                value={footerText}
+                onChange={(e) => setFooterText(e.target.value)}
+                placeholder="Confidential…"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 rounded-md border bg-background/60 p-3 sm:border-0 sm:bg-transparent sm:p-0">
+              <Switch id="pdf-timestamp" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
+              <Label htmlFor="pdf-timestamp" className="text-sm sm:text-xs">Show generated timestamp</Label>
+            </div>
+            <div className="flex items-center gap-3 rounded-md border bg-background/60 p-3 sm:border-0 sm:bg-transparent sm:p-0">
+              <Switch id="pdf-pages" checked={showPageNumbers} onCheckedChange={setShowPageNumbers} />
+              <Label htmlFor="pdf-pages" className="text-sm sm:text-xs">Show page numbers</Label>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pdf-pagesize" className="text-xs">Page size</Label>
+              <Select value={pageSize} onValueChange={(v) => setPageSize(v as HandoverPageSize)}>
+                <SelectTrigger id="pdf-pagesize" className="h-11 sm:h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="a4">A4</SelectItem>
+                  <SelectItem value="letter">Letter</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pdf-margin" className="text-xs">Margin: {marginX} mm</Label>
+              <Slider
+                id="pdf-margin"
+                min={2}
+                max={30}
+                step={1}
+                value={[marginX]}
+                onValueChange={([v]) => setMarginX(v)}
+                className="py-3 sm:pt-2"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pdf-fontscale" className="text-xs">Font scale: {Math.round(fontScale * 100)}%</Label>
+              <Slider
+                id="pdf-fontscale"
+                min={0.6}
+                max={1.6}
+                step={0.05}
+                value={[fontScale]}
+                onValueChange={([v]) => setFontScale(v)}
+                className="py-3 sm:pt-2"
+              />
+            </div>
+          </div>
+
+          <div className="min-h-[55vh] shrink-0 overflow-hidden rounded-md border bg-muted sm:min-h-0 sm:flex-1">
+            {url ? (
+              <iframe
+                title="Handover PDF preview"
+                src={`${url}#toolbar=1&view=FitH`}
+                className="h-full w-full"
+              />
+            ) : (
+              <div className="flex h-full min-h-[55vh] items-center justify-center text-sm text-muted-foreground sm:min-h-0">
+                Preparing preview…
+              </div>
+            )}
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="gap-1.5">
+        <DialogFooter className="shrink-0 gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="h-11 gap-1.5 sm:h-10">
             <X className="h-4 w-4" /> Close
           </Button>
           <Button
             disabled={!url}
-            className="gap-1.5"
+            className="h-11 gap-1.5 sm:h-10"
             onClick={() => url && downloadHandoverFromUrl(url, { title: headerTitle, filenameFormat })}
           >
             <FileDown className="h-4 w-4" /> Download PDF
