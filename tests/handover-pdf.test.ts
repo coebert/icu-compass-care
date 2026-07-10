@@ -1,6 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { buildHandoverPdf, formatHandoverFilename, type HandoverPatient } from "@/lib/handover-pdf";
 
+/**
+ * Decode the readable text content of a jsPDF document. jsPDF writes text as
+ * uncompressed `(...) Tj` operators, so the drawn strings (title, subtitle,
+ * timestamp, footer, page numbers) appear verbatim in the raw bytes.
+ */
+async function pdfText(doc: ReturnType<typeof buildHandoverPdf>): Promise<string> {
+  const bytes = new Uint8Array(await (doc.output("blob") as Blob).arrayBuffer());
+  return new TextDecoder("latin1").decode(bytes);
+}
+
 
 /**
  * End-to-end test for the landscape handover PDF export.
