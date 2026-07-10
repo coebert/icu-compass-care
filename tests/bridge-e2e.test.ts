@@ -124,4 +124,69 @@ describe("bridge patient sync (e2e)", () => {
       );
     }
   }, 30_000);
+
+  it("keeps identity fields limited to full_name/age/hospital_number across every referral status", async () => {
+    // Every lifecycle status an outlying-ward referral can move through. The
+    // identity contract must hold regardless of status, so exercise them all.
+    const STATUSES = ["referred", "admitted", "discharged", "died"] as const;
+    const createdIds: string[] = [];
+
+    for (const status of STATUSES) {
+      const marker = `H-E2E-${status}-${Date.now()}`;
+      const payload = JSON.stringify({
+        full_name: "Y.X.",
+        age: 65,
+        hospital_number: marker,
+        location_type: "outlier",
+        ward: "Farley",
+        status,
+        // Status-specific fields, to prove they never leak identity data.
+        ...(status === "discharged"
+          ? { discharge_date: new Date().toISOString(), discharge_destination: "Ward 5" }
+          : {}),
+        ...(status === "died" ? { date_of_death: new Date().toISOString() } : {}),
+      });
+
+      // Insert via the live bridge endpoint.
+      const post = await bridge("POST", "/api/public/bridge/patients", payload);
+      expect(post.status, `POST (${status}) failed: ${post.text}`).toBe(200);
+      const patient = (post.json as { patient?: Record<string, unknown> })?.patient;
+      expect(patient, `POST (${status}) missing patient`).toBeTruthy();
+      const created = patient as Record<string, unknown>;
+      if (typeof created.id === "string") createdIds.push(created.id);
+
+      // Identity values round-tripped.
+      expect(created.full_name, `full_name mismatch for ${status}`).toBe("Y.X.");
+      expect(created.age, `age mismatch for ${status}`).toBe(65);
+      expect(created.hospital_number, `hospital_number mismatch for ${status}`).toBe(marker);
+
+      // Contract: every allowed identity field present, no forbidden field.
+      const assertIdentityContract = (row: Record<string, unknown>, where: string) => {
+        for (const field of ALLOWED_IDENTITY_FIELDS) {
+          expect(field in row, `${where} (${status}) must contain "${field}"`).toBe(true);
+        }
+        for (const field of FORBIDDEN_FIELDS) {
+          expect(field in row, `${where} (${status}) must not contain "${field}"`).toBe(false);
+        }
+      };
+      assertIdentityContract(created, "POST payload");
+
+      // Same guarantees on the partner GET pull, filtered by this status.
+      const list = await bridge("GET", `/api/public/bridge/patients?status=${status}`);
+      expect(list.status, `GET (${status}) failed: ${list.text}`).toBe(200);
+      const rows = (list.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+      const found = rows.find((p) => p.hospital_number === marker);
+      expect(found, `referral (${status}) not returned by partner pull`).toBeTruthy();
+      assertIdentityContract(found as Record<string, unknown>, "GET payload");
+    }
+
+    // Cleanup: mark every e2e row discharged so it never lingers in clinical data.
+    for (const id of createdIds) {
+      await bridge(
+        "POST",
+        "/api/public/bridge/patients",
+        JSON.stringify({ id, full_name: "Y.X.", status: "discharged" }),
+      );
+    }
+  }, 60_000);
 });
