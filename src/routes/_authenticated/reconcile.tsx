@@ -23,7 +23,7 @@ import {
 import { RefreshCw, ArrowDownToLine, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { BridgeHealthCheck } from "@/components/BridgeHealthCheck";
-import { SyncStatusPanel } from "@/components/SyncStatusPanel";
+
 
 export const Route = createFileRoute("/_authenticated/reconcile")({
   component: ReconcilePage,
