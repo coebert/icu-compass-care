@@ -234,9 +234,6 @@ def main():
             assert label in raw_text, f"handover PDF missing '{label}' investigation section"
 
         # ---- Most-recent findings present ----
-        if not (BLOODS_NEW in packed and CXR_NEW in packed and CT_NEW in packed):
-            (SCREENSHOTS / f"handover_{MARKER}.txt").write_text(raw_text)
-            print("---PACKED---\n" + packed[:4000])
         assert BLOODS_NEW in packed, "newest Bloods finding missing from handover PDF"
         assert CXR_NEW in packed, "newest CXR finding missing from handover PDF"
         assert CT_NEW in packed, "newest CT chest finding missing from handover PDF"
