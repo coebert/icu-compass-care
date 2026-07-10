@@ -54,17 +54,8 @@ MARKER = f"E2EPDFMRB{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "M.R.B."
 
-SUFFIX = str(int(time.time()))[-6:]
-# Per block: entries oldest -> newest. Short single tokens so they never wrap
-# inside the narrow investigations column. The LAST entry is the newest.
-# Each is seeded OUT OF ORDER (newest first, then older ones).
-CASES = {
-    "Bloods": [
-        (f"BOLD1{SUFFIX}", now_offset := None),  # placeholder replaced below
-    ],
-}
-
 now = datetime.now(timezone.utc)
+
 
 
 def iso(dt):
