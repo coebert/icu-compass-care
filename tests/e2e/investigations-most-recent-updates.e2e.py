@@ -219,9 +219,16 @@ def assert_most_recent(page, expected_visible, expected_absent, phase):
         expect(inv_panel.get_by_text(shown, exact=False).first).to_be_visible(
             timeout=10000
         )
+        # Absence is asserted only against the dedicated "Most recent {category}"
+        # card (scoped to its container), not the whole Investigations tab — the
+        # tab also renders a full result history where older/back-dated findings
+        # legitimately still appear.
+        card_container = card.locator(
+            "xpath=ancestor::*[@data-slot='card' or contains(@class,'card')][1]"
+        )
         for gone in expected_absent.get(category, []):
-            assert inv_panel.get_by_text(gone, exact=False).count() == 0, (
-                f"[{phase}] Investigations tab wrongly shows {category} value {gone}"
+            assert card_container.get_by_text(gone, exact=False).count() == 0, (
+                f"[{phase}] 'Most recent {category}' card wrongly shows value {gone}"
             )
 
 
