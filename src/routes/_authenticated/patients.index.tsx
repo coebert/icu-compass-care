@@ -165,7 +165,7 @@ function PatientsBoard() {
         )
       ) : (
         <div className="space-y-8">
-          <BedBoard bedOccupant={bedOccupant} unassigned={icuUnassigned} onAddToBed={addToBed} />
+          <BedBoard roster={bedRoster} bedOccupant={bedOccupant} unassigned={icuUnassigned} onAddToBed={addToBed} />
           <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
         </div>
       )}
