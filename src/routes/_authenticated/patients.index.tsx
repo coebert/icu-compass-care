@@ -656,10 +656,14 @@ function BedBoard({
         <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
         <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
-      {dragging && (
+      {dragging ? (
         <p className="text-xs text-primary">
           Drop the card on a bed to move the patient there.
           {draggedPatient?.isolation_required && " This patient requires isolation — side rooms only."}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Drag a patient card onto a bed to move them. On a tablet or phone, press and hold a card, then drag.
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
