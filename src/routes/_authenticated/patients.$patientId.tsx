@@ -173,7 +173,7 @@ function PatientDetail() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="flex w-full max-w-full justify-start overflow-x-auto">
+        <TabsList className="flex h-11 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
@@ -401,7 +401,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Most recent results
         </h2>
-        <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Add result
         </Button>
       </div>
@@ -565,7 +565,7 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
             Blood cultures, swabs, CSF and other significant micro findings.
           </p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Add result
         </Button>
       </div>
