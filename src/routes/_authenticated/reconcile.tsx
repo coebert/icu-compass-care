@@ -93,7 +93,7 @@ function ReconcilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Cross-project sync review</h1>
           <p className="text-sm text-muted-foreground">
@@ -101,7 +101,7 @@ function ReconcilePage() {
             reconcile any mismatches.
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           <SyncStatusPanel />
           <Button
             variant="outline"
@@ -114,6 +114,7 @@ function ReconcilePage() {
           </Button>
         </div>
       </div>
+
 
       <BridgeHealthCheck />
 
