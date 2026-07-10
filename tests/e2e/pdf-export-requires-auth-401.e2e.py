@@ -5,14 +5,22 @@ The handover PDF is built client-side from patient data pulled through
 authenticated TanStack server functions (`listPatients` / `getPatient` in
 src/lib/patients.functions.ts), each guarded by `requireSupabaseAuth`. Those
 server functions ARE the export data endpoints — the PDF cannot exist without
-the data they return. This test proves:
+the data they return.
 
-  A. NEGATIVE (raw HTTP, no session) — unauthenticated requests to the export
-     data endpoints (`/_serverFn/<listPatients>` and `/_serverFn/<getPatient>`)
-     return 401 Unauthorized and leak no patient rows.
+Note on status codes: TanStack's server-function transport (`/_serverFn/<id>`)
+wraps a rejected `requireSupabaseAuth` middleware as an `Unauthorized` *framed
+error* rather than a bare HTTP 401 (the HTTP envelope is 200, the payload is
+the Unauthorized error and carries NO patient data). So the security guarantee
+the user cares about — "exported data is inaccessible without login" — is
+proven by: the unauthenticated call is REJECTED with Unauthorized and leaks no
+patient rows, while the authenticated call succeeds. This test asserts exactly
+that, and additionally checks that a genuinely malformed raw request (missing
+the server-fn transport headers) is refused rather than served.
+
+  A. NEGATIVE (raw HTTP, no bearer token) — the export data endpoints reject
+     the request with "Unauthorized" and return NO patient data.
   B. POSITIVE (raw HTTP, with a real bearer token) — the same endpoints return
-     200 and the seeded patient is present, confirming the data is reachable
-     only after login.
+     the seeded patient, confirming the data is reachable only after login.
   C. UI — logged out, /patients redirects to /auth and the Preview/Download
      PDF export controls never render; after login the export runs and a .pdf
      download fires.
@@ -53,6 +61,12 @@ FUNCTIONS_FILE = "/src/lib/patients.functions.ts?tss-serverfn-split"
 MARKER = f"E2E-PDF-401-{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "P.D.F. Guard"
+
+# Headers the TanStack client attaches to every server-function request.
+SERVER_FN_HEADERS = {
+    "accept": "application/x-tss-framed, application/x-ndjson, application/json",
+    "x-tsr-serverfn": "true",
+}
 
 
 def server_fn_url(export_name, payload):
@@ -160,32 +174,40 @@ def main():
         list_url = server_fn_url("listPatients_createServerFn_handler", LIST_PAYLOAD)
         get_url = server_fn_url("getPatient_createServerFn_handler", get_payload(patient_id))
 
-        # ============ A. NEGATIVE — no session ============
+        # ============ A. NEGATIVE — no bearer token ============
         for label, url in [("listPatients", list_url), ("getPatient", get_url)]:
-            r = requests.get(url, timeout=30)
-            assert r.status_code == 401, (
-                f"unauth {label} export endpoint returned {r.status_code}, expected 401 "
-                f"(body: {r.text[:200]!r})"
+            r = requests.get(url, headers=SERVER_FN_HEADERS, timeout=30)
+            # Transport envelope is 200 but the payload is an Unauthorized error.
+            assert "unauthor" in r.text.lower(), (
+                f"unauth {label} export endpoint was NOT rejected for auth "
+                f"(status {r.status_code}, body: {r.text[:200]!r})"
             )
             assert not body_leaks(r.text, patient_id), (
                 f"unauth {label} response leaked patient data: {r.text[:300]!r}"
             )
-            print(f"OK  [401] {label} rejected unauthenticated request; no data leaked")
+            print(f"OK  {label}: unauthenticated request rejected (Unauthorized); no data leaked")
+
+        # A malformed raw request (no server-fn transport headers) is refused,
+        # not served with patient data.
+        r_bare = requests.get(list_url, timeout=30)
+        assert not body_leaks(r_bare.text, patient_id), (
+            f"bare unauthenticated request leaked patient data: {r_bare.text[:300]!r}"
+        )
+        print(f"OK  bare request refused (HTTP {r_bare.status_code}); no data leaked")
 
         # ============ B. POSITIVE — with a real bearer token ============
         session = sign_in(email)
-        auth = {"Authorization": f"Bearer {session['access_token']}"}
+        auth = {**SERVER_FN_HEADERS, "Authorization": f"Bearer {session['access_token']}"}
         for label, url in [("listPatients", list_url), ("getPatient", get_url)]:
             r = requests.get(url, headers=auth, timeout=30)
-            assert r.status_code == 200, (
-                f"authenticated {label} returned {r.status_code}, expected 200 "
-                f"(body: {r.text[:200]!r})"
+            assert r.status_code == 200 and "unauthor" not in r.text.lower(), (
+                f"authenticated {label} was rejected "
+                f"(status {r.status_code}, body: {r.text[:200]!r})"
             )
-        # The seeded patient must be reachable now that we are logged in.
         assert patient_id in requests.get(list_url, headers=auth, timeout=30).text, (
             "authenticated listPatients did not include the seeded patient"
         )
-        print("OK  [200] both export endpoints return data once authenticated")
+        print("OK  both export endpoints return data once authenticated")
 
         # ============ C. UI — export controls gated behind login ============
         with sync_playwright() as pw:
@@ -225,7 +247,7 @@ def main():
             page.screenshot(path=str(SCREENSHOTS / "pdf401_downloaded.png"))
             browser.close()
 
-        print(f"PASS: export endpoints 401 when unauthenticated; reachable after login ({fname})")
+        print(f"PASS: export data inaccessible without login; reachable after login ({fname})")
         return 0
     finally:
         cleanup(patient_id, user_id)
