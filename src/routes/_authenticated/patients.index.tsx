@@ -422,7 +422,10 @@ function BedBoard({
         <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
       {dragging && (
-        <p className="text-xs text-primary">Drop the card on a bed to move the patient there.</p>
+        <p className="text-xs text-primary">
+          Drop the card on a bed to move the patient there.
+          {draggedPatient?.isolation_required && " This patient requires isolation — side rooms only."}
+        </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {roster.map((slot) => {
