@@ -553,6 +553,14 @@ describe("handover filename sanitization", () => {
     expect(header.split('"').length).toBe(3); // exactly one opening + one closing quote
   });
 
+  it("keeps ordinary titles readable and unchanged in spirit", () => {
+    const filename = formatHandoverFilename("Night ICU Handover", "{title}_{date}", generatedAt);
+    expect(filename).toBe("Night_ICU_Handover_2026-07-10.pdf");
+    expect(isContentDispositionSafe(filename)).toBe(true);
+  });
+
+
+
   it("preserves non-ASCII letters, accents and scripts", () => {
     // Accented Latin, German eszett, Greek, Cyrillic, CJK, emoji.
     const cases: Array<[string, string]> = [
