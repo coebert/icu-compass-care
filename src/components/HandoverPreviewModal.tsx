@@ -62,8 +62,8 @@ export function HandoverPreviewModal({
   const [marginX, setMarginX] = useState(8);
   const [fontScale, setFontScale] = useState(1);
 
-
   // Keep the title in sync when the caller's default changes (e.g. archive toggle).
+
   useEffect(() => {
     if (title) setHeaderTitle(title);
   }, [title]);
