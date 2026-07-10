@@ -8,6 +8,7 @@ import {
   addInvestigation,
   deleteInvestigation,
 } from "@/lib/investigations.functions";
+import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
