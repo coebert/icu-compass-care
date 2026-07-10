@@ -227,7 +227,7 @@ export function PatientForm({
         {values.dnacpr_decision && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="DNACPR date">
-              <Input type="date" value={values.dnacpr_date} onChange={(e) => set("dnacpr_date", e.target.value)} />
+              <DatePicker value={values.dnacpr_date} onChange={(v) => set("dnacpr_date", v)} />
             </Field>
             <Field label="DNACPR details">
               <Input value={values.dnacpr_details} onChange={(e) => set("dnacpr_details", e.target.value)} />
