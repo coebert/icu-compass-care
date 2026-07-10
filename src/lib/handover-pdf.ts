@@ -200,7 +200,7 @@ function slugifyFilename(value: string): string {
     || "ICU_Handover";
 }
 
-function formatHandoverFilename(
+export function formatHandoverFilename(
   title: string,
   format: string | undefined,
   generatedAt: Date,
@@ -216,6 +216,7 @@ function formatHandoverFilename(
 
   return filename.toLowerCase().endsWith(".pdf") ? filename : `${filename}.pdf`;
 }
+
 
 /** Build the handover sheet and trigger a download. */
 export function exportHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): void {
