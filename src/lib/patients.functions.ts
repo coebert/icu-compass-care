@@ -142,7 +142,37 @@ export const deletePatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
+    const { data: current } = await context.supabase
+      .from("patients")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase.from("patients").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await writeAudit(supabaseAdmin, {
+      entity: "patients",
+      recordId: data.id,
+      action: "delete",
+      source: "app",
+      actor: { id: context.userId, email: (context.claims.email as string) ?? null },
+      before: (current ?? undefined) as Record<string, unknown> | undefined,
+    });
     return { ok: true };
+  });
+
+// Audit history for a patient record (most recent first).
+export const getPatientAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("record_audit")
+      .select("*")
+      .eq("entity", "patients")
+      .eq("record_id", data.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
   });
