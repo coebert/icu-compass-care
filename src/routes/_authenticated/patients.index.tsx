@@ -425,10 +425,15 @@ function BedBoard({
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
           const isOver = overBed === bed;
+          // While dragging, decide whether this bed can accept the patient so we
+          // can flag ineligible beds and refuse the drop with a "no-drop" cursor.
+          const ineligible = Boolean(
+            draggedPatient && !checkBedEligibility(draggedPatient, bed, roster).ok,
+          );
           const dropHandlers = {
             onDragOver: (e: React.DragEvent) => {
               e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
+              e.dataTransfer.dropEffect = ineligible ? "none" : "move";
               if (overBed !== bed) setOverBed(bed);
             },
             onDragLeave: () => setOverBed((b) => (b === bed ? null : b)),
@@ -438,6 +443,9 @@ function BedBoard({
               onDropOnBed(bed);
             },
           };
+          const overRing = ineligible
+            ? "border-destructive ring-2 ring-destructive/40"
+            : "border-primary ring-2 ring-primary/40";
           if (occupants.length > 0) {
             return (
               <div key={slot.id} {...dropHandlers} className="space-y-2">
@@ -453,7 +461,7 @@ function BedBoard({
                     onDragStartPatient={onDragStartPatient}
                     onDragEndPatient={onDragEndPatient}
                   >
-                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
+                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
                       <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
                         {label}
                       </div>
@@ -470,14 +478,14 @@ function BedBoard({
               type="button"
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${isOver ? "border-primary bg-primary/10 ring-2 ring-primary/40" : ""}`}
+              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
               <span className="text-xs font-semibold text-muted-foreground">{label}</span>
               <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary">
                 <Plus className="h-4 w-4" /> Empty
               </span>
               <span className="text-[11px] text-muted-foreground">
-                {dragging ? "Drop here" : "Tap to admit"}
+                {dragging ? (ineligible ? "Not eligible" : "Drop here") : "Tap to admit"}
               </span>
             </button>
           );
