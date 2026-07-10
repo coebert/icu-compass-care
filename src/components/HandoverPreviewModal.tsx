@@ -22,10 +22,12 @@ import { FileDown, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
   downloadHandoverFromUrl,
+  formatHandoverFilename,
   type HandoverPatient,
   type HandoverPdfOptions,
   type HandoverPageSize,
 } from "@/lib/handover-pdf";
+
 
 /**
  * Renders the landscape handover PDF in an embedded viewer so the user can
