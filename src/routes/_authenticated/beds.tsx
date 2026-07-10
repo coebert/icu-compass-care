@@ -45,7 +45,7 @@ function BedsAdminPage() {
   // Sync the editable draft whenever the saved roster changes (and not mid-edit).
   useEffect(() => {
     if (!dirty) setDraft(toDraft(beds));
-  }, [beds, dirty];
+  }, [beds, dirty]);
 
   const saveMut = useMutation({
     mutationFn: () =>
