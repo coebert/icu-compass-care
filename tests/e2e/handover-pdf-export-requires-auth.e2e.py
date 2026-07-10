@@ -94,7 +94,7 @@ def create_patient():
             "location_type": "icu",
             "ward": "Critical Care",
             "bed": "7",
-            "status": "active",
+            "status": "admitted",
             "admission_date": datetime.now(timezone.utc).date().isoformat(),
         },
         timeout=30,
