@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/public/bridge/audit")({
           .select("*")
           .order("created_at", { ascending: false })
           .limit(2000);
-        if (error) return json({ error: error.message }, 500);
+        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         return json({ audit_log: data });
       },
     },
