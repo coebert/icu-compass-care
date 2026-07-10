@@ -179,6 +179,12 @@ def main():
                 [STORAGE_KEY, json.dumps(session)],
             )
 
+            # Land on a stable authenticated page before running any evaluate,
+            # so the execution context isn't destroyed by an in-flight redirect.
+            page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
+            assert "/auth" not in page.url, f"unexpectedly bounced to /auth: {page.url}"
+
             # ---- 1. Record each result through the app (old first, then new) ----
             for category, (old_find, new_find) in CASES.items():
                 old_r = call_fn(
@@ -205,9 +211,10 @@ def main():
                 assert new_r["ok"], f"recording new {category} failed: {new_r.get('error')}"
 
             # ---- 2. Overview tab: "Most recent investigations" card ----
-            page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
             assert "/auth" not in page.url, f"unexpectedly bounced to /auth: {page.url}"
+
 
             overview = page.get_by_role("tabpanel")
             expect(
