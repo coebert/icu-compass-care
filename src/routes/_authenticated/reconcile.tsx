@@ -111,6 +111,8 @@ function ReconcilePage() {
         </Button>
       </div>
 
+      <BridgeHealthCheck />
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Comparing with the linked project…</p>
       ) : (
