@@ -141,6 +141,7 @@ export async function reconcilePull(
   if (!spec) return { applied: 0, failed: 0, errors: ["Unknown entity"] };
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin: Admin = supabaseAdmin;
   const remote = await spec.fetchRemote();
 
   let rows = remote;
