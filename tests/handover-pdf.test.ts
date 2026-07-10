@@ -616,6 +616,45 @@ describe("handover filename sanitization", () => {
   });
 });
 
+describe("PDF internal document metadata sanitisation", () => {
+  it("sanitizePdfMetadataText strips control chars and PDF string delimiters", () => {
+    const evil = "ICU (Night)\r\n/Author (hacker)\\ >>endobj";
+    const safe = sanitizePdfMetadataText(evil);
+    // No PDF string delimiters or escape char remain.
+    expect(/[()\\]/.test(safe)).toBe(false);
+    // No control characters (CR/LF/TAB/NUL) remain.
+    // eslint-disable-next-line no-control-regex
+    expect(/[\u0000-\u001f\u007f]/.test(safe)).toBe(false);
+    expect(safe.length).toBeGreaterThan(0);
+  });
+
+  it("falls back when the title is empty after sanitising", () => {
+    expect(sanitizePdfMetadataText("()\\", "ICU Handover Sheet")).toBe("ICU Handover Sheet");
+    expect(sanitizePdfMetadataText("", "ICU Handover Sheet")).toBe("ICU Handover Sheet");
+  });
+
+  it("uses the sanitized title for the PDF's internal /Title metadata", async () => {
+    const hostileTitle = "Ward 9 (secret)\r\n/Author (evil)\\";
+    const patient = SAMPLE_PATIENTS[0];
+    const doc = buildHandoverPdf([patient], { title: hostileTitle });
+
+    // The library's own view of the metadata is the sanitized value.
+    const props = doc.getDocumentProperties();
+    expect(props.title).toBe(sanitizePdfMetadataText(hostileTitle));
+    expect(/[()\\]/.test(props.title ?? "")).toBe(false);
+    // eslint-disable-next-line no-control-regex
+    expect(/[\u0000-\u001f\u007f]/.test(props.title ?? "")).toBe(false);
+
+    // And the raw PDF bytes never contain the hostile fragments verbatim in
+    // the info dictionary — no injected /Author or unescaped parentheses/CRLF.
+    const raw = await pdfText(doc);
+    expect(raw.includes("/Author (evil)")).toBe(false);
+    expect(raw.includes("Ward 9 (secret)")).toBe(false);
+    expect(raw.includes("(secret)")).toBe(false);
+  });
+});
+
+
 
 describe("most recent investigation selection", () => {
   it("picks the newest entry per category, ignoring array order", () => {
