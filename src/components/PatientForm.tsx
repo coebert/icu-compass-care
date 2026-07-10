@@ -59,6 +59,7 @@ export function emptyPatient(): PatientFormValues {
     current_admission: "",
     current_management: "",
     outstanding_tasks: "",
+    isolation_required: false,
     tep_in_place: false,
     tep_details: "",
     dnacpr_decision: false,
