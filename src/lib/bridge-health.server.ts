@@ -51,7 +51,7 @@ export type BridgeHealthResult = {
     keys: string[];
     forbiddenKeysPresent: string[];
     clean: boolean;
-    sample: Record<string, unknown> | null;
+    sample: { full_name: string | null; age: number | null; hospital_number: string | null } | null;
   };
 };
 
