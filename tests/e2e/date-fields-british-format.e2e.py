@@ -172,7 +172,7 @@ def assert_all_fields(page, vp_name, phase):
         expect(loc.first).to_be_visible()
 
     # The datetime field also exposes a 24-hour time value.
-    time_input = page.get_by_label("Time")
+    time_input = page.locator('input[type="time"][aria-label="Time"]')
     expect(time_input).to_have_value(EXPECTED_NOK_TIME, timeout=5000)
 
     # No US-style M/D/YYYY leakage for our unambiguous dates (15 can't be a month).
