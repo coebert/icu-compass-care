@@ -12,15 +12,28 @@ export const Route = createFileRoute("/api/public/hooks/bridge-sync")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env.HANDOVER_API_SECRET;
-        if (!secret) {
+        // Accept either the shared bridge HMAC secret (partner-triggered) or the
+        // dedicated cron trigger secret (pg_cron on this backend). Whichever is
+        // configured guards the endpoint; a matching x-bridge-secret is required.
+        const bridgeSecret = process.env.HANDOVER_API_SECRET;
+        const cronSecret = process.env.BRIDGE_SYNC_CRON_SECRET;
+        const accepted = [bridgeSecret, cronSecret].filter(
+          (v): v is string => typeof v === "string" && v.length > 0,
+        );
+        if (accepted.length === 0) {
           return Response.json({ error: "Bridge not configured" }, { status: 503 });
         }
 
         const provided = request.headers.get("x-bridge-secret") ?? "";
-        const a = Buffer.from(provided);
-        const b = Buffer.from(secret);
-        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        const providedBuf = Buffer.from(provided);
+        const authorized = accepted.some((secret) => {
+          const secretBuf = Buffer.from(secret);
+          return (
+            providedBuf.length === secretBuf.length &&
+            timingSafeEqual(providedBuf, secretBuf)
+          );
+        });
+        if (!authorized) {
           return Response.json({ error: "Unauthorized" }, { status: 401 });
         }
 
