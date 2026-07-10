@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  */
 
 export type PatientSummaryData = {
-  full_name: string | null;
+  full_name?: string | null;
   age?: number | null;
   hospital_number?: string | null;
 };
