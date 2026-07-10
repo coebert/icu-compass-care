@@ -759,6 +759,8 @@ function BedBoard({
                 p={p}
                 onDragStartPatient={onDragStartPatient}
                 onDragEndPatient={onDragEndPatient}
+                onTouchDragStart={onTouchDragStart}
+                suppressClickRef={suppressClickRef}
               >
                 <Card className="h-full transition-colors hover:border-primary/50">
                   <PatientCardBody p={p} />
