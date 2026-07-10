@@ -780,12 +780,16 @@ function Section({
   patients,
   onDragStartPatient,
   onDragEndPatient,
+  onTouchDragStart,
+  suppressClickRef,
 }: {
   title: string;
   icon: React.ElementType;
   patients: Patient[];
   onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient?: () => void;
+  onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
+  suppressClickRef?: React.MutableRefObject<boolean>;
 }) {
   if (patients.length === 0) return null;
   return (
@@ -800,6 +804,8 @@ function Section({
             p={p}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
+            onTouchDragStart={onTouchDragStart}
+            suppressClickRef={suppressClickRef}
           >
             <Card className="h-full transition-colors hover:border-primary/50">
               <PatientCardBody p={p} />
