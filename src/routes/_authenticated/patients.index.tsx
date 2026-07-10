@@ -700,7 +700,7 @@ function BedBoard({
           const validRing = validTarget && !isOver ? "ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : "";
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
+              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
@@ -712,6 +712,8 @@ function BedBoard({
                     p={p}
                     onDragStartPatient={onDragStartPatient}
                     onDragEndPatient={onDragEndPatient}
+                    onTouchDragStart={onTouchDragStart}
+                    suppressClickRef={suppressClickRef}
                   >
                     <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
                       <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
@@ -728,6 +730,7 @@ function BedBoard({
             <button
               key={slot.id}
               type="button"
+              data-bed={bed}
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
               className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
