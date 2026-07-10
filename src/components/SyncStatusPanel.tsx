@@ -54,12 +54,13 @@ export function SyncStatusPanel({ className }: { className?: string } = {}) {
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className={`inline-flex cursor-default items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
-              hasError
-                ? "border-destructive/40 text-destructive"
-                : "text-muted-foreground"
-            }`}
+            className={cn(
+              "inline-flex cursor-default items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
+              hasError ? "border-destructive/40 text-destructive" : "text-muted-foreground",
+              className,
+            )}
           >
+
             {hasError ? (
               <AlertTriangle className="h-3.5 w-3.5" />
             ) : (
