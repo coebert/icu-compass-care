@@ -188,7 +188,8 @@ function PatientDetail() {
 
 
 
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <RecentInvestigations patientId={patientId} />
           <Card>
             <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
               <InfoBlock label="Past medical history" value={patient.past_medical_history} />
