@@ -63,15 +63,28 @@ def admin_headers():
 
 
 def pick_shared_bed():
-    """Choose a real, non-side-room roster bed if one exists, else default "5"."""
+    """Choose a real, non-side-room roster bed that is currently UNOCCUPIED, so
+    seeding exactly two patients yields a deterministic '2 patients in ...'
+    count. Falls back to '5' if the roster / occupancy can't be read."""
     try:
-        r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/icu_beds?select=label,is_side_room&is_side_room=eq.false&order=sort_order.asc",
+        beds_r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/icu_beds?select=label,is_side_room&is_side_room=eq.false",
             headers=admin_headers(),
             timeout=30,
         )
-        if r.ok and r.json():
-            return r.json()[0]["label"]
+        labels = [b["label"] for b in beds_r.json()] if beds_r.ok and beds_r.json() else [
+            "3", "4", "5", "6", "7", "8", "9", "10",
+        ]
+        occ_r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/patients?select=bed&location_type=eq.icu"
+            f"&status=in.(admitted,referred)",
+            headers=admin_headers(),
+            timeout=30,
+        )
+        occupied = {str(row.get("bed") or "").strip().upper() for row in (occ_r.json() if occ_r.ok else [])}
+        for label in labels:
+            if str(label).strip().upper() not in occupied:
+                return label
     except Exception:
         pass
     return "5"
