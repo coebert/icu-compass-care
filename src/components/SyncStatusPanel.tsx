@@ -83,7 +83,10 @@ export function SyncStatusPanel({
   if (error) return null;
 
   const hasError = !!data?.lastError;
-  const showRetry = hasError && isAdmin;
+  // Admins get a manual sync trigger straight from the global header — the same
+  // bridge sync logic the old per-page controls used. On a failed last run the
+  // button reads "Retry"; otherwise it offers a plain "Sync" refresh.
+  const showSync = isAdmin;
   const intervalMinutes = data?.config.intervalMinutes ?? 15;
   const nextSync = data?.lastSuccess
     ? nextSyncText(data.lastSuccess.created_at, intervalMinutes)
