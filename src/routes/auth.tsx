@@ -27,12 +27,19 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/patients" });
     });
   }, [navigate]);
+
+  if (!hydrated) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
