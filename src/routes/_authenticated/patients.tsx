@@ -68,39 +68,40 @@ function PatientsBoard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Patient board</h1>
           <p className="text-sm text-muted-foreground">
             {showArchived ? "Discharged & deceased records" : "Current ICU patients and outlying referrals"}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              className="w-48 pl-8"
+              className="w-full pl-8"
               placeholder="Search initials or hospital no.…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button variant={showArchived ? "secondary" : "outline"} onClick={() => setShowArchived((s) => !s)}>
+          <Button variant={showArchived ? "secondary" : "outline"} className="flex-1 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
           <Button
             variant="outline"
-            className="gap-1.5"
+            className="flex-1 gap-1.5 sm:flex-none"
             disabled={filtered.length === 0}
             onClick={() => setPreviewOpen(true)}
           >
             <FileDown className="h-4 w-4" /> Preview PDF
           </Button>
-          <Button onClick={() => setOpen(true)} className="gap-1.5">
+          <Button onClick={() => setOpen(true)} className="flex-1 gap-1.5 sm:flex-none">
             <Plus className="h-4 w-4" /> Add patient
           </Button>
         </div>
       </div>
+
       <SyncStatusPanel />
 
 

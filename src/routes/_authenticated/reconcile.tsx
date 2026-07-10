@@ -93,7 +93,7 @@ function ReconcilePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Cross-project sync review</h1>
           <p className="text-sm text-muted-foreground">
@@ -101,7 +101,7 @@ function ReconcilePage() {
             reconcile any mismatches.
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           <SyncStatusPanel />
           <Button
             variant="outline"
@@ -115,13 +115,14 @@ function ReconcilePage() {
         </div>
       </div>
 
+
       <BridgeHealthCheck />
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Comparing with the linked project…</p>
       ) : (
         <Tabs defaultValue="notifications">
-          <TabsList>
+          <TabsList className="flex-wrap">
             {entities.map((e) => (
               <TabsTrigger key={e.entity} value={e.entity} className="gap-1.5">
                 {ENTITY_LABELS[e.entity]}

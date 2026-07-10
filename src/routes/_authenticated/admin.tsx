@@ -100,8 +100,8 @@ function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Staff accounts</h1>
           <p className="text-sm text-muted-foreground">Create and manage who can access the handover.</p>
         </div>
@@ -109,6 +109,7 @@ function AdminPage() {
           <Plus className="h-4 w-4" /> New account
         </Button>
       </div>
+
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
