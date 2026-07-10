@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,18 +7,23 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { FileDown, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
   downloadHandoverFromUrl,
   type HandoverPatient,
+  type HandoverPdfOptions,
 } from "@/lib/handover-pdf";
 
 /**
  * Renders the landscape handover PDF in an embedded viewer so the user can
- * review it before downloading. The PDF is (re)built whenever the modal opens
- * with a fresh set of patients, and the object URL is revoked on close to
- * avoid leaking blob URLs.
+ * review it before downloading, with configurable header (title, subtitle,
+ * generated timestamp) and footer (custom text, page numbers). The PDF is
+ * rebuilt whenever the config changes, and object URLs are revoked to avoid
+ * leaking blob URLs.
  */
 export function HandoverPreviewModal({
   open,
@@ -33,15 +38,40 @@ export function HandoverPreviewModal({
 }) {
   const [url, setUrl] = useState<string | null>(null);
 
+  // Configurable header/footer state.
+  const [headerTitle, setHeaderTitle] = useState(title ?? "ICU Handover Sheet");
+  const [subtitle, setSubtitle] = useState("");
+  const [footerText, setFooterText] = useState(
+    "Confidential — patient identifiable information",
+  );
+  const [showTimestamp, setShowTimestamp] = useState(true);
+  const [showPageNumbers, setShowPageNumbers] = useState(true);
+
+  // Keep the title in sync when the caller's default changes (e.g. archive toggle).
+  useEffect(() => {
+    if (title) setHeaderTitle(title);
+  }, [title]);
+
+  const options = useMemo<HandoverPdfOptions>(
+    () => ({
+      title: headerTitle,
+      subtitle,
+      footerText,
+      showTimestamp,
+      showPageNumbers,
+    }),
+    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers],
+  );
+
   useEffect(() => {
     if (!open) return;
-    const objectUrl = handoverPdfPreviewUrl(patients, { title });
+    const objectUrl = handoverPdfPreviewUrl(patients, options);
     setUrl(objectUrl);
     return () => {
       URL.revokeObjectURL(objectUrl);
       setUrl(null);
     };
-  }, [open, patients, title]);
+  }, [open, patients, options]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,6 +79,45 @@ export function HandoverPreviewModal({
         <DialogHeader>
           <DialogTitle>Handover PDF preview</DialogTitle>
         </DialogHeader>
+
+        {/* Header / footer configuration */}
+        <div className="grid gap-3 rounded-md border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1">
+            <Label htmlFor="pdf-title" className="text-xs">Header title</Label>
+            <Input
+              id="pdf-title"
+              value={headerTitle}
+              onChange={(e) => setHeaderTitle(e.target.value)}
+              placeholder="ICU Handover Sheet"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-subtitle" className="text-xs">Subtitle (optional)</Label>
+            <Input
+              id="pdf-subtitle"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="e.g. Critical Care Unit"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-footer" className="text-xs">Footer text</Label>
+            <Input
+              id="pdf-footer"
+              value={footerText}
+              onChange={(e) => setFooterText(e.target.value)}
+              placeholder="Confidential…"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="pdf-timestamp" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
+            <Label htmlFor="pdf-timestamp" className="text-xs">Show generated timestamp</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="pdf-pages" checked={showPageNumbers} onCheckedChange={setShowPageNumbers} />
+            <Label htmlFor="pdf-pages" className="text-xs">Show page numbers</Label>
+          </div>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-muted">
           {url ? (
