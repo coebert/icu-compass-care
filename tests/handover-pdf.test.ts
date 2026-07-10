@@ -218,9 +218,9 @@ describe("handover PDF export (e2e)", () => {
       current_management: "Noradrenaline, broad-spectrum antibiotics, CRRT",
       outstanding_tasks: "Chase cultures; review CRRT circuit at 20:00",
       dnacpr_decision: true,
-      dnacpr_details: "Ward-based ceiling",
+      dnacpr_details: "WardCeiling",
       tep_in_place: true,
-      tep_details: "HFNO not intubation",
+      tep_details: "HFNOonly",
       nok_name: "Marion Q.",
       nok_relationship: "Wife",
       nok_contact: "07000 111222",
@@ -244,14 +244,58 @@ describe("handover PDF export (e2e)", () => {
     // Key escalation-plan fields: TEP and DNACPR with their detail text.
     expect(text.includes("DNACPR"), "DNACPR flag should appear").toBe(true);
     expect(
-      text.includes("Ward-based ceiling"),
+      text.includes("WardCeiling"),
       "DNACPR detail should appear",
     ).toBe(true);
     expect(text.includes("TEP"), "TEP flag should appear").toBe(true);
     expect(
-      text.includes("HFNO not intubation"),
+      text.includes("HFNOonly"),
       "TEP detail should appear",
     ).toBe(true);
+  });
+
+  it("reflects the newest Bloods, CXR and CT chest investigation entries", async () => {
+    // Each category has multiple entries deliberately supplied out of
+    // chronological order; the sheet must surface the newest one per category
+    // by result_at, not the first/last in the array.
+    const patient: HandoverPatient = {
+      full_name: "R.T.",
+      age: 66,
+      hospital_number: "RT-INV-1",
+      ward: "ICU",
+      bed: "2",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      investigations: [
+        // Bloods — newest is the 09 Jul entry.
+        { category: "Bloods", findings: "OLDBLOODS", result_at: "2026-07-05T08:00:00.000Z" },
+        { category: "Bloods", findings: "NEWBLOODS", result_at: "2026-07-09T06:30:00.000Z" },
+        { category: "Bloods", findings: "MIDBLOODS", result_at: "2026-07-07T07:00:00.000Z" },
+        // CXR — newest is the 08 Jul entry.
+        { category: "CXR", findings: "OLDCXR", result_at: "2026-07-04T10:00:00.000Z" },
+        { category: "CXR", findings: "NEWCXR", result_at: "2026-07-08T14:00:00.000Z" },
+        // CT chest — newest is the 06 Jul entry.
+        { category: "CT chest", findings: "NEWCT", result_at: "2026-07-06T12:00:00.000Z" },
+        { category: "CT chest", findings: "OLDCT", result_at: "2026-07-02T09:00:00.000Z" },
+      ],
+    };
+
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+
+    // Section headings are present.
+    expect(text.includes("Most recent investigations"), "investigations header").toBe(true);
+
+    // Newest entry for each category is rendered.
+    expect(text.includes("NEWBLOODS"), "newest bloods should appear").toBe(true);
+    expect(text.includes("NEWCXR"), "newest CXR should appear").toBe(true);
+    expect(text.includes("NEWCT"), "newest CT chest should appear").toBe(true);
+
+    // Older, superseded entries must NOT be shown in the "most recent" section.
+    expect(text.includes("OLDBLOODS"), "old bloods hidden").toBe(false);
+    expect(text.includes("MIDBLOODS"), "mid bloods hidden").toBe(false);
+    expect(text.includes("OLDCXR"), "old CXR hidden").toBe(false);
+    expect(text.includes("OLDCT"), "old CT chest hidden").toBe(false);
   });
 
 });
