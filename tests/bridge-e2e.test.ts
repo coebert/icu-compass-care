@@ -404,6 +404,110 @@ describe("bridge patient sync (e2e)", () => {
     );
     expect(edited.updated_at).not.toBe(persistedRow.updated_at);
   }, 60_000);
+
+  it("updates next of kin details and last-updated stamp that persist across partner sync and stay editable", async () => {
+    const marker = `H-E2E-NOK-${Date.now()}`;
+    const firstStamp = "2026-07-10T09:00:00.000Z";
+
+    // 1. Admit a patient with an initial set of next-of-kin details.
+    const create = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        full_name: "N.K.",
+        age: 69,
+        hospital_number: marker,
+        location_type: "icu",
+        ward: "Critical Care",
+        status: "admitted",
+        nok_name: "Jane Kirby",
+        nok_relationship: "Daughter",
+        nok_contact: "07700 900111",
+        nok_last_updated: firstStamp,
+        nok_last_updated_by: "Dr A. Smith",
+      }),
+    );
+    expect(create.status, `create failed: ${create.text}`).toBe(200);
+    const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
+    expect(createdPatient, "create response missing `patient`").toBeTruthy();
+    const created = createdPatient as Record<string, unknown>;
+    const id = created.id as string;
+    expect(id, "created patient missing id").toBeTruthy();
+    expect(created.nok_name).toBe("Jane Kirby");
+    expect(created.nok_relationship).toBe("Daughter");
+    expect(created.nok_contact).toBe("07700 900111");
+    expect(String(created.nok_last_updated)).toContain("2026-07-10T09:00");
+    expect(created.nok_last_updated_by).toBe("Dr A. Smith");
+
+    // 2. Update the next-of-kin details and bump the last-updated stamp/author.
+    const secondStamp = "2026-07-10T14:30:00.000Z";
+    const update = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "N.K.",
+        status: "admitted",
+        expected_updated_at: created.updated_at,
+        nok_name: "Mark Kirby",
+        nok_relationship: "Son",
+        nok_contact: "07700 900222",
+        nok_last_updated: secondStamp,
+        nok_last_updated_by: "Nurse B. Jones",
+      }),
+    );
+    expect(update.status, `update failed: ${update.text}`).toBe(200);
+    const updatedPatient = (update.json as { patient?: Record<string, unknown> })?.patient;
+    expect(updatedPatient, "update response missing `patient`").toBeTruthy();
+    const updated = updatedPatient as Record<string, unknown>;
+    expect(updated.nok_name).toBe("Mark Kirby");
+    expect(updated.nok_relationship).toBe("Son");
+    expect(updated.nok_contact).toBe("07700 900222");
+    expect(String(updated.nok_last_updated)).toContain("2026-07-10T14:30");
+    expect(updated.nok_last_updated_by).toBe("Nurse B. Jones");
+    expect(updated.updated_at).not.toBe(created.updated_at);
+
+    // 3. Persistence check — the updated NOK details survive the partner sync.
+    const list = await bridge("GET", "/api/public/bridge/patients?status=admitted");
+    expect(list.status, `list failed: ${list.text}`).toBe(200);
+    const rows = (list.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    const persisted = rows.find((p) => p.id === id);
+    expect(persisted, "updated record not returned by partner pull").toBeTruthy();
+    const persistedRow = persisted as Record<string, unknown>;
+    expect(persistedRow.nok_name).toBe("Mark Kirby");
+    expect(persistedRow.nok_relationship).toBe("Son");
+    expect(persistedRow.nok_contact).toBe("07700 900222");
+    expect(String(persistedRow.nok_last_updated)).toContain("2026-07-10T14:30");
+    expect(persistedRow.nok_last_updated_by).toBe("Nurse B. Jones");
+
+    // 4. The NOK details remain editable — a further update succeeds with the
+    //    latest updated_at and refreshes the last-updated stamp again.
+    const thirdStamp = "2026-07-11T08:15:00.000Z";
+    const edit = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "N.K.",
+        status: "admitted",
+        expected_updated_at: persistedRow.updated_at,
+        nok_contact: "07700 900333",
+        nok_last_updated: thirdStamp,
+        nok_last_updated_by: "Dr C. Patel",
+      }),
+    );
+    expect(edit.status, `edit failed: ${edit.text}`).toBe(200);
+    const editedPatient = (edit.json as { patient?: Record<string, unknown> })?.patient;
+    expect(editedPatient, "edit response missing `patient`").toBeTruthy();
+    const edited = editedPatient as Record<string, unknown>;
+    // Unchanged fields retained; contact and stamp refreshed.
+    expect(edited.nok_name).toBe("Mark Kirby");
+    expect(edited.nok_relationship).toBe("Son");
+    expect(edited.nok_contact).toBe("07700 900333");
+    expect(String(edited.nok_last_updated)).toContain("2026-07-11T08:15");
+    expect(edited.nok_last_updated_by).toBe("Dr C. Patel");
+    expect(edited.updated_at).not.toBe(persistedRow.updated_at);
+  }, 60_000);
 });
 
 describe("bridge patient endpoints reject unauthenticated / unauthorized callers", () => {
