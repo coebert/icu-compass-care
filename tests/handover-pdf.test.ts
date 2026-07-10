@@ -361,6 +361,79 @@ describe("handover PDF key microbiology section (e2e)", () => {
     const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
     const text = await pdfText(doc);
     expect(text.includes("Key microbiology"), "microbiology header").toBe(true);
+
+    // The em dash placeholder is written for the empty cell. jsPDF encodes
+    // U+2014 as WinAnsi byte 0x97, so assert on that byte, not the literal "—".
+    expect(text.includes("\x97"), "em dash placeholder present").toBe(true);
+
+    // No specimen labels may leak into a patient that has no results at all.
+    for (const specimen of [
+      "Blood culture",
+      "Respiratory (sputum / BAL)",
+      "Urine",
+      "CSF",
+    ]) {
+      expect(
+        text.includes(specimen),
+        `no stale '${specimen}' label for a patient without micro results`,
+      ).toBe(false);
+    }
+  });
+
+  it("omits specimen types that have no results (only recorded specimens appear)", async () => {
+    const patient: HandoverPatient = {
+      full_name: "S.S.",
+      age: 55,
+      hospital_number: "SS-MICRO-SUB",
+      ward: "ICU",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      // Only Urine has a result; every other specimen type is unrecorded.
+      microbiology_results: [
+        { specimen_type: "Urine", findings: "URINEONLY", result_at: "2026-07-06T12:00:00.000Z" },
+      ],
+    };
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+
+    // The one recorded specimen renders.
+    expect(text.includes("Urine"), "recorded specimen appears").toBe(true);
+    expect(text.includes("URINEONLY"), "recorded finding appears").toBe(true);
+
+    // Specimen types with NO results are omitted entirely — no blank/stale rows.
+    for (const specimen of [
+      "Blood culture",
+      "Respiratory (sputum / BAL)",
+      "CSF",
+      "Wound / skin swab",
+      "Line tip",
+    ]) {
+      expect(
+        text.includes(specimen),
+        `unrecorded specimen '${specimen}' must not appear`,
+      ).toBe(false);
+    }
+  });
+
+  it("renders an em dash for a specimen whose latest result has blank findings", async () => {
+    const patient: HandoverPatient = {
+      full_name: "B.F.",
+      age: 48,
+      hospital_number: "BF-MICRO-BLANK",
+      ward: "ICU",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      microbiology_results: [
+        { specimen_type: "Urine", findings: "", result_at: "2026-07-06T12:00:00.000Z" },
+      ],
+    };
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+
+    // The specimen label is present, and its blank findings render as the em
+    // dash placeholder (WinAnsi byte 0x97) rather than an empty string.
+    expect(text.includes("Urine"), "specimen label present").toBe(true);
+    expect(text.includes("\x97"), "blank findings render as em dash").toBe(true);
   });
 });
 
