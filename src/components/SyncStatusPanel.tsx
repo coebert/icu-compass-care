@@ -84,6 +84,10 @@ export function SyncStatusPanel({
 
   const hasError = !!data?.lastError;
   const showRetry = hasError && isAdmin;
+  const intervalMinutes = data?.config.intervalMinutes ?? 15;
+  const nextSync = data?.lastSuccess
+    ? nextSyncText(data.lastSuccess.created_at, intervalMinutes)
+    : nextSyncText(null, intervalMinutes);
 
   return (
     <TooltipProvider>
@@ -101,28 +105,38 @@ export function SyncStatusPanel({
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               )}
-              Sync {relTime(data?.lastSuccess?.created_at ?? null)}
+              {hasError ? "Last sync failed" : "Last synced"} {relTime(data?.lastSuccess?.created_at ?? null)}
             </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs space-y-1">
             <p className="font-medium">Cross-project sync</p>
-            {data?.lastSuccess ? (
-              <p className="text-xs">
-                Last success {relTime(data.lastSuccess.created_at)} — {data.lastSuccess.direction} ·{" "}
-                {data.lastSuccess.entity} · {data.lastSuccess.record_count} record
-                {data.lastSuccess.record_count === 1 ? "" : "s"}
-              </p>
-            ) : (
-              <p className="text-xs">No syncs recorded yet.</p>
-            )}
-            {hasError ? (
-              <p className="text-xs text-destructive">
-                Last error {relTime(data!.lastError!.created_at)} — {data!.lastError!.direction} ·{" "}
-                {data!.lastError!.entity}: {data!.lastError!.error_message || "Unknown error"}
-              </p>
-            ) : (
-              <p className="text-xs text-emerald-600">No errors.</p>
-            )}
+            <p className="text-xs">
+              <span className="text-muted-foreground">Last success:</span>{" "}
+              {data?.lastSuccess ? (
+                <>
+                  {relTime(data.lastSuccess.created_at)} — {data.lastSuccess.direction} ·{" "}
+                  {data.lastSuccess.entity} · {data.lastSuccess.record_count} record
+                  {data.lastSuccess.record_count === 1 ? "" : "s"}
+                </>
+              ) : (
+                <span className="text-muted-foreground">never</span>
+              )}
+            </p>
+            <p className="text-xs">
+              <span className="text-muted-foreground">Last error:</span>{" "}
+              {hasError ? (
+                <span className="text-destructive">
+                  {relTime(data!.lastError!.created_at)} — {data!.lastError!.direction} ·{" "}
+                  {data!.lastError!.entity}: {data!.lastError!.error_message || "Unknown error"}
+                </span>
+              ) : (
+                <span className="text-emerald-600">none</span>
+              )}
+            </p>
+            <p className="text-xs">
+              <span className="text-muted-foreground">Next scheduled sync:</span>{" "}
+              {nextSync} (every {intervalMinutes} min)
+            </p>
           </TooltipContent>
         </Tooltip>
         {showRetry && (
