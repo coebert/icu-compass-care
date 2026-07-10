@@ -99,3 +99,31 @@ export function authorize(
 
   return { ok: true, actor };
 }
+
+/**
+ * Record a successful bridge exchange for the "Sync status" panel.
+ * `direction`: "push" = data written into this app, "pull" = data read out.
+ * Never throws — logging failures must not break the actual data operation.
+ */
+export async function logSync(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  entry: {
+    direction: "push" | "pull";
+    entity: "patients" | "investigations";
+    record_count: number;
+    actor: BridgeActor;
+  },
+): Promise<void> {
+  try {
+    await admin.from("bridge_sync_events").insert({
+      direction: entry.direction,
+      entity: entry.entity,
+      record_count: entry.record_count,
+      actor_role: entry.actor.role,
+      actor_email: entry.actor.email ?? null,
+    });
+  } catch {
+    // swallow — sync logging is best-effort
+  }
+}

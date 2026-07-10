@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
@@ -60,6 +60,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
         const { data, error } = await query;
         if (error) return json({ error: error.message }, 500);
+        await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ patients: data });
       },
 
@@ -90,6 +91,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
         if (error) return json({ error: error.message }, 500);
         if (!data) return json({ error: "Patient not found" }, 404);
+        await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
         return json({ patient: data });
       },
     },
