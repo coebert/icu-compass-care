@@ -6,6 +6,9 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type PatientRow = Database["public"]["Tables"]["patients"]["Row"];
 export type InvestigationRow = Database["public"]["Tables"]["investigations"]["Row"];
+export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
+export type ReferralRow = Database["public"]["Tables"]["referrals"]["Row"];
+export type AuditLogRow = Database["public"]["Tables"]["audit_log"]["Row"];
 
 // The sync job acts on behalf of an automated system principal. The partner
 // bridge authorizes by role, so we present an admin-level service actor.
