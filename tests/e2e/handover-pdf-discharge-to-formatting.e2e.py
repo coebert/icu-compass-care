@@ -68,11 +68,13 @@ STAMP = str(int(time.time()))[-5:]
 DISCHARGE_DATE = (datetime.now(timezone.utc).date() - timedelta(days=2)).isoformat()
 ADMISSION_DATE = (datetime.now(timezone.utc).date() - timedelta(days=9)).isoformat()
 
-# Single-token destinations so "To <token>" can't be split by line wrapping.
+# SHORT single-token destinations so "To <token>" stays on ONE physical line
+# (the narrow "Location / status" column wraps long tokens), which keeps the
+# exact-spacing assertion reliable. The stamp keeps them unique vs real data.
 CASES = [
-    {"name": f"TOF.WARD.{STAMP}", "bed": "41", "dest": f"WardDest{MARKER}", "label": "ward"},
-    {"name": f"TOF.THTR.{STAMP}", "bed": "42", "dest": f"TheatreDest{MARKER}", "label": "theatre"},
-    {"name": f"TOF.STEP.{STAMP}", "bed": "43", "dest": f"StepDownDest{MARKER}", "label": "step-down"},
+    {"name": f"TOF.WARD.{STAMP}", "bed": "41", "dest": f"Wd{STAMP}", "label": "ward"},
+    {"name": f"TOF.THTR.{STAMP}", "bed": "42", "dest": f"Th{STAMP}", "label": "theatre"},
+    {"name": f"TOF.STEP.{STAMP}", "bed": "43", "dest": f"Sd{STAMP}", "label": "step-down"},
 ]
 
 
