@@ -271,8 +271,7 @@ def main():
         assert packed(BLOODS_LATEST) in packed_text, "Bloods latest findings missing from PDF"
         assert packed(BLOODS_STALE) not in packed_text, "stale Bloods findings leaked into PDF"
         bloods_window = raw_text[raw_text.find(f"{CAT_BLOODS}:"): raw_text.find(f"{CAT_CXR}:")]
-        assert BLOODS_LATEST.split(MARKER)[0].strip().split()[-1] in bloods_window or \
-            packed(BLOODS_LATEST) in packed(bloods_window), (
+        assert packed(BLOODS_LATEST) in packed(bloods_window), (
             f"Bloods cell does not carry its latest findings; window={bloods_window!r}"
         )
         assert re.search(r"\(\d{2}/\d{2}/\d{4}", bloods_window), (
