@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { CORS_HEADERS, json, verifySignature } from "@/lib/api-bridge.server";
+import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
 
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
@@ -45,8 +45,8 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
       // List patients (optionally filter by status via ?status=admitted)
       GET: async ({ request }) => {
-        const authError = verifySignature(request, "");
-        if (authError) return authError;
+        const auth = authorize(request, "", { write: false });
+        if (!auth.ok) return auth.response;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const url = new URL(request.url);
@@ -66,8 +66,8 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const authError = verifySignature(request, rawBody);
-        if (authError) return authError;
+        const auth = authorize(request, rawBody, { write: true });
+        if (!auth.ok) return auth.response;
 
         let parsed;
         try {
