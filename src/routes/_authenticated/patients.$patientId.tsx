@@ -915,15 +915,13 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
             className="space-y-4"
           >
             <div className="space-y-1.5">
-              <Label>Specimen type</Label>
-              <Select value={specimenType} onValueChange={setSpecimenType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MICROBIOLOGY_SPECIMENS.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="specimen-type">Specimen type</Label>
+              <SpecimenTypeCombobox
+                id="specimen-type"
+                value={specimenType}
+                onChange={setSpecimenType}
+                options={MICROBIOLOGY_SPECIMENS}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Date / time of result</Label>
