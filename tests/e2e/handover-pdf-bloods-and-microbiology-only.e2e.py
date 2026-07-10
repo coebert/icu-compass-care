@@ -280,9 +280,11 @@ def main():
 
         # CXR and CT chest are em-dash placeholders (no findings, no timestamp).
         cxr_window = raw_text[raw_text.find(f"{CAT_CXR}:"): raw_text.find(f"{CAT_CT}:")]
-        ct_window = raw_text[raw_text.find(f"{CAT_CT}:"):]
-        # Bound the CT window to its own line-ish region.
-        ct_window = ct_window[:120]
+        # Bound the CT window to its own line only (next newline after label),
+        # so the following microbiology cell's timestamp is not captured.
+        ct_start = raw_text.find(f"{CAT_CT}:")
+        ct_nl = raw_text.find("\n", ct_start)
+        ct_window = raw_text[ct_start: ct_nl if ct_nl != -1 else ct_start + 40]
         assert "—" in cxr_window, f"CXR placeholder em-dash missing; window={cxr_window!r}"
         assert "—" in ct_window, f"CT chest placeholder em-dash missing; window={ct_window!r}"
         assert not re.search(r"\(\d{2}/\d{2}/\d{4}", cxr_window), (
