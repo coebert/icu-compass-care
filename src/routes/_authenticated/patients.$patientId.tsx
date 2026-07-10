@@ -116,7 +116,7 @@ function PatientDetail() {
         </Link>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{patient.full_name}</h1>
+            <PatientName patient={patient} size="lg" />
             <Badge className={STATUS_BADGE[patient.status]} variant="secondary">
               {STATUS_LABELS[patient.status]}
             </Badge>
@@ -126,11 +126,10 @@ function PatientDetail() {
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""} · ` : ""}
-            {patient.hospital_number ? `MRN ${patient.hospital_number} · ` : ""}
-            {patient.age != null ? `Age ${patient.age}` : "Age —"}
-          </p>
+          <PatientMetaLine
+            patient={patient}
+            leading={[patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""}` : null]}
+          />
         </div>
         <div className="ml-auto flex gap-2">
           <Button
