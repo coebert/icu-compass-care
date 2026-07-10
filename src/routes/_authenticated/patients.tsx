@@ -91,6 +91,8 @@ function PatientsBoard() {
           </Button>
         </div>
       </div>
+      <SyncStatusPanel />
+
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
