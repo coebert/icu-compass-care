@@ -243,7 +243,7 @@ export function PatientForm({
           <Field label="Relationship"><Input value={values.nok_relationship} onChange={(e) => set("nok_relationship", e.target.value)} /></Field>
           <Field label="Contact details"><Input value={values.nok_contact} onChange={(e) => set("nok_contact", e.target.value)} /></Field>
           <Field label="Last updated / spoken to">
-            <Input type="datetime-local" value={values.nok_last_updated} onChange={(e) => set("nok_last_updated", e.target.value)} />
+            <DateTimePicker value={values.nok_last_updated} onChange={(v) => set("nok_last_updated", v)} />
           </Field>
           <Field label="Updated by (staff name)">
             <Input value={values.nok_last_updated_by} onChange={(e) => set("nok_last_updated_by", e.target.value)} />
