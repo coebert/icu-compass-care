@@ -79,6 +79,8 @@ function PatientsBoard() {
     dragging: boolean;
     holdTimer: number | null;
     ghost: HTMLDivElement | null;
+    startX: number;
+    startY: number;
   } | null>(null);
 
   const { data: patients = [], isLoading } = useQuery({
