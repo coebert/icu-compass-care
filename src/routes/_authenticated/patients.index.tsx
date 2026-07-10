@@ -68,6 +68,19 @@ function PatientsBoard() {
   // Holds the custom drag-image node so we can clean it up on drag end.
   const ghostRef = useRef<HTMLDivElement | null>(null);
 
+  // ---- Touch drag (tablets/phones) -------------------------------------
+  // HTML5 drag events don't fire on touch, so we run a pointer-based drag:
+  // long-press a card to pick it up, drag over a bed, lift to drop.
+  const [touchOverBed, setTouchOverBed] = useState<string | null>(null);
+  // Set true the moment a touch-drag ends so the card's click (which fires
+  // after pointerup) doesn't navigate to the patient page.
+  const suppressClickRef = useRef(false);
+  const touchStateRef = useRef<{
+    dragging: boolean;
+    holdTimer: number | null;
+    ghost: HTMLDivElement | null;
+  } | null>(null);
+
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
     queryFn: () => list() as Promise<Patient[]>,
