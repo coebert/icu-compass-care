@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listPatients, createPatient } from "@/lib/patients.functions";
+import { listPatients, createPatient, updatePatient } from "@/lib/patients.functions";
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate } from "@/lib/icu";
@@ -25,6 +25,8 @@ export const Route = createFileRoute("/_authenticated/patients/")({
 
 type Patient = Record<string, any>;
 
+const DRAG_MIME = "application/x-patient";
+
 
 // Build a human-readable location label. ICU patients are identified by
 // location_type and a bed number (ward is usually blank for them), so we must
@@ -41,12 +43,17 @@ function PatientsBoard() {
   const qc = useQueryClient();
   const list = useServerFn(listPatients);
   const create = useServerFn(createPatient);
+  const update = useServerFn(updatePatient);
   const beds = useServerFn(listBeds);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
+
+  // Currently dragged patient (kept in a ref so drop handlers read the latest).
+  const draggedRef = useRef<Patient | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
@@ -67,6 +74,30 @@ function PatientsBoard() {
       toast.success("Patient added");
     },
     onError: (e: Error) => toast.error("Could not add patient", { description: e.message }),
+  });
+
+  const moveMut = useMutation({
+    mutationFn: (moves: { id: string; bed: string; expected_updated_at?: string }[]) =>
+      Promise.all(
+        moves.map((m) =>
+          update({
+            data: {
+              id: m.id,
+              bed: m.bed,
+              location_type: "icu",
+              expected_updated_at: m.expected_updated_at,
+            } as never,
+          }),
+        ),
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      toast.success("Bed board updated");
+    },
+    onError: (e: Error) => {
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      toast.error("Could not move patient", { description: e.message });
+    },
   });
 
   const filtered = useMemo(() => {
@@ -106,6 +137,55 @@ function PatientsBoard() {
   function addToBed(bed: string) {
     setForm({ ...emptyPatient(), location_type: "icu", bed });
     setOpen(true);
+  }
+
+  function onDragStartPatient(p: Patient, e: React.DragEvent) {
+    draggedRef.current = p;
+    setDragging(true);
+    e.dataTransfer.effectAllowed = "move";
+    // Some browsers require data to be set for the drag to initiate.
+    try {
+      e.dataTransfer.setData(DRAG_MIME, p.id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function onDragEndPatient() {
+    draggedRef.current = null;
+    setDragging(false);
+  }
+
+  // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
+  // patients swap places (the previous occupant takes the dragged one's old bed).
+  function dropOnBed(targetBed: string) {
+    const dragged = draggedRef.current;
+    draggedRef.current = null;
+    setDragging(false);
+    if (!dragged) return;
+
+    const targetKey = normalizeBed(targetBed);
+    const occupant = bedOccupant.get(targetKey) ?? null;
+    if (occupant && occupant.id === dragged.id) return; // dropped on itself
+
+    const moves: { id: string; bed: string; expected_updated_at?: string }[] = [
+      { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
+    ];
+
+    if (occupant) {
+      // Swap only makes sense when the dragged patient vacates a real ICU bed.
+      const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
+      if (draggedHadBed) {
+        moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
+      } else {
+        toast.error("That bed is occupied", {
+          description: "Move the current patient out first, or drag onto an empty bed.",
+        });
+        return;
+      }
+    }
+
+    moveMut.mutate(moves);
   }
 
   return (
@@ -165,8 +245,23 @@ function PatientsBoard() {
         )
       ) : (
         <div className="space-y-8">
-          <BedBoard roster={bedRoster} bedOccupant={bedOccupant} unassigned={icuUnassigned} onAddToBed={addToBed} />
-          <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
+          <BedBoard
+            roster={bedRoster}
+            bedOccupant={bedOccupant}
+            unassigned={icuUnassigned}
+            onAddToBed={addToBed}
+            dragging={dragging}
+            onDragStartPatient={onDragStartPatient}
+            onDragEndPatient={onDragEndPatient}
+            onDropOnBed={dropOnBed}
+          />
+          <Section
+            title="Outlying wards / referrals"
+            icon={ClipboardList}
+            patients={outliers}
+            onDragStartPatient={onDragStartPatient}
+            onDragEndPatient={onDragEndPatient}
+          />
         </div>
       )}
 
@@ -237,39 +332,98 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   );
 }
 
+// A patient card that can be dragged onto a bed. Click still opens the detail
+// page; only a real drag gesture starts a move.
+function DraggablePatientLink({
+  p,
+  children,
+  onDragStartPatient,
+  onDragEndPatient,
+}: {
+  p: Patient;
+  children: React.ReactNode;
+  onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
+  onDragEndPatient?: () => void;
+}) {
+  return (
+    <Link
+      to="/patients/$patientId"
+      params={{ patientId: p.id }}
+      draggable={!!onDragStartPatient}
+      onDragStart={(e) => onDragStartPatient?.(p, e)}
+      onDragEnd={() => onDragEndPatient?.()}
+      className="block cursor-grab active:cursor-grabbing"
+    >
+      {children}
+    </Link>
+  );
+}
+
 function BedBoard({
   roster,
   bedOccupant,
   unassigned,
   onAddToBed,
+  dragging,
+  onDragStartPatient,
+  onDragEndPatient,
+  onDropOnBed,
 }: {
   roster: Bed[];
   bedOccupant: Map<string, Patient>;
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
+  dragging: boolean;
+  onDragStartPatient: (p: Patient, e: React.DragEvent) => void;
+  onDragEndPatient: () => void;
+  onDropOnBed: (bed: string) => void;
 }) {
   const occupied = roster.filter((b) => bedOccupant.has(normalizeBed(b.label))).length;
+  const [overBed, setOverBed] = useState<string | null>(null);
   return (
     <div className="space-y-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
         <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
+      {dragging && (
+        <p className="text-xs text-primary">Drop the card on a bed to move the patient there.</p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {roster.map((slot) => {
           const bed = slot.label;
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const p = bedOccupant.get(normalizeBed(bed));
+          const isOver = overBed === bed;
+          const dropHandlers = {
+            onDragOver: (e: React.DragEvent) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (overBed !== bed) setOverBed(bed);
+            },
+            onDragLeave: () => setOverBed((b) => (b === bed ? null : b)),
+            onDrop: (e: React.DragEvent) => {
+              e.preventDefault();
+              setOverBed(null);
+              onDropOnBed(bed);
+            },
+          };
           if (p) {
             return (
-              <Link key={slot.id} to="/patients/$patientId" params={{ patientId: p.id }}>
-                <Card className="h-full transition-colors hover:border-primary/50">
-                  <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
-                    {label}
-                  </div>
-                  <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
-                </Card>
-              </Link>
+              <div key={slot.id} {...dropHandlers}>
+                <DraggablePatientLink
+                  p={p}
+                  onDragStartPatient={onDragStartPatient}
+                  onDragEndPatient={onDragEndPatient}
+                >
+                  <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
+                    <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
+                      {label}
+                    </div>
+                    <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
+                  </Card>
+                </DraggablePatientLink>
+              </div>
             );
           }
           return (
@@ -277,13 +431,16 @@ function BedBoard({
               key={slot.id}
               type="button"
               onClick={() => onAddToBed(bed)}
-              className="group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5"
+              {...dropHandlers}
+              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${isOver ? "border-primary bg-primary/10 ring-2 ring-primary/40" : ""}`}
             >
               <span className="text-xs font-semibold text-muted-foreground">{label}</span>
               <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary">
                 <Plus className="h-4 w-4" /> Empty
               </span>
-              <span className="text-[11px] text-muted-foreground">Tap to admit</span>
+              <span className="text-[11px] text-muted-foreground">
+                {dragging ? "Drop here" : "Tap to admit"}
+              </span>
             </button>
           );
         })}
@@ -296,11 +453,16 @@ function BedBoard({
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {unassigned.map((p) => (
-              <Link key={p.id} to="/patients/$patientId" params={{ patientId: p.id }}>
+              <DraggablePatientLink
+                key={p.id}
+                p={p}
+                onDragStartPatient={onDragStartPatient}
+                onDragEndPatient={onDragEndPatient}
+              >
                 <Card className="h-full transition-colors hover:border-primary/50">
                   <PatientCardBody p={p} />
                 </Card>
-              </Link>
+              </DraggablePatientLink>
             ))}
           </div>
         </div>
@@ -313,10 +475,14 @@ function Section({
   title,
   icon: Icon,
   patients,
+  onDragStartPatient,
+  onDragEndPatient,
 }: {
   title: string;
   icon: React.ElementType;
   patients: Patient[];
+  onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
+  onDragEndPatient?: () => void;
 }) {
   if (patients.length === 0) return null;
   return (
@@ -326,11 +492,16 @@ function Section({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {patients.map((p) => (
-          <Link key={p.id} to="/patients/$patientId" params={{ patientId: p.id }}>
+          <DraggablePatientLink
+            key={p.id}
+            p={p}
+            onDragStartPatient={onDragStartPatient}
+            onDragEndPatient={onDragEndPatient}
+          >
             <Card className="h-full transition-colors hover:border-primary/50">
               <PatientCardBody p={p} />
             </Card>
-          </Link>
+          </DraggablePatientLink>
         ))}
       </div>
     </div>
