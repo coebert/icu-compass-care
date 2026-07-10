@@ -154,8 +154,9 @@ def cleanup(patient_ids, user_id):
 
 def extract_pdf_text_spaced(pdf_path):
     """Plain pdftotext (NOT -raw) preserves intra-line spacing, so we can assert
-    exact 'To <token>' punctuation/spacing. Collapse only newlines to spaces so
-    a cell that wraps onto the next physical line still reads left-to-right."""
+    the exact 'To <token>' punctuation/spacing. Kept AS-IS (newlines intact) so
+    a short destination stays on its own physical line and no join step can
+    introduce or hide a space."""
     out = subprocess.run(
         ["pdftotext", str(pdf_path), "-"],
         capture_output=True,
@@ -164,13 +165,7 @@ def extract_pdf_text_spaced(pdf_path):
     )
     if out.returncode != 0:
         raise RuntimeError(f"pdftotext failed: {out.stderr}")
-    # Normalise newlines/tabs to single spaces; keep single spaces intact so a
-    # regression to double-spacing after "To" is still detectable within a line.
-    text = out.stdout.replace("\t", " ")
-    # Join wrapped lines with a single space but do NOT collapse existing runs
-    # of spaces, so 'To  X' (double space) would survive and fail the check.
-    lines = [ln.strip() for ln in text.splitlines()]
-    return " ".join(ln for ln in lines if ln)
+    return out.stdout
 
 
 def main():
