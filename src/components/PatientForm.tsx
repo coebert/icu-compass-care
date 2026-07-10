@@ -135,8 +135,8 @@ export function PatientForm({
           <Field label="Initials *">
             <Input value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={10} placeholder="e.g. J.S." required />
           </Field>
-          <Field label="Age">
-            <Input type="number" min={0} max={130} value={values.age} onChange={(e) => set("age", e.target.value)} />
+          <Field label="Age *">
+            <Input type="number" min={0} max={130} step={1} value={values.age} onChange={(e) => set("age", e.target.value)} required />
           </Field>
           <Field label="Hospital number">
             <Input value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
