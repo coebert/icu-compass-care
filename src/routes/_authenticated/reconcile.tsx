@@ -112,6 +112,8 @@ function ReconcilePage() {
         </Button>
       </div>
 
+      <SyncStatusPanel />
+
       <BridgeHealthCheck />
 
       {isLoading ? (
