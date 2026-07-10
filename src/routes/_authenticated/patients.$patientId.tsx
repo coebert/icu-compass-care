@@ -565,7 +565,7 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
             Blood cultures, swabs, CSF and other significant micro findings.
           </p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Add result
         </Button>
       </div>
