@@ -163,7 +163,7 @@ def cleanup(patient_id, user_id):
 
 def extract_pdf_text(pdf_path):
     out = subprocess.run(
-        ["pdftotext", "-layout", str(pdf_path), "-"],
+        ["pdftotext", "-raw", str(pdf_path), "-"],
         capture_output=True,
         text=True,
         timeout=60,
