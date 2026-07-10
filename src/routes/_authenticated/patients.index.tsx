@@ -148,7 +148,7 @@ function PatientsBoard() {
 
   function onDragStartPatient(p: Patient, e: React.DragEvent) {
     draggedRef.current = p;
-    setDragging(true);
+    setDraggedPatient(p);
     e.dataTransfer.effectAllowed = "move";
     // Some browsers require data to be set for the drag to initiate.
     try {
@@ -160,8 +160,9 @@ function PatientsBoard() {
 
   function onDragEndPatient() {
     draggedRef.current = null;
-    setDragging(false);
+    setDraggedPatient(null);
   }
+
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
   // patients swap places (the previous occupant takes the dragged one's old bed).
