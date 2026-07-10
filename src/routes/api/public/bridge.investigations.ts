@@ -60,6 +60,16 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
           .maybeSingle();
 
         if (error) return json({ error: error.message }, 500);
+        if (data) {
+          await writeAudit(supabaseAdmin, {
+            entity: "investigations",
+            recordId: data.id,
+            action: "insert",
+            source: "bridge",
+            actor: auth.actor,
+            after: data as Record<string, unknown>,
+          });
+        }
         await logSync(supabaseAdmin, { direction: "push", entity: "investigations", record_count: 1, actor: auth.actor });
         return json({ investigation: data });
       },
