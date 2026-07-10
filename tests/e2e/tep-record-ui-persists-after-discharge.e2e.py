@@ -155,7 +155,9 @@ def set_tep_details(page, details, tep_already_on):
     if not tep_already_on:
         tep_switch.click()
     expect(tep_switch).to_have_attribute("data-state", "checked", timeout=5000)
-    textarea = dialog.get_by_label("TEP details")
+    textarea = dialog.locator(
+        "xpath=.//label[normalize-space()='TEP details']/following-sibling::textarea[1]"
+    )
     textarea.fill(details)
     dialog.get_by_role("button", name="Save changes").click()
     expect(page.get_by_role("heading", name="Edit patient")).to_have_count(0, timeout=10000)
