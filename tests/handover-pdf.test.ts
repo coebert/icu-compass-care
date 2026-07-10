@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildHandoverPdf, formatHandoverFilename, type HandoverPatient } from "@/lib/handover-pdf";
+import {
+  buildHandoverPdf,
+  formatHandoverFilename,
+  sanitizeContentDispositionFilename,
+  type HandoverPatient,
+} from "@/lib/handover-pdf";
 
 /**
  * Decode the readable text content of a jsPDF document. jsPDF writes text as
