@@ -68,6 +68,21 @@ function PatientsBoard() {
   // Holds the custom drag-image node so we can clean it up on drag end.
   const ghostRef = useRef<HTMLDivElement | null>(null);
 
+  // ---- Touch drag (tablets/phones) -------------------------------------
+  // HTML5 drag events don't fire on touch, so we run a pointer-based drag:
+  // long-press a card to pick it up, drag over a bed, lift to drop.
+  const [touchOverBed, setTouchOverBed] = useState<string | null>(null);
+  // Set true the moment a touch-drag ends so the card's click (which fires
+  // after pointerup) doesn't navigate to the patient page.
+  const suppressClickRef = useRef(false);
+  const touchStateRef = useRef<{
+    dragging: boolean;
+    holdTimer: number | null;
+    ghost: HTMLDivElement | null;
+    startX: number;
+    startY: number;
+  } | null>(null);
+
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
     queryFn: () => list() as Promise<Patient[]>,
@@ -242,6 +257,112 @@ function PatientsBoard() {
     }
   }
 
+  // Build a floating ghost card that tracks the finger during a touch drag.
+  function makeTouchGhost(p: Patient): HTMLDivElement {
+    const ghost = document.createElement("div");
+    ghost.style.cssText =
+      "position:fixed;z-index:60;top:0;left:0;width:220px;pointer-events:none;" +
+      "transform:translate(-50%,-120%);border-radius:12px;padding:12px 14px;" +
+      "background:hsl(var(--card));color:hsl(var(--card-foreground));" +
+      "border:2px solid hsl(var(--primary));box-shadow:0 16px 32px -8px rgba(0,0,0,0.5);" +
+      "font-family:inherit;opacity:0.95;";
+    const from = p.location_type === "icu" && p.bed ? `Bed ${p.bed}` : "Unassigned";
+    ghost.innerHTML =
+      `<div style="font-weight:600;font-size:14px;line-height:1.2;">${escapeHtml(p.full_name ?? "Patient")}</div>` +
+      `<div style="font-size:11px;opacity:0.7;margin-top:2px;">Moving from ${escapeHtml(from)}</div>` +
+      (p.isolation_required
+        ? `<div style="font-size:11px;color:hsl(var(--primary));margin-top:4px;">Isolation · side rooms only</div>`
+        : "");
+    document.body.appendChild(ghost);
+    return ghost;
+  }
+
+  function moveTouchGhost(x: number, y: number) {
+    const g = touchStateRef.current?.ghost;
+    if (g) {
+      g.style.left = `${x}px`;
+      g.style.top = `${y}px`;
+    }
+  }
+
+  // Find the bed label under the given screen point (beds carry data-bed).
+  function bedUnderPoint(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const bedEl = el?.closest?.("[data-bed]") as HTMLElement | null;
+    return bedEl?.dataset.bed ?? null;
+  }
+
+  function endTouchDrag() {
+    const st = touchStateRef.current;
+    if (st?.holdTimer) window.clearTimeout(st.holdTimer);
+    if (st?.ghost) st.ghost.remove();
+    touchStateRef.current = null;
+    setTouchOverBed(null);
+    window.removeEventListener("pointermove", onTouchMove);
+    window.removeEventListener("pointerup", onTouchUp);
+    window.removeEventListener("pointercancel", onTouchUp);
+  }
+
+  function onTouchMove(ev: PointerEvent) {
+    const st = touchStateRef.current;
+    if (!st) return;
+    if (!st.dragging) {
+      // Still in the long-press window: if the finger travels far, treat it as
+      // a scroll/tap and abandon the pending pick-up.
+      if (Math.hypot(ev.clientX - st.startX, ev.clientY - st.startY) > 12) {
+        endTouchDrag();
+      }
+      return;
+    }
+    ev.preventDefault();
+    moveTouchGhost(ev.clientX, ev.clientY);
+    setTouchOverBed(bedUnderPoint(ev.clientX, ev.clientY));
+  }
+
+  function onTouchUp(ev: PointerEvent) {
+    const st = touchStateRef.current;
+    const wasDragging = !!st?.dragging;
+    const bed = wasDragging ? bedUnderPoint(ev.clientX, ev.clientY) : null;
+    endTouchDrag();
+    if (!wasDragging) return;
+    suppressClickRef.current = true; // stop the trailing click from navigating
+    if (bed) {
+      dropOnBed(bed);
+    } else {
+      onDragEndPatient();
+    }
+  }
+
+  // Start a candidate touch drag on pointerdown; only cards trigger this and
+  // only for touch pointers (mouse keeps using native HTML5 drag).
+  function onTouchDragStart(p: Patient, e: React.PointerEvent) {
+    if (e.pointerType !== "touch") return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    // Long-press to pick up, so vertical scrolling and taps still work.
+    const holdTimer = window.setTimeout(() => {
+      const st = touchStateRef.current;
+      if (!st) return;
+      st.dragging = true;
+      draggedRef.current = p;
+      setDraggedPatient(p);
+      st.ghost = makeTouchGhost(p);
+      moveTouchGhost(startX, startY);
+      try {
+        navigator.vibrate?.(15);
+      } catch {
+        /* vibrate unsupported */
+      }
+    }, 200);
+    touchStateRef.current = { dragging: false, holdTimer, ghost: null, startX, startY };
+    window.addEventListener("pointermove", onTouchMove, { passive: false });
+    window.addEventListener("pointerup", onTouchUp);
+    window.addEventListener("pointercancel", onTouchUp);
+  }
+
+
+
+
 
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
@@ -368,8 +489,11 @@ function PatientsBoard() {
             onAddToBed={addToBed}
             dragging={dragging}
             draggedPatient={draggedPatient}
+            touchOverBed={touchOverBed}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
+            onTouchDragStart={onTouchDragStart}
+            suppressClickRef={suppressClickRef}
             onDropOnBed={dropOnBed}
           />
           <Section
@@ -378,6 +502,8 @@ function PatientsBoard() {
             patients={outliers}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
+            onTouchDragStart={onTouchDragStart}
+            suppressClickRef={suppressClickRef}
           />
         </div>
       )}
@@ -455,17 +581,22 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
 }
 
 // A patient card that can be dragged onto a bed. Click still opens the detail
-// page; only a real drag gesture starts a move.
+// page; only a real drag gesture starts a move. Supports mouse (HTML5 drag)
+// and touch (long-press pointer drag).
 function DraggablePatientLink({
   p,
   children,
   onDragStartPatient,
   onDragEndPatient,
+  onTouchDragStart,
+  suppressClickRef,
 }: {
   p: Patient;
   children: React.ReactNode;
   onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient?: () => void;
+  onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
+  suppressClickRef?: React.MutableRefObject<boolean>;
 }) {
   return (
     <Link
@@ -474,6 +605,15 @@ function DraggablePatientLink({
       draggable={!!onDragStartPatient}
       onDragStart={(e) => onDragStartPatient?.(p, e)}
       onDragEnd={() => onDragEndPatient?.()}
+      onPointerDown={(e) => onTouchDragStart?.(p, e)}
+      onClick={(e) => {
+        // Swallow the click that trails a touch-drag so it doesn't navigate.
+        if (suppressClickRef?.current) {
+          e.preventDefault();
+          suppressClickRef.current = false;
+        }
+      }}
+      style={onTouchDragStart ? { touchAction: "pan-y" } : undefined}
       className="block cursor-grab active:cursor-grabbing"
     >
       {children}
@@ -488,8 +628,11 @@ function BedBoard({
   onAddToBed,
   dragging,
   draggedPatient,
+  touchOverBed,
   onDragStartPatient,
   onDragEndPatient,
+  onTouchDragStart,
+  suppressClickRef,
   onDropOnBed,
 }: {
   roster: Bed[];
@@ -498,8 +641,11 @@ function BedBoard({
   onAddToBed: (bed: string) => void;
   dragging: boolean;
   draggedPatient: Patient | null;
+  touchOverBed: string | null;
   onDragStartPatient: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient: () => void;
+  onTouchDragStart: (p: Patient, e: React.PointerEvent) => void;
+  suppressClickRef: React.MutableRefObject<boolean>;
   onDropOnBed: (bed: string) => void;
 }) {
   const occupied = roster.filter((b) => (bedOccupants.get(normalizeBed(b.label))?.length ?? 0) > 0).length;
@@ -510,10 +656,14 @@ function BedBoard({
         <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
         <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
-      {dragging && (
+      {dragging ? (
         <p className="text-xs text-primary">
           Drop the card on a bed to move the patient there.
           {draggedPatient?.isolation_required && " This patient requires isolation — side rooms only."}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Drag a patient card onto a bed to move them. On a tablet or phone, press and hold a card, then drag.
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -521,7 +671,7 @@ function BedBoard({
           const bed = slot.label;
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
-          const isOver = overBed === bed;
+          const isOver = overBed === bed || touchOverBed === bed;
           // While dragging, decide whether this bed can accept the patient so we
           // can flag ineligible beds and refuse the drop with a "no-drop" cursor.
           const ineligible = Boolean(
@@ -554,7 +704,7 @@ function BedBoard({
           const validRing = validTarget && !isOver ? "ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : "";
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
+              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
@@ -566,6 +716,8 @@ function BedBoard({
                     p={p}
                     onDragStartPatient={onDragStartPatient}
                     onDragEndPatient={onDragEndPatient}
+                    onTouchDragStart={onTouchDragStart}
+                    suppressClickRef={suppressClickRef}
                   >
                     <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
                       <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
@@ -582,6 +734,7 @@ function BedBoard({
             <button
               key={slot.id}
               type="button"
+              data-bed={bed}
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
               className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
@@ -610,6 +763,8 @@ function BedBoard({
                 p={p}
                 onDragStartPatient={onDragStartPatient}
                 onDragEndPatient={onDragEndPatient}
+                onTouchDragStart={onTouchDragStart}
+                suppressClickRef={suppressClickRef}
               >
                 <Card className="h-full transition-colors hover:border-primary/50">
                   <PatientCardBody p={p} />
@@ -629,12 +784,16 @@ function Section({
   patients,
   onDragStartPatient,
   onDragEndPatient,
+  onTouchDragStart,
+  suppressClickRef,
 }: {
   title: string;
   icon: React.ElementType;
   patients: Patient[];
   onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient?: () => void;
+  onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
+  suppressClickRef?: React.MutableRefObject<boolean>;
 }) {
   if (patients.length === 0) return null;
   return (
@@ -649,6 +808,8 @@ function Section({
             p={p}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
+            onTouchDragStart={onTouchDragStart}
+            suppressClickRef={suppressClickRef}
           >
             <Card className="h-full transition-colors hover:border-primary/50">
               <PatientCardBody p={p} />
