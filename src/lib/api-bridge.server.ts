@@ -32,9 +32,20 @@ export const CORS_HEADERS = {
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    headers: {
+      "Content-Type": "application/json",
+      // Bridge payloads are live clinical/occupancy snapshots polled from a
+      // stable public URL. Without this, the CDN/browser can cache a response
+      // and the partner app's bed board keeps showing a stale snapshot (looks
+      // like it "stopped updating"). Force every response to be revalidated.
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      Pragma: "no-cache",
+      Expires: "0",
+      ...CORS_HEADERS,
+    },
   });
 }
+
 
 const MAX_SKEW_SECONDS = 300;
 
