@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
@@ -24,8 +24,11 @@ function AuthenticatedLayout() {
   const me = useServerFn(getMe);
   const claim = useServerFn(claimFirstAdmin);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [hydrated, setHydrated] = useState(false);
 
-  const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   // Bootstrap: if there is no admin yet, promote the first signed-in user.
   useEffect(() => {
@@ -41,11 +44,15 @@ function AuthenticatedLayout() {
     navigate({ to: "/auth", replace: true });
   }
 
+  const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
+
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
     ...(profile?.isAdmin ? [{ to: "/admin", label: "Staff", icon: Shield }] : []),
     { to: "/settings", label: "My profile", icon: User },
   ];
+
+  if (!hydrated) return null;
 
   return (
     <div className="min-h-screen bg-muted/30">
