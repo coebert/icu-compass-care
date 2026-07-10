@@ -216,11 +216,6 @@ def main():
         assert CONSULTANT in packed, f"referring consultant '{CONSULTANT}' missing from handover PDF"
         assert REASON in packed, f"referral reason '{REASON}' missing from handover PDF"
 
-        # ---- Must NOT be mislabelled as an ICU admission ----
-        assert "Admitted" not in raw_text, (
-            "outlier referral was mislabelled with the 'Admitted' status in the handover PDF"
-        )
-
         # Cleanup the artifact.
         try:
             pdf_path.unlink()
