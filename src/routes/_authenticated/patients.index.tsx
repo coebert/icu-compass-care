@@ -170,7 +170,7 @@ function PatientsBoard() {
   function dropOnBed(targetBed: string) {
     const dragged = draggedRef.current;
     draggedRef.current = null;
-    setDragging(false);
+    setDraggedPatient(null);
     if (!dragged) return;
 
     const targetKey = normalizeBed(targetBed);
