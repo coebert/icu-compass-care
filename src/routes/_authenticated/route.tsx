@@ -82,7 +82,7 @@ function AuthenticatedLayout() {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <SyncStatusPanel className="hidden sm:inline-flex" />
+            <SyncStatusPanel className="hidden sm:inline-flex" isAdmin={profile?.isAdmin ?? false} />
             <span className="hidden text-sm text-muted-foreground md:inline">
               {profile?.profile?.display_name ?? profile?.email}
             </span>
