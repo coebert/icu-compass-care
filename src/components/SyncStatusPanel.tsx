@@ -34,7 +34,7 @@ function nextSyncText(lastSuccessIso: string | null, intervalMinutes: number): s
   if (mins < 60) return `in ${mins} min`;
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `in ${hrs} h`;
-  return `at ${new Date(nextMs).toLocaleString()}`;
+  return `at ${new Date(nextMs).toLocaleString("en-GB", { hour12: false })}`;
 }
 
 /**
