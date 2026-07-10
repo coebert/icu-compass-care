@@ -193,7 +193,7 @@ def main():
             # ---- Open the Add patient form ----
             page.get_by_role("button", name="Add patient").click()
             dialog = page.get_by_role("dialog")
-            expect(dialog.get_by_text("Add patient")).to_be_visible(timeout=10000)
+            expect(dialog.get_by_role("heading", name="Add patient")).to_be_visible(timeout=10000)
 
             # ---- Fill it as an outlying ward referral ----
             fill_field(dialog, "Initials *", PATIENT_NAME)
