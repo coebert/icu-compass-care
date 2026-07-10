@@ -1,23 +1,26 @@
 """
 End-to-end test: the exported handover PDF's "Most recent investigations"
 column shows ONLY the most recent result for each key block (Bloods, CXR,
-CT chest) when several entries exist per block.
+CT chest), AND the "Key microbiology" column shows ONLY the newest result per
+specimen type, when several entries exist per block/specimen.
 
 The handover sheet renders one line per key category with the NEWEST finding by
-result_at (see mostRecentInvestigation / investigations() in
-src/lib/handover-pdf.ts). This test seeds MULTIPLE results per block — inserted
-OUT OF ORDER so a naive "last saved wins" implementation would surface the
-wrong one — then drives the real UI export and inspects the PDF text:
+result_at (see mostRecentInvestigation / investigations() and
+latestMicrobiologyPerSpecimen / microbiology() in src/lib/handover-pdf.ts).
+This test seeds MULTIPLE results per block AND per microbiology specimen type —
+inserted OUT OF ORDER so a naive "last saved wins" implementation would surface
+the wrong one — then drives the real UI export and inspects the PDF text:
 
   1. Restore a clinician session and open /patients.
   2. Preview PDF -> Download PDF, capturing the actual download.
-  3. Extract the PDF text (pdftotext) and assert, per block:
+  3. Extract the PDF text (pdftotext) and assert, per block AND per specimen:
        - the NEWEST finding appears
        - every OLDER (superseded) finding does NOT appear
-     plus the Bloods / CXR / CT chest labels themselves.
+     plus the Bloods / CXR / CT chest / microbiology specimen labels.
 
-Throwaway clinician user + patient (+investigations) are created and cleaned up
-via the Supabase admin REST API. Nothing lingers in the clinical dataset.
+Throwaway clinician user + patient (+investigations +microbiology) are created
+and cleaned up via the Supabase admin REST API. Nothing lingers in the dataset.
+
 
 Requires (already present in the sandbox environment):
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PUBLISHABLE_KEY
@@ -85,6 +88,18 @@ BLOCKS = {
     ],
 }
 
+# Microbiology results keyed by specimen type; oldest -> newest per specimen.
+MICRO = {
+    "Blood culture": [
+        (f"MBCOLD{SUFFIX}", now - timedelta(days=2)),
+        (f"MBCNEW{SUFFIX}", now - timedelta(hours=4)),
+    ],
+    "Urine": [
+        (f"MUROLD{SUFFIX}", now - timedelta(days=1)),
+        (f"MURNEW{SUFFIX}", now - timedelta(hours=5)),
+    ],
+}
+
 
 def admin_headers():
     return {
@@ -145,6 +160,21 @@ def add_investigation(patient_id, category, findings, result_at):
     r.raise_for_status()
 
 
+def add_microbiology(patient_id, specimen_type, findings, result_at):
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/microbiology_results",
+        headers=admin_headers(),
+        json={
+            "patient_id": patient_id,
+            "specimen_type": specimen_type,
+            "findings": findings,
+            "result_at": result_at,
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+
+
 def sign_in(email):
     r = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
@@ -160,6 +190,11 @@ def cleanup(patient_id, user_id):
     if patient_id:
         requests.delete(
             f"{SUPABASE_URL}/rest/v1/investigations?patient_id=eq.{patient_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+        requests.delete(
+            f"{SUPABASE_URL}/rest/v1/microbiology_results?patient_id=eq.{patient_id}",
             headers=admin_headers(),
             timeout=30,
         )
@@ -199,6 +234,11 @@ def main():
         for category, entries in BLOCKS.items():
             for finding, when in reversed(entries):
                 add_investigation(patient_id, category, finding, iso(when))
+
+        # Same for microbiology: newest first, then older, per specimen type.
+        for specimen, entries in MICRO.items():
+            for finding, when in reversed(entries):
+                add_microbiology(patient_id, specimen, finding, iso(when))
 
         session = sign_in(email)
 
@@ -245,6 +285,11 @@ def main():
         for label in ("Bloods", "CXR", "CT chest"):
             assert label in raw_text, f"handover PDF missing '{label}' investigation block"
 
+        # ---- Microbiology column label present ----
+        assert "Key microbiology" in raw_text, (
+            "handover PDF missing the 'Key microbiology' column"
+        )
+
         # ---- Only the most recent result per block appears ----
         for category, entries in BLOCKS.items():
             *older, (newest_finding, _) = entries
@@ -257,12 +302,28 @@ def main():
                     "PDF — 'most recent per block' selection is wrong"
                 )
 
+        # ---- Only the most recent microbiology result per specimen appears ----
+        for specimen, entries in MICRO.items():
+            *older, (newest_finding, _) = entries
+            assert newest_finding in packed, (
+                f"{specimen}: newest microbiology finding '{newest_finding}' missing "
+                "from handover PDF"
+            )
+            for old_finding, _ in older:
+                assert old_finding not in packed, (
+                    f"{specimen}: superseded microbiology finding '{old_finding}' leaked "
+                    "into handover PDF — 'newest per specimen' selection is wrong"
+                )
+
         try:
             pdf_path.unlink()
         except OSError:
             pass
 
-        print("PASS: handover PDF shows only the most recent Bloods, CXR, and CT chest result")
+        print(
+            "PASS: handover PDF shows only the most recent Bloods, CXR, CT chest, and "
+            "microbiology (per specimen) result"
+        )
         return 0
     finally:
         cleanup(patient_id, user_id)
