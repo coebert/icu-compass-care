@@ -171,7 +171,6 @@ def main():
             name_input = dialog.get_by_placeholder("e.g. J.S.")
             expect(name_input).to_have_value(PATIENT_NAME, timeout=10000)
 
-            mgmt_field = dialog.get_by_role("textbox").filter(has_text=INITIAL_MGMT).first
             # Locate the management textarea by its current value and type into it.
             handle = dialog.evaluate_handle(
                 "(root, txt) => Array.from(root.querySelectorAll('textarea')).find(t => t.value === txt)",
