@@ -122,6 +122,21 @@ export function HandoverPreviewModal({
             />
           </div>
           <div className="space-y-1">
+            <Label htmlFor="pdf-filename" className="text-xs">
+              Filename format
+              <span className="ml-1 font-normal text-muted-foreground">({"{title}, {timestamp}, {date}"})</span>
+            </Label>
+            <Input
+              id="pdf-filename"
+              value={filenameFormat}
+              onChange={(e) => setFilenameFormat(e.target.value)}
+              placeholder="{title} - {timestamp}.pdf"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Download: {formatHandoverFilename(headerTitle, filenameFormat, new Date())}
+            </p>
+          </div>
+          <div className="space-y-1">
             <Label htmlFor="pdf-footer" className="text-xs">Footer text</Label>
             <Input
               id="pdf-footer"
@@ -130,6 +145,7 @@ export function HandoverPreviewModal({
               placeholder="Confidential…"
             />
           </div>
+
           <div className="flex items-center gap-2">
             <Switch id="pdf-timestamp" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
             <Label htmlFor="pdf-timestamp" className="text-xs">Show generated timestamp</Label>
