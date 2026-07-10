@@ -649,7 +649,7 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label>Date / time of result</Label>
-              <Input type="datetime-local" value={resultAt} onChange={(e) => setResultAt(e.target.value)} required />
+              <DateTimePicker value={resultAt} onChange={setResultAt} />
             </div>
             <div className="space-y-1.5">
               <Label>Findings</Label>
