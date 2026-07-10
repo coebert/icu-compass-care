@@ -255,6 +255,104 @@ function PatientsBoard() {
     }
   }
 
+  // Build a floating ghost card that tracks the finger during a touch drag.
+  function makeTouchGhost(p: Patient): HTMLDivElement {
+    const ghost = document.createElement("div");
+    ghost.style.cssText =
+      "position:fixed;z-index:60;top:0;left:0;width:220px;pointer-events:none;" +
+      "transform:translate(-50%,-120%);border-radius:12px;padding:12px 14px;" +
+      "background:hsl(var(--card));color:hsl(var(--card-foreground));" +
+      "border:2px solid hsl(var(--primary));box-shadow:0 16px 32px -8px rgba(0,0,0,0.5);" +
+      "font-family:inherit;opacity:0.95;";
+    const from = p.location_type === "icu" && p.bed ? `Bed ${p.bed}` : "Unassigned";
+    ghost.innerHTML =
+      `<div style="font-weight:600;font-size:14px;line-height:1.2;">${escapeHtml(p.full_name ?? "Patient")}</div>` +
+      `<div style="font-size:11px;opacity:0.7;margin-top:2px;">Moving from ${escapeHtml(from)}</div>` +
+      (p.isolation_required
+        ? `<div style="font-size:11px;color:hsl(var(--primary));margin-top:4px;">Isolation · side rooms only</div>`
+        : "");
+    document.body.appendChild(ghost);
+    return ghost;
+  }
+
+  function moveTouchGhost(x: number, y: number) {
+    const g = touchStateRef.current?.ghost;
+    if (g) {
+      g.style.left = `${x}px`;
+      g.style.top = `${y}px`;
+    }
+  }
+
+  // Find the bed label under the given screen point (beds carry data-bed).
+  function bedUnderPoint(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const bedEl = el?.closest?.("[data-bed]") as HTMLElement | null;
+    return bedEl?.dataset.bed ?? null;
+  }
+
+  function endTouchDrag() {
+    const st = touchStateRef.current;
+    if (st?.holdTimer) window.clearTimeout(st.holdTimer);
+    if (st?.ghost) st.ghost.remove();
+    touchStateRef.current = null;
+    setTouchOverBed(null);
+    window.removeEventListener("pointermove", onTouchMove);
+    window.removeEventListener("pointerup", onTouchUp);
+    window.removeEventListener("pointercancel", onTouchUp);
+  }
+
+  function onTouchMove(ev: PointerEvent) {
+    const st = touchStateRef.current;
+    if (!st?.dragging) return;
+    ev.preventDefault();
+    moveTouchGhost(ev.clientX, ev.clientY);
+    setTouchOverBed(bedUnderPoint(ev.clientX, ev.clientY));
+  }
+
+  function onTouchUp(ev: PointerEvent) {
+    const st = touchStateRef.current;
+    const wasDragging = !!st?.dragging;
+    const bed = wasDragging ? bedUnderPoint(ev.clientX, ev.clientY) : null;
+    endTouchDrag();
+    if (!wasDragging) return;
+    suppressClickRef.current = true; // stop the trailing click from navigating
+    if (bed) {
+      dropOnBed(bed);
+    } else {
+      onDragEndPatient();
+    }
+  }
+
+  // Start a candidate touch drag on pointerdown; only cards trigger this and
+  // only for touch pointers (mouse keeps using native HTML5 drag).
+  function onTouchDragStart(p: Patient, e: React.PointerEvent) {
+    if (e.pointerType !== "touch") return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    // Long-press to pick up, so vertical scrolling and taps still work.
+    const holdTimer = window.setTimeout(() => {
+      const st = touchStateRef.current;
+      if (!st) return;
+      st.dragging = true;
+      draggedRef.current = p;
+      setDraggedPatient(p);
+      st.ghost = makeTouchGhost(p);
+      moveTouchGhost(startX, startY);
+      try {
+        navigator.vibrate?.(15);
+      } catch {
+        /* vibrate unsupported */
+      }
+    }, 200);
+    touchStateRef.current = { dragging: false, holdTimer, ghost: null };
+    window.addEventListener("pointermove", onTouchMove, { passive: false });
+    window.addEventListener("pointerup", onTouchUp);
+    window.addEventListener("pointercancel", onTouchUp);
+  }
+
+
+
+
 
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
