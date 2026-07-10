@@ -628,8 +628,11 @@ function BedBoard({
   onAddToBed,
   dragging,
   draggedPatient,
+  touchOverBed,
   onDragStartPatient,
   onDragEndPatient,
+  onTouchDragStart,
+  suppressClickRef,
   onDropOnBed,
 }: {
   roster: Bed[];
@@ -638,8 +641,11 @@ function BedBoard({
   onAddToBed: (bed: string) => void;
   dragging: boolean;
   draggedPatient: Patient | null;
+  touchOverBed: string | null;
   onDragStartPatient: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient: () => void;
+  onTouchDragStart: (p: Patient, e: React.PointerEvent) => void;
+  suppressClickRef: React.MutableRefObject<boolean>;
   onDropOnBed: (bed: string) => void;
 }) {
   const occupied = roster.filter((b) => (bedOccupants.get(normalizeBed(b.label))?.length ?? 0) > 0).length;
