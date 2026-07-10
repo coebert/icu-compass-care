@@ -290,6 +290,134 @@ describe("bridge patient sync (e2e)", () => {
     expect(staleEdit.status, "stale write should be rejected with 409").toBe(409);
   }, 60_000);
 
+  it("transitions a patient from admitted to discharged, keeps the historical record visible, and stays editable after discharge", async () => {
+    const marker = `H-E2E-DISCHARGE-${Date.now()}`;
+
+    // 1. Admit the patient (status = admitted).
+    const create = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        full_name: "M.R.",
+        age: 66,
+        hospital_number: marker,
+        location_type: "icu",
+        ward: "Critical Care",
+        bed: "7",
+        status: "admitted",
+        admission_date: new Date().toISOString(),
+        current_management: "Ventilated, sedation weaning in progress",
+        outstanding_tasks: "Repeat ABG in the morning",
+      }),
+    );
+    expect(create.status, `create failed: ${create.text}`).toBe(200);
+    const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
+    expect(createdPatient, "create response missing `patient`").toBeTruthy();
+    const created = createdPatient as Record<string, unknown>;
+    const id = created.id as string;
+    expect(id, "created patient missing id").toBeTruthy();
+    expect(created.status).toBe("admitted");
+    expect(created.discharge_destination ?? null).toBeNull();
+
+    // The admitted record shows up in the "admitted" partner pull.
+    const admittedList = await bridge("GET", "/api/public/bridge/patients?status=admitted");
+    expect(admittedList.status, `admitted list failed: ${admittedList.text}`).toBe(200);
+    const admittedRows =
+      (admittedList.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    expect(
+      admittedRows.some((p) => p.id === id),
+      "newly admitted record not returned by the admitted partner pull",
+    ).toBe(true);
+
+    // 2. Transition the lifecycle: admitted -> discharged, recording the
+    //    discharge date and destination.
+    const dischargeDate = new Date().toISOString();
+    const discharge = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "M.R.",
+        status: "discharged",
+        expected_updated_at: created.updated_at,
+        discharge_date: dischargeDate,
+        discharge_destination: "Ward 4 (step-down)",
+      }),
+    );
+    expect(discharge.status, `discharge failed: ${discharge.text}`).toBe(200);
+    const dischargedPatient = (discharge.json as { patient?: Record<string, unknown> })?.patient;
+    expect(dischargedPatient, "discharge response missing `patient`").toBeTruthy();
+    const discharged = dischargedPatient as Record<string, unknown>;
+    expect(discharged.status).toBe("discharged");
+    expect(discharged.discharge_destination).toBe("Ward 4 (step-down)");
+    expect(discharged.discharge_date).toBeTruthy();
+    // The lifecycle change bumped the version timestamp.
+    expect(discharged.updated_at).not.toBe(created.updated_at);
+
+    // 3. Historical record remains visible: it now appears in the "discharged"
+    //    pull and has dropped out of the "admitted" pull (not deleted).
+    const dischargedList = await bridge("GET", "/api/public/bridge/patients?status=discharged");
+    expect(dischargedList.status, `discharged list failed: ${dischargedList.text}`).toBe(200);
+    const dischargedRows =
+      (dischargedList.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    const persisted = dischargedRows.find((p) => p.id === id);
+    expect(persisted, "discharged record not returned by the discharged partner pull").toBeTruthy();
+    const persistedRow = persisted as Record<string, unknown>;
+    expect(persistedRow.status).toBe("discharged");
+    expect(persistedRow.discharge_destination).toBe("Ward 4 (step-down)");
+    // Clinical history captured while admitted is retained after discharge.
+    expect(persistedRow.current_management).toBe("Ventilated, sedation weaning in progress");
+
+    const admittedAfter = await bridge("GET", "/api/public/bridge/patients?status=admitted");
+    expect(admittedAfter.status, `admitted re-pull failed: ${admittedAfter.text}`).toBe(200);
+    const admittedAfterRows =
+      (admittedAfter.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    expect(
+      admittedAfterRows.some((p) => p.id === id),
+      "discharged record must no longer appear in the admitted partner pull",
+    ).toBe(false);
+
+    // 4. The record stays editable after discharge — revise the clinical notes
+    //    and discharge destination on the discharged record.
+    const edit = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "M.R.",
+        status: "discharged",
+        expected_updated_at: persistedRow.updated_at,
+        discharge_destination: "Community rehabilitation unit",
+        current_management: "Discharge summary completed; GP follow-up arranged",
+      }),
+    );
+    expect(edit.status, `post-discharge edit failed: ${edit.text}`).toBe(200);
+    const editedPatient = (edit.json as { patient?: Record<string, unknown> })?.patient;
+    expect(editedPatient, "post-discharge edit response missing `patient`").toBeTruthy();
+    const edited = editedPatient as Record<string, unknown>;
+    expect(edited.status).toBe("discharged");
+    expect(edited.discharge_destination).toBe("Community rehabilitation unit");
+    expect(edited.current_management).toBe(
+      "Discharge summary completed; GP follow-up arranged",
+    );
+
+    // The post-discharge edit persists across the partner sync.
+    const finalList = await bridge("GET", "/api/public/bridge/patients?status=discharged");
+    expect(finalList.status, `final list failed: ${finalList.text}`).toBe(200);
+    const finalRows =
+      (finalList.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    const finalRow = finalRows.find((p) => p.id === id) as Record<string, unknown> | undefined;
+    expect(finalRow, "edited discharged record not returned by partner pull").toBeTruthy();
+    expect((finalRow as Record<string, unknown>).discharge_destination).toBe(
+      "Community rehabilitation unit",
+    );
+    expect((finalRow as Record<string, unknown>).current_management).toBe(
+      "Discharge summary completed; GP follow-up arranged",
+    );
+  }, 60_000);
+
+
+
   it("records a treatment escalation plan and DNACPR decision that persist after discharge and stay editable", async () => {
     const marker = `H-E2E-TEP-${Date.now()}`;
     const dnacprDate = "2026-07-10";
