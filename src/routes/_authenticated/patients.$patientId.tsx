@@ -281,6 +281,7 @@ function StatusTab({ patient }: { patient: Patient }) {
       qc.invalidateQueries({ queryKey: ["patient", patient.id] });
       qc.invalidateQueries({ queryKey: ["patients"] });
       qc.invalidateQueries({ queryKey: ["patient-audit", patient.id] });
+      qc.invalidateQueries({ queryKey: ["patient-field-changes", patient.id] });
       toast.success("Status updated");
     },
     onError: (e: Error) =>
