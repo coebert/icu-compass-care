@@ -8,9 +8,14 @@ import {
   addInvestigation,
   deleteInvestigation,
 } from "@/lib/investigations.functions";
+import {
+  listMicrobiology,
+  addMicrobiology,
+  deleteMicrobiology,
+} from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
-import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, fmtDate, fmtDateTime } from "@/lib/icu";
+import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
