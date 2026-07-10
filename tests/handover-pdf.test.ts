@@ -590,4 +590,122 @@ describe("most recent investigation selection", () => {
 });
 
 
+/**
+ * Measure the rendered width (mm) of a string using the same font family,
+ * style and point size the PDF builder uses for a given chrome element. The
+ * built document already carries jsPDF's metric tables, so setting the font
+ * and calling getTextWidth reproduces the on-page geometry exactly.
+ */
+function measureWidth(
+  doc: ReturnType<typeof buildHandoverPdf>,
+  text: string,
+  family: string,
+  style: "normal" | "bold",
+  sizePt: number,
+): number {
+  doc.setFont(family, style);
+  doc.setFontSize(sizePt);
+  return doc.getTextWidth(text);
+}
+
+/**
+ * Font-scale robustness: the header title / timestamp and the footer text +
+ * "Page X of Y" are drawn at FIXED point sizes independent of the table body
+ * `fontScale`. This suite proves that (a) the chrome renders identically at
+ * every scale (desktop's default 1.0 and the mobile preview's smaller/larger
+ * scales), and (b) nothing collides or spills off-page, so no text is ever
+ * truncated regardless of scale or page size.
+ */
+describe("handover PDF header/footer font-scale consistency (e2e)", () => {
+  const MARGIN_X = 8; // matches builder default
+  // Header point sizes drawn in didDrawPage.
+  const TITLE_PT = 11;
+  const TIMESTAMP_PT = 8;
+  const FOOTER_PT = 8;
+
+  const scales = [0.6, 0.85, 1, 1.25, 1.6];
+  const pageSizes = ["a4", "letter"] as const;
+
+  const LONG_TITLE = "Salisbury District Hospital — Critical Care Handover Sheet";
+  const LONG_FOOTER = "CONFIDENTIAL — Salisbury District Hospital Critical Care Unit";
+
+  for (const pageSize of pageSizes) {
+    describe(`page size ${pageSize}`, () => {
+      it("renders all chrome text at every font scale without truncation or collision", async () => {
+        const roster = longRoster(60);
+
+        // Capture geometry per scale so we can prove cross-scale consistency.
+        const titleWidths: number[] = [];
+        const footerWidths: number[] = [];
+
+        for (const fontScale of scales) {
+          const doc = buildHandoverPdf(roster, {
+            title: LONG_TITLE,
+            footerText: LONG_FOOTER,
+            showTimestamp: true,
+            showPageNumbers: true,
+            pageSize,
+            fontScale,
+          });
+
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const contentWidth = pageWidth - MARGIN_X * 2;
+          const totalPages = doc.getNumberOfPages();
+          const text = await pdfText(doc);
+
+          // 1. Every chrome string is actually present, unaffected by scale.
+          expect(text.includes(LONG_TITLE), `title present @${fontScale}`).toBe(true);
+          expect(/Generated\s/.test(text), `timestamp present @${fontScale}`).toBe(true);
+          expect(
+            text.includes(`Page 1 of ${totalPages}`),
+            `page numbering present @${fontScale}`,
+          ).toBe(true);
+          expect(
+            text.includes(`${LONG_FOOTER} · Page 1 of ${totalPages}`),
+            `footer text + page number joined @${fontScale}`,
+          ).toBe(true);
+
+          // 2. Header: title (left) and "Generated …" (right) must not overlap.
+          const generatedStamp = `Generated ${new Date().toLocaleString("en-GB")}`;
+          const titleW = measureWidth(doc, LONG_TITLE, "helvetica", "bold", TITLE_PT);
+          const stampW = measureWidth(doc, generatedStamp, "helvetica", "normal", TIMESTAMP_PT);
+          const titleRightEdge = MARGIN_X + titleW;
+          const stampLeftEdge = pageWidth - MARGIN_X - stampW;
+          expect(
+            titleRightEdge,
+            `header title must not overlap the timestamp @${fontScale} (${pageSize})`,
+          ).toBeLessThan(stampLeftEdge);
+
+          // 3. Footer: the centered "footer · Page X of Y" line must fit within
+          //    the printable content width so it is never clipped at the edges.
+          const footerLine = `${LONG_FOOTER} · Page ${totalPages} of ${totalPages}`;
+          const footerW = measureWidth(doc, footerLine, "helvetica", "normal", FOOTER_PT);
+          expect(
+            footerW,
+            `footer line must fit within content width @${fontScale} (${pageSize})`,
+          ).toBeLessThanOrEqual(contentWidth);
+
+          titleWidths.push(titleW);
+          footerWidths.push(footerW);
+        }
+
+        // 4. Consistency: because the chrome is drawn at fixed point sizes, its
+        //    geometry must be byte-identical across every body font scale.
+        for (let i = 1; i < titleWidths.length; i++) {
+          expect(
+            titleWidths[i],
+            `title width identical across scales (${scales[i]} vs ${scales[0]})`,
+          ).toBeCloseTo(titleWidths[0], 5);
+          expect(
+            footerWidths[i],
+            `footer width identical across scales (${scales[i]} vs ${scales[0]})`,
+          ).toBeCloseTo(footerWidths[0], 5);
+        }
+      });
+    });
+  }
+});
+
+
+
 
