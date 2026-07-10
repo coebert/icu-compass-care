@@ -150,6 +150,7 @@ export const createPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => patientInput.parse(input))
   .handler(async ({ context, data }) => {
+    validatePatientState(clean(data as Record<string, unknown>));
     const { data: row, error } = await context.supabase
       .from("patients")
       .insert({ ...clean(data as Record<string, unknown>), created_by: context.userId, updated_by: context.userId } as never)
