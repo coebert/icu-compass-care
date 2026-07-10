@@ -154,11 +154,12 @@ def open_status_tab(page):
 def pick_today(page):
     """Open the discharge-date DatePicker popover and select today's date."""
     page.get_by_role("button", name="DD/MM/YYYY").click()
-    # Click today's day-of-month cell inside the react-day-picker grid.
-    day_num = str(datetime.now(timezone.utc).day)
-    grid = page.get_by_role("grid")
-    expect(grid).to_be_visible(timeout=5000)
-    grid.get_by_role("button", name=day_num, exact=True).first.click()
+    # Each day cell carries data-day = JS toLocaleDateString() (e.g. "7/10/2026").
+    now = datetime.now(timezone.utc)
+    data_day = f"{now.month}/{now.day}/{now.year}"
+    cell = page.locator(f"button[data-day='{data_day}']").first
+    expect(cell).to_be_visible(timeout=5000)
+    cell.click()
 
 
 def main():
