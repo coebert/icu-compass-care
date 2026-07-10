@@ -2,12 +2,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSyncStatus, runBridgeSyncFn, type SyncStatus } from "@/lib/sync.functions";
 import type { SyncRunResult } from "@/lib/bridge-sync.server";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,7 +55,9 @@ export function SyncStatusPanel({
 
   if (isLoading) {
     return (
-      <span className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
+      <span
+        className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground", className)}
+      >
         <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Sync…
       </span>
     );
