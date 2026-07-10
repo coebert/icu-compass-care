@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileDown, X } from "lucide-react";
+import { FileDown, Save, Trash2, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
   downloadHandoverFromUrl,
@@ -27,6 +27,13 @@ import {
   type HandoverPdfOptions,
   type HandoverPageSize,
 } from "@/lib/handover-pdf";
+import {
+  loadHandoverPresets,
+  saveHandoverPreset,
+  deleteHandoverPreset,
+  type HandoverPreset,
+} from "@/lib/handover-presets";
+import { toast } from "sonner";
 
 
 /**
