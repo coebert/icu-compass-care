@@ -235,6 +235,11 @@ function PatientDetail() {
           <InvestigationsTab patientId={patientId} />
         </TabsContent>
 
+        <TabsContent value="microbiology" className="mt-4">
+          <MicrobiologyTab patientId={patientId} />
+        </TabsContent>
+
+
         <TabsContent value="status" className="mt-4">
           <StatusTab patient={patient} />
         </TabsContent>
