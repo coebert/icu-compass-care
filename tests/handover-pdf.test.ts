@@ -1,6 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { buildHandoverPdf, formatHandoverFilename, type HandoverPatient } from "@/lib/handover-pdf";
 
+/**
+ * Decode the readable text content of a jsPDF document. jsPDF writes text as
+ * uncompressed `(...) Tj` operators, so the drawn strings (title, subtitle,
+ * timestamp, footer, page numbers) appear verbatim in the raw bytes.
+ */
+async function pdfText(doc: ReturnType<typeof buildHandoverPdf>): Promise<string> {
+  const bytes = new Uint8Array(await (doc.output("blob") as Blob).arrayBuffer());
+  return new TextDecoder("latin1").decode(bytes);
+}
+
 
 /**
  * End-to-end test for the landscape handover PDF export.
@@ -117,6 +127,77 @@ describe("handover PDF export (e2e)", () => {
     const filename = formatHandoverFilename("Critical Care", "{title}-{date}", generatedAt);
 
     expect(filename).toBe("Critical_Care-2026-07-10.pdf");
+  });
+
+  it("renders the custom header/footer options into the PDF text content", async () => {
+    // Enough patients to force the table across more than one page so the
+    // "Page X of Y" numbering can be verified for a multi-page document.
+    const many: HandoverPatient[] = Array.from({ length: 60 }, (_, i) => ({
+      full_name: `Patient ${i + 1}`,
+      age: 40 + (i % 40),
+      hospital_number: `H-${i + 1}`,
+      ward: "ICU",
+      bed: String(i + 1),
+      status: "admitted",
+      admission_date: new Date().toISOString(),
+      past_medical_history: "COPD, hypertension, chronic kidney disease stage 3",
+      current_admission: "Severe community-acquired pneumonia with respiratory failure",
+      current_management: "HFNO, broad-spectrum antibiotics, hourly observations",
+      outstanding_tasks: "Chase cultures; repeat ABG; family update; physio review",
+    }));
+
+    const doc = buildHandoverPdf(many, {
+      title: "Night ICU Handover",
+      subtitle: "Salisbury Critical Care Unit",
+      footerText: "Confidential do not distribute",
+      showTimestamp: true,
+      showPageNumbers: true,
+    });
+
+    const totalPages = doc.getNumberOfPages();
+    expect(totalPages, "sample should span multiple pages").toBeGreaterThan(1);
+
+    const text = await pdfText(doc);
+
+    // Custom title and subtitle.
+    expect(text.includes("Night ICU Handover"), "title should appear").toBe(true);
+    expect(text.includes("Salisbury Critical Care Unit"), "subtitle should appear").toBe(true);
+
+    // Generated timestamp stamp.
+    expect(/Generated\s/.test(text), "generated timestamp should appear").toBe(true);
+
+    // Custom footer text.
+    expect(text.includes("Confidential do not distribute"), "footer should appear").toBe(true);
+
+    // Page numbering: first page and resolved total (not the placeholder token).
+    expect(text.includes(`Page 1 of ${totalPages}`), "page 1 numbering").toBe(true);
+    expect(text.includes(`Page ${totalPages} of ${totalPages}`), "last page numbering").toBe(true);
+    expect(text.includes("{{TOTAL_PAGES}}"), "placeholder must be resolved").toBe(false);
+  });
+
+  it("omits the timestamp and page numbers when those toggles are off", async () => {
+    const doc = buildHandoverPdf(
+      [
+        {
+          full_name: "A.B.",
+          status: "admitted",
+          admission_date: new Date().toISOString(),
+        },
+      ],
+      {
+        title: "Day Handover",
+        footerText: "Ward round summary",
+        showTimestamp: false,
+        showPageNumbers: false,
+      },
+    );
+
+    const text = await pdfText(doc);
+
+    expect(text.includes("Day Handover"), "title still renders").toBe(true);
+    expect(text.includes("Ward round summary"), "footer still renders").toBe(true);
+    expect(/Generated\s/.test(text), "timestamp suppressed").toBe(false);
+    expect(/Page \d+ of/.test(text), "page numbers suppressed").toBe(false);
   });
 
 });
