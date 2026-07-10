@@ -33,11 +33,11 @@ function flags(p: HandoverPatient): string {
 }
 
 /**
- * Build and download a landscape A4 handover sheet. Every patient becomes one
+ * Build a landscape A4 handover sheet document. Every patient becomes one
  * row in a printable table; long free-text fields wrap within their column so
  * each patient's information is scaled to fit on the sheet across pages.
  */
-export function exportHandoverPdf(patients: HandoverPatient[], opts?: { title?: string }): void {
+export function buildHandoverPdf(patients: HandoverPatient[], opts?: { title?: string }): jsPDF {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const generated = new Date().toLocaleString("en-GB");
