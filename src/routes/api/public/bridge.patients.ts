@@ -60,6 +60,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
         const { data, error } = await query;
         if (error) return json({ error: error.message }, 500);
+        await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ patients: data });
       },
 
