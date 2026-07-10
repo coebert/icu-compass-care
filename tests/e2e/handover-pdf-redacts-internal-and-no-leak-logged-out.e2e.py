@@ -146,7 +146,7 @@ def create_patient(owner_uid):
             "ward": "Critical Care",
             "bed": "3",
             "status": "admitted",
-            "admission_date": datetime.utcnow().date().isoformat(),
+            "admission_date": datetime.now().date().isoformat(),
             "past_medical_history": PMH,
             "current_management": MGMT,
             "dnacpr_decision": True,
