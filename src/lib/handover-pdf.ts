@@ -51,7 +51,16 @@ export type HandoverPdfOptions = {
   marginX?: number;
   /** Font scale multiplier for the table body. Default 1 (7pt). */
   fontScale?: number;
+  /**
+   * Download filename format. Placeholders:
+   *   {title}     - the configured header title, sanitised for a filename
+   *   {timestamp} - ISO-style timestamp, e.g. "2026-07-10-16-45"
+   *   {date}      - date only, e.g. "2026-07-10"
+   * Default: "{title} - {timestamp}.pdf"
+   */
+  filenameFormat?: string;
 };
+
 
 const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
