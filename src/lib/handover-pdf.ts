@@ -42,7 +42,12 @@ function flags(p: HandoverPatient): string {
   const f: string[] = [];
   if (p.dnacpr_decision) f.push(`DNACPR${p.dnacpr_details ? `: ${p.dnacpr_details}` : ""}`);
   if (p.tep_in_place) f.push(`TEP${p.tep_details ? `: ${p.tep_details}` : ""}`);
-  if (p.nok_name) f.push(`NOK: ${p.nok_name}${p.nok_relationship ? ` (${p.nok_relationship})` : ""}${p.nok_contact ? ` ${p.nok_contact}` : ""}`);
+  if (p.nok_name) {
+    const spoken = p.nok_last_updated
+      ? ` [Spoken to ${fmtDateTime(p.nok_last_updated)}${p.nok_last_updated_by ? ` by ${p.nok_last_updated_by}` : ""}]`
+      : "";
+    f.push(`NOK: ${p.nok_name}${p.nok_relationship ? ` (${p.nok_relationship})` : ""}${p.nok_contact ? ` ${p.nok_contact}` : ""}${spoken}`);
+  }
   return f.length ? f.join("\n") : "—";
 }
 
