@@ -53,6 +53,11 @@ function PatientsBoard() {
     queryFn: () => list() as Promise<Patient[]>,
   });
 
+  const { data: bedRoster = [] } = useQuery({
+    queryKey: ["beds"],
+    queryFn: () => beds() as Promise<Bed[]>,
+  });
+
   const createMut = useMutation({
     mutationFn: (v: PatientFormValues) => create({ data: v as never }),
     onSuccess: () => {
