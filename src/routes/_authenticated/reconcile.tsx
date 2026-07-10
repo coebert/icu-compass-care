@@ -101,18 +101,19 @@ function ReconcilePage() {
             reconcile any mismatches.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto gap-1.5"
-          onClick={() => qc.invalidateQueries({ queryKey: ["reconciliation"] })}
-          disabled={isFetching}
-        >
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
-        </Button>
+        <div className="ml-auto flex items-center gap-3">
+          <SyncStatusPanel />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => qc.invalidateQueries({ queryKey: ["reconciliation"] })}
+            disabled={isFetching}
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
       </div>
-
-      <SyncStatusPanel />
 
       <BridgeHealthCheck />
 

@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSyncStatus, type SyncStatus } from "@/lib/sync.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 
 function relTime(iso: string | null): string {
@@ -17,6 +21,11 @@ function relTime(iso: string | null): string {
   return d.toLocaleString();
 }
 
+/**
+ * Compact cross-project sync indicator intended to sit inline in a page
+ * header. Shows last successful sync at a glance, flags the last error, and
+ * exposes full detail on hover — deliberately low-prominence.
+ */
 export function SyncStatusPanel() {
   const fetchStatus = useServerFn(getSyncStatus);
   const { data, isLoading, error } = useQuery({
@@ -26,68 +35,58 @@ export function SyncStatusPanel() {
     refetchInterval: 60_000,
   });
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          Cross-project sync status
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading sync status…</p>
-        ) : error ? (
-          <p className="text-sm text-muted-foreground">
-            You do not have permission to view sync status.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-md border p-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Last successful sync
-              </div>
-              <p className="mt-1 text-lg font-semibold">
-                {relTime(data?.lastSuccess?.created_at ?? null)}
-              </p>
-              {data?.lastSuccess ? (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {data.lastSuccess.direction} · {data.lastSuccess.entity} ·{" "}
-                  {data.lastSuccess.record_count} record
-                  {data.lastSuccess.record_count === 1 ? "" : "s"}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-xs text-muted-foreground">No syncs recorded yet.</p>
-              )}
-            </div>
+  if (isLoading) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Sync…
+      </span>
+    );
+  }
 
-            <div className="rounded-md border p-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <AlertTriangle
-                  className={`h-4 w-4 ${data?.lastError ? "text-destructive" : "text-muted-foreground"}`}
-                />
-                Last error
-              </div>
-              {data?.lastError ? (
-                <>
-                  <p className="mt-1 flex items-center gap-2">
-                    <Badge variant="destructive">{relTime(data.lastError.created_at)}</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {data.lastError.direction} · {data.lastError.entity}
-                    </span>
-                  </p>
-                  <p className="mt-1 max-w-full truncate text-xs text-destructive" title={data.lastError.error_message ?? ""}>
-                    {data.lastError.error_message || "Unknown error"}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1 text-lg font-semibold text-emerald-600">None</p>
-              )}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+  if (error) return null;
+
+  const hasError = !!data?.lastError;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={`inline-flex cursor-default items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
+              hasError
+                ? "border-destructive/40 text-destructive"
+                : "text-muted-foreground"
+            }`}
+          >
+            {hasError ? (
+              <AlertTriangle className="h-3.5 w-3.5" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            )}
+            Sync {relTime(data?.lastSuccess?.created_at ?? null)}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs space-y-1">
+          <p className="font-medium">Cross-project sync</p>
+          {data?.lastSuccess ? (
+            <p className="text-xs">
+              Last success {relTime(data.lastSuccess.created_at)} — {data.lastSuccess.direction} ·{" "}
+              {data.lastSuccess.entity} · {data.lastSuccess.record_count} record
+              {data.lastSuccess.record_count === 1 ? "" : "s"}
+            </p>
+          ) : (
+            <p className="text-xs">No syncs recorded yet.</p>
+          )}
+          {hasError ? (
+            <p className="text-xs text-destructive">
+              Last error {relTime(data!.lastError!.created_at)} — {data!.lastError!.direction} ·{" "}
+              {data!.lastError!.entity}: {data!.lastError!.error_message || "Unknown error"}
+            </p>
+          ) : (
+            <p className="text-xs text-emerald-600">No errors.</p>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
