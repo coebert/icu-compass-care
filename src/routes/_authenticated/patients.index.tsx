@@ -51,9 +51,11 @@ function PatientsBoard() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
 
-  // Currently dragged patient (kept in a ref so drop handlers read the latest).
+  // Currently dragged patient (kept in a ref so drop handlers read the latest,
+  // plus in state so the bed board can flag ineligible beds while dragging).
   const draggedRef = useRef<Patient | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [draggedPatient, setDraggedPatient] = useState<Patient | null>(null);
+  const dragging = draggedPatient !== null;
 
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
