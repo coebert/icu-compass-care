@@ -210,10 +210,10 @@ def main():
 
         # Two Bloods results: an OLDER one that must be superseded, and a NEWER
         # one that must appear as the "most recent" Bloods line.
-        add_investigation(patient_id, "Bloods", BLOODS_OLD, iso(now - timedelta(days=2)))
-        add_investigation(patient_id, "Bloods", BLOODS_NEW, iso(now - timedelta(hours=1)))
-        add_investigation(patient_id, "CXR", CXR_NEW, iso(now - timedelta(hours=3)))
-        add_investigation(patient_id, "CT chest", CT_NEW, iso(now - timedelta(hours=5)))
+        add_investigation(patient_id, "Bloods", BLOODS_OLD, iso(BLOODS_OLD_AT))
+        add_investigation(patient_id, "Bloods", BLOODS_NEW, iso(BLOODS_NEW_AT))
+        add_investigation(patient_id, "CXR", CXR_NEW, iso(CXR_NEW_AT))
+        add_investigation(patient_id, "CT chest", CT_NEW, iso(CT_NEW_AT))
 
         session = sign_in(email)
 
@@ -222,6 +222,7 @@ def main():
             context = browser.new_context(
                 viewport={"width": 1280, "height": 1800},
                 accept_downloads=True,
+                timezone_id=TZ_ID,
             )
             page = context.new_page()
 
