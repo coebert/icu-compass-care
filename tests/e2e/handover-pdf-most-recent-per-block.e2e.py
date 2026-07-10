@@ -88,6 +88,18 @@ BLOCKS = {
     ],
 }
 
+# Microbiology results keyed by specimen type; oldest -> newest per specimen.
+MICRO = {
+    "Blood culture": [
+        (f"MBCOLD{SUFFIX}", now - timedelta(days=2)),
+        (f"MBCNEW{SUFFIX}", now - timedelta(hours=4)),
+    ],
+    "Urine": [
+        (f"MUROLD{SUFFIX}", now - timedelta(days=1)),
+        (f"MURNEW{SUFFIX}", now - timedelta(hours=5)),
+    ],
+}
+
 
 def admin_headers():
     return {
