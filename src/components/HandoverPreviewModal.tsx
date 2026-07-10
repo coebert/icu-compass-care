@@ -217,8 +217,8 @@ export function HandoverPreviewModal({
           >
             <FileDown className="h-4 w-4" /> Download PDF
           </Button>
-
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
