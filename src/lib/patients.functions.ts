@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { writeAudit } from "@/lib/audit";
 
 const patientInput = z.object({
   full_name: z.string().trim().min(1).max(200),
