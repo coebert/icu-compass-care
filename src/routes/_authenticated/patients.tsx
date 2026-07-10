@@ -102,7 +102,7 @@ function PatientsBoard() {
         </div>
       </div>
 
-      <SyncStatusPanel />
+
 
 
       {isLoading ? (
