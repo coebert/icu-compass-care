@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      bridge_sync_events: {
+        Row: {
+          actor_email: string | null
+          actor_role: string | null
+          created_at: string
+          direction: string
+          entity: string
+          id: string
+          record_count: number
+        }
+        Insert: {
+          actor_email?: string | null
+          actor_role?: string | null
+          created_at?: string
+          direction: string
+          entity: string
+          id?: string
+          record_count?: number
+        }
+        Update: {
+          actor_email?: string | null
+          actor_role?: string | null
+          created_at?: string
+          direction?: string
+          entity?: string
+          id?: string
+          record_count?: number
+        }
+        Relationships: []
+      }
       investigations: {
         Row: {
           category: string
