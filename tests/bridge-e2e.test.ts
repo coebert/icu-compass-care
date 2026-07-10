@@ -290,3 +290,103 @@ describe("bridge patient sync (e2e)", () => {
     expect(staleEdit.status, "stale write should be rejected with 409").toBe(409);
   }, 60_000);
 });
+
+describe("bridge patient endpoints reject unauthenticated / unauthorized callers", () => {
+  beforeAll(() => {
+    if (!SECRET) {
+      throw new Error(
+        "HANDOVER_API_SECRET is required to run the bridge e2e test. " +
+          "Set it in the environment before running vitest.",
+      );
+    }
+  });
+
+  // Raw fetch that lets us omit or corrupt individual auth headers.
+  async function rawFetch(
+    method: "GET" | "POST",
+    path: string,
+    headers: Record<string, string>,
+    body = "",
+  ) {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: { "User-Agent": BROWSER_UA, ...headers },
+      ...(body ? { body } : {}),
+    });
+    return { status: res.status, text: await res.text() };
+  }
+
+  const SAMPLE_BODY = JSON.stringify({ full_name: "N.A.", age: 50, status: "referred" });
+
+  it("returns 401 when no authentication headers are supplied", async () => {
+    const get = await rawFetch("GET", "/api/public/bridge/patients", {});
+    expect(get.status, `GET without auth: ${get.text}`).toBe(401);
+
+    const post = await rawFetch(
+      "POST",
+      "/api/public/bridge/patients",
+      { "Content-Type": "application/json" },
+      SAMPLE_BODY,
+    );
+    expect(post.status, `POST without auth: ${post.text}`).toBe(401);
+  }, 30_000);
+
+  it("returns 401 when the signature is invalid", async () => {
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const actor = JSON.stringify({
+      id: "00000000-0000-0000-0000-000000000001",
+      email: "bridge-e2e@sdh.nhs",
+      role: "admin",
+    });
+    const badHeaders = {
+      "x-timestamp": timestamp,
+      "x-actor": actor,
+      "x-signature": "deadbeef".repeat(8), // not a valid HMAC of the payload
+    };
+
+    const get = await rawFetch("GET", "/api/public/bridge/patients", badHeaders);
+    expect(get.status, `GET bad signature: ${get.text}`).toBe(401);
+
+    const post = await rawFetch(
+      "POST",
+      "/api/public/bridge/patients",
+      { ...badHeaders, "Content-Type": "application/json" },
+      SAMPLE_BODY,
+    );
+    expect(post.status, `POST bad signature: ${post.text}`).toBe(401);
+  }, 30_000);
+
+  it("returns 403 when a correctly-signed caller has an unauthorized role", async () => {
+    // Signed with the real secret, but the forwarded actor has a role the
+    // bridge does not recognise, so it must be rejected as forbidden (403)
+    // rather than unauthenticated (401).
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const actor = JSON.stringify({
+      id: "00000000-0000-0000-0000-000000000009",
+      email: "outsider@sdh.nhs",
+      role: "viewer", // not in READ_ROLES / WRITE_ROLES
+    });
+
+    const getSig = sign(timestamp, actor, "");
+    const get = await rawFetch("GET", "/api/public/bridge/patients", {
+      "x-timestamp": timestamp,
+      "x-actor": actor,
+      "x-signature": getSig,
+    });
+    expect(get.status, `GET unauthorized role: ${get.text}`).toBe(403);
+
+    const postSig = sign(timestamp, actor, SAMPLE_BODY);
+    const post = await rawFetch(
+      "POST",
+      "/api/public/bridge/patients",
+      {
+        "x-timestamp": timestamp,
+        "x-actor": actor,
+        "x-signature": postSig,
+        "Content-Type": "application/json",
+      },
+      SAMPLE_BODY,
+    );
+    expect(post.status, `POST unauthorized role: ${post.text}`).toBe(403);
+  }, 30_000);
+});
