@@ -72,14 +72,19 @@ function PatientDetail() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: PatientFormValues) => update({ data: { id: patientId, ...v } as never }),
+    mutationFn: (v: PatientFormValues) =>
+      update({ data: { id: patientId, expected_updated_at: patient?.updated_at, ...v } as never }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patientId] });
       qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
       setEditing(false);
       toast.success("Patient updated");
     },
-    onError: (e: Error) => toast.error("Update failed", { description: e.message }),
+    onError: (e: Error) =>
+      e.message.startsWith("CONFLICT:")
+        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
+        : toast.error("Update failed", { description: e.message }),
   });
 
   const deleteMut = useMutation({
