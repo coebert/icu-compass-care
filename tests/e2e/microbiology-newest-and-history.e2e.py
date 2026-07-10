@@ -211,6 +211,7 @@ def main():
         # Split on the "Full history" heading: text before it is the latest cards.
         head = full_body.split("Full history")[0]
         head_packed = "".join(head.split())
+        import pathlib as _p; _p.Path("/tmp/micro_head.txt").write_text(head); _p.Path("/tmp/micro_body.txt").write_text(full_body)
         for specimen, (old, new) in CASES.items():
             assert new in head_packed, (
                 f"{specimen}: newest finding '{new}' not shown in the 'Latest' cards"
