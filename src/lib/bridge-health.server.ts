@@ -39,6 +39,7 @@ export type BridgeHealthResult = {
     partnerUrlConfigured: boolean;
     secretConfigured: boolean;
     partnerHost: string | null;
+    rotationWindowActive: boolean; // a previous secret is also accepted right now
   };
   signatureAuth: {
     validAccepted: boolean; // a correctly signed request succeeds
