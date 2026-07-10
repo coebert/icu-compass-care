@@ -343,6 +343,11 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
           </Badge>
         )}
         {p.tep_in_place && <Badge variant="outline">TEP</Badge>}
+        {p.isolation_required && (
+          <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300">
+            <BedDouble className="h-3 w-3" /> Isolation
+          </Badge>
+        )}
       </div>
       {p.outstanding_tasks && (
         <p className="line-clamp-2 text-xs text-muted-foreground">
