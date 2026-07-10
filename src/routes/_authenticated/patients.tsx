@@ -29,6 +29,7 @@ function PatientsBoard() {
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
 
   const { data: patients = [], isLoading } = useQuery({
