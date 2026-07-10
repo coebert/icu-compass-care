@@ -14,12 +14,17 @@ export type SyncEvent = {
   created_at: string;
 };
 
+export type SyncConfig = {
+  intervalMinutes: number;
+};
+
 export type SyncStatus = {
   lastSuccess: SyncEvent | null;
   lastError: SyncEvent | null;
   lastPush: SyncEvent | null;
   lastPull: SyncEvent | null;
   recent: SyncEvent[];
+  config: SyncConfig;
 };
 
 // Returns the most recent bridge sync activity for the "Sync status" panel.
@@ -34,12 +39,17 @@ export const getSyncStatus = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const events = (data ?? []) as SyncEvent[];
+    const intervalMinutes = Number(process.env.BRIDGE_SYNC_INTERVAL_MINUTES);
     return {
       lastSuccess: events.find((e) => e.status !== "error") ?? null,
       lastError: events.find((e) => e.status === "error") ?? null,
       lastPush: events.find((e) => e.direction === "push") ?? null,
       lastPull: events.find((e) => e.direction === "pull") ?? null,
       recent: events.slice(0, 8),
+      config: {
+        intervalMinutes:
+          Number.isFinite(intervalMinutes) && intervalMinutes > 0 ? intervalMinutes : 15,
+      },
     };
   });
 
