@@ -18,7 +18,17 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
+// Startup schema guard: on the first server request per worker instance this
+// validates the connected database against the app's required schema and fails
+// fast with a clear error if a table/column is missing (memoized after success).
+// Dynamically imported so the server-only validator never enters the client bundle.
+const schemaGuardMiddleware = createMiddleware().server(async ({ next }) => {
+  const { assertSchema } = await import("./lib/schema-validation.server");
+  await assertSchema();
+  return next();
+});
+
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
-  requestMiddleware: [errorMiddleware],
+  requestMiddleware: [errorMiddleware, schemaGuardMiddleware],
 }));
