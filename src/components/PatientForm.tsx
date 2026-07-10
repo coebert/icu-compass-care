@@ -29,6 +29,14 @@ export type PatientFormValues = {
   current_admission: string;
   current_management: string;
   outstanding_tasks: string;
+  systems_resp: string;
+  systems_cvs: string;
+  systems_neuro: string;
+  systems_renal: string;
+  systems_gastro: string;
+  systems_haem: string;
+  systems_micro: string;
+  systems_other: string;
   isolation_required: boolean;
   tep_in_place: boolean;
   tep_details: string;
