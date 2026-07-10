@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
-import { exportHandoverPdf } from "@/lib/handover-pdf";
+import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 
 export const Route = createFileRoute("/_authenticated/patients")({
   component: PatientsBoard,
@@ -29,6 +29,7 @@ function PatientsBoard() {
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
 
   const { data: patients = [], isLoading } = useQuery({
@@ -91,14 +92,9 @@ function PatientsBoard() {
             variant="outline"
             className="gap-1.5"
             disabled={filtered.length === 0}
-            onClick={() => {
-              exportHandoverPdf(filtered, {
-                title: showArchived ? "ICU Handover — Archived" : "ICU Handover Sheet",
-              });
-              toast.success("Handover PDF exported");
-            }}
+            onClick={() => setPreviewOpen(true)}
           >
-            <FileDown className="h-4 w-4" /> Export PDF
+            <FileDown className="h-4 w-4" /> Preview PDF
           </Button>
           <Button onClick={() => setOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> Add patient
@@ -122,6 +118,15 @@ function PatientsBoard() {
           <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
         </div>
       )}
+
+      <HandoverPreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        patients={filtered}
+        title={showArchived ? "ICU Handover — Archived" : "ICU Handover Sheet"}
+      />
+
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
