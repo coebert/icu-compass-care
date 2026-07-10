@@ -239,6 +239,8 @@ function PatientsBoard() {
       { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
     ];
 
+    let summary = `${dragged.full_name ?? "Patient"} moved to ${targetLabel}.`;
+
     if (occupant) {
       // Swap only makes sense when the dragged patient vacates a real ICU bed.
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
@@ -252,10 +254,12 @@ function PatientsBoard() {
           return;
         }
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
+        const fromLabel = isSideRoom(dragged.bed, bedRoster) ? dragged.bed : `Bed ${dragged.bed}`;
+        summary = `${dragged.full_name ?? "Patient"} and ${occupant.full_name ?? "patient"} swapped between ${fromLabel} and ${targetLabel}.`;
       }
     }
 
-    moveMut.mutate(moves);
+    moveMut.mutate({ moves, summary });
   }
 
   return (
