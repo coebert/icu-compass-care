@@ -189,11 +189,23 @@ def extract_pdf_text(pdf_path):
     return out.stdout, "".join(out.stdout.split())
 
 
-def window(packed, name, span=200):
-    """Return the packed-text slice starting at a patient's name."""
+ALL_NAMES = [NAME_BOTH, NAME_DNACPR, NAME_TEP, NAME_NEITHER]
+
+
+def window(packed, name, span=300):
+    """Return the packed-text slice for a patient's row, bounded by the next
+    of our seeded patient names so it never bleeds into an adjacent row."""
     i = packed.find(name)
     assert i != -1, f"patient row '{name}' not found in PDF"
-    return packed[i:i + span]
+    start = i + len(name)
+    end = i + span
+    for other in ALL_NAMES:
+        if other == name:
+            continue
+        j = packed.find(other, start)
+        if j != -1:
+            end = min(end, j)
+    return packed[start:end]
 
 
 def main():
