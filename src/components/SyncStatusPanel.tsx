@@ -26,7 +26,7 @@ function relTime(iso: string | null): string {
  * header. Shows last successful sync at a glance, flags the last error, and
  * exposes full detail on hover — deliberately low-prominence.
  */
-export function SyncStatusPanel() {
+export function SyncStatusPanel({ className }: { className?: string } = {}) {
   const fetchStatus = useServerFn(getSyncStatus);
   const { data, isLoading, error } = useQuery({
     queryKey: ["sync-status"],
