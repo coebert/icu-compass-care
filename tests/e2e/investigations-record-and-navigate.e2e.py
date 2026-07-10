@@ -218,7 +218,7 @@ def main():
 
             overview = page.get_by_role("tabpanel")
             expect(
-                page.get_by_role("heading", name="Most recent investigations")
+                page.get_by_text("Most recent investigations", exact=True)
             ).to_be_visible(timeout=15000)
             for category, (old_find, new_find) in CASES.items():
                 expect(overview.get_by_text(new_find, exact=False)).to_be_visible(
@@ -256,7 +256,7 @@ def main():
             overview_tab.click()
             expect(overview_tab).to_have_attribute("data-state", "active", timeout=10000)
             expect(
-                page.get_by_role("heading", name="Most recent investigations")
+                page.get_by_text("Most recent investigations", exact=True)
             ).to_be_visible(timeout=10000)
 
             browser.close()
