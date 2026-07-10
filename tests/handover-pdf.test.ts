@@ -558,7 +558,63 @@ describe("handover filename sanitization", () => {
     expect(filename).toBe("Night_ICU_Handover_2026-07-10.pdf");
     expect(isContentDispositionSafe(filename)).toBe(true);
   });
+
+
+
+  it("preserves non-ASCII letters, accents and scripts", () => {
+    // Accented Latin, German eszett, Greek, Cyrillic, CJK, emoji.
+    const cases: Array<[string, string]> = [
+      ["Réanimation Handover", "Réanimation_Handover.pdf"],
+      ["Intensivstation Übergabe", "Intensivstation_Übergabe.pdf"],
+      ["Passação de plantão UTI", "Passação_de_plantão_UTI.pdf"],
+      ["Παράδοση ΜΕΘ", "Παράδοση_ΜΕΘ.pdf"],
+      ["Передача смены", "Передача_смены.pdf"],
+      ["集中治療 申し送り", "集中治療_申し送り.pdf"],
+    ];
+    for (const [input, expected] of cases) {
+      const safe = sanitizeContentDispositionFilename(input);
+      expect(safe, `for input ${JSON.stringify(input)}`).toBe(expected);
+      // The non-ASCII characters must survive verbatim.
+      for (const ch of input.replace(/\s+/g, "")) {
+        expect(safe.includes(ch), `char ${JSON.stringify(ch)} preserved`).toBe(true);
+      }
+      expect(isContentDispositionSafe(safe)).toBe(true);
+    }
+  });
+
+  it("keeps non-ASCII while still removing unsafe characters around it", () => {
+    const safe = sanitizeContentDispositionFilename('Réa/UTI:"Nuit" — Übergabe');
+    // Accented characters and the em dash are preserved…
+    expect(safe.includes("é")).toBe(true);
+    expect(safe.includes("Ü")).toBe(true);
+    expect(safe.includes("—")).toBe(true);
+    // …but path/quote/OS-illegal characters are gone.
+    expect(/[/\\:*?"<>|]/.test(safe)).toBe(false);
+    expect(isContentDispositionSafe(safe)).toBe(true);
+    expect(safe.endsWith(".pdf")).toBe(true);
+  });
+
+  it("yields a valid quoted Content-Disposition value for a non-ASCII name", () => {
+    const filename = sanitizeContentDispositionFilename("Réanimation — Übergabe");
+
+    // Non-ASCII survives into the final assembled filename.
+    expect(filename.includes("é")).toBe(true);
+    expect(filename.includes("Ü")).toBe(true);
+    expect(isContentDispositionSafe(filename)).toBe(true);
+
+    // The quoted-string form has exactly one opening + one closing quote and
+    // introduces no CR/LF that could split the header.
+    const header = `attachment; filename="${filename}"`;
+    expect(header.split('"').length).toBe(3);
+    expect(/[\r\n]/.test(header)).toBe(false);
+
+    // The bytes are legal in an HTTP token/quoted-string context: they encode
+    // cleanly (a real server pairs this with a filename* UTF-8 form, but the
+    // ASCII-quoted fallback must not itself be malformed).
+    expect(() => encodeURIComponent(filename)).not.toThrow();
+  });
 });
+
 
 describe("most recent investigation selection", () => {
   it("picks the newest entry per category, ignoring array order", () => {
