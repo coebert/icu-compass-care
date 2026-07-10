@@ -369,7 +369,7 @@ describe("handover PDF key microbiology section (e2e)", () => {
         { specimen_type: "Urine", findings: "URLATEST", result_at: "2026-07-09T11:30:00.000Z" },
         { specimen_type: "Urine", findings: "UROLDER", result_at: "2026-07-04T08:45:00.000Z" },
         // CSF — single entry.
-        { specimen_type: "CSF", findings: "CSFONLY", result_at: "2026-07-05T13:20:00.000Z" },
+        { specimen_type: "CSF", findings: "CEREBROMARK", result_at: "2026-07-05T13:20:00.000Z" },
       ],
     };
 
@@ -386,7 +386,7 @@ describe("handover PDF key microbiology section (e2e)", () => {
     // Only the latest finding per specimen is present.
     expect(text.includes("BCLATEST"), "latest blood culture shown").toBe(true);
     expect(text.includes("URLATEST"), "latest urine shown").toBe(true);
-    expect(text.includes("CSFONLY"), "single CSF shown").toBe(true);
+    expect(text.includes("CEREBROMARK"), "single CSF shown").toBe(true);
 
     // Every older duplicate is absent.
     for (const stale of ["BCOLDEST", "BCMIDDLE", "UROLDER"]) {
