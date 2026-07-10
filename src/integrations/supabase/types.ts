@@ -51,8 +51,10 @@ export type Database = {
           created_at: string
           direction: string
           entity: string
+          error_message: string | null
           id: string
           record_count: number
+          status: string
         }
         Insert: {
           actor_email?: string | null
@@ -60,8 +62,10 @@ export type Database = {
           created_at?: string
           direction: string
           entity: string
+          error_message?: string | null
           id?: string
           record_count?: number
+          status?: string
         }
         Update: {
           actor_email?: string | null
@@ -69,8 +73,10 @@ export type Database = {
           created_at?: string
           direction?: string
           entity?: string
+          error_message?: string | null
           id?: string
           record_count?: number
+          status?: string
         }
         Relationships: []
       }
