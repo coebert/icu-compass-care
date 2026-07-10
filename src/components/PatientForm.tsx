@@ -165,12 +165,12 @@ export function PatientForm({
           <Field label="Ward"><Input value={values.ward} onChange={(e) => set("ward", e.target.value)} /></Field>
           <Field label="Bed"><Input value={values.bed} onChange={(e) => set("bed", e.target.value)} /></Field>
           <Field label="Admission date">
-            <Input type="date" value={values.admission_date} onChange={(e) => set("admission_date", e.target.value)} />
+            <DatePicker value={values.admission_date} onChange={(v) => set("admission_date", v)} />
           </Field>
           {values.status === "discharged" && (
             <>
               <Field label="Discharge date">
-                <Input type="date" value={values.discharge_date} onChange={(e) => set("discharge_date", e.target.value)} />
+                <DatePicker value={values.discharge_date} onChange={(v) => set("discharge_date", v)} />
               </Field>
               <Field label="Discharge destination">
                 <Input value={values.discharge_destination} onChange={(e) => set("discharge_destination", e.target.value)} />
@@ -179,7 +179,7 @@ export function PatientForm({
           )}
           {values.status === "died" && (
             <Field label="Date of death">
-              <Input type="date" value={values.date_of_death} onChange={(e) => set("date_of_death", e.target.value)} />
+              <DatePicker value={values.date_of_death} onChange={(v) => set("date_of_death", v)} />
             </Field>
           )}
         </div>
