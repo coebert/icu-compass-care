@@ -305,7 +305,15 @@ function PatientsBoard() {
 
   function onTouchMove(ev: PointerEvent) {
     const st = touchStateRef.current;
-    if (!st?.dragging) return;
+    if (!st) return;
+    if (!st.dragging) {
+      // Still in the long-press window: if the finger travels far, treat it as
+      // a scroll/tap and abandon the pending pick-up.
+      if (Math.hypot(ev.clientX - st.startX, ev.clientY - st.startY) > 12) {
+        endTouchDrag();
+      }
+      return;
+    }
     ev.preventDefault();
     moveTouchGhost(ev.clientX, ev.clientY);
     setTouchOverBed(bedUnderPoint(ev.clientX, ev.clientY));
