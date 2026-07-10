@@ -131,6 +131,41 @@ export function HandoverPreviewModal({
           <div className="flex items-center gap-2">
             <Switch id="pdf-pages" checked={showPageNumbers} onCheckedChange={setShowPageNumbers} />
             <Label htmlFor="pdf-pages" className="text-xs">Show page numbers</Label>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-pagesize" className="text-xs">Page size</Label>
+            <Select value={pageSize} onValueChange={(v) => setPageSize(v as HandoverPageSize)}>
+              <SelectTrigger id="pdf-pagesize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="a4">A4</SelectItem>
+                <SelectItem value="letter">Letter</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-margin" className="text-xs">Margin: {marginX} mm</Label>
+            <Slider
+              id="pdf-margin"
+              min={2}
+              max={30}
+              step={1}
+              value={[marginX]}
+              onValueChange={([v]) => setMarginX(v)}
+              className="pt-2"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-fontscale" className="text-xs">Font scale: {Math.round(fontScale * 100)}%</Label>
+            <Slider
+              id="pdf-fontscale"
+              min={0.6}
+              max={1.6}
+              step={0.05}
+              value={[fontScale]}
+              onValueChange={([v]) => setFontScale(v)}
+              className="pt-2"
+            />
           </div>
         </div>
 
