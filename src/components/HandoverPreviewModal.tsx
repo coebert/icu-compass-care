@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileDown, X } from "lucide-react";
+import { FileDown, Save, Trash2, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
   downloadHandoverFromUrl,
@@ -27,6 +27,13 @@ import {
   type HandoverPdfOptions,
   type HandoverPageSize,
 } from "@/lib/handover-pdf";
+import {
+  loadHandoverPresets,
+  saveHandoverPreset,
+  deleteHandoverPreset,
+  type HandoverPreset,
+} from "@/lib/handover-presets";
+import { toast } from "sonner";
 
 
 /**
@@ -62,7 +69,53 @@ export function HandoverPreviewModal({
   const [marginX, setMarginX] = useState(8);
   const [fontScale, setFontScale] = useState(1);
 
-  // Keep the title in sync when the caller's default changes (e.g. archive toggle).
+  // Saved header/footer presets (persisted in localStorage across sessions).
+  const [presets, setPresets] = useState<HandoverPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [presetName, setPresetName] = useState("");
+
+  useEffect(() => {
+    setPresets(loadHandoverPresets());
+  }, []);
+
+  function applyPreset(id: string) {
+    const preset = presets.find((p) => p.id === id);
+    if (!preset) return;
+    const o = preset.options;
+    setSelectedPresetId(id);
+    setPresetName(preset.name);
+    setHeaderTitle(o.title ?? "ICU Handover Sheet");
+    setSubtitle(o.subtitle ?? "");
+    setFooterText(o.footerText ?? "Confidential — patient identifiable information");
+    setFilenameFormat(o.filenameFormat ?? "{title} - {timestamp}.pdf");
+    setShowTimestamp(o.showTimestamp ?? true);
+    setShowPageNumbers(o.showPageNumbers ?? true);
+    setPageSize(o.pageSize ?? "a4");
+    setMarginX(o.marginX ?? 8);
+    setFontScale(o.fontScale ?? 1);
+  }
+
+  function handleSavePreset() {
+    const name = presetName.trim();
+    if (!name) {
+      toast.error("Enter a preset name to save");
+      return;
+    }
+    const next = saveHandoverPreset(name, options);
+    setPresets(next);
+    const saved = next.find((p) => p.name.toLowerCase() === name.toLowerCase());
+    if (saved) setSelectedPresetId(saved.id);
+    toast.success(`Saved preset "${name}"`);
+  }
+
+  function handleDeletePreset() {
+    if (!selectedPresetId) return;
+    const removed = presets.find((p) => p.id === selectedPresetId);
+    const next = deleteHandoverPreset(selectedPresetId);
+    setPresets(next);
+    setSelectedPresetId("");
+    if (removed) toast.success(`Deleted preset "${removed.name}"`);
+  }
 
   useEffect(() => {
     if (title) setHeaderTitle(title);
@@ -101,7 +154,49 @@ export function HandoverPreviewModal({
           <DialogTitle>Handover PDF preview</DialogTitle>
         </DialogHeader>
 
+        {/* Header / footer presets */}
+        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/40 p-3">
+          <div className="min-w-[180px] flex-1 space-y-1">
+            <Label htmlFor="pdf-preset" className="text-xs">Saved preset</Label>
+            <Select
+              value={selectedPresetId}
+              onValueChange={applyPreset}
+              disabled={presets.length === 0}
+            >
+              <SelectTrigger id="pdf-preset">
+                <SelectValue placeholder={presets.length ? "Load a preset…" : "No saved presets"} />
+              </SelectTrigger>
+              <SelectContent>
+                {presets.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[180px] flex-1 space-y-1">
+            <Label htmlFor="pdf-preset-name" className="text-xs">Preset name</Label>
+            <Input
+              id="pdf-preset-name"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="e.g. Night handover"
+            />
+          </div>
+          <Button variant="secondary" className="gap-1.5" onClick={handleSavePreset}>
+            <Save className="h-4 w-4" /> Save
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleDeletePreset}
+            disabled={!selectedPresetId}
+          >
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
+
         {/* Header / footer configuration */}
+
         <div className="grid gap-3 rounded-md border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
             <Label htmlFor="pdf-title" className="text-xs">Header title</Label>
