@@ -91,6 +91,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
         if (error) return json({ error: error.message }, 500);
         if (!data) return json({ error: "Patient not found" }, 404);
+        await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
         return json({ patient: data });
       },
     },
