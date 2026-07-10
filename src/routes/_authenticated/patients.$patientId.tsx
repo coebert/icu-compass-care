@@ -401,7 +401,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Most recent results
         </h2>
-        <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Add result
         </Button>
       </div>
