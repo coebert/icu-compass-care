@@ -243,6 +243,10 @@ function PatientDetail() {
         </TabsContent>
 
 
+        <TabsContent value="timeline" className="mt-4">
+          <TimelineTab patient={patient} patientId={patientId} />
+        </TabsContent>
+
         <TabsContent value="status" className="mt-4">
           <StatusTab patient={patient} />
         </TabsContent>
