@@ -27,6 +27,15 @@ type Patient = Record<string, any>;
 
 const DRAG_MIME = "application/x-patient";
 
+// Escape user-supplied text before injecting it into the drag-ghost innerHTML.
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+  );
+}
+
+
+
 
 // Build a human-readable location label. ICU patients are identified by
 // location_type and a bed number (ward is usually blank for them), so we must
