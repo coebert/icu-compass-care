@@ -87,8 +87,8 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       p.outstanding_tasks || "—",
       flags(p),
     ]),
-    startY: 20,
-    margin: { top: 18, left: 8, right: 8, bottom: 12 },
+    startY: subtitle ? 22 : 20,
+    margin: { top: subtitle ? 22 : 18, left: 8, right: 8, bottom: 12 },
     styles: {
       fontSize: 7,
       cellPadding: 1.5,
@@ -114,21 +114,41 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       6: { cellWidth: 37 },
     },
     didDrawPage: () => {
+      // Header
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
       doc.text(title, 8, 12);
+      doc.setFont("helvetica", "normal");
+      if (subtitle) {
+        doc.setFontSize(8);
+        doc.setTextColor(90, 90, 90);
+        doc.text(subtitle, 8, 17);
+      }
+      if (showTimestamp) {
+        doc.setFontSize(8);
+        doc.setTextColor(110, 110, 110);
+        doc.text(`Generated ${generated}`, pageWidth - 8, 12, { align: "right" });
+      }
+
+      // Footer
       doc.setFontSize(8);
       doc.setTextColor(110, 110, 110);
-      doc.text(`Generated ${generated}`, pageWidth - 8, 12, { align: "right" });
       const page = doc.getNumberOfPages();
-      doc.text(
-        `Confidential — patient identifiable information · Page ${page}`,
-        pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 5,
-        { align: "center" },
-      );
+      const footerSegments = [
+        footerText,
+        showPageNumbers ? `Page ${page} of ${PAGE_TOKEN}` : null,
+      ].filter(Boolean);
+      if (footerSegments.length > 0) {
+        doc.text(footerSegments.join(" · "), pageWidth / 2, pageHeight - 5, { align: "center" });
+      }
     },
   });
+
+  // Replace the total-pages placeholder now that the page count is known.
+  if (showPageNumbers && typeof doc.putTotalPages === "function") {
+    doc.putTotalPages(PAGE_TOKEN);
+  }
 
   return doc;
 }
@@ -139,15 +159,16 @@ function handoverFilename(): string {
 }
 
 /** Build the handover sheet and trigger a download. */
-export function exportHandoverPdf(patients: HandoverPatient[], opts?: { title?: string }): void {
+export function exportHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): void {
   buildHandoverPdf(patients, opts).save(handoverFilename());
 }
 
 /** Build the handover sheet and return an object URL for in-app preview. */
-export function handoverPdfPreviewUrl(patients: HandoverPatient[], opts?: { title?: string }): string {
+export function handoverPdfPreviewUrl(patients: HandoverPatient[], opts?: HandoverPdfOptions): string {
   const blob = buildHandoverPdf(patients, opts).output("blob");
   return URL.createObjectURL(blob);
 }
+
 
 /** Download from an already-built preview blob URL, using the standard name. */
 export function downloadHandoverFromUrl(url: string): void {
