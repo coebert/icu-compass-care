@@ -83,7 +83,14 @@ export function SyncStatusPanel({
 
   if (error) return null;
 
-  const hasError = !!data?.lastError;
+  // The sync is only in a *failed* state when the most recent attempt failed —
+  // i.e. there is an error that is newer than the last success (or there has
+  // never been a success). A stale historical error that a later successful
+  // sync has already superseded must NOT keep the banner red.
+  const lastErrorAt = data?.lastError ? new Date(data.lastError.created_at).getTime() : null;
+  const lastSuccessAt = data?.lastSuccess ? new Date(data.lastSuccess.created_at).getTime() : null;
+  const hasError =
+    lastErrorAt !== null && (lastSuccessAt === null || lastErrorAt > lastSuccessAt);
   // Admins get a manual sync trigger straight from the global header — the same
   // bridge sync logic the old per-page controls used. On a failed last run the
   // button reads "Retry"; otherwise it offers a plain "Sync" refresh.
