@@ -667,7 +667,7 @@ function BedBoard({
           const bed = slot.label;
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
-          const isOver = overBed === bed;
+          const isOver = overBed === bed || touchOverBed === bed;
           // While dragging, decide whether this bed can accept the patient so we
           // can flag ineligible beds and refuse the drop with a "no-drop" cursor.
           const ineligible = Boolean(
