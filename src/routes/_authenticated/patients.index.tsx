@@ -278,6 +278,7 @@ function PatientsBoard() {
             unassigned={icuUnassigned}
             onAddToBed={addToBed}
             dragging={dragging}
+            draggedPatient={draggedPatient}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
             onDropOnBed={dropOnBed}
