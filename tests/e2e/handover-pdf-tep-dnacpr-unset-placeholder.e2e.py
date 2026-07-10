@@ -197,27 +197,32 @@ def main():
         )
 
         # ---- The un-escalated patient renders in the sheet ----
-        assert packed(PATIENT_NAME) in packed_text, "patient missing from handover PDF"
+        name_packed = packed(PATIENT_NAME)
+        idx = packed_text.find(name_packed)
+        assert idx != -1, "patient missing from handover PDF"
 
-        # ---- No escalation detail fragments for this patient ----
-        assert "DNACPR:" not in packed_text, (
-            "an un-escalated patient must not render a 'DNACPR:' detail line"
-        )
-        assert "TEP:" not in packed_text, (
-            "an un-escalated patient must not render a 'TEP:' detail line"
-        )
-        # Bare labels (no details) must not appear either.
-        assert "DNACPR" not in raw_text, "stray 'DNACPR' label leaked for un-escalated patient"
-        # "TEP" only appears inside the column header "TEP / DNACPR / NOK"; ensure
-        # no standalone TEP escalation line by checking the header is the only source.
-        assert raw_text.count("TEP") == packed_text.count("TEP/DNACPR/NOK"), (
-            "stray 'TEP' escalation text leaked for un-escalated patient"
+        # Scope to this patient's row: from the (unique) name up to a window that
+        # covers the row's cells (identity | location | flags | investigations | micro)
+        # before the next patient begins. The board is multi-patient, so global
+        # checks would wrongly trip on other patients' real TEP/DNACPR values.
+        row = packed_text[idx: idx + 140]
+
+        # ---- The escalation cell shows the em-dash placeholder, not values ----
+        assert PLACEHOLDER in row, (
+            f"empty escalation cell should render an em-dash placeholder; row: {row!r}"
         )
 
-        # ---- The escalation cell shows the em-dash placeholder ----
-        assert PLACEHOLDER in raw_text, (
-            "handover PDF should render an em-dash placeholder for the empty escalation cell"
+        # ---- No escalation detail fragments for this un-escalated patient ----
+        assert "DNACPR:" not in row, (
+            f"an un-escalated patient must not render a 'DNACPR:' detail line; row: {row!r}"
         )
+        assert "TEP:" not in row, (
+            f"an un-escalated patient must not render a 'TEP:' detail line; row: {row!r}"
+        )
+        # No bare escalation labels either (the only 'DNACPR'/'TEP' text is the header).
+        assert "DNACPR" not in row, f"stray 'DNACPR' label leaked into row: {row!r}"
+        assert "TEP" not in row, f"stray 'TEP' label leaked into row: {row!r}"
+
 
         try:
             pdf_path.unlink()
