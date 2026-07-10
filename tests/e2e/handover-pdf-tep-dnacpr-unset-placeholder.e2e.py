@@ -51,7 +51,7 @@ SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
 MARKER = f"E2EPDFNOESC{int(time.time()) % 100000}"
 PASSWORD = "Test-Passw0rd-123!"
-PATIENT_NAME = "N.O.E."
+PATIENT_NAME = f"NOESC{MARKER}"  # unique so the row is isolatable on the shared board
 
 PLACEHOLDER = "\u2014"  # em-dash "—"
 
