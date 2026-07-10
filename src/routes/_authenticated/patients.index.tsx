@@ -22,6 +22,17 @@ export const Route = createFileRoute("/_authenticated/patients/")({
 
 type Patient = Record<string, any>;
 
+// Build a human-readable location label. ICU patients are identified by
+// location_type and a bed number (ward is usually blank for them), so we must
+// not fall back to "No location" just because ward is empty.
+function formatLocation(p: Patient): string {
+  const bed = p.bed ? ` · Bed ${p.bed}` : "";
+  if (p.location_type === "icu") return `ICU${bed}`;
+  if (p.ward) return `${p.ward}${bed}`;
+  if (p.bed) return `Bed ${p.bed}`;
+  return "No location";
+}
+
 function PatientsBoard() {
   const qc = useQueryClient();
   const list = useServerFn(listPatients);
@@ -173,7 +184,7 @@ function Section({
                   <div className="min-w-0">
                     <PatientName patient={p} showAge />
                     <p className="truncate text-xs text-muted-foreground">
-                      {p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location"}
+                      {formatLocation(p)}
                     </p>
                   </div>
                   <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
