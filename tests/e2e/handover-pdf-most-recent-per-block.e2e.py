@@ -235,6 +235,11 @@ def main():
             for finding, when in reversed(entries):
                 add_investigation(patient_id, category, finding, iso(when))
 
+        # Same for microbiology: newest first, then older, per specimen type.
+        for specimen, entries in MICRO.items():
+            for finding, when in reversed(entries):
+                add_microbiology(patient_id, specimen, finding, iso(when))
+
         session = sign_in(email)
 
         with sync_playwright() as pw:
