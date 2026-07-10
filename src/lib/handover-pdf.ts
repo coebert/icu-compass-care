@@ -441,19 +441,30 @@ export function handoverPdfPreviewUrl(patients: HandoverPatient[], opts?: Handov
   return URL.createObjectURL(blob);
 }
 
-/** Download from an already-built preview blob URL, using the configured name. */
-export function downloadHandoverFromUrl(
-  url: string,
-  opts?: Pick<HandoverPdfOptions, "title" | "filenameFormat">,
+/**
+ * Build the handover sheet and trigger a download using a fresh, self-contained
+ * object URL. The URL is created just for the download and revoked immediately
+ * afterwards so it never leaks browser memory — independent of any preview URL
+ * still bound to an on-screen iframe.
+ */
+export function downloadHandover(
+  patients: HandoverPatient[],
+  opts?: HandoverPdfOptions,
 ): void {
   const generatedAt = new Date();
   const filename = formatHandoverFilename(opts?.title ?? DEFAULT_TITLE, opts?.filenameFormat, generatedAt);
+  const blob = buildHandoverPdf(patients, opts).output("blob");
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
+  // Revoke on the next tick so the browser has grabbed the blob for the
+  // download; this releases the object URL and prevents a memory leak.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
+
 
 
