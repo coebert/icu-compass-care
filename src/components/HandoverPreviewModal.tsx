@@ -83,8 +83,8 @@ export function HandoverPreviewModal({
     [headerTitle, subtitle, footerText, filenameFormat, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
   );
 
-
   useEffect(() => {
+
     if (!open) return;
     const objectUrl = handoverPdfPreviewUrl(patients, options);
     setUrl(objectUrl);
