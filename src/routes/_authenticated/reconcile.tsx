@@ -105,14 +105,14 @@ function ReconcilePage() {
           <Button
 
             variant="outline"
-            size="sm"
-            className="gap-1.5"
+            className="h-11 gap-1.5 sm:h-9"
             onClick={() => qc.invalidateQueries({ queryKey: ["reconciliation"] })}
             disabled={isFetching}
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
           </Button>
         </div>
+
       </div>
 
 
