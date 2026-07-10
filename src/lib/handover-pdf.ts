@@ -9,6 +9,13 @@ export type HandoverInvestigation = {
   [key: string]: any;
 };
 
+export type HandoverMicrobiology = {
+  specimen_type?: string | null;
+  findings?: string | null;
+  result_at?: string | null;
+  [key: string]: any;
+};
+
 export type HandoverPatient = Record<string, any>;
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
