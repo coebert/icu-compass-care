@@ -205,6 +205,7 @@ def main():
             died = call_fn(page, "updatePatient", {
                 "id": patient_id,
                 "status": "died",
+                "date_of_death": time.strftime("%Y-%m-%d"),
                 "discharge_date": time.strftime("%Y-%m-%d"),
                 "discharge_destination": DISCHARGE_DEST,
             })
