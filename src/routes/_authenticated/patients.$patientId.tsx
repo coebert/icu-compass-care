@@ -323,7 +323,7 @@ function StatusTab({ patient }: { patient: Patient }) {
           <>
             <div className="space-y-1.5">
               <Label>Discharge date</Label>
-              <Input type="date" value={dischargeDate} onChange={(e) => setDischargeDate(e.target.value)} />
+              <DatePicker value={dischargeDate} onChange={setDischargeDate} />
             </div>
             <div className="space-y-1.5">
               <Label>Discharge destination</Label>
