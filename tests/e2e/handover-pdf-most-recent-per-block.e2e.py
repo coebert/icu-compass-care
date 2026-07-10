@@ -54,7 +54,11 @@ MARKER = f"E2EPDFMRB{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "M.R.B."
 
+SUFFIX = str(int(time.time()))[-6:]
 now = datetime.now(timezone.utc)
+
+
+
 
 
 
