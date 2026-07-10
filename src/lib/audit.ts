@@ -2,7 +2,7 @@
 // from server-function modules that are part of the client module graph.
 // It is only ever CALLED inside server handlers, with a Supabase client passed in.
 
-export type AuditEntity = "patients" | "investigations";
+export type AuditEntity = "patients" | "investigations" | "referrals";
 export type AuditAction = "insert" | "update" | "delete";
 export type AuditSource = "app" | "bridge";
 

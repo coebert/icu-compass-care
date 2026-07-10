@@ -5,12 +5,12 @@
 // keyed by `updated_at`. When both backends run this job on a schedule the
 // result is eventual bidirectional convergence with no duplicate rows,
 // because every record keeps its stable id across both databases.
-import { fetchPartnerPatients, fetchPartnerInvestigations, bridgeSystemActor, type PatientRow, type InvestigationRow } from "@/lib/bridge-client.server";
-import { logSync, logSyncError } from "@/lib/api-bridge.server";
+import { fetchPartnerPatients, fetchPartnerInvestigations, fetchPartnerReferrals, bridgeSystemActor, type PatientRow, type InvestigationRow, type ReferralRow } from "@/lib/bridge-client.server";
+import { logSync, logSyncError, type BridgeEntity } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 
 export type EntitySyncResult = {
-  entity: "patients" | "investigations";
+  entity: BridgeEntity;
   fetched: number;
   applied: number;
   skipped: number;
@@ -128,11 +128,66 @@ async function syncInvestigations(admin: any): Promise<EntitySyncResult> {
   return result;
 }
 
-// Run one full synchronization pass across both overlapping entities.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncReferrals(admin: any): Promise<EntitySyncResult> {
+  const result: EntitySyncResult = { entity: "referrals", fetched: 0, applied: 0, skipped: 0 };
+  try {
+    const partner = await fetchPartnerReferrals();
+    result.fetched = partner.length;
+    if (partner.length === 0) return result;
+
+    const ids = partner.map((r) => r.id);
+    const { data: localRows, error: readErr } = await admin
+      .from("referrals")
+      .select("*")
+      .in("id", ids);
+    if (readErr) throw new Error(readErr.message);
+
+    const localById = new Map<string, ReferralRow>((localRows ?? []).map((r: ReferralRow) => [r.id, r]));
+
+    for (const remote of partner) {
+      const local = localById.get(remote.id);
+      if (local && !newer(remote.updated_at, local.updated_at)) {
+        result.skipped++;
+        continue;
+      }
+      const { error: upErr } = await admin.from("referrals").upsert(remote, { onConflict: "id" });
+      if (upErr) {
+        // A referral may reference a patient that has not synced yet; leave it
+        // for a later pass rather than failing the whole run.
+        result.skipped++;
+        continue;
+      }
+      await writeAudit(admin, {
+        entity: "referrals",
+        recordId: remote.id,
+        action: local ? "update" : "insert",
+        source: "bridge",
+        actor: bridgeSystemActor,
+        before: (local as Record<string, unknown> | undefined) ?? null,
+        after: remote as Record<string, unknown>,
+      });
+      result.applied++;
+    }
+
+    await logSync(admin, { direction: "pull", entity: "referrals", record_count: result.applied, actor: bridgeSystemActor });
+  } catch (e) {
+    result.error = e instanceof Error ? e.message : String(e);
+    await logSyncError(admin, { direction: "pull", entity: "referrals", message: result.error, actor: bridgeSystemActor });
+  }
+  return result;
+}
+
+// Run one full synchronization pass across every overlapping entity.
+// Patients sync first so investigations/referrals that reference them resolve.
 export async function runBridgeSync(): Promise<SyncRunResult> {
   const startedAt = new Date().toISOString();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const results = [await syncPatients(supabaseAdmin), await syncInvestigations(supabaseAdmin)];
+  const results = [
+    await syncPatients(supabaseAdmin),
+    await syncInvestigations(supabaseAdmin),
+    await syncReferrals(supabaseAdmin),
+  ];
   return {
     ok: results.every((r) => !r.error),
     startedAt,
