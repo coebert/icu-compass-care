@@ -485,6 +485,13 @@ function BedBoard({
           const ineligible = Boolean(
             draggedPatient && !checkBedEligibility(draggedPatient, bed, roster).ok,
           );
+          const isOwnBed = Boolean(
+            draggedPatient && occupants.some((o) => o.id === draggedPatient.id),
+          );
+          // A valid drop target: dragging an eligible patient onto a bed that
+          // isn't the one they already occupy. Highlighted persistently so all
+          // legal targets are visible at a glance, not just the hovered one.
+          const validTarget = dragging && !ineligible && !isOwnBed;
           const dropHandlers = {
             onDragOver: (e: React.DragEvent) => {
               e.preventDefault();
@@ -501,6 +508,8 @@ function BedBoard({
           const overRing = ineligible
             ? "border-destructive ring-2 ring-destructive/40"
             : "border-primary ring-2 ring-primary/40";
+          // Steady highlight applied to every legal target during a drag.
+          const validRing = validTarget && !isOver ? "ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : "";
           if (occupants.length > 0) {
             return (
               <div key={slot.id} {...dropHandlers} className="space-y-2">
