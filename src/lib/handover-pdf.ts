@@ -59,9 +59,40 @@ function parseTime(value?: string | null): number {
   return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
 }
 
+/** Stable string for a deterministic final tie-break (never throws). */
+function tieBreakKey(rec: Record<string, any>): string {
+  const id = rec?.id;
+  if (id != null) return String(id);
+  const created = rec?.created_at;
+  if (created != null) return String(created);
+  return String(rec?.findings ?? "");
+}
+
+/**
+ * Deterministic "is `a` at least as recent as `b`?" for picking the newest
+ * record. Ordering is total and independent of input array order:
+ *   1. Newer `result_at` wins. Missing/invalid dates sort oldest.
+ *   2. Ties on `result_at` (including two missing dates) break on the newer
+ *      `created_at` (missing/invalid sorts oldest).
+ *   3. Remaining ties break on a stable key (id, else created_at, else
+ *      findings) using string comparison, so the result never depends on the
+ *      order the records happened to arrive in.
+ */
+function isAtLeastAsRecent(a: Record<string, any>, b: Record<string, any>): boolean {
+  const ta = parseTime(a?.result_at);
+  const tb = parseTime(b?.result_at);
+  if (ta !== tb) return ta > tb;
+  const ca = parseTime(a?.created_at);
+  const cb = parseTime(b?.created_at);
+  if (ca !== cb) return ca > cb;
+  return tieBreakKey(a) >= tieBreakKey(b);
+}
+
 /**
  * Pick the newest investigation for `category` from a patient's investigation
- * list, comparing by `result_at`. Returns undefined when none exist.
+ * list. Selection is deterministic even when several results share the same
+ * `result_at` (or all have missing dates) — see `isAtLeastAsRecent`. Returns
+ * undefined when none exist.
  */
 export function mostRecentInvestigation(
   investigations: HandoverInvestigation[] | null | undefined,
@@ -72,9 +103,10 @@ export function mostRecentInvestigation(
     .filter((i) => (i.category ?? "").toLowerCase() === category.toLowerCase())
     .reduce<HandoverInvestigation | undefined>((best, cur) => {
       if (!best) return cur;
-      return parseTime(cur.result_at) >= parseTime(best.result_at) ? cur : best;
+      return isAtLeastAsRecent(cur, best) ? cur : best;
     }, undefined);
 }
+
 
 /**
  * Render the "most recent" investigations column: one line per key category
