@@ -180,6 +180,7 @@ function PatientDetail() {
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
           <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
