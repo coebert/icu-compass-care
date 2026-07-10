@@ -162,6 +162,7 @@ def main():
         # A: decision/plan flagged, but details intentionally left blank.
         blank_id = create_patient({
             "full_name": BLANK_NAME,
+            "bed": "11",
             "dnacpr_decision": True,
             "dnacpr_details": "",
             "tep_in_place": True,
@@ -170,6 +171,7 @@ def main():
         # B: nothing escalation-related set.
         unset_id = create_patient({
             "full_name": UNSET_NAME,
+            "bed": "12",
             "dnacpr_decision": False,
             "tep_in_place": False,
         })
