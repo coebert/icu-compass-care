@@ -1,0 +1,49 @@
+ICU Handover Sheet                                                                                                                                                         Generated 10/07/2026, 19:11:39
+
+
+
+Patient       Location / status   Past medical history   Current admission               Management                      Most recent investigations    Outstanding tasks          TEP / DNACPR / NOK
+
+I.N.V.        Critical Care       —                      —                               Mgmt E2EPDFINV1783710695        Bloods: BLOODSNEWE2EPD        —                          —
+Age 66        Admitted                                                                                                   FINV1783710695 (10/07/2026,
+              Adm —                                                                                                      18:11)
+                                                                                                                         CXR: CXRLATESTE2EPDFIN
+                                                                                                                         V1783710695 (10/07/2026,
+                                                                                                                         16:11)
+                                                                                                                         CT chest: CTCHESTLATESTE
+                                                                                                                         2EPDFINV1783710695
+                                                                                                                         (10/07/2026, 14:11)
+
+MN            No location         —                      —                               —                               Bloods: —                     —                          —
+Age 74        Admitted                                                                                                   CXR: —
+MRN 0091320   Adm 04/07/2026                                                                                             CT chest: —
+
+SR            No location         —                      —                               —                               Bloods: —                     —                          —
+Age 60        Admitted                                                                                                   CXR: —
+MRN 0241369   Adm 07/07/2026                                                                                             CT chest: —
+
+D W-S         No location         —                      —                               —                               Bloods: —                     —                          —
+Age 60        Admitted                                                                                                   CXR: —
+MRN 0752006   Adm 05/07/2026                                                                                             CT chest: —
+
+DK            No location         —                      —                               —                               Bloods: —                     —                          —
+Age 63        Admitted                                                                                                   CXR: —
+MRN 2179315   Adm 27/06/2026                                                                                             CT chest: —
+
+LH            No location         —                      —                               —                               Bloods: —                     —                          —
+Age 60        Admitted                                                                                                   CXR: —
+              Adm —                                                                                                      CT chest: —
+
+TW            No location         —                      —                               —                               Bloods: —                     —                          —
+Age 54        Admitted                                                                                                   CXR: —
+MRN 0198777   Adm 09/07/2026                                                                                             CT chest: —
+
+JB            No location         —                      —                               —                               Bloods: —                     —                          —
+Age 63        Admitted                                                                                                   CXR: —
+              Adm 05/07/2026                                                                                             CT chest: —
+
+
+
+
+                                                         Confidential — patient identifiable information · Page 1 of 1
+
