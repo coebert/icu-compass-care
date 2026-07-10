@@ -173,6 +173,29 @@ function microbiology(p: HandoverPatient): string {
     .join("\n");
 }
 
+// Combine the systems-based review into a single labelled block for the PDF,
+// skipping any system with no notes.
+const SYSTEMS_FIELDS: [keyof HandoverPatient, string][] = [
+  ["systems_resp", "Resp"],
+  ["systems_cvs", "CVS"],
+  ["systems_neuro", "CNS/Neuro"],
+  ["systems_renal", "Renal"],
+  ["systems_gastro", "Gastro/Nutri"],
+  ["systems_haem", "Haem"],
+  ["systems_micro", "Micro"],
+  ["systems_other", "Other"],
+];
+
+function systemsReview(p: HandoverPatient): string {
+  const lines = SYSTEMS_FIELDS.map(([key, label]) => {
+    const val = typeof p[key] === "string" ? (p[key] as string).trim() : "";
+    return val ? `${label}: ${val}` : "";
+  }).filter(Boolean);
+  return lines.length ? lines.join("\n") : "—";
+}
+
+
+
 
 
 
