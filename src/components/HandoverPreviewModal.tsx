@@ -69,7 +69,53 @@ export function HandoverPreviewModal({
   const [marginX, setMarginX] = useState(8);
   const [fontScale, setFontScale] = useState(1);
 
-  // Keep the title in sync when the caller's default changes (e.g. archive toggle).
+  // Saved header/footer presets (persisted in localStorage across sessions).
+  const [presets, setPresets] = useState<HandoverPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [presetName, setPresetName] = useState("");
+
+  useEffect(() => {
+    setPresets(loadHandoverPresets());
+  }, []);
+
+  function applyPreset(id: string) {
+    const preset = presets.find((p) => p.id === id);
+    if (!preset) return;
+    const o = preset.options;
+    setSelectedPresetId(id);
+    setPresetName(preset.name);
+    setHeaderTitle(o.title ?? "ICU Handover Sheet");
+    setSubtitle(o.subtitle ?? "");
+    setFooterText(o.footerText ?? "Confidential — patient identifiable information");
+    setFilenameFormat(o.filenameFormat ?? "{title} - {timestamp}.pdf");
+    setShowTimestamp(o.showTimestamp ?? true);
+    setShowPageNumbers(o.showPageNumbers ?? true);
+    setPageSize(o.pageSize ?? "a4");
+    setMarginX(o.marginX ?? 8);
+    setFontScale(o.fontScale ?? 1);
+  }
+
+  function handleSavePreset() {
+    const name = presetName.trim();
+    if (!name) {
+      toast.error("Enter a preset name to save");
+      return;
+    }
+    const next = saveHandoverPreset(name, options);
+    setPresets(next);
+    const saved = next.find((p) => p.name.toLowerCase() === name.toLowerCase());
+    if (saved) setSelectedPresetId(saved.id);
+    toast.success(`Saved preset "${name}"`);
+  }
+
+  function handleDeletePreset() {
+    if (!selectedPresetId) return;
+    const removed = presets.find((p) => p.id === selectedPresetId);
+    const next = deleteHandoverPreset(selectedPresetId);
+    setPresets(next);
+    setSelectedPresetId("");
+    if (removed) toast.success(`Deleted preset "${removed.name}"`);
+  }
 
   useEffect(() => {
     if (title) setHeaderTitle(title);
