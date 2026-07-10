@@ -1,23 +1,26 @@
 """
 End-to-end test: the exported handover PDF's "Most recent investigations"
 column shows ONLY the most recent result for each key block (Bloods, CXR,
-CT chest) when several entries exist per block.
+CT chest), AND the "Key microbiology" column shows ONLY the newest result per
+specimen type, when several entries exist per block/specimen.
 
 The handover sheet renders one line per key category with the NEWEST finding by
-result_at (see mostRecentInvestigation / investigations() in
-src/lib/handover-pdf.ts). This test seeds MULTIPLE results per block — inserted
-OUT OF ORDER so a naive "last saved wins" implementation would surface the
-wrong one — then drives the real UI export and inspects the PDF text:
+result_at (see mostRecentInvestigation / investigations() and
+latestMicrobiologyPerSpecimen / microbiology() in src/lib/handover-pdf.ts).
+This test seeds MULTIPLE results per block AND per microbiology specimen type —
+inserted OUT OF ORDER so a naive "last saved wins" implementation would surface
+the wrong one — then drives the real UI export and inspects the PDF text:
 
   1. Restore a clinician session and open /patients.
   2. Preview PDF -> Download PDF, capturing the actual download.
-  3. Extract the PDF text (pdftotext) and assert, per block:
+  3. Extract the PDF text (pdftotext) and assert, per block AND per specimen:
        - the NEWEST finding appears
        - every OLDER (superseded) finding does NOT appear
-     plus the Bloods / CXR / CT chest labels themselves.
+     plus the Bloods / CXR / CT chest / microbiology specimen labels.
 
-Throwaway clinician user + patient (+investigations) are created and cleaned up
-via the Supabase admin REST API. Nothing lingers in the clinical dataset.
+Throwaway clinician user + patient (+investigations +microbiology) are created
+and cleaned up via the Supabase admin REST API. Nothing lingers in the dataset.
+
 
 Requires (already present in the sandbox environment):
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PUBLISHABLE_KEY
