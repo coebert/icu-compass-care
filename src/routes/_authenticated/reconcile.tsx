@@ -50,7 +50,7 @@ function stateBadge(state: ReconRow["state"]) {
 
 function shortTime(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString();
+  return new Date(iso).toLocaleString("en-GB", { hour12: false });
 }
 
 function ReconcilePage() {
