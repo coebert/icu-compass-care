@@ -193,6 +193,114 @@ function PatientsBoard() {
   );
 }
 
+function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
+  return (
+    <CardContent className="space-y-2 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <PatientName patient={p} showAge />
+          <p className="truncate text-xs text-muted-foreground">
+            {bedLabel ?? formatLocation(p)}
+          </p>
+        </div>
+        <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
+          {STATUS_LABELS[p.status]}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {p.dnacpr_decision && (
+          <Badge variant="outline" className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300">
+            <AlertTriangle className="h-3 w-3" /> DNACPR
+          </Badge>
+        )}
+        {p.tep_in_place && <Badge variant="outline">TEP</Badge>}
+      </div>
+      {p.outstanding_tasks && (
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Tasks: </span>
+          {p.outstanding_tasks}
+        </p>
+      )}
+      <PatientMetaLine
+        patient={p}
+        showAge={false}
+        trailing={[`Adm ${fmtDate(p.admission_date)}`]}
+        className="text-[11px]"
+      />
+    </CardContent>
+  );
+}
+
+function BedBoard({
+  bedOccupant,
+  unassigned,
+  onAddToBed,
+}: {
+  bedOccupant: Map<string, Patient>;
+  unassigned: Patient[];
+  onAddToBed: (bed: string) => void;
+}) {
+  const occupied = bedOccupant.size;
+  return (
+    <div className="space-y-3">
+      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
+        <span className="text-xs">({occupied}/{ICU_BEDS.length} occupied)</span>
+      </h2>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {ICU_BEDS.map((bed) => {
+          const label = bed.startsWith("SR") ? bed : `Bed ${bed}`;
+          const p = bedOccupant.get(normalizeBed(bed));
+          if (p) {
+            return (
+              <Link key={bed} to="/patients/$patientId" params={{ patientId: p.id }}>
+                <Card className="h-full transition-colors hover:border-primary/50">
+                  <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
+                    {label}
+                  </div>
+                  <PatientCardBody p={p} bedLabel={bed.startsWith("SR") ? "Side room" : undefined} />
+                </Card>
+              </Link>
+            );
+          }
+          return (
+            <button
+              key={bed}
+              type="button"
+              onClick={() => onAddToBed(bed)}
+              className="group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5"
+            >
+              <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+              <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary">
+                <Plus className="h-4 w-4" /> Empty
+              </span>
+              <span className="text-[11px] text-muted-foreground">Tap to admit</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {unassigned.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            ICU · no bed assigned ({unassigned.length})
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {unassigned.map((p) => (
+              <Link key={p.id} to="/patients/$patientId" params={{ patientId: p.id }}>
+                <Card className="h-full transition-colors hover:border-primary/50">
+                  <PatientCardBody p={p} />
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Section({
   title,
   icon: Icon,
