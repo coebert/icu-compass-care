@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
+import { writeAudit } from "@/lib/audit";
 
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
+  // Optimistic concurrency: the updated_at the caller last saw. When present on
+  // an update, the write is rejected (409) if the record changed since then.
+  expected_updated_at: z.string().optional(),
   full_name: z.string().trim().min(1).max(200),
   hospital_number: z.string().trim().max(50).optional().nullable(),
   nhs_number: z.string().trim().max(50).optional().nullable(),
@@ -78,19 +82,71 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const record = cleanEmpty(parsed);
+        // Strip control fields that are not table columns.
+        const { expected_updated_at, ...columns } = parsed;
+        const record = cleanEmpty(columns);
 
-        const { data, error } = record.id
-          ? await supabaseAdmin
-              .from("patients")
-              .update(record)
-              .eq("id", record.id as string)
-              .select()
-              .maybeSingle()
-          : await supabaseAdmin.from("patients").insert(record).select().maybeSingle();
+        if (record.id) {
+          // Load the current row for conflict detection + audit "before" snapshot.
+          const { data: current, error: readErr } = await supabaseAdmin
+            .from("patients")
+            .select("*")
+            .eq("id", record.id as string)
+            .maybeSingle();
+          if (readErr) return json({ error: readErr.message }, 500);
+          if (!current) return json({ error: "Patient not found" }, 404);
 
+          // Optimistic concurrency: reject stale writes so the caller can reconcile.
+          if (expected_updated_at && current.updated_at !== expected_updated_at) {
+            return json(
+              {
+                error: "conflict",
+                message: "This patient was modified since you last loaded it.",
+                current,
+                your_expected_updated_at: expected_updated_at,
+              },
+              409,
+            );
+          }
+
+          const { data, error } = await supabaseAdmin
+            .from("patients")
+            .update(record)
+            .eq("id", record.id as string)
+            .select()
+            .maybeSingle();
+          if (error) return json({ error: error.message }, 500);
+          if (!data) return json({ error: "Patient not found" }, 404);
+
+          await writeAudit(supabaseAdmin, {
+            entity: "patients",
+            recordId: data.id,
+            action: "update",
+            source: "bridge",
+            actor: auth.actor,
+            before: current as Record<string, unknown>,
+            after: data as Record<string, unknown>,
+          });
+          await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
+          return json({ patient: data });
+        }
+
+        const { data, error } = await supabaseAdmin
+          .from("patients")
+          .insert(record)
+          .select()
+          .maybeSingle();
         if (error) return json({ error: error.message }, 500);
-        if (!data) return json({ error: "Patient not found" }, 404);
+        if (!data) return json({ error: "Patient could not be created" }, 500);
+
+        await writeAudit(supabaseAdmin, {
+          entity: "patients",
+          recordId: data.id,
+          action: "insert",
+          source: "bridge",
+          actor: auth.actor,
+          after: data as Record<string, unknown>,
+        });
         await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
         return json({ patient: data });
       },

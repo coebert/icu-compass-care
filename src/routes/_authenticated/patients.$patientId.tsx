@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getPatient, updatePatient, deletePatient } from "@/lib/patients.functions";
+import { getPatient, updatePatient, deletePatient, getPatientAudit } from "@/lib/patients.functions";
 import {
   listInvestigations,
   addInvestigation,
@@ -72,14 +72,19 @@ function PatientDetail() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: PatientFormValues) => update({ data: { id: patientId, ...v } as never }),
+    mutationFn: (v: PatientFormValues) =>
+      update({ data: { id: patientId, expected_updated_at: patient?.updated_at, ...v } as never }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patientId] });
       qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
       setEditing(false);
       toast.success("Patient updated");
     },
-    onError: (e: Error) => toast.error("Update failed", { description: e.message }),
+    onError: (e: Error) =>
+      e.message.startsWith("CONFLICT:")
+        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
+        : toast.error("Update failed", { description: e.message }),
   });
 
   const deleteMut = useMutation({
@@ -169,7 +174,9 @@ function PatientDetail() {
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="overview" className="mt-4">
           <Card>
@@ -225,6 +232,11 @@ function PatientDetail() {
         <TabsContent value="status" className="mt-4">
           <StatusTab patient={patient} />
         </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <AuditTab patientId={patientId} />
+        </TabsContent>
+
       </Tabs>
 
       <Dialog open={editing} onOpenChange={setEditing}>
@@ -259,6 +271,7 @@ function StatusTab({ patient }: { patient: Patient }) {
       update({
         data: {
           id: patient.id,
+          expected_updated_at: patient.updated_at,
           status,
           discharge_date: status === "discharged" ? dischargeDate : "",
           discharge_destination: status === "discharged" ? destination : "",
@@ -268,9 +281,13 @@ function StatusTab({ patient }: { patient: Patient }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patient.id] });
       qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-audit", patient.id] });
       toast.success("Status updated");
     },
-    onError: (e: Error) => toast.error("Update failed", { description: e.message }),
+    onError: (e: Error) =>
+      e.message.startsWith("CONFLICT:")
+        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
+        : toast.error("Update failed", { description: e.message }),
   });
 
   return (
@@ -467,6 +484,62 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+type AuditRow = Record<string, any>;
+
+const ACTION_LABEL: Record<string, string> = {
+  insert: "Created",
+  update: "Updated",
+  delete: "Removed",
+};
+
+function AuditTab({ patientId }: { patientId: string }) {
+  const fetchAudit = useServerFn(getPatientAudit);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["patient-audit", patientId],
+    queryFn: () => fetchAudit({ data: { id: patientId } }) as Promise<AuditRow[]>,
+  });
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (rows.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          No change history recorded yet.
+        </CardContent>
+      </Card>
+    );
+
+  return (
+    <div className="space-y-2">
+      {rows.map((r) => {
+        const who = r.actor_email || (r.actor_role ? `a ${r.actor_role}` : "unknown user");
+        const fields: string[] = r.changed_fields ?? [];
+        return (
+          <Card key={r.id}>
+            <CardContent className="space-y-1 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{ACTION_LABEL[r.action] ?? r.action}</Badge>
+                <Badge variant="outline">
+                  {r.source === "bridge" ? "Linked app" : "This app"}
+                </Badge>
+                <span className="text-sm">{who}</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {fmtDateTime(r.created_at)}
+                </span>
+              </div>
+              {r.action === "update" && fields.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Changed: {fields.map((f) => f.replace(/_/g, " ")).join(", ")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
