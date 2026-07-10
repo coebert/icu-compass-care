@@ -170,8 +170,11 @@ function PatientsBoard() {
     if (!dragged) return;
 
     const targetKey = normalizeBed(targetBed);
-    const occupant = bedOccupant.get(targetKey) ?? null;
-    if (occupant && occupant.id === dragged.id) return; // dropped on itself
+    const occupants = bedOccupants.get(targetKey) ?? [];
+    if (occupants.some((o) => o.id === dragged.id)) return; // dropped on its own bed
+    // Only swap for a clean 1:1 move; if the bed already holds someone, add the
+    // dragged patient there too rather than forcing a swap into a shared bed.
+    const occupant = occupants.length === 1 ? occupants[0] : null;
 
     const moves: { id: string; bed: string; expected_updated_at?: string }[] = [
       { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
@@ -182,11 +185,6 @@ function PatientsBoard() {
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
       if (draggedHadBed) {
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
-      } else {
-        toast.error("That bed is occupied", {
-          description: "Move the current patient out first, or drag onto an empty bed.",
-        });
-        return;
       }
     }
 
