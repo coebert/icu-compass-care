@@ -289,6 +289,121 @@ describe("bridge patient sync (e2e)", () => {
     );
     expect(staleEdit.status, "stale write should be rejected with 409").toBe(409);
   }, 60_000);
+
+  it("records a treatment escalation plan and DNACPR decision that persist after discharge and stay editable", async () => {
+    const marker = `H-E2E-TEP-${Date.now()}`;
+    const dnacprDate = "2026-07-10";
+
+    // 1. Admit a patient with an active treatment escalation plan (TEP) and a
+    //    decision not to attempt CPR (DNACPR) fully documented.
+    const create = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        full_name: "T.E.",
+        age: 78,
+        hospital_number: marker,
+        location_type: "icu",
+        ward: "Critical Care",
+        status: "admitted",
+        tep_in_place: true,
+        tep_details: "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
+        dnacpr_decision: true,
+        dnacpr_details: "DNACPR agreed with patient and family. Not for chest compressions.",
+        dnacpr_date: dnacprDate,
+      }),
+    );
+    expect(create.status, `create failed: ${create.text}`).toBe(200);
+    const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
+    expect(createdPatient, "create response missing `patient`").toBeTruthy();
+    const created = createdPatient as Record<string, unknown>;
+    const id = created.id as string;
+    expect(id, "created patient missing id").toBeTruthy();
+
+    // The escalation plan and resuscitation decision round-tripped on create.
+    expect(created.tep_in_place).toBe(true);
+    expect(created.tep_details).toBe(
+      "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
+    );
+    expect(created.dnacpr_decision).toBe(true);
+    expect(created.dnacpr_details).toBe(
+      "DNACPR agreed with patient and family. Not for chest compressions.",
+    );
+    expect(String(created.dnacpr_date)).toContain(dnacprDate);
+
+    // 2. Discharge the patient — the escalation/resuscitation fields must not be
+    //    cleared by the lifecycle change.
+    const discharge = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "T.E.",
+        status: "discharged",
+        discharge_date: new Date().toISOString(),
+        discharge_destination: "Ward 6",
+      }),
+    );
+    expect(discharge.status, `discharge failed: ${discharge.text}`).toBe(200);
+    const dischargedPatient = (discharge.json as { patient?: Record<string, unknown> })?.patient;
+    expect(dischargedPatient, "discharge response missing `patient`").toBeTruthy();
+    const discharged = dischargedPatient as Record<string, unknown>;
+    expect(discharged.status).toBe("discharged");
+    // TEP and DNACPR survived the discharge write.
+    expect(discharged.tep_in_place).toBe(true);
+    expect(discharged.tep_details).toBe(
+      "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
+    );
+    expect(discharged.dnacpr_decision).toBe(true);
+    expect(discharged.dnacpr_details).toBe(
+      "DNACPR agreed with patient and family. Not for chest compressions.",
+    );
+
+    // 3. Persistence check — re-read the discharged record via the partner pull.
+    const list = await bridge("GET", "/api/public/bridge/patients?status=discharged");
+    expect(list.status, `list failed: ${list.text}`).toBe(200);
+    const rows = (list.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    const persisted = rows.find((p) => p.id === id);
+    expect(persisted, "discharged record not returned by partner pull").toBeTruthy();
+    const persistedRow = persisted as Record<string, unknown>;
+    expect(persistedRow.tep_in_place).toBe(true);
+    expect(persistedRow.tep_details).toBe(
+      "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
+    );
+    expect(persistedRow.dnacpr_decision).toBe(true);
+    expect(persistedRow.dnacpr_details).toBe(
+      "DNACPR agreed with patient and family. Not for chest compressions.",
+    );
+    expect(String(persistedRow.dnacpr_date)).toContain(dnacprDate);
+
+    // 4. The fields remain editable after discharge — revise the escalation plan
+    //    and DNACPR details on the discharged record.
+    const edit = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "T.E.",
+        status: "discharged",
+        expected_updated_at: persistedRow.updated_at,
+        tep_details: "Revised: for ceiling of care at ward level, comfort-focused.",
+        dnacpr_details: "DNACPR reaffirmed at discharge; community DNACPR form issued.",
+      }),
+    );
+    expect(edit.status, `edit failed: ${edit.text}`).toBe(200);
+    const editedPatient = (edit.json as { patient?: Record<string, unknown> })?.patient;
+    expect(editedPatient, "edit response missing `patient`").toBeTruthy();
+    const edited = editedPatient as Record<string, unknown>;
+    expect(edited.tep_in_place).toBe(true);
+    expect(edited.tep_details).toBe(
+      "Revised: for ceiling of care at ward level, comfort-focused.",
+    );
+    expect(edited.dnacpr_decision).toBe(true);
+    expect(edited.dnacpr_details).toBe(
+      "DNACPR reaffirmed at discharge; community DNACPR form issued.",
+    );
+    expect(edited.updated_at).not.toBe(persistedRow.updated_at);
+  }, 60_000);
 });
 
 describe("bridge patient endpoints reject unauthenticated / unauthorized callers", () => {
