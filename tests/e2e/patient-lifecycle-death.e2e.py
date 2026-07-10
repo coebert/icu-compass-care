@@ -174,6 +174,10 @@ def main():
                 "([k, v]) => window.localStorage.setItem(k, v)",
                 [STORAGE_KEY, json.dumps(session)],
             )
+            # Reload so the app's Supabase client picks up the restored session
+            # and the client bearer middleware can attach the token to RPC calls.
+            page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
 
             # ---- 1. Start state: admitted + visible in the list ----
             start = call_fn(page, "getPatient", {"id": patient_id})
