@@ -160,6 +160,21 @@ def add_investigation(patient_id, category, findings, result_at):
     r.raise_for_status()
 
 
+def add_microbiology(patient_id, specimen_type, findings, result_at):
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/microbiology_results",
+        headers=admin_headers(),
+        json={
+            "patient_id": patient_id,
+            "specimen_type": specimen_type,
+            "findings": findings,
+            "result_at": result_at,
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+
+
 def sign_in(email):
     r = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
