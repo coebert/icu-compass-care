@@ -194,6 +194,11 @@ def cleanup(patient_id, user_id):
             timeout=30,
         )
         requests.delete(
+            f"{SUPABASE_URL}/rest/v1/microbiology_results?patient_id=eq.{patient_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+        requests.delete(
             f"{SUPABASE_URL}/rest/v1/patients?id=eq.{patient_id}",
             headers=admin_headers(),
             timeout=30,
