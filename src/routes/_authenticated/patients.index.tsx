@@ -100,7 +100,7 @@ function PatientsBoard() {
   // Active ICU patients whose bed doesn't match a known bed slot.
   const icuUnassigned = icu.filter((p) => {
     const key = normalizeBed(p.bed);
-    return !key || !ICU_BEDS.some((b) => normalizeBed(b) === key);
+    return !key || !bedRoster.some((b) => normalizeBed(b.label) === key);
   });
 
   function addToBed(bed: string) {
