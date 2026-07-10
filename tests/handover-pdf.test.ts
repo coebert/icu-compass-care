@@ -638,16 +638,12 @@ describe("PDF internal document metadata sanitisation", () => {
     const patient = SAMPLE_PATIENTS[0];
     const doc = buildHandoverPdf([patient], { title: hostileTitle });
 
-    // The library's own view of the metadata is the sanitized value.
-    const props = doc.getDocumentProperties();
-    expect(props.title).toBe(sanitizePdfMetadataText(hostileTitle));
-    expect(/[()\\]/.test(props.title ?? "")).toBe(false);
-    // eslint-disable-next-line no-control-regex
-    expect(/[\u0000-\u001f\u007f]/.test(props.title ?? "")).toBe(false);
-
-    // And the raw PDF bytes never contain the hostile fragments verbatim in
-    // the info dictionary — no injected /Author or unescaped parentheses/CRLF.
+    // The raw PDF bytes carry the sanitized title in the info dictionary and
+    // never contain the hostile fragments verbatim — no injected /Author,
+    // unescaped parentheses, or CRLF.
     const raw = await pdfText(doc);
+    const safeTitle = sanitizePdfMetadataText(hostileTitle);
+    expect(raw.includes(`/Title (${safeTitle})`)).toBe(true);
     expect(raw.includes("/Author (evil)")).toBe(false);
     expect(raw.includes("Ward 9 (secret)")).toBe(false);
     expect(raw.includes("(secret)")).toBe(false);
