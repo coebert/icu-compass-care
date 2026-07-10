@@ -38,9 +38,10 @@ export function SyncStatusPanel({ className }: { className?: string } = {}) {
 
   if (isLoading) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
         <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Sync…
       </span>
+
     );
   }
 
