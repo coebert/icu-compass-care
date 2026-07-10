@@ -105,9 +105,10 @@ function AdminPage() {
           <h1 className="text-2xl font-bold">Staff accounts</h1>
           <p className="text-sm text-muted-foreground">Create and manage who can access the handover.</p>
         </div>
-        <Button className="ml-auto gap-1.5" onClick={() => setOpen(true)}>
+        <Button className="ml-auto h-11 gap-1.5 sm:h-10" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> New account
         </Button>
+
       </div>
 
 
