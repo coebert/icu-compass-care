@@ -17,6 +17,8 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
+import { Route as ApiPublicBridgePatientsRouteImport } from './routes/api/public/bridge.patients'
+import { Route as ApiPublicBridgeInvestigationsRouteImport } from './routes/api/public/bridge.investigations'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -58,6 +60,17 @@ const AuthenticatedPatientsPatientIdRoute =
     path: '/$patientId',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
+const ApiPublicBridgePatientsRoute = ApiPublicBridgePatientsRouteImport.update({
+  id: '/api/public/bridge/patients',
+  path: '/api/public/bridge/patients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBridgeInvestigationsRoute =
+  ApiPublicBridgeInvestigationsRouteImport.update({
+    id: '/api/public/bridge/investigations',
+    path: '/api/public/bridge/investigations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -67,6 +80,8 @@ export interface FileRoutesByFullPath {
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
+  '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,6 +91,8 @@ export interface FileRoutesByTo {
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
+  '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,6 +104,8 @@ export interface FileRoutesById {
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
+  '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,6 +117,8 @@ export interface FileRouteTypes {
     | '/patients'
     | '/settings'
     | '/patients/$patientId'
+    | '/api/public/bridge/investigations'
+    | '/api/public/bridge/patients'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -107,6 +128,8 @@ export interface FileRouteTypes {
     | '/patients'
     | '/settings'
     | '/patients/$patientId'
+    | '/api/public/bridge/investigations'
+    | '/api/public/bridge/patients'
   id:
     | '__root__'
     | '/'
@@ -117,6 +140,8 @@ export interface FileRouteTypes {
     | '/_authenticated/patients'
     | '/_authenticated/settings'
     | '/_authenticated/patients/$patientId'
+    | '/api/public/bridge/investigations'
+    | '/api/public/bridge/patients'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -124,6 +149,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   SetupRoute: typeof SetupRoute
+  ApiPublicBridgeInvestigationsRoute: typeof ApiPublicBridgeInvestigationsRoute
+  ApiPublicBridgePatientsRoute: typeof ApiPublicBridgePatientsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -184,6 +211,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
+    '/api/public/bridge/patients': {
+      id: '/api/public/bridge/patients'
+      path: '/api/public/bridge/patients'
+      fullPath: '/api/public/bridge/patients'
+      preLoaderRoute: typeof ApiPublicBridgePatientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/investigations': {
+      id: '/api/public/bridge/investigations'
+      path: '/api/public/bridge/investigations'
+      fullPath: '/api/public/bridge/investigations'
+      preLoaderRoute: typeof ApiPublicBridgeInvestigationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -220,6 +261,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   SetupRoute: SetupRoute,
+  ApiPublicBridgeInvestigationsRoute: ApiPublicBridgeInvestigationsRoute,
+  ApiPublicBridgePatientsRoute: ApiPublicBridgePatientsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
