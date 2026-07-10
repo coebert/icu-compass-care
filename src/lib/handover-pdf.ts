@@ -31,9 +31,11 @@ function identity(p: HandoverPatient): string {
 }
 
 function location(p: HandoverPatient): string {
+  const discharged = p.status === "discharged";
   return joinNonEmpty([
     p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location",
     STATUS_LABELS[p.status] ?? p.status,
+    discharged && p.discharge_destination ? `To ${p.discharge_destination}` : null,
     `Adm ${fmtDate(p.admission_date)}`,
   ]);
 }
