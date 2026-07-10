@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { safeDbError } from "@/lib/db-error";
 
 // First-run setup: create the very first admin account, and ONLY if the system
 // has no users yet. Self-disables permanently once any account exists, so it is
@@ -7,7 +8,7 @@ import { z } from "zod";
 export const setupStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
-  if (error) throw new Error(error.message);
+  if (error) throw safeDbError(error, "check setup status");
   return { needsSetup: (data?.users?.length ?? 0) === 0 };
 });
 
