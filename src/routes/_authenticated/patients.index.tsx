@@ -275,6 +275,10 @@ function PatientsBoard() {
     const moves: { id: string; bed: string; expected_updated_at?: string }[] = [
       { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
     ];
+    // Snapshot the pre-move positions so the "Undo" action can restore them.
+    const previous: BedSnapshot[] = [
+      { id: dragged.id, bed: dragged.bed ?? null, location_type: dragged.location_type },
+    ];
 
     let summary = `${dragged.full_name ?? "Patient"} moved to ${targetLabel}.`;
 
