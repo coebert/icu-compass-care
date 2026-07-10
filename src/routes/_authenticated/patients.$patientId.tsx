@@ -271,6 +271,7 @@ function StatusTab({ patient }: { patient: Patient }) {
       update({
         data: {
           id: patient.id,
+          expected_updated_at: patient.updated_at,
           status,
           discharge_date: status === "discharged" ? dischargeDate : "",
           discharge_destination: status === "discharged" ? destination : "",
@@ -280,9 +281,13 @@ function StatusTab({ patient }: { patient: Patient }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patient", patient.id] });
       qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-audit", patient.id] });
       toast.success("Status updated");
     },
-    onError: (e: Error) => toast.error("Update failed", { description: e.message }),
+    onError: (e: Error) =>
+      e.message.startsWith("CONFLICT:")
+        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
+        : toast.error("Update failed", { description: e.message }),
   });
 
   return (
