@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getSyncStatus, runBridgeSyncFn, type SyncStatus } from "@/lib/sync.functions";
+import type { SyncRunResult } from "@/lib/bridge-sync.server";
 import {
   Tooltip,
   TooltipContent,
