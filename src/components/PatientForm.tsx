@@ -29,6 +29,7 @@ export type PatientFormValues = {
   current_admission: string;
   current_management: string;
   outstanding_tasks: string;
+  isolation_required: boolean;
   tep_in_place: boolean;
   tep_details: string;
   dnacpr_decision: boolean;
@@ -58,6 +59,7 @@ export function emptyPatient(): PatientFormValues {
     current_admission: "",
     current_management: "",
     outstanding_tasks: "",
+    isolation_required: false,
     tep_in_place: false,
     tep_details: "",
     dnacpr_decision: false,
@@ -199,6 +201,19 @@ export function PatientForm({
         <Field label="Outstanding tasks">
           <Textarea rows={3} value={values.outstanding_tasks} onChange={(e) => set("outstanding_tasks", e.target.value)} />
         </Field>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Placement & isolation
+        </h3>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <p className="text-sm font-medium">Isolation required</p>
+            <p className="text-xs text-muted-foreground">Patient must be placed in a side room only</p>
+          </div>
+          <Switch checked={values.isolation_required} onCheckedChange={(v) => set("isolation_required", v)} />
+        </div>
       </section>
 
       <section className="space-y-4">

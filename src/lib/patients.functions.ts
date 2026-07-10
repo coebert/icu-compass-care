@@ -33,6 +33,7 @@ const patientInput = z.object({
   current_admission: z.string().max(10000).optional().nullable(),
   current_management: z.string().max(10000).optional().nullable(),
   outstanding_tasks: z.string().max(10000).optional().nullable(),
+  isolation_required: z.boolean(),
   tep_in_place: z.boolean(),
   tep_details: z.string().max(10000).optional().nullable(),
   dnacpr_decision: z.boolean(),

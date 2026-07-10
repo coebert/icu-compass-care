@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
-import { normalizeBed } from "@/lib/icu-beds";
+import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 
 export const Route = createFileRoute("/_authenticated/patients/")({
@@ -51,9 +51,11 @@ function PatientsBoard() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
 
-  // Currently dragged patient (kept in a ref so drop handlers read the latest).
+  // Currently dragged patient (kept in a ref so drop handlers read the latest,
+  // plus in state so the bed board can flag ineligible beds while dragging).
   const draggedRef = useRef<Patient | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [draggedPatient, setDraggedPatient] = useState<Patient | null>(null);
+  const dragging = draggedPatient !== null;
 
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
@@ -146,7 +148,7 @@ function PatientsBoard() {
 
   function onDragStartPatient(p: Patient, e: React.DragEvent) {
     draggedRef.current = p;
-    setDragging(true);
+    setDraggedPatient(p);
     e.dataTransfer.effectAllowed = "move";
     // Some browsers require data to be set for the drag to initiate.
     try {
@@ -158,20 +160,34 @@ function PatientsBoard() {
 
   function onDragEndPatient() {
     draggedRef.current = null;
-    setDragging(false);
+    setDraggedPatient(null);
   }
+
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
   // patients swap places (the previous occupant takes the dragged one's old bed).
+  // Drops that violate bed-eligibility rules are rejected with a clear error.
   function dropOnBed(targetBed: string) {
     const dragged = draggedRef.current;
     draggedRef.current = null;
-    setDragging(false);
+    setDraggedPatient(null);
     if (!dragged) return;
 
     const targetKey = normalizeBed(targetBed);
     const occupants = bedOccupants.get(targetKey) ?? [];
     if (occupants.some((o) => o.id === dragged.id)) return; // dropped on its own bed
+
+    const targetLabel = isSideRoom(targetBed, bedRoster) ? targetBed : `Bed ${targetBed}`;
+
+    // Is the dragged patient allowed in the target bed?
+    const eligibility = checkBedEligibility(dragged, targetBed, bedRoster);
+    if (!eligibility.ok) {
+      toast.error(`Can't move ${dragged.full_name ?? "patient"} to ${targetLabel}`, {
+        description: eligibility.reason,
+      });
+      return;
+    }
+
     // Only swap for a clean 1:1 move; if the bed already holds someone, add the
     // dragged patient there too rather than forcing a swap into a shared bed.
     const occupant = occupants.length === 1 ? occupants[0] : null;
@@ -184,6 +200,14 @@ function PatientsBoard() {
       // Swap only makes sense when the dragged patient vacates a real ICU bed.
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
       if (draggedHadBed) {
+        // The displaced occupant must also be eligible for the bed they'd take.
+        const swapEligibility = checkBedEligibility(occupant, dragged.bed, bedRoster);
+        if (!swapEligibility.ok) {
+          toast.error(`Can't swap with ${occupant.full_name ?? "patient"}`, {
+            description: swapEligibility.reason,
+          });
+          return;
+        }
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
       }
     }
@@ -254,6 +278,7 @@ function PatientsBoard() {
             unassigned={icuUnassigned}
             onAddToBed={addToBed}
             dragging={dragging}
+            draggedPatient={draggedPatient}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
             onDropOnBed={dropOnBed}
@@ -318,6 +343,11 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
           </Badge>
         )}
         {p.tep_in_place && <Badge variant="outline">TEP</Badge>}
+        {p.isolation_required && (
+          <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300">
+            <BedDouble className="h-3 w-3" /> Isolation
+          </Badge>
+        )}
       </div>
       {p.outstanding_tasks && (
         <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -368,6 +398,7 @@ function BedBoard({
   unassigned,
   onAddToBed,
   dragging,
+  draggedPatient,
   onDragStartPatient,
   onDragEndPatient,
   onDropOnBed,
@@ -377,6 +408,7 @@ function BedBoard({
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
   dragging: boolean;
+  draggedPatient: Patient | null;
   onDragStartPatient: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient: () => void;
   onDropOnBed: (bed: string) => void;
@@ -390,7 +422,10 @@ function BedBoard({
         <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
       {dragging && (
-        <p className="text-xs text-primary">Drop the card on a bed to move the patient there.</p>
+        <p className="text-xs text-primary">
+          Drop the card on a bed to move the patient there.
+          {draggedPatient?.isolation_required && " This patient requires isolation — side rooms only."}
+        </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {roster.map((slot) => {
@@ -398,10 +433,15 @@ function BedBoard({
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
           const isOver = overBed === bed;
+          // While dragging, decide whether this bed can accept the patient so we
+          // can flag ineligible beds and refuse the drop with a "no-drop" cursor.
+          const ineligible = Boolean(
+            draggedPatient && !checkBedEligibility(draggedPatient, bed, roster).ok,
+          );
           const dropHandlers = {
             onDragOver: (e: React.DragEvent) => {
               e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
+              e.dataTransfer.dropEffect = ineligible ? "none" : "move";
               if (overBed !== bed) setOverBed(bed);
             },
             onDragLeave: () => setOverBed((b) => (b === bed ? null : b)),
@@ -411,6 +451,9 @@ function BedBoard({
               onDropOnBed(bed);
             },
           };
+          const overRing = ineligible
+            ? "border-destructive ring-2 ring-destructive/40"
+            : "border-primary ring-2 ring-primary/40";
           if (occupants.length > 0) {
             return (
               <div key={slot.id} {...dropHandlers} className="space-y-2">
@@ -426,7 +469,7 @@ function BedBoard({
                     onDragStartPatient={onDragStartPatient}
                     onDragEndPatient={onDragEndPatient}
                   >
-                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
+                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
                       <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
                         {label}
                       </div>
@@ -443,14 +486,14 @@ function BedBoard({
               type="button"
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${isOver ? "border-primary bg-primary/10 ring-2 ring-primary/40" : ""}`}
+              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
               <span className="text-xs font-semibold text-muted-foreground">{label}</span>
               <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary">
                 <Plus className="h-4 w-4" /> Empty
               </span>
               <span className="text-[11px] text-muted-foreground">
-                {dragging ? "Drop here" : "Tap to admit"}
+                {dragging ? (ineligible ? "Not eligible" : "Drop here") : "Tap to admit"}
               </span>
             </button>
           );

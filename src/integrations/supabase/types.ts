@@ -363,6 +363,7 @@ export type Database = {
           full_name: string
           hospital_number: string | null
           id: string
+          isolation_required: boolean
           location_type: Database["public"]["Enums"]["patient_location"]
           nok_contact: string | null
           nok_last_updated: string | null
@@ -395,6 +396,7 @@ export type Database = {
           full_name: string
           hospital_number?: string | null
           id?: string
+          isolation_required?: boolean
           location_type?: Database["public"]["Enums"]["patient_location"]
           nok_contact?: string | null
           nok_last_updated?: string | null
@@ -427,6 +429,7 @@ export type Database = {
           full_name?: string
           hospital_number?: string | null
           id?: string
+          isolation_required?: boolean
           location_type?: Database["public"]["Enums"]["patient_location"]
           nok_contact?: string | null
           nok_last_updated?: string | null
