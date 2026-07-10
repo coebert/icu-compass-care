@@ -205,6 +205,19 @@ export function PatientForm({
 
       <section className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Placement & isolation
+        </h3>
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div>
+            <p className="text-sm font-medium">Isolation required</p>
+            <p className="text-xs text-muted-foreground">Patient must be placed in a side room only</p>
+          </div>
+          <Switch checked={values.isolation_required} onCheckedChange={(v) => set("isolation_required", v)} />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Escalation & resuscitation
         </h3>
         <div className="flex items-center justify-between rounded-lg border p-3">
