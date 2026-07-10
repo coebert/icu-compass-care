@@ -1,90 +1,91 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getSyncStatus, type SyncEvent } from "@/lib/sync.functions";
-import { Card, CardContent } from "@/components/ui/card";
+import { getSyncStatus, type SyncStatus } from "@/lib/sync.functions";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownToLine, ArrowUpFromLine, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 
-function timeAgo(iso: string | undefined | null): string {
-  if (!iso) return "never";
-  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (secs < 60) return "just now";
-  const mins = Math.floor(secs / 60);
+function relTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
-
-function describe(e: SyncEvent): string {
-  const who = e.actor_email ? ` by ${e.actor_email}` : e.actor_role ? ` by a ${e.actor_role}` : "";
-  return `${e.record_count} ${e.entity}${who}`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return d.toLocaleString();
 }
 
 export function SyncStatusPanel() {
   const fetchStatus = useServerFn(getSyncStatus);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["sync-status"],
-    queryFn: () => fetchStatus(),
-    refetchInterval: 30_000,
+    queryFn: () => fetchStatus() as Promise<SyncStatus>,
+    retry: false,
+    refetchInterval: 60_000,
   });
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-center gap-2">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
           <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">Sync status</h2>
-          <span className="ml-auto text-xs text-muted-foreground">Linked project</span>
-        </div>
-
+          Cross-project sync status
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
         {isLoading ? (
-          <p className="text-xs text-muted-foreground">Checking…</p>
+          <p className="text-sm text-muted-foreground">Loading sync status…</p>
+        ) : error ? (
+          <p className="text-sm text-muted-foreground">
+            You do not have permission to view sync status.
+          </p>
         ) : (
-          <>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-md border p-3">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <ArrowDownToLine className="h-3.5 w-3.5" /> Last pushed in
-                </div>
-                <p className="mt-1 text-sm font-semibold">{timeAgo(data?.lastPush?.created_at)}</p>
-                {data?.lastPush && (
-                  <p className="text-xs text-muted-foreground">{describe(data.lastPush)}</p>
-                )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border p-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Last successful sync
               </div>
-              <div className="rounded-md border p-3">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <ArrowUpFromLine className="h-3.5 w-3.5" /> Last pulled out
-                </div>
-                <p className="mt-1 text-sm font-semibold">{timeAgo(data?.lastPull?.created_at)}</p>
-                {data?.lastPull && (
-                  <p className="text-xs text-muted-foreground">{describe(data.lastPull)}</p>
-                )}
-              </div>
+              <p className="mt-1 text-lg font-semibold">
+                {relTime(data?.lastSuccess?.created_at ?? null)}
+              </p>
+              {data?.lastSuccess ? (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {data.lastSuccess.direction} · {data.lastSuccess.entity} ·{" "}
+                  {data.lastSuccess.record_count} record
+                  {data.lastSuccess.record_count === 1 ? "" : "s"}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-muted-foreground">No syncs recorded yet.</p>
+              )}
             </div>
 
-            {data && data.recent.length > 0 ? (
-              <div className="space-y-1">
-                {data.recent.map((e) => (
-                  <div key={e.id} className="flex items-center gap-2 text-xs">
-                    <Badge variant="outline" className="gap-1">
-                      {e.direction === "push" ? (
-                        <ArrowDownToLine className="h-3 w-3" />
-                      ) : (
-                        <ArrowUpFromLine className="h-3 w-3" />
-                      )}
-                      {e.direction === "push" ? "In" : "Out"}
-                    </Badge>
-                    <span className="text-muted-foreground">{describe(e)}</span>
-                    <span className="ml-auto text-muted-foreground">{timeAgo(e.created_at)}</span>
-                  </div>
-                ))}
+            <div className="rounded-md border p-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <AlertTriangle
+                  className={`h-4 w-4 ${data?.lastError ? "text-destructive" : "text-muted-foreground"}`}
+                />
+                Last error
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No sync activity with the linked project yet.</p>
-            )}
-          </>
+              {data?.lastError ? (
+                <>
+                  <p className="mt-1 flex items-center gap-2">
+                    <Badge variant="destructive">{relTime(data.lastError.created_at)}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {data.lastError.direction} · {data.lastError.entity}
+                    </span>
+                  </p>
+                  <p className="mt-1 max-w-full truncate text-xs text-destructive" title={data.lastError.error_message ?? ""}>
+                    {data.lastError.error_message || "Unknown error"}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-lg font-semibold text-emerald-600">None</p>
+              )}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
