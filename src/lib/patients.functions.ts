@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAudit } from "@/lib/audit";
@@ -48,7 +49,7 @@ export const listPatients = createServerFn({ method: "GET" })
       .from("patients")
       .select("*")
       .order("updated_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return data;
   });
 
@@ -61,7 +62,7 @@ export const getPatient = createServerFn({ method: "GET" })
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return patient;
   });
 
@@ -74,7 +75,7 @@ export const createPatient = createServerFn({ method: "POST" })
       .insert({ ...clean(data as Record<string, unknown>), created_by: context.userId, updated_by: context.userId } as never)
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await writeAudit(supabaseAdmin, {
       entity: "patients",
@@ -107,7 +108,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", id)
       .maybeSingle();
-    if (readErr) throw new Error(readErr.message);
+    if (readErr) throw safeDbError(readErr);
     if (!current) throw new Error("Patient not found");
 
     // Optimistic concurrency — block overwriting a newer change from either app.
@@ -123,7 +124,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .eq("id", id)
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await writeAudit(supabaseAdmin, {
@@ -148,7 +149,7 @@ export const deletePatient = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .maybeSingle();
     const { error } = await context.supabase.from("patients").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await writeAudit(supabaseAdmin, {
       entity: "patients",
@@ -173,6 +174,6 @@ export const getPatientAudit = createServerFn({ method: "GET" })
       .eq("record_id", data.id)
       .order("created_at", { ascending: false })
       .limit(50);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return rows ?? [];
   });

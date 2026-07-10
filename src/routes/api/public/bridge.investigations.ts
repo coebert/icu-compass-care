@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         if (category) query = query.eq("category", category);
 
         const { data, error } = await query;
-        if (error) return json({ error: error.message }, 500);
+        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         await logSync(supabaseAdmin, { direction: "pull", entity: "investigations", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ investigations: data });
       },
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
           .select()
           .maybeSingle();
 
-        if (error) return json({ error: error.message }, 500);
+        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         if (data) {
           await writeAudit(supabaseAdmin, {
             entity: "investigations",

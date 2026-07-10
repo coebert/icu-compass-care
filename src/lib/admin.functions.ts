@@ -1,13 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { safeDbError } from "@/lib/db-error";
 
 async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data, error } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (error) throw new Error(error.message);
+  // Verify admin via the user_roles table directly (readable under the
+  // "Users can view own roles" policy) instead of an API-exposed RPC.
+  const { data, error } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (error) throw safeDbError(error, "verify permissions");
   if (!data) throw new Error("Forbidden: admin only");
 }
 
@@ -21,7 +26,7 @@ export const listStaff = createServerFn({ method: "GET" })
       .from("profiles")
       .select("*")
       .order("display_name");
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     const { data: roles } = await context.supabase.from("user_roles").select("user_id, role");
     const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const emailById = new Map((authList?.users ?? []).map((u) => [u.id, u.email]));
@@ -55,14 +60,14 @@ export const createStaff = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { display_name: data.display_name },
     });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     const newId = created.user!.id;
     // profile is auto-created by trigger; ensure display name + role
     await supabaseAdmin.from("profiles").update({ display_name: data.display_name }).eq("id", newId);
     const { error: roleErr } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: newId, role: data.role });
-    if (roleErr) throw new Error(roleErr.message);
+    if (roleErr) throw safeDbError(roleErr);
     return { ok: true, id: newId };
   });
 
@@ -81,7 +86,7 @@ export const setStaffRole = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: data.user_id, role: data.role });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return { ok: true };
   });
 
@@ -96,7 +101,7 @@ export const deleteStaff = createServerFn({ method: "POST" })
     if (data.user_id === context.userId) throw new Error("You cannot delete your own account");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return { ok: true };
   });
 
@@ -110,11 +115,11 @@ export const claimFirstAdmin = createServerFn({ method: "POST" })
       .from("user_roles")
       .select("id", { count: "exact", head: true })
       .eq("role", "admin");
-    if (countErr) throw new Error(countErr.message);
+    if (countErr) throw safeDbError(countErr);
     if ((count ?? 0) > 0) return { ok: false, reason: "admin_exists" as const };
     const { error } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: context.userId, role: "admin" });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return { ok: true };
   });

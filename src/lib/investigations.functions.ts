@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -20,7 +21,7 @@ export const listInvestigations = createServerFn({ method: "GET" })
       .select("*")
       .eq("patient_id", data.patientId)
       .order("result_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return rows;
   });
 
@@ -33,7 +34,7 @@ export const addInvestigation = createServerFn({ method: "POST" })
       .insert({ ...data, created_by: context.userId } as never)
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return row;
   });
 
@@ -57,7 +58,7 @@ export const updateInvestigation = createServerFn({ method: "POST" })
       .eq("id", id)
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return row;
   });
 
@@ -66,6 +67,6 @@ export const deleteInvestigation = createServerFn({ method: "POST" })
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("investigations").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error);
     return { ok: true };
   });

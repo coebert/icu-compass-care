@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         if (status) query = query.eq("status", status as "admitted" | "died" | "discharged" | "referred");
 
         const { data, error } = await query;
-        if (error) return json({ error: error.message }, 500);
+        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ patients: data });
       },
@@ -93,7 +93,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
             .select("*")
             .eq("id", record.id as string)
             .maybeSingle();
-          if (readErr) return json({ error: readErr.message }, 500);
+          if (readErr) return (console.error("[bridge]", readErr), json({ error: "Internal server error" }, 500));
           if (!current) return json({ error: "Patient not found" }, 404);
 
           // Optimistic concurrency: reject stale writes so the caller can reconcile.
@@ -115,7 +115,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
             .eq("id", record.id as string)
             .select()
             .maybeSingle();
-          if (error) return json({ error: error.message }, 500);
+          if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
           if (!data) return json({ error: "Patient not found" }, 404);
 
           await writeAudit(supabaseAdmin, {
@@ -136,7 +136,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           .insert(record)
           .select()
           .maybeSingle();
-        if (error) return json({ error: error.message }, 500);
+        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         if (!data) return json({ error: "Patient could not be created" }, 500);
 
         await writeAudit(supabaseAdmin, {
