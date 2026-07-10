@@ -1,27 +1,39 @@
 /**
- * Radnor Critical Care Unit bed roster — the single source of truth shared by
- * the in-app bed board and the cross-project data bridge.
+ * Radnor Critical Care Unit bed roster helpers.
  *
- * The unit has 10 beds; the first two are side rooms (SR1, SR2).
+ * The roster is now editable by admins and stored in the `icu_beds` table
+ * (see src/lib/beds.functions.ts). This module keeps the shared, pure helpers
+ * plus a DEFAULT roster used as a fallback when the database is empty or
+ * unreachable so the bed board never renders blank.
  */
-export const ICU_BEDS = ["SR1", "SR2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
 
-export type IcuBed = (typeof ICU_BEDS)[number];
+export type BedSlot = { label: string; is_side_room: boolean };
 
-/** Beds that are single side rooms rather than open-bay beds. */
-export const SIDE_ROOMS = ["SR1", "SR2"] as const;
+/** Fallback roster: two side rooms then open-bay beds 3–10. */
+export const DEFAULT_BEDS: BedSlot[] = [
+  { label: "SR1", is_side_room: true },
+  { label: "SR2", is_side_room: true },
+  { label: "3", is_side_room: false },
+  { label: "4", is_side_room: false },
+  { label: "5", is_side_room: false },
+  { label: "6", is_side_room: false },
+  { label: "7", is_side_room: false },
+  { label: "8", is_side_room: false },
+  { label: "9", is_side_room: false },
+  { label: "10", is_side_room: false },
+];
 
 /** Case-insensitive, whitespace-tolerant bed key for comparisons. */
 export const normalizeBed = (b: unknown) => String(b ?? "").trim().toUpperCase();
 
-/** True when the given bed label is one of the unit's side rooms. */
-export function isSideRoom(bed: unknown): boolean {
+/** True when the given bed label is a side room within the supplied roster. */
+export function isSideRoom(bed: unknown, roster: BedSlot[] = DEFAULT_BEDS): boolean {
   const key = normalizeBed(bed);
-  return SIDE_ROOMS.some((sr) => normalizeBed(sr) === key);
+  return roster.some((b) => b.is_side_room && normalizeBed(b.label) === key);
 }
 
-/** True when the given bed label matches a known unit bed slot. */
-export function isKnownBed(bed: unknown): boolean {
+/** True when the given bed label matches a known slot within the roster. */
+export function isKnownBed(bed: unknown, roster: BedSlot[] = DEFAULT_BEDS): boolean {
   const key = normalizeBed(bed);
-  return ICU_BEDS.some((b) => normalizeBed(b) === key);
+  return roster.some((b) => normalizeBed(b.label) === key);
 }
