@@ -85,8 +85,9 @@ LIST_PAYLOAD = {"t": {"t": 10, "i": 0, "p": {"k": ["data"], "v": [
 
 
 def get_payload(patient_id):
+    # String args are wrapped as {"t":1,"s":<value>} in the TSS frame format.
     return {"t": {"t": 10, "i": 0, "p": {"k": ["data"], "v": [
-        {"t": 10, "i": 1, "p": {"k": ["id"], "v": [patient_id]}, "o": 0}]},
+        {"t": 10, "i": 1, "p": {"k": ["id"], "v": [{"t": 1, "s": patient_id}]}, "o": 0}]},
         "o": 0}, "f": 63, "m": []}
 
 
