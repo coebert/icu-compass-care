@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { RefreshCw, ArrowDownToLine, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { BridgeHealthCheck } from "@/components/BridgeHealthCheck";
 
 export const Route = createFileRoute("/_authenticated/reconcile")({
   component: ReconcilePage,
@@ -109,6 +110,8 @@ function ReconcilePage() {
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
         </Button>
       </div>
+
+      <BridgeHealthCheck />
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Comparing with the linked project…</p>
