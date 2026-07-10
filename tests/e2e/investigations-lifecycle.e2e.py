@@ -220,16 +220,20 @@ def main():
             open_investigations(page)
 
             # ---- 1a. RECORD older lab result; it is the current 'most recent' ----
-            add_investigation(page, category="Bloods", findings=BLOODS_OLD, older=True)
+            # Date it to the previous month (picker opens on the current month).
+            add_investigation(page, category="Bloods", findings=BLOODS_OLD, nav="prev")
             # summary (Most recent Bloods) + history => 2 occurrences.
             expect(page.get_by_text(BLOODS_OLD, exact=True)).to_have_count(2, timeout=15000)
 
             # ---- 1b/2. RECORD newer lab result; summary must switch to it ----
-            add_investigation(page, category="Bloods", findings=BLOODS_NEW)
+            # The picker reopens on the previous month (retained value); step
+            # forward one month so this result is genuinely later than OLD.
+            add_investigation(page, category="Bloods", findings=BLOODS_NEW, nav="next")
             # NEW now owns the Bloods summary (summary + history = 2),
             # OLD drops to history only (1) -> proves the summary updated.
             expect(page.get_by_text(BLOODS_NEW, exact=True)).to_have_count(2, timeout=15000)
             expect(page.get_by_text(BLOODS_OLD, exact=True)).to_have_count(1, timeout=15000)
+
 
             # ---- 1c. RECORD imaging result; independent summary card ----
             add_investigation(page, category="CXR", findings=CXR_IMG)
