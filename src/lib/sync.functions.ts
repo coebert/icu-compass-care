@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SyncRunResult } from "@/lib/bridge-sync.server";
 
 export type SyncEvent = {
   id: string;
@@ -40,4 +41,20 @@ export const getSyncStatus = createServerFn({ method: "GET" })
       lastPull: events.find((e) => e.direction === "pull") ?? null,
       recent: events.slice(0, 8),
     };
+  });
+
+// Trigger a full bridge synchronization pass (admin only).
+export const runBridgeSyncFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<SyncRunResult> => {
+    const { data: role } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!role) throw new Error("Forbidden: admin only");
+
+    const { runBridgeSync } = await import("@/lib/bridge-sync.server");
+    return runBridgeSync();
   });

@@ -1,4 +1,11 @@
-import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -33,9 +40,11 @@ function AuthenticatedLayout() {
 
   // Bootstrap: if there is no admin yet, promote the first signed-in user.
   useEffect(() => {
-    claim().then((r) => {
-      if (r.ok) queryClient.invalidateQueries({ queryKey: ["me"] });
-    }).catch(() => {});
+    claim()
+      .then((r) => {
+        if (r.ok) queryClient.invalidateQueries({ queryKey: ["me"] });
+      })
+      .catch(() => {});
   }, [claim, queryClient]);
 
   async function signOut() {
@@ -82,7 +91,10 @@ function AuthenticatedLayout() {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <SyncStatusPanel className="hidden sm:inline-flex" />
+            <SyncStatusPanel
+              className="hidden sm:inline-flex"
+              isAdmin={profile?.isAdmin ?? false}
+            />
             <span className="hidden text-sm text-muted-foreground md:inline">
               {profile?.profile?.display_name ?? profile?.email}
             </span>
@@ -91,7 +103,6 @@ function AuthenticatedLayout() {
               <span className="hidden sm:inline">Sign out</span>
             </Button>
           </div>
-
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">
