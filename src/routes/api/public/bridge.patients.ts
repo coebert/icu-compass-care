@@ -32,10 +32,10 @@ const patientUpsert = z.object({
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
 });
 
-function cleanEmpty(data: Record<string, unknown>) {
+function cleanEmpty<T extends Record<string, unknown>>(data: T): T {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) out[k] = v === "" ? null : v;
-  return out;
+  return out as T;
 }
 
 export const Route = createFileRoute("/api/public/bridge/patients")({
