@@ -213,10 +213,11 @@ export function HandoverPreviewModal({
           <Button
             disabled={!url}
             className="gap-1.5"
-            onClick={() => url && downloadHandoverFromUrl(url)}
+            onClick={() => url && downloadHandoverFromUrl(url, { title: headerTitle, filenameFormat })}
           >
             <FileDown className="h-4 w-4" /> Download PDF
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
