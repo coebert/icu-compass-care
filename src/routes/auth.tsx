@@ -9,12 +9,17 @@ import { toast } from "sonner";
 import { HeartPulse, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (data.session) throw redirect({ to: "/patients" });
   },
+  loader: async () => {
+    const { setupStatus } = await import("@/lib/setup.functions");
+    const status = await setupStatus();
+    if (status.needsSetup) throw redirect({ to: "/setup" });
+  },
   component: AuthPage,
-  ssr: false,
 });
 
 function AuthPage() {
