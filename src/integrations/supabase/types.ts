@@ -373,6 +373,14 @@ export type Database = {
           outstanding_tasks: string | null
           past_medical_history: string | null
           status: Database["public"]["Enums"]["patient_status"]
+          systems_cvs: string | null
+          systems_gastro: string | null
+          systems_haem: string | null
+          systems_micro: string | null
+          systems_neuro: string | null
+          systems_other: string | null
+          systems_renal: string | null
+          systems_resp: string | null
           tep_details: string | null
           tep_in_place: boolean
           updated_at: string
@@ -406,6 +414,14 @@ export type Database = {
           outstanding_tasks?: string | null
           past_medical_history?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
+          systems_cvs?: string | null
+          systems_gastro?: string | null
+          systems_haem?: string | null
+          systems_micro?: string | null
+          systems_neuro?: string | null
+          systems_other?: string | null
+          systems_renal?: string | null
+          systems_resp?: string | null
           tep_details?: string | null
           tep_in_place?: boolean
           updated_at?: string
@@ -439,6 +455,14 @@ export type Database = {
           outstanding_tasks?: string | null
           past_medical_history?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
+          systems_cvs?: string | null
+          systems_gastro?: string | null
+          systems_haem?: string | null
+          systems_micro?: string | null
+          systems_neuro?: string | null
+          systems_other?: string | null
+          systems_renal?: string | null
+          systems_resp?: string | null
           tep_details?: string | null
           tep_in_place?: boolean
           updated_at?: string
