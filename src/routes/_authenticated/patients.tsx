@@ -149,7 +149,10 @@ function Section({
               <CardContent className="space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold leading-tight">{p.full_name}</p>
+                    <p className="font-semibold leading-tight">
+                      {p.full_name}
+                      {p.age != null ? ` · ${p.age}y` : ""}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location"}
                     </p>
