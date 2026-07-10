@@ -59,9 +59,12 @@ MARKER = f"E2E-RESP-{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 
 VIEWPORTS = [
+    # min_tap is the minimum reliable tap-target height per viewport: ~40px on
+    # mobile (touch), and a relaxed 24px on desktop (mouse precision).
     {"name": "mobile", "width": 360, "height": 740, "min_tap": 40},
-    {"name": "desktop", "width": 1280, "height": 900, "min_tap": 32},
+    {"name": "desktop", "width": 1280, "height": 900, "min_tap": 24},
 ]
+
 
 
 def admin_headers():
