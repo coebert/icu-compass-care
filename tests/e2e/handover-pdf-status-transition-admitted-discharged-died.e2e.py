@@ -1,33 +1,39 @@
 """
-End-to-end test: driving a single patient through the real Status-tab UI from
-Admitted -> Discharged -> Died, exporting the handover PDF after EACH change,
-and verifying every exported PDF shows the correct status label and the
-matching discharge / died details for that stage.
+End-to-end test: driving patients through the real Status-tab UI and verifying
+the exported handover PDF shows the correct status label and the matching
+discharge / died details at each stage.
 
-This is a lifecycle-consistency guard for the handover sheet. The
-"Location / status" column (location() in src/lib/handover-pdf.ts) renders:
+The app enforces a clinical lifecycle: "discharged" and "died" are TERMINAL
+(see TRANSITIONS in src/lib/patients.functions.ts) — a discharged patient can
+never become "died" and vice versa. So the Admitted -> Discharged -> Died
+sequence cannot happen on ONE record. This test therefore exercises both
+allowed terminal transitions from Admitted across two patients and asserts the
+handover PDF for every stage:
+
+  - Patient DIS: Admitted -> Discharged (with date + destination)
+  - Patient DEA: Admitted -> Died (with date of death)
+
+The "Location / status" column (location() in src/lib/handover-pdf.ts) renders:
   - the status label from STATUS_LABELS ("Admitted" / "Discharged" / "Died")
   - "To <discharge_destination>" ONLY while status === "discharged"
-So each stage must show its own label and MUST NOT leak the other stages'
-details (a discharged patient's "To ..." line must be gone once died, and no
-"Discharged"/"Died" label may appear while still admitted).
+Each stage must show its own label and MUST NOT leak the other patient's
+details.
 
 Steps:
-  1. Seed one ADMITTED patient (distinct bed) via the admin REST API.
+  1. Seed two ADMITTED patients on distinct beds via the admin REST API.
   2. Sign in as a throwaway clinician.
-  3. STAGE A — current view: export PDF, assert "Admitted", and that neither
-     "Discharged", "Died", nor the destination "To ..." line appears.
-  4. Change status to Discharged (date + destination) via the Status tab UI.
-  5. STAGE B — archive view: export PDF, assert "Discharged" and "To <dest>",
-     and that "Died" does NOT appear.
-  6. Change status to Died (date of death) via the Status tab UI.
-  7. STAGE C — archive view: export PDF, assert "Died", and that neither
-     "Discharged" nor the destination "To ..." line appears.
+  3. STAGE ADMITTED — current view: export PDF, assert BOTH rows read
+     "Admitted" and neither shows "Discharged", "Died", nor a "To ..." line.
+  4. Discharge DIS (date + destination) and kill DEA (date of death) via the
+     Status tab UI.
+  5. STAGE TERMINAL — archive view: export PDF, assert the DIS row reads
+     "Discharged" with "To <dest>" and no "Died", and the DEA row reads "Died"
+     with no "Discharged" and no discharge destination.
 
-All assertions are scoped to the patient's own row window in the PDF so no
-other archived record can satisfy them.
+All assertions are scoped to each patient's own row window so no other record
+can satisfy them.
 
-Throwaway clinician user + patient are created/cleaned via the admin REST API.
+Throwaway clinician user + patients are created/cleaned via the admin REST API.
 Nothing lingers in the clinical dataset.
 
 Requires (already present in the sandbox environment):
@@ -64,14 +70,17 @@ SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 MARKER = f"E2ESTATUS{int(time.time()) % 100000}"
 PASSWORD = "Test-Passw0rd-123!"
 
-PATIENT_NAME = f"STX.{MARKER}"
-BED = "47"
-DESTINATION = f"Ward{MARKER}"  # single token -> stays on one PDF line
+DEST = f"Ward{MARKER}"  # single token -> stays on one PDF line even when packed
 ADMISSION_DATE = (datetime.now(timezone.utc).date() - timedelta(days=6)).isoformat()
 
 TODAY = datetime.now(timezone.utc)
 TODAY_ISO = TODAY.date().isoformat()
 DATA_DAY = f"{TODAY.month}/{TODAY.day}/{TODAY.year}"
+
+# Two patients, each starting Admitted, each taking a different terminal path.
+DIS = {"name": f"STXD.{MARKER}", "bed": "47", "target": "discharged"}
+DEA = {"name": f"STXX.{MARKER}", "bed": "48", "target": "died"}
+CASES = [DIS, DEA]
 
 
 def admin_headers():
@@ -101,16 +110,16 @@ def create_user():
     return uid, email
 
 
-def create_admitted_patient():
+def create_admitted_patient(case):
     r = requests.post(
         f"{SUPABASE_URL}/rest/v1/patients",
         headers={**admin_headers(), "Prefer": "return=representation"},
         json={
-            "full_name": PATIENT_NAME,
+            "full_name": case["name"],
             "age": 68,
             "location_type": "icu",
             "ward": "Critical Care",
-            "bed": BED,
+            "bed": case["bed"],
             "status": "admitted",
             "admission_date": ADMISSION_DATE,
         },
@@ -142,10 +151,10 @@ def read_status(patient_id):
     return r.json()[0]
 
 
-def cleanup(patient_id, user_id):
-    if patient_id:
+def cleanup(patient_ids, user_id):
+    for pid in patient_ids:
         requests.delete(
-            f"{SUPABASE_URL}/rest/v1/patients?id=eq.{patient_id}",
+            f"{SUPABASE_URL}/rest/v1/patients?id=eq.{pid}",
             headers=admin_headers(),
             timeout=30,
         )
@@ -175,13 +184,18 @@ def extract_pdf_text(pdf_path):
     return packed(out.stdout)
 
 
-def row_window(packed_text, name):
-    """Return the slice of packed PDF text belonging to the patient's row.
-    There is only one seeded patient, but the bounded window keeps assertions
-    robust if the archive view holds other records."""
+def row_window(packed_text, name, others):
+    """Return the slice of packed PDF text belonging to the patient's row,
+    bounded by the nearest following other-patient name so no other row can
+    satisfy this row's assertions."""
     start = packed_text.find(packed(name))
     assert start != -1, f"patient {name!r} not found in exported PDF"
-    return packed_text[start : start + 400]
+    end = len(packed_text)
+    for other in others:
+        pos = packed_text.find(packed(other), start + len(packed(name)))
+        if pos != -1:
+            end = min(end, pos)
+    return packed_text[start:end]
 
 
 def open_status_tab(page):
@@ -199,9 +213,9 @@ def pick_today(page):
     cell.click()
 
 
-def export_pdf(page, archived, expect_name, suffix):
+def export_archive_pdf(page, archived, expect_names, suffix):
     """From /patients, optionally toggle Archive, then Preview + Download the
-    handover PDF and return its extracted text."""
+    handover PDF and return its packed extracted text."""
     page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
     page.wait_for_load_state("networkidle")
     assert "/auth" not in page.url, f"bounced to /auth: {page.url}"
@@ -209,7 +223,8 @@ def export_pdf(page, archived, expect_name, suffix):
     if archived:
         page.get_by_role("button", name="Archive").click()
 
-    expect(page.get_by_text(expect_name, exact=False).first).to_be_visible(timeout=15000)
+    for name in expect_names:
+        expect(page.get_by_text(name, exact=False).first).to_be_visible(timeout=15000)
 
     preview_btn = page.get_by_role("button", name="Preview PDF")
     expect(preview_btn).to_be_enabled(timeout=15000)
@@ -246,7 +261,7 @@ def set_status(page, patient_id, new_status):
     if new_status == "discharged":
         expect(panel.get_by_text("Discharge destination")).to_be_visible(timeout=5000)
         pick_today(page)
-        panel.get_by_placeholder("e.g. Ward, another hospital, home").fill(DESTINATION)
+        panel.get_by_placeholder("e.g. Ward, another hospital, home").fill(DEST)
     else:  # died
         expect(panel.get_by_text("Date of death")).to_be_visible(timeout=5000)
         pick_today(page)
@@ -254,8 +269,7 @@ def set_status(page, patient_id, new_status):
     panel.get_by_role("button", name="Update status").click()
 
     # Confirm persistence by polling the DB rather than the transient toast
-    # (Sonner toasts auto-dismiss, which makes a fixed-timeout visibility check
-    # flaky). Retry the click once on an optimistic-concurrency conflict.
+    # (Sonner toasts auto-dismiss, which makes a fixed-timeout check flaky).
     deadline = time.time() + 15
     while time.time() < deadline:
         if read_status(patient_id)["status"] == new_status:
@@ -263,16 +277,21 @@ def set_status(page, patient_id, new_status):
         time.sleep(0.5)
 
     page.screenshot(path=str(SCREENSHOTS / f"debug_{MARKER}_{new_status}.png"))
-    print("DEBUG toasts:", page.locator("[data-sonner-toast]").all_inner_texts())
-    raise AssertionError(f"status did not persist as {new_status!r}: {read_status(patient_id)!r}")
+    raise AssertionError(
+        f"status did not persist as {new_status!r}: {read_status(patient_id)!r}"
+    )
 
 
 def main():
-    user_id = patient_id = None
+    user_id = None
+    ids = {}
     try:
         user_id, email = create_user()
-        patient_id = create_admitted_patient()
+        for case in CASES:
+            ids[case["name"]] = create_admitted_patient(case)
         session = sign_in(email)
+
+        dest_packed = packed(f"To {DEST}")
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
@@ -288,54 +307,56 @@ def main():
                 [STORAGE_KEY, json.dumps(session)],
             )
 
-            # ---- STAGE A: Admitted (current view) ----
-            dest_packed = packed(f"To {DESTINATION}")
-            text_a = export_pdf(page, archived=False, expect_name=PATIENT_NAME, suffix="admitted")
-            win_a = row_window(text_a, PATIENT_NAME)
-            assert "Admitted" in win_a, f"STAGE A: 'Admitted' missing.\n{win_a!r}"
-            assert "Discharged" not in win_a, f"STAGE A: unexpected 'Discharged'.\n{win_a!r}"
-            assert "Died" not in win_a, f"STAGE A: unexpected 'Died'.\n{win_a!r}"
-            assert dest_packed not in win_a, f"STAGE A: unexpected destination line.\n{win_a!r}"
+            # ---- STAGE ADMITTED: both patients in the current view ----
+            text_a = export_archive_pdf(
+                page, archived=False,
+                expect_names=[DIS["name"], DEA["name"]], suffix="admitted",
+            )
+            for case in CASES:
+                win = row_window(text_a, case["name"], [c["name"] for c in CASES if c is not case])
+                assert "Admitted" in win, f"ADMITTED: {case['name']} missing 'Admitted'.\n{win!r}"
+                assert "Discharged" not in win, f"ADMITTED: {case['name']} unexpected 'Discharged'.\n{win!r}"
+                assert "Died" not in win, f"ADMITTED: {case['name']} unexpected 'Died'.\n{win!r}"
+                assert dest_packed not in win, f"ADMITTED: {case['name']} unexpected destination.\n{win!r}"
 
-            # ---- transition Admitted -> Discharged ----
-            set_status(page, patient_id, "discharged")
-            row = read_status(patient_id)
-            assert row["status"] == "discharged", f"DB status not discharged: {row!r}"
-            assert row["discharge_destination"] == DESTINATION, f"destination not stored: {row!r}"
+            # ---- transitions Admitted -> Discharged / Died via the UI ----
+            set_status(page, ids[DIS["name"]], "discharged")
+            row = read_status(ids[DIS["name"]])
+            assert row["discharge_destination"] == DEST, f"destination not stored: {row!r}"
             assert row["discharge_date"] == TODAY_ISO, f"discharge date not stored: {row!r}"
 
-            # ---- STAGE B: Discharged (archive view) ----
-            text_b = export_pdf(page, archived=True, expect_name=PATIENT_NAME, suffix="discharged")
-            win_b = row_window(text_b, PATIENT_NAME)
-            assert "Discharged" in win_b, f"STAGE B: 'Discharged' missing.\n{win_b!r}"
-            assert dest_packed in win_b, f"STAGE B: destination 'To {DESTINATION}' missing.\n{win_b!r}"
-            assert "Died" not in win_b, f"STAGE B: unexpected 'Died'.\n{win_b!r}"
-
-            # ---- transition Discharged -> Died ----
-            set_status(page, patient_id, "died")
-            row = read_status(patient_id)
-            assert row["status"] == "died", f"DB status not died: {row!r}"
+            set_status(page, ids[DEA["name"]], "died")
+            row = read_status(ids[DEA["name"]])
             assert row["date_of_death"] == TODAY_ISO, f"date of death not stored: {row!r}"
 
-            # ---- STAGE C: Died (archive view) ----
-            text_c = export_pdf(page, archived=True, expect_name=PATIENT_NAME, suffix="died")
-            win_c = row_window(text_c, PATIENT_NAME)
-            assert "Died" in win_c, f"STAGE C: 'Died' missing.\n{win_c!r}"
-            assert "Discharged" not in win_c, f"STAGE C: stale 'Discharged' leaked.\n{win_c!r}"
-            assert dest_packed not in win_c, (
-                f"STAGE C: stale discharge destination leaked after death.\n{win_c!r}"
+            # ---- STAGE TERMINAL: both patients in the archive view ----
+            text_t = export_archive_pdf(
+                page, archived=True,
+                expect_names=[DIS["name"], DEA["name"]], suffix="terminal",
             )
+
+            win_dis = row_window(text_t, DIS["name"], [DEA["name"]])
+            assert "Discharged" in win_dis, f"TERMINAL: DIS missing 'Discharged'.\n{win_dis!r}"
+            assert dest_packed in win_dis, f"TERMINAL: DIS missing 'To {DEST}'.\n{win_dis!r}"
+            assert "Died" not in win_dis, f"TERMINAL: DIS leaked 'Died'.\n{win_dis!r}"
+
+            win_dea = row_window(text_t, DEA["name"], [DIS["name"]])
+            assert "Died" in win_dea, f"TERMINAL: DEA missing 'Died'.\n{win_dea!r}"
+            assert "Discharged" not in win_dea, f"TERMINAL: DEA leaked 'Discharged'.\n{win_dea!r}"
+            assert dest_packed not in win_dea, f"TERMINAL: DEA leaked discharge destination.\n{win_dea!r}"
 
             browser.close()
 
         print(
-            "PASS: handover PDF reflects each status transition — "
-            "Admitted (no discharge/death details), Discharged (with 'To "
-            f"{DESTINATION}'), then Died (no stale discharge details)."
+            "PASS: handover PDF reflects each status stage — both patients show "
+            "'Admitted' while active; after the UI transitions the discharged "
+            f"patient shows 'Discharged' + 'To {DEST}' and the deceased patient "
+            "shows 'Died' with no discharge details, and neither row leaks into "
+            "the other."
         )
         return 0
     finally:
-        cleanup(patient_id, user_id)
+        cleanup(list(ids.values()), user_id)
 
 
 if __name__ == "__main__":
