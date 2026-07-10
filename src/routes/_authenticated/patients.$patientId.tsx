@@ -334,7 +334,7 @@ function StatusTab({ patient }: { patient: Patient }) {
         {status === "died" && (
           <div className="space-y-1.5">
             <Label>Date of death</Label>
-            <Input type="date" value={dod} onChange={(e) => setDod(e.target.value)} />
+            <DatePicker value={dod} onChange={setDod} />
           </div>
         )}
         <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
