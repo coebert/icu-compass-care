@@ -686,7 +686,10 @@ describe("handover PDF header/footer font-scale consistency (e2e)", () => {
           ).toBeLessThanOrEqual(contentWidth);
 
           titleWidths.push(titleW);
-          footerWidths.push(footerW);
+          // Consistency is checked on the scale-invariant footer text only;
+          // the full line's width legitimately varies with the page count
+          // (fewer rows per page at larger body scales changes "of Y" digits).
+          footerWidths.push(measureWidth(doc, LONG_FOOTER, "helvetica", "normal", FOOTER_PT));
         }
 
         // 4. Consistency: because the chrome is drawn at fixed point sizes, its
