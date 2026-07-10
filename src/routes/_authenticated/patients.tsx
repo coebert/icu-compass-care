@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
+import { exportHandoverPdf } from "@/lib/handover-pdf";
 
 export const Route = createFileRoute("/_authenticated/patients")({
   component: PatientsBoard,
