@@ -64,6 +64,7 @@ function config() {
     secret: secret ?? "",
     hasUrl: Boolean(baseUrl),
     hasSecret: Boolean(secret),
+    rotationWindowActive: Boolean(process.env.HANDOVER_API_SECRET_PREVIOUS),
   };
 }
 
