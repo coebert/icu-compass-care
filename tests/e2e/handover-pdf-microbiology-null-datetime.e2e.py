@@ -203,30 +203,35 @@ def extract_pdf_text(pdf_path):
     return out.stdout, packed(out.stdout)
 
 
-def null_out_datetimes(payload):
-    """Recursively set result_at = None on any target microbiology row.
+def null_out_datetimes(body):
+    """Blank each target row's `result_at` in the seroval-encoded response text.
 
     The patients data arrives through the TanStack `listPatients` server
-    function, whose JSON envelope shape is an implementation detail. Walk the
-    whole structure and null `result_at` on every dict whose `findings` is one
-    of the target null rows, wherever it is nested.
+    function encoded with seroval, where a microbiology row is
+    `{"k":["findings","result_at","specimen_type"],"v":[{"t":1,"s":"<findings>"},
+    {"t":1,"s":"<result_at>"},{"t":1,"s":"<specimen>"}]}`. Keys are alphabetical,
+    so the string value immediately after a row's `findings` is its `result_at`.
+
+    We replace that value with an EMPTY string, which is falsy in the PDF's
+    parseTime() (`if (!value) return NEGATIVE_INFINITY`) and suppresses the
+    "(timestamp)" suffix (`result_at ? ... : ...`) — exactly emulating a
+    missing/null datetime for the render path. Returns (new_body, count).
     """
     mutated = 0
 
-    def walk(node):
+    def repl(m):
         nonlocal mutated
-        if isinstance(node, dict):
-            if node.get("findings") in NULL_FINDINGS and node.get("result_at") is not None:
-                node["result_at"] = None
-                mutated += 1
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                walk(v)
+        mutated += 1
+        return m.group(1) + '""'
 
-    walk(payload)
-    return mutated
+    new_body = body
+    for findings in NULL_FINDINGS:
+        pattern = (
+            r'("s":"' + re.escape(findings) + r'"\},\{"t":1,"s":)"[^"]*"'
+        )
+        new_body = re.sub(pattern, repl, new_body)
+    return new_body, mutated
+
 
 
 
