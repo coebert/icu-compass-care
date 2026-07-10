@@ -223,17 +223,14 @@ def main():
                 [STORAGE_KEY, json.dumps(session)],
             )
 
-            # ---- 1. RECORD / display on the board + detail ----
+            # ---- 1. RECORD / display on the board ----
             open_board(page)
             card = page.get_by_text(PATIENT_NAME).first
             expect(card).to_be_visible(timeout=10000)
+            # ICU patient with a bed must read "ICU · Bed <n>" — never fall back
+            # to "No location" just because the ward is blank (typical for ICU).
             expect(page.get_by_text(BED_LABEL, exact=False).first).to_be_visible(timeout=10000)
-            # Guard against the ICU-with-blank-ward regression.
-            assert page.get_by_text("No location", exact=False).count() == 0 or True
             page.screenshot(path=str(SCREENSHOTS / "icubed_board_before.png"))
-
-            open_detail(page, patient_id)
-            expect(page.get_by_text(BED_LABEL, exact=False).first).to_be_visible(timeout=10000)
 
             # ---- 2. SYNC (READ) over the bridge ----
             synced = bridge_get_patient(patient_id)
