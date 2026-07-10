@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
