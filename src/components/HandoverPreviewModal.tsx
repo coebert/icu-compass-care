@@ -22,10 +22,12 @@ import { FileDown, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
   downloadHandoverFromUrl,
+  formatHandoverFilename,
   type HandoverPatient,
   type HandoverPdfOptions,
   type HandoverPageSize,
 } from "@/lib/handover-pdf";
+
 
 /**
  * Renders the landscape handover PDF in an embedded viewer so the user can
@@ -53,6 +55,7 @@ export function HandoverPreviewModal({
   const [footerText, setFooterText] = useState(
     "Confidential — patient identifiable information",
   );
+  const [filenameFormat, setFilenameFormat] = useState("{title} - {timestamp}.pdf");
   const [showTimestamp, setShowTimestamp] = useState(true);
   const [showPageNumbers, setShowPageNumbers] = useState(true);
   const [pageSize, setPageSize] = useState<HandoverPageSize>("a4");
@@ -60,6 +63,7 @@ export function HandoverPreviewModal({
   const [fontScale, setFontScale] = useState(1);
 
   // Keep the title in sync when the caller's default changes (e.g. archive toggle).
+
   useEffect(() => {
     if (title) setHeaderTitle(title);
   }, [title]);
@@ -69,16 +73,18 @@ export function HandoverPreviewModal({
       title: headerTitle,
       subtitle,
       footerText,
+      filenameFormat,
       showTimestamp,
       showPageNumbers,
       pageSize,
       marginX,
       fontScale,
     }),
-    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
+    [headerTitle, subtitle, footerText, filenameFormat, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
   );
 
   useEffect(() => {
+
     if (!open) return;
     const objectUrl = handoverPdfPreviewUrl(patients, options);
     setUrl(objectUrl);
@@ -116,6 +122,21 @@ export function HandoverPreviewModal({
             />
           </div>
           <div className="space-y-1">
+            <Label htmlFor="pdf-filename" className="text-xs">
+              Filename format
+              <span className="ml-1 font-normal text-muted-foreground">({"{title}, {timestamp}, {date}"})</span>
+            </Label>
+            <Input
+              id="pdf-filename"
+              value={filenameFormat}
+              onChange={(e) => setFilenameFormat(e.target.value)}
+              placeholder="{title} - {timestamp}.pdf"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Download: {formatHandoverFilename(headerTitle, filenameFormat, new Date())}
+            </p>
+          </div>
+          <div className="space-y-1">
             <Label htmlFor="pdf-footer" className="text-xs">Footer text</Label>
             <Input
               id="pdf-footer"
@@ -124,6 +145,7 @@ export function HandoverPreviewModal({
               placeholder="Confidential…"
             />
           </div>
+
           <div className="flex items-center gap-2">
             <Switch id="pdf-timestamp" checked={showTimestamp} onCheckedChange={setShowTimestamp} />
             <Label htmlFor="pdf-timestamp" className="text-xs">Show generated timestamp</Label>
@@ -191,11 +213,12 @@ export function HandoverPreviewModal({
           <Button
             disabled={!url}
             className="gap-1.5"
-            onClick={() => url && downloadHandoverFromUrl(url)}
+            onClick={() => url && downloadHandoverFromUrl(url, { title: headerTitle, filenameFormat })}
           >
             <FileDown className="h-4 w-4" /> Download PDF
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

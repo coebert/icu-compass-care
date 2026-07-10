@@ -51,7 +51,16 @@ export type HandoverPdfOptions = {
   marginX?: number;
   /** Font scale multiplier for the table body. Default 1 (7pt). */
   fontScale?: number;
+  /**
+   * Download filename format. Placeholders:
+   *   {title}     - the configured header title, sanitised for a filename
+   *   {timestamp} - ISO-style timestamp, e.g. "2026-07-10-16-45"
+   *   {date}      - date only, e.g. "2026-07-10"
+   * Default: "{title} - {timestamp}.pdf"
+   */
+  filenameFormat?: string;
 };
+
 
 const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
@@ -177,14 +186,44 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   return doc;
 }
 
-function handoverFilename(): string {
-  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
-  return `icu-handover-${stamp}.pdf`;
+const DEFAULT_FILENAME_FORMAT = "{title} - {timestamp}.pdf";
+
+function slugifyFilename(value: string): string {
+  return value
+    .trim()
+    .replace(/[^\w\s-]+/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s/g, "_")
+    .replace(/_{2,}/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/^-+|-+$/g, "")
+    || "ICU_Handover";
 }
+
+export function formatHandoverFilename(
+  title: string,
+  format: string | undefined,
+  generatedAt: Date,
+): string {
+  const safeTitle = slugifyFilename(title || DEFAULT_TITLE);
+  const timestamp = generatedAt.toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  const date = generatedAt.toISOString().slice(0, 10);
+
+  const filename = (format?.trim() || DEFAULT_FILENAME_FORMAT)
+    .replace(/\{title\}/g, safeTitle)
+    .replace(/\{timestamp\}/g, timestamp)
+    .replace(/\{date\}/g, date);
+
+  return filename.toLowerCase().endsWith(".pdf") ? filename : `${filename}.pdf`;
+}
+
 
 /** Build the handover sheet and trigger a download. */
 export function exportHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): void {
-  buildHandoverPdf(patients, opts).save(handoverFilename());
+  const generatedAt = new Date();
+  const doc = buildHandoverPdf(patients, opts);
+  const filename = formatHandoverFilename(opts?.title ?? DEFAULT_TITLE, opts?.filenameFormat, generatedAt);
+  doc.save(filename);
 }
 
 /** Build the handover sheet and return an object URL for in-app preview. */
@@ -193,14 +232,19 @@ export function handoverPdfPreviewUrl(patients: HandoverPatient[], opts?: Handov
   return URL.createObjectURL(blob);
 }
 
-
-/** Download from an already-built preview blob URL, using the standard name. */
-export function downloadHandoverFromUrl(url: string): void {
+/** Download from an already-built preview blob URL, using the configured name. */
+export function downloadHandoverFromUrl(
+  url: string,
+  opts?: Pick<HandoverPdfOptions, "title" | "filenameFormat">,
+): void {
+  const generatedAt = new Date();
+  const filename = formatHandoverFilename(opts?.title ?? DEFAULT_TITLE, opts?.filenameFormat, generatedAt);
   const a = document.createElement("a");
   a.href = url;
-  a.download = handoverFilename();
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
 }
+
 

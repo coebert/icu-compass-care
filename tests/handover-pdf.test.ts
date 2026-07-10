@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildHandoverPdf, type HandoverPatient } from "@/lib/handover-pdf";
+import { buildHandoverPdf, formatHandoverFilename, type HandoverPatient } from "@/lib/handover-pdf";
+
 
 /**
  * End-to-end test for the landscape handover PDF export.
@@ -99,4 +100,24 @@ describe("handover PDF export (e2e)", () => {
     const dataUri = doc.output("datauristring");
     expect(dataUri.startsWith("data:application/pdf")).toBe(true);
   });
+
+  it("formats the download filename from title, timestamp and date placeholders", () => {
+    const generatedAt = new Date("2026-07-10T16:45:00.000Z");
+    const filename = formatHandoverFilename(
+      "ICU Handover Sheet",
+      "{title}_{date}_{timestamp}.pdf",
+      generatedAt,
+    );
+
+    expect(filename).toBe("ICU_Handover_Sheet_2026-07-10_2026-07-10-16-45.pdf");
+  });
+
+  it("appends .pdf to the filename format when missing", () => {
+    const generatedAt = new Date("2026-07-10T16:45:00.000Z");
+    const filename = formatHandoverFilename("Critical Care", "{title}-{date}", generatedAt);
+
+    expect(filename).toBe("Critical_Care-2026-07-10.pdf");
+  });
+
 });
+
