@@ -26,6 +26,7 @@ export const REQUIRED_SCHEMA: TableManifest[] = [
     columns: [
       "id",
       "full_name",
+      "age",
       "status",
       "location_type",
       "ward",
