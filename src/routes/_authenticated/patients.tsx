@@ -87,6 +87,19 @@ function PatientsBoard() {
           <Button variant={showArchived ? "secondary" : "outline"} onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            disabled={filtered.length === 0}
+            onClick={() => {
+              exportHandoverPdf(filtered, {
+                title: showArchived ? "ICU Handover — Archived" : "ICU Handover Sheet",
+              });
+              toast.success("Handover PDF exported");
+            }}
+          >
+            <FileDown className="h-4 w-4" /> Export PDF
+          </Button>
           <Button onClick={() => setOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> Add patient
           </Button>
