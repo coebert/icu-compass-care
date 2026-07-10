@@ -37,7 +37,7 @@ const SAMPLE_PATIENTS: HandoverPatient[] = [
     age: 58,
     hospital_number: "H-PDF-2",
     ward: "Farley",
-    status: "outlier" in {} ? "referred" : "referred",
+    status: "referred",
     admission_date: new Date().toISOString(),
     past_medical_history: "Nil of note",
     current_admission: "Post-op monitoring following emergency laparotomy",
