@@ -198,7 +198,12 @@ def main():
             dlg = page.get_by_role("dialog")
             expect(dlg).to_be_visible(timeout=10000)
 
-            tasks_field = dlg.get_by_label("Outstanding tasks")
+            # The Field label is not htmlFor-linked to the textarea, so scope to
+            # the field container that holds the "Outstanding tasks" label.
+            container = dlg.locator("div.space-y-1\\.5").filter(
+                has=page.get_by_text("Outstanding tasks", exact=True)
+            )
+            tasks_field = container.get_by_role("textbox")
             tasks_field.click()
             tasks_field.fill(TASKS_TEXT)
 
