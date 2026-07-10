@@ -187,3 +187,11 @@ Logging is best-effort and never blocks or fails the underlying data operation.
    the health endpoint.
 4. Start with read endpoints; add writes once the signer is verified.
 5. Never cache responses; keep all secrets server-side only.
+
+---
+
+## 8. Exact response shapes
+
+The full per-endpoint JSON contract — every field, nullability, and worked
+example responses — lives in
+[`docs/partner-bridge-response-shapes.md`](./partner-bridge-response-shapes.md).
