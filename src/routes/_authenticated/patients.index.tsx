@@ -238,40 +238,43 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
 }
 
 function BedBoard({
+  roster,
   bedOccupant,
   unassigned,
   onAddToBed,
 }: {
+  roster: Bed[];
   bedOccupant: Map<string, Patient>;
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
 }) {
-  const occupied = bedOccupant.size;
+  const occupied = roster.filter((b) => bedOccupant.has(normalizeBed(b.label))).length;
   return (
     <div className="space-y-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
-        <span className="text-xs">({occupied}/{ICU_BEDS.length} occupied)</span>
+        <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {ICU_BEDS.map((bed) => {
-          const label = bed.startsWith("SR") ? bed : `Bed ${bed}`;
+        {roster.map((slot) => {
+          const bed = slot.label;
+          const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const p = bedOccupant.get(normalizeBed(bed));
           if (p) {
             return (
-              <Link key={bed} to="/patients/$patientId" params={{ patientId: p.id }}>
+              <Link key={slot.id} to="/patients/$patientId" params={{ patientId: p.id }}>
                 <Card className="h-full transition-colors hover:border-primary/50">
                   <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
                     {label}
                   </div>
-                  <PatientCardBody p={p} bedLabel={bed.startsWith("SR") ? "Side room" : undefined} />
+                  <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
                 </Card>
               </Link>
             );
           }
           return (
             <button
-              key={bed}
+              key={slot.id}
               type="button"
               onClick={() => onAddToBed(bed)}
               className="group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5"
