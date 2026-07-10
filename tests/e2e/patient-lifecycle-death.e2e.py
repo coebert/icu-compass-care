@@ -204,11 +204,14 @@ def main():
             )
 
             # ---- 3. Audit trail captured the transition ----
-            audit = call_fn(page, "getPatientAudit", {"id": patient_id})
-            assert audit["ok"], f"getPatientAudit failed: {audit.get('error')}"
-            assert any(a.get("action") == "update" for a in audit["result"]), (
-                "no update entry recorded for the death transition"
+            # record_audit SELECT is admin-only under RLS, so a clinician's
+            # getPatientAudit legitimately returns nothing; verify the audit
+            # entry via an independent admin read instead.
+            audit_actions = read_audit_actions(patient_id)
+            assert "update" in audit_actions, (
+                f"no update entry recorded for the death transition: {audit_actions}"
             )
+
 
             # ---- 4. Post-completion VISIBILITY: still readable + still listed ----
             after = call_fn(page, "getPatient", {"id": patient_id})
