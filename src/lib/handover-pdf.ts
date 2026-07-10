@@ -32,6 +32,8 @@ function flags(p: HandoverPatient): string {
   return f.length ? f.join("\n") : "—";
 }
 
+export type HandoverPageSize = "a4" | "letter";
+
 export type HandoverPdfOptions = {
   /** Header title text (left of the header). Defaults to "ICU Handover Sheet". */
   title?: string;
@@ -43,20 +45,36 @@ export type HandoverPdfOptions = {
   showTimestamp?: boolean;
   /** Show "Page X of Y" in the footer. Default true. */
   showPageNumbers?: boolean;
+  /** Page size. Default "a4". */
+  pageSize?: HandoverPageSize;
+  /** Left/right page margin in mm. Default 8. */
+  marginX?: number;
+  /** Font scale multiplier for the table body. Default 1 (7pt). */
+  fontScale?: number;
 };
 
 const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
 
+// Proportional column weights (must fit within available content width).
+const COLUMN_WEIGHTS = [32, 32, 42, 48, 48, 42, 37];
+const COLUMN_TOTAL = COLUMN_WEIGHTS.reduce((a, b) => a + b, 0);
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
+}
+
 /**
- * Build a landscape A4 handover sheet document. Every patient becomes one
+ * Build a landscape handover sheet document. Every patient becomes one
  * row in a printable table; long free-text fields wrap within their column so
  * each patient's information is scaled to fit on the sheet across pages.
- * The header (title, subtitle, generated timestamp) and footer (custom text,
- * page numbers) are configurable via `opts`.
+ * Page size (A4/Letter), horizontal margins, and body font scaling are
+ * configurable via `opts` so the table always fits cleanly when text is long,
+ * as are the header and footer contents.
  */
 export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): jsPDF {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageSize: HandoverPageSize = opts?.pageSize ?? "a4";
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: pageSize });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const generated = new Date().toLocaleString("en-GB");
@@ -65,8 +83,21 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   const footerText = opts?.footerText?.trim() || DEFAULT_FOOTER;
   const showTimestamp = opts?.showTimestamp ?? true;
   const showPageNumbers = opts?.showPageNumbers ?? true;
+  const marginX = clamp(opts?.marginX ?? 8, 2, 30);
+  const fontScale = clamp(opts?.fontScale ?? 1, 0.6, 1.6);
   const PAGE_TOKEN = "{{TOTAL_PAGES}}";
 
+  const bodyFontSize = 7 * fontScale;
+  const headFontSize = 7.5 * fontScale;
+
+  // Distribute the proportional weights across the available content width so
+  // the columns always span the page exactly, whatever the size/margin.
+  const contentWidth = pageWidth - marginX * 2;
+  const columnStyles: Record<number, { cellWidth: number; fontStyle?: "bold" }> = {};
+  COLUMN_WEIGHTS.forEach((w, i) => {
+    columnStyles[i] = { cellWidth: (w / COLUMN_TOTAL) * contentWidth };
+  });
+  columnStyles[0].fontStyle = "bold";
 
   autoTable(doc, {
     head: [[
@@ -88,9 +119,10 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       flags(p),
     ]),
     startY: subtitle ? 22 : 20,
-    margin: { top: subtitle ? 22 : 18, left: 8, right: 8, bottom: 12 },
+    margin: { top: subtitle ? 22 : 18, left: marginX, right: marginX, bottom: 12 },
+    tableWidth: contentWidth,
     styles: {
-      fontSize: 7,
+      fontSize: bodyFontSize,
       cellPadding: 1.5,
       overflow: "linebreak",
       valign: "top",
@@ -100,35 +132,27 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
     headStyles: {
       fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
-      fontSize: 7.5,
+      fontSize: headFontSize,
       fontStyle: "bold",
     },
     alternateRowStyles: { fillColor: [245, 247, 250] },
-    columnStyles: {
-      0: { cellWidth: 32, fontStyle: "bold" },
-      1: { cellWidth: 32 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 48 },
-      4: { cellWidth: 48 },
-      5: { cellWidth: 42 },
-      6: { cellWidth: 37 },
-    },
+    columnStyles,
     didDrawPage: () => {
       // Header
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
-      doc.text(title, 8, 12);
+      doc.text(title, marginX, 12);
       doc.setFont("helvetica", "normal");
       if (subtitle) {
         doc.setFontSize(8);
         doc.setTextColor(90, 90, 90);
-        doc.text(subtitle, 8, 17);
+        doc.text(subtitle, marginX, 17);
       }
       if (showTimestamp) {
         doc.setFontSize(8);
         doc.setTextColor(110, 110, 110);
-        doc.text(`Generated ${generated}`, pageWidth - 8, 12, { align: "right" });
+        doc.text(`Generated ${generated}`, pageWidth - marginX, 12, { align: "right" });
       }
 
       // Footer
