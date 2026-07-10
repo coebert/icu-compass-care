@@ -349,6 +349,53 @@ describe("handover PDF key microbiology section (e2e)", () => {
     expect(text.includes("OLDRESP"), "old respiratory hidden").toBe(false);
   });
 
+  it("shows ONLY the most recent entry per specimen — no older duplicates", async () => {
+    // Several results per specimen, inserted OUT OF ORDER with multiple older
+    // duplicates, to prove the section collapses to exactly one line per
+    // specimen (the latest by result_at) and drops every superseded entry.
+    const patient: HandoverPatient = {
+      full_name: "L.R.",
+      age: 66,
+      hospital_number: "LR-MICRO-LATEST",
+      ward: "ICU",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      microbiology_results: [
+        // Blood culture — 3 entries; newest is 10 Jul.
+        { specimen_type: "Blood culture", findings: "BCOLDEST", result_at: "2026-07-03T09:00:00.000Z" },
+        { specimen_type: "Blood culture", findings: "BCLATEST", result_at: "2026-07-10T07:15:00.000Z" },
+        { specimen_type: "Blood culture", findings: "BCMIDDLE", result_at: "2026-07-06T18:00:00.000Z" },
+        // Urine — 2 entries; newest is 09 Jul.
+        { specimen_type: "Urine", findings: "URLATEST", result_at: "2026-07-09T11:30:00.000Z" },
+        { specimen_type: "Urine", findings: "UROLDER", result_at: "2026-07-04T08:45:00.000Z" },
+        // CSF — single entry.
+        { specimen_type: "CSF", findings: "CEREBROMARK", result_at: "2026-07-05T13:20:00.000Z" },
+      ],
+    };
+
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+
+    const count = (needle: string) => text.split(needle).length - 1;
+
+    // Exactly ONE rendered line per specimen — no duplicate rows.
+    expect(count("Blood culture"), "one Blood culture line").toBe(1);
+    expect(count("Urine"), "one Urine line").toBe(1);
+    expect(count("CSF"), "one CSF line").toBe(1);
+
+    // Only the latest finding per specimen is present.
+    expect(text.includes("BCLATEST"), "latest blood culture shown").toBe(true);
+    expect(text.includes("URLATEST"), "latest urine shown").toBe(true);
+    expect(text.includes("CEREBROMARK"), "single CSF shown").toBe(true);
+
+    // Every older duplicate is absent.
+    for (const stale of ["BCOLDEST", "BCMIDDLE", "UROLDER"]) {
+      expect(text.includes(stale), `superseded '${stale}' must not appear`).toBe(false);
+    }
+  });
+
+
+
   it("shows an em dash when no microbiology is recorded", async () => {
     const patient: HandoverPatient = {
       full_name: "N.M.",
