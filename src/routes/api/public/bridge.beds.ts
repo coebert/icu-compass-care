@@ -58,18 +58,30 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
 
         const icu = (data ?? []) as BridgePatient[];
 
+        // Load the admin-editable bed roster; fall back to defaults if empty.
+        const { data: bedRows } = await supabaseAdmin
+          .from("icu_beds")
+          .select("label, is_side_room, position")
+          .order("position", { ascending: true });
+        const roster: BedSlot[] =
+          bedRows && bedRows.length > 0
+            ? bedRows.map((b) => ({ label: b.label, is_side_room: b.is_side_room }))
+            : DEFAULT_BEDS;
+        const rosterKeys = new Set(roster.map((b) => normalizeBed(b.label)));
+        const isKnown = (bed: unknown) => rosterKeys.has(normalizeBed(bed));
+
         // First active patient per bed wins (most recently updated, matching the UI).
         const occupantByBed = new Map<string, BridgePatient>();
         for (const p of icu) {
           const key = normalizeBed(p.bed);
-          if (key && isKnownBed(key) && !occupantByBed.has(key)) occupantByBed.set(key, p);
+          if (key && isKnown(key) && !occupantByBed.has(key)) occupantByBed.set(key, p);
         }
 
-        const beds = ICU_BEDS.map((bed) => {
-          const occupant = occupantByBed.get(normalizeBed(bed));
+        const beds = roster.map((slot) => {
+          const occupant = occupantByBed.get(normalizeBed(slot.label));
           return {
-            bed,
-            is_side_room: isSideRoom(bed),
+            bed: slot.label,
+            is_side_room: slot.is_side_room,
             occupied: Boolean(occupant),
             occupant: occupant ? occupantView(occupant) : null,
           };
@@ -79,7 +91,7 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
         const unassigned = icu
           .filter((p) => {
             const key = normalizeBed(p.bed);
-            return !key || !isKnownBed(key);
+            return !key || !isKnown(key);
           })
           .map(occupantView);
 
@@ -94,13 +106,13 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
 
         return json({
           unit: "Radnor Critical Care Unit",
-          side_rooms: SIDE_ROOMS,
+          side_rooms: roster.filter((b) => b.is_side_room).map((b) => b.label),
           bed_board: beds,
           unassigned,
           stats: {
-            total_beds: ICU_BEDS.length,
+            total_beds: roster.length,
             occupied: occupiedCount,
-            available: ICU_BEDS.length - occupiedCount,
+            available: roster.length - occupiedCount,
             unassigned: unassigned.length,
           },
         });
