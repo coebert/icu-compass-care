@@ -145,15 +145,22 @@ function PatientsBoard() {
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No patients to show.
-          </CardContent>
-        </Card>
+      ) : showArchived ? (
+        filtered.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              No patients to show.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            <Section title="ICU" icon={HeartPulse} patients={icu} />
+            <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
+          </div>
+        )
       ) : (
         <div className="space-y-8">
-          <Section title="ICU" icon={HeartPulse} patients={icu} />
+          <BedBoard bedOccupant={bedOccupant} unassigned={icuUnassigned} onAddToBed={addToBed} />
           <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
         </div>
       )}
