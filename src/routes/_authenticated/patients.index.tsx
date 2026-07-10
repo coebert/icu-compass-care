@@ -161,12 +161,39 @@ function PatientsBoard() {
     } catch {
       /* ignore */
     }
+    // Build a styled "ghost" card that follows the cursor during the drag so
+    // it's obvious which patient is being moved (instead of a plain text row).
+    try {
+      const ghost = document.createElement("div");
+      ghost.style.cssText =
+        "position:absolute;top:-9999px;left:-9999px;width:230px;pointer-events:none;" +
+        "border-radius:12px;padding:12px 14px;background:hsl(var(--card));" +
+        "color:hsl(var(--card-foreground));border:2px solid hsl(var(--primary));" +
+        "box-shadow:0 12px 28px -8px rgba(0,0,0,0.45);font-family:inherit;";
+      const from = p.location_type === "icu" && p.bed ? `Bed ${p.bed}` : "Unassigned";
+      ghost.innerHTML =
+        `<div style="font-weight:600;font-size:14px;line-height:1.2;">${escapeHtml(p.full_name ?? "Patient")}</div>` +
+        `<div style="font-size:11px;opacity:0.7;margin-top:2px;">Moving from ${escapeHtml(from)}</div>` +
+        (p.isolation_required
+          ? `<div style="font-size:11px;color:hsl(var(--primary));margin-top:4px;">Isolation · side rooms only</div>`
+          : "");
+      document.body.appendChild(ghost);
+      ghostRef.current = ghost;
+      e.dataTransfer.setDragImage(ghost, 20, 20);
+    } catch {
+      /* setDragImage unsupported — fall back to the default drag image */
+    }
   }
 
   function onDragEndPatient() {
     draggedRef.current = null;
     setDraggedPatient(null);
+    if (ghostRef.current) {
+      ghostRef.current.remove();
+      ghostRef.current = null;
+    }
   }
+
 
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
