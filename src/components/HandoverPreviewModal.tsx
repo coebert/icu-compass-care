@@ -21,7 +21,7 @@ import {
 import { FileDown, Save, Trash2, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
-  downloadHandoverFromUrl,
+  downloadHandover,
   formatHandoverFilename,
   type HandoverPatient,
   type HandoverPdfOptions,
