@@ -1,0 +1,1 @@
+DELETE FROM public.patients WHERE full_name IN ('Z.Q.','R.T.') AND hospital_number IN ('H9988776','H2213345');
