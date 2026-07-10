@@ -10,12 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FileDown, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
   downloadHandoverFromUrl,
   type HandoverPatient,
   type HandoverPdfOptions,
+  type HandoverPageSize,
 } from "@/lib/handover-pdf";
 
 /**
@@ -46,6 +55,9 @@ export function HandoverPreviewModal({
   );
   const [showTimestamp, setShowTimestamp] = useState(true);
   const [showPageNumbers, setShowPageNumbers] = useState(true);
+  const [pageSize, setPageSize] = useState<HandoverPageSize>("a4");
+  const [marginX, setMarginX] = useState(8);
+  const [fontScale, setFontScale] = useState(1);
 
   // Keep the title in sync when the caller's default changes (e.g. archive toggle).
   useEffect(() => {
@@ -59,8 +71,11 @@ export function HandoverPreviewModal({
       footerText,
       showTimestamp,
       showPageNumbers,
+      pageSize,
+      marginX,
+      fontScale,
     }),
-    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers],
+    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
   );
 
   useEffect(() => {
@@ -116,6 +131,42 @@ export function HandoverPreviewModal({
           <div className="flex items-center gap-2">
             <Switch id="pdf-pages" checked={showPageNumbers} onCheckedChange={setShowPageNumbers} />
             <Label htmlFor="pdf-pages" className="text-xs">Show page numbers</Label>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-pagesize" className="text-xs">Page size</Label>
+            <Select value={pageSize} onValueChange={(v) => setPageSize(v as HandoverPageSize)}>
+              <SelectTrigger id="pdf-pagesize">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="a4">A4</SelectItem>
+                <SelectItem value="letter">Letter</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-margin" className="text-xs">Margin: {marginX} mm</Label>
+            <Slider
+              id="pdf-margin"
+              min={2}
+              max={30}
+              step={1}
+              value={[marginX]}
+              onValueChange={([v]) => setMarginX(v)}
+              className="pt-2"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="pdf-fontscale" className="text-xs">Font scale: {Math.round(fontScale * 100)}%</Label>
+            <Slider
+              id="pdf-fontscale"
+              min={0.6}
+              max={1.6}
+              step={0.05}
+              value={[fontScale]}
+              onValueChange={([v]) => setFontScale(v)}
+              className="pt-2"
+            />
           </div>
         </div>
 
