@@ -29,6 +29,7 @@ export type PatientFormValues = {
   current_admission: string;
   current_management: string;
   outstanding_tasks: string;
+  isolation_required: boolean;
   tep_in_place: boolean;
   tep_details: string;
   dnacpr_decision: boolean;
