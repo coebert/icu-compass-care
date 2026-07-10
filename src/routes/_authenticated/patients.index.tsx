@@ -250,7 +250,7 @@ function PatientsBoard() {
         <div className="space-y-8">
           <BedBoard
             roster={bedRoster}
-            bedOccupant={bedOccupant}
+            bedOccupants={bedOccupants}
             unassigned={icuUnassigned}
             onAddToBed={addToBed}
             dragging={dragging}
