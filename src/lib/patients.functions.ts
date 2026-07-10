@@ -139,14 +139,21 @@ export const updatePatient = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: row.id,
       action: "update",
       source: "app",
-      actor: { id: context.userId, email: (context.claims.email as string) ?? null },
+      actor,
       before: current as Record<string, unknown>,
       after: row as Record<string, unknown>,
+    });
+    await writePatientFieldChanges(supabaseAdmin, {
+      patientId: row.id,
+      before: current as Record<string, unknown>,
+      after: row as Record<string, unknown>,
+      actor,
     });
     return row;
   });
