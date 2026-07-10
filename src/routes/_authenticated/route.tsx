@@ -61,6 +61,7 @@ function AuthenticatedLayout() {
     ...(profile?.isAdmin
       ? [
           { to: "/admin", label: "Staff", icon: Shield },
+          { to: "/beds", label: "Beds", icon: BedDouble },
           { to: "/reconcile", label: "Sync", icon: RefreshCw },
         ]
       : []),

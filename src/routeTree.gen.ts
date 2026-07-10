@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
+import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
@@ -63,6 +64,11 @@ const AuthenticatedReconcileRoute = AuthenticatedReconcileRouteImport.update({
 const AuthenticatedPatientsRoute = AuthenticatedPatientsRouteImport.update({
   id: '/patients',
   path: '/patients',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedBedsRoute = AuthenticatedBedsRouteImport.update({
+  id: '/beds',
+  path: '/beds',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/beds': typeof AuthenticatedBedsRoute
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/beds': typeof AuthenticatedBedsRoute
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/beds': typeof AuthenticatedBedsRoute
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/reconcile': typeof AuthenticatedReconcileRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
+    | '/beds'
     | '/patients'
     | '/reconcile'
     | '/settings'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
+    | '/beds'
     | '/reconcile'
     | '/settings'
     | '/patients/$patientId'
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/_authenticated/admin'
+    | '/_authenticated/beds'
     | '/_authenticated/patients'
     | '/_authenticated/reconcile'
     | '/_authenticated/settings'
@@ -347,6 +359,13 @@ declare module '@tanstack/react-router' {
       path: '/patients'
       fullPath: '/patients'
       preLoaderRoute: typeof AuthenticatedPatientsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/beds': {
+      id: '/_authenticated/beds'
+      path: '/beds'
+      fullPath: '/beds'
+      preLoaderRoute: typeof AuthenticatedBedsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin': {
@@ -467,6 +486,7 @@ const AuthenticatedPatientsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedBedsRoute: typeof AuthenticatedBedsRoute
   AuthenticatedPatientsRoute: typeof AuthenticatedPatientsRouteWithChildren
   AuthenticatedReconcileRoute: typeof AuthenticatedReconcileRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -474,6 +494,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedBedsRoute: AuthenticatedBedsRoute,
   AuthenticatedPatientsRoute: AuthenticatedPatientsRouteWithChildren,
   AuthenticatedReconcileRoute: AuthenticatedReconcileRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
