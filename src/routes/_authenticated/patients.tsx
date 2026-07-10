@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
+import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 
 export const Route = createFileRoute("/_authenticated/patients")({
   component: PatientsBoard,
