@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function relTime(iso: string | null): string {
   if (!iso) return "—";
