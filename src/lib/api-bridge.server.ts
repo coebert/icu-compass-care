@@ -132,6 +132,36 @@ export async function logSync(
       record_count: entry.record_count,
       actor_role: entry.actor.role,
       actor_email: entry.actor.email ?? null,
+      status: "success",
+    });
+  } catch {
+    // swallow — sync logging is best-effort
+  }
+}
+
+/**
+ * Record a FAILED bridge exchange so the "Sync status" panel can surface the
+ * last error. Never throws — logging failures must not mask the real error.
+ */
+export async function logSyncError(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  entry: {
+    direction: "push" | "pull";
+    entity: "patients" | "investigations";
+    message: string;
+    actor: BridgeActor;
+  },
+): Promise<void> {
+  try {
+    await admin.from("bridge_sync_events").insert({
+      direction: entry.direction,
+      entity: entry.entity,
+      record_count: 0,
+      actor_role: entry.actor.role,
+      actor_email: entry.actor.email ?? null,
+      status: "error",
+      error_message: entry.message.slice(0, 1000),
     });
   } catch {
     // swallow — sync logging is best-effort
