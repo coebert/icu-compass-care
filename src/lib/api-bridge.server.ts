@@ -106,7 +106,8 @@ export function authorize(
  * Never throws — logging failures must not break the actual data operation.
  */
 export async function logSync(
-  admin: { from: (t: string) => { insert: (v: unknown) => Promise<unknown> } },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
   entry: {
     direction: "push" | "pull";
     entity: "patients" | "investigations";
