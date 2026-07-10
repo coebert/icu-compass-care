@@ -254,7 +254,7 @@ def main():
             assert after["bed"] == BED, f"bed lost after sync: {after['bed']!r}"
             assert after["current_management"] == note, "partner edit did not persist"
 
-            # ---- 4. STAYS CORRECT — re-render board + detail ----
+            # ---- 4. STAYS CORRECT — re-render the board after partner sync ----
             open_board(page)
             expect(page.get_by_text(PATIENT_NAME).first).to_be_visible(timeout=10000)
             expect(page.get_by_text(BED_LABEL, exact=False).first).to_be_visible(timeout=10000)
