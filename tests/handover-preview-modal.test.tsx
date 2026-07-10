@@ -51,7 +51,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 /** Capture the `download` attribute of the anchor the download helper clicks. */
