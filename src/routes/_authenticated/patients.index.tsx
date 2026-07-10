@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 
-export const Route = createFileRoute("/_authenticated/patients")({
+export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
 });
 

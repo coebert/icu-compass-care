@@ -17,6 +17,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
 import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
 import { Route as ApiPublicHealthSchemaRouteImport } from './routes/api/public/health.schema'
@@ -67,6 +68,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPatientsIndexRoute =
+  AuthenticatedPatientsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedPatientsRoute,
+  } as any)
 const AuthenticatedPatientsPatientIdRoute =
   AuthenticatedPatientsPatientIdRouteImport.update({
     id: '/$patientId',
@@ -133,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/patients/': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/health': typeof ApiPublicBridgeHealthRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
@@ -148,10 +156,10 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/patients': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/health': typeof ApiPublicBridgeHealthRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated/reconcile': typeof AuthenticatedReconcileRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/health': typeof ApiPublicBridgeHealthRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/reconcile'
     | '/settings'
     | '/patients/$patientId'
+    | '/patients/'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/health'
     | '/api/public/bridge/investigations'
@@ -209,10 +219,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
-    | '/patients'
     | '/reconcile'
     | '/settings'
     | '/patients/$patientId'
+    | '/patients'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/health'
     | '/api/public/bridge/investigations'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reconcile'
     | '/_authenticated/settings'
     | '/_authenticated/patients/$patientId'
+    | '/_authenticated/patients/'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/health'
     | '/api/public/bridge/investigations'
@@ -318,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/patients/': {
+      id: '/_authenticated/patients/'
+      path: '/'
+      fullPath: '/patients/'
+      preLoaderRoute: typeof AuthenticatedPatientsIndexRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
+    }
     '/_authenticated/patients/$patientId': {
       id: '/_authenticated/patients/$patientId'
       path: '/$patientId'
@@ -393,10 +411,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedPatientsRouteChildren {
   AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute
+  AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
 }
 
 const AuthenticatedPatientsRouteChildren: AuthenticatedPatientsRouteChildren = {
   AuthenticatedPatientsPatientIdRoute: AuthenticatedPatientsPatientIdRoute,
+  AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,
 }
 
 const AuthenticatedPatientsRouteWithChildren =
