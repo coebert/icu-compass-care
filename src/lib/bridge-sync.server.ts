@@ -5,7 +5,7 @@
 // keyed by `updated_at`. When both backends run this job on a schedule the
 // result is eventual bidirectional convergence with no duplicate rows,
 // because every record keeps its stable id across both databases.
-import { fetchPartnerPatients, fetchPartnerInvestigations, fetchPartnerReferrals, bridgeSystemActor, type PatientRow, type InvestigationRow, type ReferralRow } from "@/lib/bridge-client.server";
+import { fetchPartnerPatients, fetchPartnerInvestigations, fetchPartnerReferrals, fetchPartnerMicrobiology, bridgeSystemActor, type PatientRow, type InvestigationRow, type ReferralRow, type MicrobiologyRow } from "@/lib/bridge-client.server";
 import { logSync, logSyncError, type BridgeEntity } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 
