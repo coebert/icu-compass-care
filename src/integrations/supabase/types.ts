@@ -145,6 +145,47 @@ export type Database = {
           },
         ]
       }
+      microbiology_results: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          findings: string
+          id: string
+          patient_id: string
+          result_at: string
+          specimen_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          findings: string
+          id?: string
+          patient_id: string
+          result_at?: string
+          specimen_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          findings?: string
+          id?: string
+          patient_id?: string
+          result_at?: string
+          specimen_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "microbiology_results_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_deliveries: {
         Row: {
           actor_id: string | null
