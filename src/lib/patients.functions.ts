@@ -199,6 +199,11 @@ export const updatePatient = createServerFn({ method: "POST" })
       );
     }
 
+    // Validate the lifecycle transition + per-status required fields against
+    // the effective row (current values overlaid with the incoming changes).
+    const merged = { ...current, ...clean(rest) };
+    validatePatientState(merged, current.status as PatientStatus);
+
     const { data: row, error } = await context.supabase
       .from("patients")
       .update({ ...clean(rest), updated_by: context.userId } as never)
