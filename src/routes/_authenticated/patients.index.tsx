@@ -173,7 +173,7 @@ function Section({
                   <div className="min-w-0">
                     <PatientName patient={p} showAge />
                     <p className="truncate text-xs text-muted-foreground">
-                      {p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location"}
+                      {formatLocation(p)}
                     </p>
                   </div>
                   <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
