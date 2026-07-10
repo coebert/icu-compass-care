@@ -252,7 +252,12 @@ def set_status(page, patient_id, new_status):
         pick_today(page)
 
     panel.get_by_role("button", name="Update status").click()
-    expect(page.get_by_text("Status updated")).to_be_visible(timeout=10000)
+    try:
+        expect(page.get_by_text("Status updated")).to_be_visible(timeout=10000)
+    except Exception:
+        page.screenshot(path=str(SCREENSHOTS / f"debug_{MARKER}_{new_status}.png"))
+        print("DEBUG toasts:", page.locator("[data-sonner-toast]").all_inner_texts())
+        raise
 
 
 def main():
