@@ -118,12 +118,17 @@ function PatientsBoard() {
   const icu = filtered.filter((p) => p.location_type === "icu");
   const outliers = filtered.filter((p) => p.location_type === "outlier");
 
-  // Map each ICU bed to the active patient occupying it (if any).
-  const bedOccupant = useMemo(() => {
-    const map = new Map<string, Patient>();
+  // Map each ICU bed to the active patient(s) occupying it. Normally a bed has
+  // at most one patient, but during transfers/data conflicts two rows can share
+  // a bed number — we keep ALL of them so no patient is silently hidden.
+  const bedOccupants = useMemo(() => {
+    const map = new Map<string, Patient[]>();
     for (const p of icu) {
       const key = normalizeBed(p.bed);
-      if (key && !map.has(key)) map.set(key, p);
+      if (!key) continue;
+      const list = map.get(key);
+      if (list) list.push(p);
+      else map.set(key, [p]);
     }
     return map;
   }, [icu]);
