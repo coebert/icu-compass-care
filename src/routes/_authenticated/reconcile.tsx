@@ -102,8 +102,8 @@ function ReconcilePage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
-          <SyncStatusPanel />
           <Button
+
             variant="outline"
             size="sm"
             className="gap-1.5"
