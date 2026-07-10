@@ -155,7 +155,7 @@ export async function reconcilePull(
   const errors: string[] = [];
 
   for (const row of rows) {
-    const { error } = await supabaseAdmin.from(spec.table).upsert(row, { onConflict: "id" });
+    const { error } = await admin.from(spec.table).upsert(row, { onConflict: "id" });
     if (error) {
       failed++;
       if (errors.length < 10) errors.push(`${String(row.id).slice(0, 8)}: ${error.message}`);
@@ -166,7 +166,7 @@ export async function reconcilePull(
 
   // Record the reconciliation on the sync log (best-effort).
   try {
-    await supabaseAdmin.from("bridge_sync_events").insert({
+    await admin.from("bridge_sync_events").insert({
       direction: "pull",
       entity: entity === "referrals" ? "investigations" : "patients", // enum only has 2 values
       record_count: applied,
