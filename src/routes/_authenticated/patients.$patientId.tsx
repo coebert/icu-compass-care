@@ -245,6 +245,23 @@ function PatientDetail() {
               <InfoBlock label="Outstanding tasks" value={patient.outstanding_tasks} />
             </CardContent>
           </Card>
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Systems review
+              </h3>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <InfoBlock label="Resp" value={patient.systems_resp} />
+                <InfoBlock label="CVS" value={patient.systems_cvs} />
+                <InfoBlock label="CNS / Neuro" value={patient.systems_neuro} />
+                <InfoBlock label="Renal" value={patient.systems_renal} />
+                <InfoBlock label="Gastro / Nutri" value={patient.systems_gastro} />
+                <InfoBlock label="Haem" value={patient.systems_haem} />
+                <InfoBlock label="Micro" value={patient.systems_micro} />
+                <InfoBlock label="Other" value={patient.systems_other} />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="escalation" className="mt-4">

@@ -173,6 +173,29 @@ function microbiology(p: HandoverPatient): string {
     .join("\n");
 }
 
+// Combine the systems-based review into a single labelled block for the PDF,
+// skipping any system with no notes.
+const SYSTEMS_FIELDS: [keyof HandoverPatient, string][] = [
+  ["systems_resp", "Resp"],
+  ["systems_cvs", "CVS"],
+  ["systems_neuro", "CNS/Neuro"],
+  ["systems_renal", "Renal"],
+  ["systems_gastro", "Gastro/Nutri"],
+  ["systems_haem", "Haem"],
+  ["systems_micro", "Micro"],
+  ["systems_other", "Other"],
+];
+
+function systemsReview(p: HandoverPatient): string {
+  const lines = SYSTEMS_FIELDS.map(([key, label]) => {
+    const val = typeof p[key] === "string" ? (p[key] as string).trim() : "";
+    return val ? `${label}: ${val}` : "";
+  }).filter(Boolean);
+  return lines.length ? lines.join("\n") : "—";
+}
+
+
+
 
 
 
@@ -210,7 +233,7 @@ const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
 
 // Proportional column weights (must fit within available content width).
-const COLUMN_WEIGHTS = [28, 26, 32, 36, 36, 44, 36, 36, 30];
+const COLUMN_WEIGHTS = [28, 26, 32, 36, 36, 42, 44, 36, 36, 30];
 const COLUMN_TOTAL = COLUMN_WEIGHTS.reduce((a, b) => a + b, 0);
 
 function clamp(v: number, min: number, max: number): number {
@@ -287,6 +310,7 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       "Past medical history",
       "Current admission",
       "Management",
+      "Systems review",
       "Most recent investigations",
       "Key microbiology",
       "Outstanding tasks",
@@ -298,6 +322,7 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       p.past_medical_history || "—",
       p.current_admission || "—",
       p.current_management || "—",
+      systemsReview(p),
       investigations(p),
       microbiology(p),
       p.outstanding_tasks || "—",

@@ -29,6 +29,14 @@ export type PatientFormValues = {
   current_admission: string;
   current_management: string;
   outstanding_tasks: string;
+  systems_resp: string;
+  systems_cvs: string;
+  systems_neuro: string;
+  systems_renal: string;
+  systems_gastro: string;
+  systems_haem: string;
+  systems_micro: string;
+  systems_other: string;
   isolation_required: boolean;
   tep_in_place: boolean;
   tep_details: string;
@@ -59,6 +67,14 @@ export function emptyPatient(): PatientFormValues {
     current_admission: "",
     current_management: "",
     outstanding_tasks: "",
+    systems_resp: "",
+    systems_cvs: "",
+    systems_neuro: "",
+    systems_renal: "",
+    systems_gastro: "",
+    systems_haem: "",
+    systems_micro: "",
+    systems_other: "",
     isolation_required: false,
     tep_in_place: false,
     tep_details: "",
@@ -201,6 +217,38 @@ export function PatientForm({
         <Field label="Outstanding tasks">
           <Textarea rows={3} value={values.outstanding_tasks} onChange={(e) => set("outstanding_tasks", e.target.value)} />
         </Field>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Systems review
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Resp">
+            <Textarea rows={3} value={values.systems_resp} onChange={(e) => set("systems_resp", e.target.value)} />
+          </Field>
+          <Field label="CVS">
+            <Textarea rows={3} value={values.systems_cvs} onChange={(e) => set("systems_cvs", e.target.value)} />
+          </Field>
+          <Field label="CNS / Neuro">
+            <Textarea rows={3} value={values.systems_neuro} onChange={(e) => set("systems_neuro", e.target.value)} />
+          </Field>
+          <Field label="Renal">
+            <Textarea rows={3} value={values.systems_renal} onChange={(e) => set("systems_renal", e.target.value)} />
+          </Field>
+          <Field label="Gastro / Nutri">
+            <Textarea rows={3} value={values.systems_gastro} onChange={(e) => set("systems_gastro", e.target.value)} />
+          </Field>
+          <Field label="Haem">
+            <Textarea rows={3} value={values.systems_haem} onChange={(e) => set("systems_haem", e.target.value)} />
+          </Field>
+          <Field label="Micro">
+            <Textarea rows={3} value={values.systems_micro} onChange={(e) => set("systems_micro", e.target.value)} />
+          </Field>
+          <Field label="Other">
+            <Textarea rows={3} value={values.systems_other} onChange={(e) => set("systems_other", e.target.value)} />
+          </Field>
+        </div>
       </section>
 
       <section className="space-y-4">
