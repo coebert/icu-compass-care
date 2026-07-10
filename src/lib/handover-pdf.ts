@@ -171,7 +171,7 @@ const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
 
 // Proportional column weights (must fit within available content width).
-const COLUMN_WEIGHTS = [30, 30, 38, 44, 44, 40, 44, 35];
+const COLUMN_WEIGHTS = [30, 28, 34, 40, 40, 38, 40, 40, 32];
 const COLUMN_TOTAL = COLUMN_WEIGHTS.reduce((a, b) => a + b, 0);
 
 function clamp(v: number, min: number, max: number): number {
