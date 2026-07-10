@@ -489,8 +489,11 @@ function PatientsBoard() {
             onAddToBed={addToBed}
             dragging={dragging}
             draggedPatient={draggedPatient}
+            touchOverBed={touchOverBed}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
+            onTouchDragStart={onTouchDragStart}
+            suppressClickRef={suppressClickRef}
             onDropOnBed={dropOnBed}
           />
           <Section
@@ -499,6 +502,8 @@ function PatientsBoard() {
             patients={outliers}
             onDragStartPatient={onDragStartPatient}
             onDragEndPatient={onDragEndPatient}
+            onTouchDragStart={onTouchDragStart}
+            suppressClickRef={suppressClickRef}
           />
         </div>
       )}
