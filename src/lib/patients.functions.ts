@@ -59,7 +59,7 @@ export const listPatients = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("patients")
-      .select("*")
+      .select("*, investigations(category, findings, result_at)")
       .order("updated_at", { ascending: false });
     if (error) throw safeDbError(error);
     return data;
