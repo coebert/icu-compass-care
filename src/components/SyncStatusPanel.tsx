@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function relTime(iso: string | null): string {
   if (!iso) return "—";
@@ -26,7 +27,7 @@ function relTime(iso: string | null): string {
  * header. Shows last successful sync at a glance, flags the last error, and
  * exposes full detail on hover — deliberately low-prominence.
  */
-export function SyncStatusPanel() {
+export function SyncStatusPanel({ className }: { className?: string } = {}) {
   const fetchStatus = useServerFn(getSyncStatus);
   const { data, isLoading, error } = useQuery({
     queryKey: ["sync-status"],
@@ -37,9 +38,10 @@ export function SyncStatusPanel() {
 
   if (isLoading) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
         <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Sync…
       </span>
+
     );
   }
 
@@ -52,12 +54,13 @@ export function SyncStatusPanel() {
       <Tooltip>
         <TooltipTrigger asChild>
           <span
-            className={`inline-flex cursor-default items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
-              hasError
-                ? "border-destructive/40 text-destructive"
-                : "text-muted-foreground"
-            }`}
+            className={cn(
+              "inline-flex cursor-default items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
+              hasError ? "border-destructive/40 text-destructive" : "text-muted-foreground",
+              className,
+            )}
           >
+
             {hasError ? (
               <AlertTriangle className="h-3.5 w-3.5" />
             ) : (

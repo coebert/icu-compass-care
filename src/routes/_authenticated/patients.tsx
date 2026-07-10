@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown } from "lucide-react";
 import { toast } from "sonner";
-import { SyncStatusPanel } from "@/components/SyncStatusPanel";
+
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 
 export const Route = createFileRoute("/_authenticated/patients")({
@@ -102,7 +102,7 @@ function PatientsBoard() {
         </div>
       </div>
 
-      <SyncStatusPanel />
+
 
 
       {isLoading ? (

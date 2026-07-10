@@ -7,6 +7,7 @@ import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, LogOut, Users, Shield, User, RefreshCw } from "lucide-react";
+import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -81,6 +82,7 @@ function AuthenticatedLayout() {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-3">
+            <SyncStatusPanel className="hidden sm:inline-flex" />
             <span className="hidden text-sm text-muted-foreground md:inline">
               {profile?.profile?.display_name ?? profile?.email}
             </span>
@@ -89,6 +91,7 @@ function AuthenticatedLayout() {
               <span className="hidden sm:inline">Sign out</span>
             </Button>
           </div>
+
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">
