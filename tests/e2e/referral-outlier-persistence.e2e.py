@@ -95,7 +95,7 @@ def create_patient():
         f"{SUPABASE_URL}/rest/v1/patients",
         headers={**admin_headers(), "Prefer": "return=representation"},
         json={
-            "full_name": "E2E OUTLIER",
+            "full_name": "E2E OUTL",
             "age": 47,
             "location_type": "icu",
             "status": "admitted",
@@ -177,12 +177,6 @@ def choose_option(dialog, name):
 
 def save(page, dialog):
     dialog.get_by_role("button", name="Save changes").click()
-    for _ in range(20):
-        t = page.locator("[data-sonner-toast]").all_inner_texts()
-        if t:
-            print("TOASTS:", t)
-            break
-        page.wait_for_timeout(200)
     expect(page.get_by_role("dialog")).to_have_count(0, timeout=15000)
 
 
