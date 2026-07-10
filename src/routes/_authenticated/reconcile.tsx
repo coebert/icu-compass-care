@@ -122,7 +122,7 @@ function ReconcilePage() {
         <p className="text-sm text-muted-foreground">Comparing with the linked project…</p>
       ) : (
         <Tabs defaultValue="notifications">
-          <TabsList className="flex w-full max-w-full justify-start overflow-x-auto">
+          <TabsList className="flex h-11 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
             {entities.map((e) => (
               <TabsTrigger key={e.entity} value={e.entity} className="gap-1.5">
                 {ENTITY_LABELS[e.entity]}
