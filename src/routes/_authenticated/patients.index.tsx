@@ -89,10 +89,37 @@ function PatientsBoard() {
     onError: (e: Error) => toast.error("Could not add patient", { description: e.message }),
   });
 
+  // A snapshot of where each affected patient was BEFORE a move, used to undo.
+  type BedSnapshot = { id: string; bed: string | null; location_type: string };
+
+  const undoMut = useMutation({
+    mutationFn: (previous: BedSnapshot[]) =>
+      Promise.all(
+        previous.map((p) =>
+          update({
+            data: {
+              id: p.id,
+              bed: p.bed,
+              location_type: p.location_type,
+            } as never,
+          }),
+        ),
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      toast.success("Move undone", { description: "The bed assignment was restored." });
+    },
+    onError: (e: Error) => {
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      toast.error("Could not undo move", { description: e.message });
+    },
+  });
+
   const moveMut = useMutation({
     mutationFn: ({ moves }: {
       moves: { id: string; bed: string; expected_updated_at?: string }[];
       summary?: string;
+      previous?: BedSnapshot[];
     }) =>
       Promise.all(
         moves.map((m) =>
@@ -106,10 +133,19 @@ function PatientsBoard() {
           }),
         ),
       ),
-    onSuccess: (_res, { summary }) => {
+    onSuccess: (_res, { summary, previous }) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
       toast.success("Move saved", {
         description: summary ?? "The bed board has been updated.",
+        ...(previous && previous.length > 0
+          ? {
+              action: {
+                label: "Undo",
+                onClick: () => undoMut.mutate(previous),
+              },
+              duration: 10000,
+            }
+          : {}),
       });
     },
     onError: (e: Error) => {
@@ -117,6 +153,7 @@ function PatientsBoard() {
       toast.error("Could not move patient", { description: e.message });
     },
   });
+
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
