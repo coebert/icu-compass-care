@@ -105,6 +105,32 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: { title?: s
     },
   });
 
-  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
-  doc.save(`icu-handover-${stamp}.pdf`);
+  return doc;
 }
+
+function handoverFilename(): string {
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  return `icu-handover-${stamp}.pdf`;
+}
+
+/** Build the handover sheet and trigger a download. */
+export function exportHandoverPdf(patients: HandoverPatient[], opts?: { title?: string }): void {
+  buildHandoverPdf(patients, opts).save(handoverFilename());
+}
+
+/** Build the handover sheet and return an object URL for in-app preview. */
+export function handoverPdfPreviewUrl(patients: HandoverPatient[], opts?: { title?: string }): string {
+  const blob = buildHandoverPdf(patients, opts).output("blob");
+  return URL.createObjectURL(blob);
+}
+
+/** Download from an already-built preview blob URL, using the standard name. */
+export function downloadHandoverFromUrl(url: string): void {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = handoverFilename();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
