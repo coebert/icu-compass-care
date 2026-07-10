@@ -89,6 +89,11 @@ export function SyncStatusPanel({
     ? nextSyncText(data.lastSuccess.created_at, intervalMinutes)
     : nextSyncText(null, intervalMinutes);
 
+  const badgeLabel = hasError ? "Last sync failed" : "Last synced";
+  const badgeTime = relTime(
+    (hasError ? data?.lastError?.created_at : data?.lastSuccess?.created_at) ?? null,
+  );
+
   return (
     <TooltipProvider>
       <div className={cn("inline-flex items-center gap-2", className)}>
