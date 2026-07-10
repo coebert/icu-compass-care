@@ -284,6 +284,10 @@ def main():
                     #    actually reads, plus a size sanity check).
                     p_text = pdf_text(preview_bytes)
                     d_text = pdf_text(download_bytes)
+                    if p_text != d_text:
+                        Path("/tmp/prev.txt").write_text(p_text)
+                        Path("/tmp/dl.txt").write_text(d_text)
+                        print(f"PREVIEW len={len(preview_bytes)} DOWNLOAD len={len(download_bytes)}")
                     assert p_text == d_text, (
                         f"[{vp_name} @ {int(scale*100)}%] preview text != download text"
                     )
