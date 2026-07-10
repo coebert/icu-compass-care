@@ -29,12 +29,10 @@ export function diffFields(
   return changed;
 }
 
-type MinimalClient = {
-  from: (table: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insert: (values: any) => Promise<any>;
-  };
-};
+// Accept any Supabase-like client (browser or admin); the shapes differ
+// structurally but both support .from(table).insert(values).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MinimalClient = any;
 
 export async function writeAudit(
   client: MinimalClient,
