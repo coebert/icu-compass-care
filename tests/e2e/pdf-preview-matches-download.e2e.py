@@ -293,8 +293,6 @@ def main():
                     #    /CreationDate/ID, which jsPDF stamps with the clock; we
                     #    compare the rendered text, which is what the clinician
                     #    actually reads, plus a size sanity check).
-                    p_text = pdf_text(preview_bytes)
-                    d_text = pdf_text(download_bytes)
                     p_text = normalize_text(pdf_text(preview_bytes))
                     d_text = normalize_text(pdf_text(download_bytes))
                     assert p_text == d_text, (
