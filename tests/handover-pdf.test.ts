@@ -3,6 +3,7 @@ import {
   buildHandoverPdf,
   formatHandoverFilename,
   sanitizeContentDispositionFilename,
+  sanitizePdfMetadataText,
   mostRecentInvestigation,
   RECENT_INVESTIGATION_CATEGORIES,
   type HandoverInvestigation,
