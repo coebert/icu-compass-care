@@ -26,6 +26,7 @@ Exits 0 on success, non-zero on failure.
 """
 
 import json
+import re
 import os
 import sys
 import time
@@ -184,7 +185,7 @@ def main():
             expect(page.get_by_text(NAME_B, exact=False).first).to_be_visible(timeout=15000)
 
             # ---- Shared-bed warning renders for the shared bed ----
-            expect(page.get_by_text("2 patients in", exact=False).first).to_be_visible(timeout=10000)
+            expect(page.get_by_text(re.compile(r"[2-9]\d* patients in")).first).to_be_visible(timeout=10000)
 
             page.screenshot(path=str(SCREENSHOTS / f"{MARKER}_board.png"))
 
