@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildHandoverPdf, formatHandoverFilename, type HandoverPatient } from "@/lib/handover-pdf";
+import {
+  buildHandoverPdf,
+  formatHandoverFilename,
+  sanitizeContentDispositionFilename,
+  type HandoverPatient,
+} from "@/lib/handover-pdf";
 
 /**
  * Decode the readable text content of a jsPDF document. jsPDF writes text as
@@ -299,4 +304,95 @@ describe("handover PDF export (e2e)", () => {
   });
 
 });
+
+/**
+ * A filename is safe to embed in an HTTP `Content-Disposition` header's
+ * quoted-string form: `attachment; filename="<name>"`. It must not contain
+ * characters that could terminate the quoted string or inject a new header,
+ * nor path separators / OS-illegal characters.
+ */
+function isContentDispositionSafe(name: string): boolean {
+  // No control chars (incl. CR/LF/TAB/NUL) — blocks header injection.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(name)) return false;
+  // No quoting/terminating or path/OS-illegal characters.
+  if (/["'\\/:*?<>|;,`]/.test(name)) return false;
+  // Round-trips unchanged through a quoted Content-Disposition value.
+  const header = `attachment; filename="${name}"`;
+  return header === `attachment; filename="${name}"` && !/[\r\n]/.test(header);
+}
+
+describe("handover filename sanitization", () => {
+  const generatedAt = new Date("2026-07-10T16:45:00.000Z");
+
+  it("always returns a non-empty name ending in .pdf", () => {
+    expect(sanitizeContentDispositionFilename("")).toBe("ICU_Handover.pdf");
+    expect(sanitizeContentDispositionFilename("   ")).toBe("ICU_Handover.pdf");
+    expect(sanitizeContentDispositionFilename("Night Handover")).toBe("Night_Handover.pdf");
+    expect(sanitizeContentDispositionFilename("report.pdf").endsWith(".pdf")).toBe(true);
+  });
+
+  it("strips CR/LF and control characters to prevent header injection", () => {
+    const evil = 'ICU\r\nSet-Cookie: x=1\t\u0000 Handover';
+    const safe = sanitizeContentDispositionFilename(evil);
+    expect(/[\r\n\t\u0000]/.test(safe)).toBe(false);
+    expect(isContentDispositionSafe(safe)).toBe(true);
+    expect(safe.endsWith(".pdf")).toBe(true);
+  });
+
+  it("removes path separators and OS-illegal characters", () => {
+    const messy = '../../etc/passwd:*?"<>|.pdf';
+    const safe = sanitizeContentDispositionFilename(messy);
+    expect(safe.includes("/")).toBe(false);
+    expect(safe.includes("\\")).toBe(false);
+    expect(/[:*?"<>|]/.test(safe)).toBe(false);
+    expect(isContentDispositionSafe(safe)).toBe(true);
+  });
+
+  it("does not leave a bare double quote that would break the header", () => {
+    const safe = sanitizeContentDispositionFilename('My "ICU" Handover');
+    expect(safe.includes('"')).toBe(false);
+    expect(isContentDispositionSafe(safe)).toBe(true);
+  });
+
+  it("neutralises reserved Windows device names", () => {
+    expect(sanitizeContentDispositionFilename("CON").toLowerCase()).not.toBe("con.pdf");
+    expect(sanitizeContentDispositionFilename("nul.pdf").toLowerCase()).not.toBe("nul.pdf");
+    expect(isContentDispositionSafe(sanitizeContentDispositionFilename("LPT1"))).toBe(true);
+  });
+
+  it("caps very long titles while keeping the .pdf extension", () => {
+    const longTitle = "A".repeat(500);
+    const safe = sanitizeContentDispositionFilename(longTitle);
+    expect(safe.length).toBeLessThanOrEqual(180);
+    expect(safe.endsWith(".pdf")).toBe(true);
+    expect(isContentDispositionSafe(safe)).toBe(true);
+  });
+
+  it("strips leading dots so the result is never a hidden/empty file", () => {
+    const safe = sanitizeContentDispositionFilename("...");
+    expect(safe).toBe("ICU_Handover.pdf");
+    expect(sanitizeContentDispositionFilename(".hidden").startsWith(".")).toBe(false);
+  });
+
+  it("produces a Content-Disposition-safe name from a hostile handover title", () => {
+    const hostileTitle = 'ICU/Handover: "Night"\r\nX-Injected: 1 \\ shift *?<>|';
+    const filename = formatHandoverFilename(hostileTitle, undefined, generatedAt);
+
+    expect(isContentDispositionSafe(filename)).toBe(true);
+    expect(filename.endsWith(".pdf")).toBe(true);
+
+    // The assembled header round-trips without introducing new lines/headers.
+    const header = `attachment; filename="${filename}"`;
+    expect(/[\r\n]/.test(header)).toBe(false);
+    expect(header.split('"').length).toBe(3); // exactly one opening + one closing quote
+  });
+
+  it("keeps ordinary titles readable and unchanged in spirit", () => {
+    const filename = formatHandoverFilename("Night ICU Handover", "{title}_{date}", generatedAt);
+    expect(filename).toBe("Night_ICU_Handover_2026-07-10.pdf");
+    expect(isContentDispositionSafe(filename)).toBe(true);
+  });
+});
+
 
