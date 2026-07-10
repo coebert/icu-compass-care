@@ -15,8 +15,7 @@ import {
 export type PatientFormValues = {
   full_name: string;
   hospital_number: string;
-  nhs_number: string;
-  dob: string;
+  age: string;
   location_type: "icu" | "outlier";
   ward: string;
   bed: string;
