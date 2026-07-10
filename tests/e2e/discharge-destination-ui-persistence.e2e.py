@@ -154,8 +154,8 @@ def open_status_tab(page):
 def pick_today(page):
     """Open the discharge-date DatePicker popover and select today's date."""
     page.get_by_role("button", name="DD/MM/YYYY").click()
-    # react-day-picker marks today's cell with aria-current="date".
-    today_cell = page.locator("button[aria-current='date']").first
+    # react-day-picker v9 marks today's cell with data-today="true".
+    today_cell = page.locator("button[data-today='true']").first
     expect(today_cell).to_be_visible(timeout=5000)
     today_cell.click()
 
