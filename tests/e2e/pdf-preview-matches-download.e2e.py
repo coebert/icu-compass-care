@@ -312,7 +312,7 @@ def main():
                     page.screenshot(
                         path=str(SCREENSHOTS / f"pdfmatch_{vp_name}_{int(scale*100)}.png")
                     )
-                    page.get_by_role("button", name="Close").click()
+                    page.get_by_role("button", name="Close").first.click()
                     expect(
                         page.get_by_role("heading", name="Handover PDF preview")
                     ).to_have_count(0, timeout=10000)
