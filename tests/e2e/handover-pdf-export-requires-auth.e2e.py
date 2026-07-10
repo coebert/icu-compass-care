@@ -184,7 +184,8 @@ def main():
             # ---- A) LOGGED OUT: /patients (the export UI) is unreachable.
             page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            expect(page).to_have_url(lambda u: "/auth" in u, timeout=15000)
+            page.wait_for_url("**/auth**", timeout=15000)
+            assert "/auth" in page.url, f"logged-out /patients did not redirect to /auth: {page.url}"
             assert page.get_by_role("button", name="Preview PDF").count() == 0, (
                 "Preview PDF control is present while logged out"
             )
