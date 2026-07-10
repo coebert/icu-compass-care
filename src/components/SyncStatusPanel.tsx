@@ -147,16 +147,17 @@ export function SyncStatusPanel({
             </p>
           </TooltipContent>
         </Tooltip>
-        {showRetry && (
+        {showSync && (
           <Button
-            variant="outline"
+            variant={hasError ? "destructive" : "outline"}
             size="sm"
-            className="h-7 gap-1.5 px-2 text-xs"
+            className="h-8 gap-1.5 px-2 text-xs sm:h-7"
             disabled={retry.isPending}
             onClick={() => retry.mutate()}
+            aria-label={hasError ? "Retry sync" : "Sync now"}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${retry.isPending ? "animate-spin" : ""}`} />
-            Retry
+            {retry.isPending ? "Syncing…" : hasError ? "Retry" : "Sync"}
           </Button>
         )}
       </div>
