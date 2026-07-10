@@ -3,6 +3,9 @@ import {
   buildHandoverPdf,
   formatHandoverFilename,
   sanitizeContentDispositionFilename,
+  mostRecentInvestigation,
+  RECENT_INVESTIGATION_CATEGORIES,
+  type HandoverInvestigation,
   type HandoverPatient,
 } from "@/lib/handover-pdf";
 
