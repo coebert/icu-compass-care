@@ -163,7 +163,9 @@ def bridge_get_investigations(patient_id):
 
 # ---- UI helpers -------------------------------------------------------------
 
-def add_investigation(page, *, category, findings, older=False):
+def add_investigation(page, *, category, findings, nav=None):
+    """Add one investigation. `nav` optionally moves the date picker a month
+    ("prev"/"next") and selects the 15th, giving deterministic result dates."""
     page.get_by_role("button", name="Add result").click()
     dialog = page.get_by_role("dialog")
     expect(dialog).to_be_visible(timeout=15000)
@@ -178,16 +180,18 @@ def add_investigation(page, *, category, findings, older=False):
         "xpath=following-sibling::textarea"
     ).fill(findings)
 
-    if older:
+    if nav:
         field = dialog.get_by_text("Date / time of result", exact=True)
         field.locator("xpath=following-sibling::div//button").click()
         popover = page.locator("[data-radix-popper-content-wrapper]")
         expect(popover).to_be_visible(timeout=10000)
-        popover.get_by_role("button", name=re.compile("previous", re.I)).click()
+        label = "previous" if nav == "prev" else "next"
+        popover.get_by_role("button", name=re.compile(label, re.I)).click()
         popover.get_by_text("15", exact=True).first.click()
 
     dialog.get_by_role("button", name="Save").click()
     expect(page.get_by_role("dialog")).to_have_count(0, timeout=15000)
+
 
 
 def open_investigations(page):
