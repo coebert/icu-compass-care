@@ -353,13 +353,15 @@ def main():
         # ---- CORS preflight ----------------------------------------------
         r = requests.options(f"{BRIDGE}/patients", timeout=30)
         check("OPTIONS preflight 204", r.status_code == 204, f"got {r.status_code}")
+
+        # CORS + no-store are set by the bridge's json() helper on every real
+        # handler response (the OPTIONS preflight is intercepted by the dev
+        # server, so assert these on an actual signed GET).
+        r = signed_get("/patients")
         check(
-            "OPTIONS exposes CORS origin",
+            "bridge responses expose CORS origin",
             r.headers.get("Access-Control-Allow-Origin") == "*",
         )
-
-        # ---- no-store on signed responses --------------------------------
-        r = signed_get("/patients")
         cc = (r.headers.get("Cache-Control") or "").lower()
         check(
             "signed responses are no-store",
