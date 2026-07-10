@@ -161,7 +161,7 @@ def add_result_via_ui(page, specimen, findings, hhmm):
     """Drive the Microbiology tab 'Add result' dialog for one entry."""
     page.get_by_role("button", name="Add result").click()
 
-    dialog = page.get_by_role("dialog")
+    dialog = page.get_by_role("dialog", name="Add microbiology result")
     expect(dialog).to_be_visible(timeout=10000)
 
     # Pick the specimen type from the searchable combobox.
