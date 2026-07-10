@@ -16,8 +16,8 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
 
       // List investigations, filter by ?patient_id= and optional ?category=
       GET: async ({ request }) => {
-        const authError = verifySignature(request, "");
-        if (authError) return authError;
+        const auth = authorize(request, "", { write: false });
+        if (!auth.ok) return auth.response;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const url = new URL(request.url);
