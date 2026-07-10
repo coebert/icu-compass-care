@@ -39,6 +39,7 @@ export type BridgeHealthResult = {
     partnerUrlConfigured: boolean;
     secretConfigured: boolean;
     partnerHost: string | null;
+    rotationWindowActive: boolean; // a previous secret is also accepted right now
   };
   signatureAuth: {
     validAccepted: boolean; // a correctly signed request succeeds
@@ -63,6 +64,7 @@ function config() {
     secret: secret ?? "",
     hasUrl: Boolean(baseUrl),
     hasSecret: Boolean(secret),
+    rotationWindowActive: Boolean(process.env.HANDOVER_API_SECRET_PREVIOUS),
   };
 }
 
@@ -92,7 +94,7 @@ async function signedGet(baseUrl: string, secret: string, path: string, tamper =
 }
 
 export async function runBridgeHealth(): Promise<BridgeHealthResult> {
-  const { baseUrl, secret, hasUrl, hasSecret } = config();
+  const { baseUrl, secret, hasUrl, hasSecret, rotationWindowActive } = config();
   const checkedAt = new Date().toISOString();
 
   let partnerHost: string | null = null;
@@ -105,7 +107,7 @@ export async function runBridgeHealth(): Promise<BridgeHealthResult> {
   const result: BridgeHealthResult = {
     ok: false,
     checkedAt,
-    config: { partnerUrlConfigured: hasUrl, secretConfigured: hasSecret, partnerHost },
+    config: { partnerUrlConfigured: hasUrl, secretConfigured: hasSecret, partnerHost, rotationWindowActive },
     signatureAuth: { validAccepted: false, invalidRejected: false, detail: "" },
     endpoints: [],
     samplePayload: { source: "", keys: [], forbiddenKeysPresent: [], clean: false, sample: null },

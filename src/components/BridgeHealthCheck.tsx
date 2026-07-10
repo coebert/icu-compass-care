@@ -70,6 +70,18 @@ export function BridgeHealthCheck() {
           <div className="space-y-1.5">
             <StatusRow ok={r.config.partnerUrlConfigured} label="Partner URL configured" />
             <StatusRow ok={r.config.secretConfigured} label="Shared secret configured" />
+            {r.config.rotationWindowActive ? (
+              <div className="flex items-start gap-2 text-sm">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div>
+                  <span className="font-medium">Secret rotation window active</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    — a previous secret is still accepted; remove it once both projects run the new value.
+                  </span>
+                </div>
+              </div>
+            ) : null}
             <StatusRow
               ok={r.signatureAuth.validAccepted}
               label="Valid signatures accepted"
