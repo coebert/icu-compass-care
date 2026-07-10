@@ -55,6 +55,9 @@ export function HandoverPreviewModal({
   );
   const [showTimestamp, setShowTimestamp] = useState(true);
   const [showPageNumbers, setShowPageNumbers] = useState(true);
+  const [pageSize, setPageSize] = useState<HandoverPageSize>("a4");
+  const [marginX, setMarginX] = useState(8);
+  const [fontScale, setFontScale] = useState(1);
 
   // Keep the title in sync when the caller's default changes (e.g. archive toggle).
   useEffect(() => {
@@ -68,8 +71,11 @@ export function HandoverPreviewModal({
       footerText,
       showTimestamp,
       showPageNumbers,
+      pageSize,
+      marginX,
+      fontScale,
     }),
-    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers],
+    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
   );
 
   useEffect(() => {
