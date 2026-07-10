@@ -4,10 +4,23 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAudit } from "@/lib/audit";
 
+// Age must be a real number within a plausible clinical range; empty/null is rejected.
+const ageSchema = z
+  .union([z.number(), z.string().trim().min(1)], {
+    errorMap: () => ({ message: "Age is required" }),
+  })
+  .pipe(
+    z.coerce
+      .number({ invalid_type_error: "Age must be a valid number" })
+      .int("Age must be a whole number")
+      .min(0, "Age must be 0 or greater")
+      .max(130, "Age must be 130 or less"),
+  );
+
 const patientInput = z.object({
   full_name: z.string().trim().min(1).max(10),
   hospital_number: z.string().trim().max(50).optional().nullable(),
-  age: z.coerce.number().int().min(0).max(130).optional().nullable(),
+  age: ageSchema,
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
   bed: z.string().trim().max(50).optional().nullable(),
