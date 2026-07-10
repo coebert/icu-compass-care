@@ -22,8 +22,6 @@ export const Route = createFileRoute("/_authenticated/patients/")({
 
 type Patient = Record<string, any>;
 
-// Radnor Critical Care Unit bed roster (shared with the cross-project bridge).
-import { ICU_BEDS, normalizeBed } from "@/lib/icu-beds";
 
 // Build a human-readable location label. ICU patients are identified by
 // location_type and a bed number (ward is usually blank for them), so we must
