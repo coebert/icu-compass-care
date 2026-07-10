@@ -66,8 +66,8 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const authError = verifySignature(request, rawBody);
-        if (authError) return authError;
+        const auth = authorize(request, rawBody, { write: true });
+        if (!auth.ok) return auth.response;
 
         let parsed;
         try {
