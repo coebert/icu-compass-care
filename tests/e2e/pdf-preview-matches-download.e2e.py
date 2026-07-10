@@ -256,10 +256,27 @@ def main():
                 scale_hashes = {}
                 for scale in FONT_SCALES:
                     open_preview(page)
+                    src_before = page.evaluate(
+                        """() => document.querySelector('iframe[title="Handover PDF preview"]').getAttribute('src')"""
+                    )
                     set_font_scale(page, scale)
+                    # The preview opens at 100%; for any other scale wait for the
+                    # iframe to swap in a freshly-built blob before reading, so we
+                    # never compare a stale (default-scale) preview.
+                    if round(scale * 100) != 100:
+                        page.wait_for_function(
+                            """(prev) => {
+                              const f = document.querySelector('iframe[title="Handover PDF preview"]');
+                              const s = f && f.getAttribute('src');
+                              return s && s !== prev && s.startsWith('blob:');
+                            }""",
+                            arg=src_before,
+                            timeout=15000,
+                        )
 
                     preview_bytes = read_preview_bytes(page)
                     download_bytes = capture_download_bytes(page)
+
 
                     # 1) What you see == what you get (ignore the PDF's own
                     #    /CreationDate/ID, which jsPDF stamps with the clock; we
