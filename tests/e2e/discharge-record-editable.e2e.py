@@ -261,9 +261,10 @@ def main():
             expect(status_panel.get_by_text("Discharged", exact=False).first).to_be_visible(
                 timeout=10000
             )
-            expect(status_panel.get_by_text(DEST_2, exact=False).first).to_be_visible(
-                timeout=10000
-            )
+            # The discharge destination renders in an editable input field.
+            expect(
+                status_panel.locator(f"input[value='{DEST_2}']")
+            ).to_have_count(1, timeout=10000)
             page.screenshot(path=str(SCREENSHOTS / "discharge_editable_status.png"))
 
             browser.close()
