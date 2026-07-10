@@ -5,7 +5,7 @@ import type { SyncRunResult } from "@/lib/bridge-sync.server";
 export type SyncEvent = {
   id: string;
   direction: "push" | "pull";
-  entity: "patients" | "investigations" | "referrals";
+  entity: "patients" | "investigations" | "referrals" | "microbiology";
   record_count: number;
   actor_role: string | null;
   actor_email: string | null;
