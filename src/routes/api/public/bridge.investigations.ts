@@ -39,8 +39,8 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const authError = verifySignature(request, rawBody);
-        if (authError) return authError;
+        const auth = authorize(request, rawBody, { write: true });
+        if (!auth.ok) return auth.response;
 
         let parsed;
         try {
