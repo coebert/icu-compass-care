@@ -88,9 +88,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: "Salisbury District Hospital ICU" },
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "ICU Handover — Salisbury District Hospital" },
-      { property: "og:description", content: "Secure intensive care handover tool." },
+      { property: "og:description", content: "Secure intensive care handover for Salisbury District Hospital: track ICU patients, referrals, management, escalation plans and investigations." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "ICU Handover — Salisbury District Hospital" },
+      { name: "twitter:description", content: "Secure intensive care handover for Salisbury District Hospital: track ICU patients, referrals, management, escalation plans and investigations." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4b58514c-941a-4728-a134-ad2a18ae743d/id-preview-0d8c2a82--58df96bd-2803-4146-90a7-4a08f526bece.lovable.app-1783696831137.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4b58514c-941a-4728-a134-ad2a18ae743d/id-preview-0d8c2a82--58df96bd-2803-4146-90a7-4a08f526bece.lovable.app-1783696831137.png" },
     ],
     links: [
       {
