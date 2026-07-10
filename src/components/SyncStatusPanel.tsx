@@ -65,9 +65,10 @@ export function SyncStatusPanel({
     mutationFn: () => runSync() as Promise<SyncRunResult>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sync-status"] });
-      toast.success("Sync retry completed");
+      queryClient.invalidateQueries({ queryKey: ["reconciliation"] });
+      toast.success("Sync completed");
     },
-    onError: (e: Error) => toast.error("Sync retry failed", { description: e.message }),
+    onError: (e: Error) => toast.error("Sync failed", { description: e.message }),
   });
 
   if (isLoading) {
@@ -83,7 +84,10 @@ export function SyncStatusPanel({
   if (error) return null;
 
   const hasError = !!data?.lastError;
-  const showRetry = hasError && isAdmin;
+  // Admins get a manual sync trigger straight from the global header — the same
+  // bridge sync logic the old per-page controls used. On a failed last run the
+  // button reads "Retry"; otherwise it offers a plain "Sync" refresh.
+  const showSync = isAdmin;
   const intervalMinutes = data?.config.intervalMinutes ?? 15;
   const nextSync = data?.lastSuccess
     ? nextSyncText(data.lastSuccess.created_at, intervalMinutes)
@@ -144,16 +148,17 @@ export function SyncStatusPanel({
             </p>
           </TooltipContent>
         </Tooltip>
-        {showRetry && (
+        {showSync && (
           <Button
-            variant="outline"
+            variant={hasError ? "destructive" : "outline"}
             size="sm"
-            className="h-7 gap-1.5 px-2 text-xs"
+            className="h-8 gap-1.5 px-2 text-xs sm:h-7"
             disabled={retry.isPending}
             onClick={() => retry.mutate()}
+            aria-label={hasError ? "Retry sync" : "Sync now"}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${retry.isPending ? "animate-spin" : ""}`} />
-            Retry
+            {retry.isPending ? "Syncing…" : hasError ? "Retry" : "Sync"}
           </Button>
         )}
       </div>
