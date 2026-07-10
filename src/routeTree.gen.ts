@@ -17,6 +17,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
+import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
 import { Route as ApiPublicBridgePatientsRouteImport } from './routes/api/public/bridge.patients'
 import { Route as ApiPublicBridgeInvestigationsRouteImport } from './routes/api/public/bridge.investigations'
 
@@ -60,6 +61,12 @@ const AuthenticatedPatientsPatientIdRoute =
     path: '/$patientId',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
+const ApiPublicHooksBridgeSyncRoute =
+  ApiPublicHooksBridgeSyncRouteImport.update({
+    id: '/api/public/hooks/bridge-sync',
+    path: '/api/public/hooks/bridge-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicBridgePatientsRoute = ApiPublicBridgePatientsRouteImport.update({
   id: '/api/public/bridge/patients',
   path: '/api/public/bridge/patients',
@@ -82,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
+  '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,6 +101,7 @@ export interface FileRoutesByTo {
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
+  '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,6 +115,7 @@ export interface FileRoutesById {
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
+  '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/patients/$patientId'
     | '/api/public/bridge/investigations'
     | '/api/public/bridge/patients'
+    | '/api/public/hooks/bridge-sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/patients/$patientId'
     | '/api/public/bridge/investigations'
     | '/api/public/bridge/patients'
+    | '/api/public/hooks/bridge-sync'
   id:
     | '__root__'
     | '/'
@@ -142,6 +154,7 @@ export interface FileRouteTypes {
     | '/_authenticated/patients/$patientId'
     | '/api/public/bridge/investigations'
     | '/api/public/bridge/patients'
+    | '/api/public/hooks/bridge-sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -151,6 +164,7 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute
   ApiPublicBridgeInvestigationsRoute: typeof ApiPublicBridgeInvestigationsRoute
   ApiPublicBridgePatientsRoute: typeof ApiPublicBridgePatientsRoute
+  ApiPublicHooksBridgeSyncRoute: typeof ApiPublicHooksBridgeSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
+    '/api/public/hooks/bridge-sync': {
+      id: '/api/public/hooks/bridge-sync'
+      path: '/api/public/hooks/bridge-sync'
+      fullPath: '/api/public/hooks/bridge-sync'
+      preLoaderRoute: typeof ApiPublicHooksBridgeSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bridge/patients': {
       id: '/api/public/bridge/patients'
       path: '/api/public/bridge/patients'
@@ -263,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   ApiPublicBridgeInvestigationsRoute: ApiPublicBridgeInvestigationsRoute,
   ApiPublicBridgePatientsRoute: ApiPublicBridgePatientsRoute,
+  ApiPublicHooksBridgeSyncRoute: ApiPublicHooksBridgeSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
