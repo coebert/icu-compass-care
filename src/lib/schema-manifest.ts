@@ -40,6 +40,10 @@ export const REQUIRED_SCHEMA: TableManifest[] = [
     columns: ["id", "patient_id", "category", "findings", "created_at", "updated_at"],
   },
   {
+    table: "microbiology_results",
+    columns: ["id", "patient_id", "specimen_type", "findings", "result_at", "created_at", "updated_at"],
+  },
+  {
     table: "referrals",
     columns: [
       "id",
