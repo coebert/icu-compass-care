@@ -626,8 +626,8 @@ describe("handover PDF header/footer font-scale consistency (e2e)", () => {
   const scales = [0.6, 0.85, 1, 1.25, 1.6];
   const pageSizes = ["a4", "letter"] as const;
 
-  const LONG_TITLE = "Salisbury District Hospital — Critical Care Handover Sheet";
-  const LONG_FOOTER = "CONFIDENTIAL — Salisbury District Hospital Critical Care Unit";
+  const LONG_TITLE = "Salisbury District Hospital - Critical Care Handover Sheet";
+  const LONG_FOOTER = "CONFIDENTIAL - Salisbury District Hospital Critical Care Unit";
 
   for (const pageSize of pageSizes) {
     describe(`page size ${pageSize}`, () => {
