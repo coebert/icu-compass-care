@@ -200,5 +200,59 @@ describe("handover PDF export (e2e)", () => {
     expect(/Page \d+ of/.test(text), "page numbers suppressed").toBe(false);
   });
 
+  it("includes the patient name, consultant/ward and escalation plan fields as text", async () => {
+    // A single, fully-populated patient exercising every field the handover
+    // sheet must surface: identity, location (consultant/ward), and the key
+    // escalation-plan flags (TEP + DNACPR) with their free-text detail.
+    const patient: HandoverPatient = {
+      full_name: "Zephyr Q.",
+      age: 63,
+      hospital_number: "ZQ-2026-9",
+      ward: "Radnor",
+      bed: "4",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      accepting_consultant: "Dr Okafor",
+      past_medical_history: "Ischaemic heart disease, CKD stage 3",
+      current_admission: "Septic shock secondary to urosepsis",
+      current_management: "Noradrenaline, broad-spectrum antibiotics, CRRT",
+      outstanding_tasks: "Chase cultures; review CRRT circuit at 20:00",
+      dnacpr_decision: true,
+      dnacpr_details: "Ward-based ceiling",
+      tep_in_place: true,
+      tep_details: "HFNO not intubation",
+      nok_name: "Marion Q.",
+      nok_relationship: "Wife",
+      nok_contact: "07000 111222",
+    };
+
+    const doc = buildHandoverPdf([patient], {
+      title: "ICU Handover Sheet",
+      subtitle: `Consultant: ${patient.accepting_consultant}`,
+    });
+
+    const text = await pdfText(doc);
+
+    // Patient identity.
+    expect(text.includes("Zephyr Q."), "patient name should appear").toBe(true);
+    expect(text.includes("ZQ-2026-9"), "hospital number should appear").toBe(true);
+
+    // Consultant / ward location.
+    expect(text.includes("Dr Okafor"), "consultant should appear").toBe(true);
+    expect(text.includes("Radnor"), "ward should appear").toBe(true);
+
+    // Key escalation-plan fields: TEP and DNACPR with their detail text.
+    expect(text.includes("DNACPR"), "DNACPR flag should appear").toBe(true);
+    expect(
+      text.includes("Ward-based ceiling"),
+      "DNACPR detail should appear",
+    ).toBe(true);
+    expect(text.includes("TEP"), "TEP flag should appear").toBe(true);
+    expect(
+      text.includes("HFNO not intubation"),
+      "TEP detail should appear",
+    ).toBe(true);
+  });
+
 });
 
