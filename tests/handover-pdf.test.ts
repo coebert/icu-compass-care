@@ -306,6 +306,112 @@ describe("handover PDF export (e2e)", () => {
 });
 
 /**
+ * Build a long roster that reliably spans several pages so multi-page
+ * numbering can be exercised regardless of page size / scaling.
+ */
+function longRoster(count: number): HandoverPatient[] {
+  return Array.from({ length: count }, (_, i) => ({
+    full_name: `Patient ${i + 1}`,
+    age: 30 + (i % 50),
+    hospital_number: `H-LONG-${i + 1}`,
+    ward: "ICU",
+    bed: String((i % 24) + 1),
+    status: "admitted",
+    admission_date: new Date().toISOString(),
+    past_medical_history: "COPD, hypertension, chronic kidney disease stage 3, atrial fibrillation",
+    current_admission: "Severe community-acquired pneumonia with type 1 respiratory failure",
+    current_management: "HFNO, broad-spectrum antibiotics, cautious fluids, hourly observations",
+    outstanding_tasks: "Chase blood cultures; repeat ABG at 18:00; family update; physio review",
+  }));
+}
+
+/** Count how many times a regex matches across the whole document text. */
+function countMatches(text: string, re: RegExp): number {
+  const matches = text.match(re);
+  return matches ? matches.length : 0;
+}
+
+describe("handover PDF multi-page header/footer toggles (e2e)", () => {
+  const toggleCases: Array<{
+    name: string;
+    showTimestamp: boolean;
+    showPageNumbers: boolean;
+    footerText?: string;
+  }> = [
+    { name: "timestamp + page numbers", showTimestamp: true, showPageNumbers: true },
+    { name: "page numbers only (no timestamp)", showTimestamp: false, showPageNumbers: true },
+    { name: "timestamp only (no page numbers)", showTimestamp: true, showPageNumbers: false },
+    { name: "neither timestamp nor page numbers", showTimestamp: false, showPageNumbers: false },
+    {
+      name: "page numbers with custom footer",
+      showTimestamp: true,
+      showPageNumbers: true,
+      footerText: "Confidential ward round summary",
+    },
+  ];
+
+  for (const c of toggleCases) {
+    it(`applies Page X of Y placement/suppression: ${c.name}`, async () => {
+      const doc = buildHandoverPdf(longRoster(90), {
+        title: "Long ICU Handover",
+        subtitle: "Salisbury Critical Care Unit",
+        showTimestamp: c.showTimestamp,
+        showPageNumbers: c.showPageNumbers,
+        ...(c.footerText ? { footerText: c.footerText } : {}),
+      });
+
+      const totalPages = doc.getNumberOfPages();
+      // The roster is large enough to force a genuine multi-page document.
+      expect(totalPages, "roster should span multiple pages").toBeGreaterThan(2);
+
+      const text = await pdfText(doc);
+
+      // The placeholder token must always be resolved (or never emitted).
+      expect(text.includes("{{TOTAL_PAGES}}"), "placeholder must be resolved").toBe(false);
+
+      if (c.showPageNumbers) {
+        // Exactly one "Page N of TOTAL" appears per page — placement is the
+        // centered footer drawn once per page via didDrawPage.
+        expect(
+          countMatches(text, /Page \d+ of \d+/g),
+          "one page-number stamp per page",
+        ).toBe(totalPages);
+
+        // First, an interior and the last page are all numbered against the
+        // resolved total — proving the running "X of Y" is correct throughout.
+        expect(text.includes(`Page 1 of ${totalPages}`), "first page numbered").toBe(true);
+        expect(text.includes(`Page 2 of ${totalPages}`), "second page numbered").toBe(true);
+        expect(
+          text.includes(`Page ${totalPages} of ${totalPages}`),
+          "last page numbered",
+        ).toBe(true);
+
+        // No page is numbered beyond the true total (no off-by-one overflow).
+        expect(
+          text.includes(`Page ${totalPages + 1} of`),
+          "no page beyond the total",
+        ).toBe(false);
+
+        if (c.footerText) {
+          // Placement: the page number sits alongside the footer text on the
+          // same centered footer line, joined by the " · " separator.
+          expect(
+            text.includes(`${c.footerText} · Page 1 of ${totalPages}`),
+            "page number placed next to custom footer text",
+          ).toBe(true);
+        }
+      } else {
+        // Suppression: no page numbering anywhere in the document.
+        expect(/Page \d+ of/.test(text), "page numbers fully suppressed").toBe(false);
+      }
+
+      // Timestamp toggle is independent of the page-number toggle.
+      expect(/Generated\s/.test(text), "timestamp toggle honoured").toBe(c.showTimestamp);
+    });
+  }
+});
+
+/**
  * A filename is safe to embed in an HTTP `Content-Disposition` header's
  * quoted-string form: `attachment; filename="<name>"`. It must not contain
  * characters that could terminate the quoted string or inject a new header,
