@@ -75,31 +75,32 @@ function PatientsBoard() {
             {showArchived ? "Discharged & deceased records" : "Current ICU patients and outlying referrals"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+        <div className="flex flex-wrap items-center gap-2.5 sm:ml-auto">
           <div className="relative w-full sm:w-56">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="w-full pl-8"
+              className="h-11 w-full pl-9 sm:h-10"
               placeholder="Search initials or hospital no.…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button variant={showArchived ? "secondary" : "outline"} className="flex-1 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
+          <Button variant={showArchived ? "secondary" : "outline"} className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
           <Button
             variant="outline"
-            className="flex-1 gap-1.5 sm:flex-none"
+            className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
             disabled={filtered.length === 0}
             onClick={() => setPreviewOpen(true)}
           >
             <FileDown className="h-4 w-4" /> Preview PDF
           </Button>
-          <Button onClick={() => setOpen(true)} className="flex-1 gap-1.5 sm:flex-none">
+          <Button onClick={() => setOpen(true)} className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none">
             <Plus className="h-4 w-4" /> Add patient
           </Button>
         </div>
+
       </div>
 
 
