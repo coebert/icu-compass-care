@@ -178,8 +178,58 @@ async function syncReferrals(admin: any): Promise<EntitySyncResult> {
   return result;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncMicrobiology(admin: any): Promise<EntitySyncResult> {
+  const result: EntitySyncResult = { entity: "microbiology", fetched: 0, applied: 0, skipped: 0 };
+  try {
+    const partner = await fetchPartnerMicrobiology();
+    result.fetched = partner.length;
+    if (partner.length === 0) return result;
+
+    const ids = partner.map((m) => m.id);
+    const { data: localRows, error: readErr } = await admin
+      .from("microbiology_results")
+      .select("*")
+      .in("id", ids);
+    if (readErr) throw new Error(readErr.message);
+
+    const localById = new Map<string, MicrobiologyRow>((localRows ?? []).map((r: MicrobiologyRow) => [r.id, r]));
+
+    for (const remote of partner) {
+      const local = localById.get(remote.id);
+      if (local && !newer(remote.updated_at, local.updated_at)) {
+        result.skipped++;
+        continue;
+      }
+      const { error: upErr } = await admin.from("microbiology_results").upsert(remote, { onConflict: "id" });
+      if (upErr) {
+        // A result may reference a patient that has not synced yet; leave it for
+        // a later pass rather than failing the whole run.
+        result.skipped++;
+        continue;
+      }
+      await writeAudit(admin, {
+        entity: "microbiology",
+        recordId: remote.id,
+        action: local ? "update" : "insert",
+        source: "bridge",
+        actor: bridgeSystemActor,
+        before: (local as Record<string, unknown> | undefined) ?? null,
+        after: remote as Record<string, unknown>,
+      });
+      result.applied++;
+    }
+
+    await logSync(admin, { direction: "pull", entity: "microbiology", record_count: result.applied, actor: bridgeSystemActor });
+  } catch (e) {
+    result.error = e instanceof Error ? e.message : String(e);
+    await logSyncError(admin, { direction: "pull", entity: "microbiology", message: result.error, actor: bridgeSystemActor });
+  }
+  return result;
+}
+
 // Run one full synchronization pass across every overlapping entity.
-// Patients sync first so investigations/referrals that reference them resolve.
+// Patients sync first so dependent records (investigations/referrals/micro) resolve.
 export async function runBridgeSync(): Promise<SyncRunResult> {
   const startedAt = new Date().toISOString();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -187,6 +237,7 @@ export async function runBridgeSync(): Promise<SyncRunResult> {
     await syncPatients(supabaseAdmin),
     await syncInvestigations(supabaseAdmin),
     await syncReferrals(supabaseAdmin),
+    await syncMicrobiology(supabaseAdmin),
   ];
   return {
     ok: results.every((r) => !r.error),
