@@ -15,8 +15,9 @@ import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDo
 import { toast } from "sonner";
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
-// Radnor Critical Care Unit bed roster (shared with the cross-project bridge).
-import { ICU_BEDS, normalizeBed } from "@/lib/icu-beds";
+// Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
+import { normalizeBed } from "@/lib/icu-beds";
+import { listBeds, type Bed } from "@/lib/beds.functions";
 
 export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
@@ -40,6 +41,7 @@ function PatientsBoard() {
   const qc = useQueryClient();
   const list = useServerFn(listPatients);
   const create = useServerFn(createPatient);
+  const beds = useServerFn(listBeds);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
@@ -49,6 +51,11 @@ function PatientsBoard() {
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
     queryFn: () => list() as Promise<Patient[]>,
+  });
+
+  const { data: bedRoster = [] } = useQuery({
+    queryKey: ["beds"],
+    queryFn: () => beds() as Promise<Bed[]>,
   });
 
   const createMut = useMutation({
@@ -93,7 +100,7 @@ function PatientsBoard() {
   // Active ICU patients whose bed doesn't match a known bed slot.
   const icuUnassigned = icu.filter((p) => {
     const key = normalizeBed(p.bed);
-    return !key || !ICU_BEDS.some((b) => normalizeBed(b) === key);
+    return !key || !bedRoster.some((b) => normalizeBed(b.label) === key);
   });
 
   function addToBed(bed: string) {
@@ -158,7 +165,7 @@ function PatientsBoard() {
         )
       ) : (
         <div className="space-y-8">
-          <BedBoard bedOccupant={bedOccupant} unassigned={icuUnassigned} onAddToBed={addToBed} />
+          <BedBoard roster={bedRoster} bedOccupant={bedOccupant} unassigned={icuUnassigned} onAddToBed={addToBed} />
           <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
         </div>
       )}
@@ -231,40 +238,43 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
 }
 
 function BedBoard({
+  roster,
   bedOccupant,
   unassigned,
   onAddToBed,
 }: {
+  roster: Bed[];
   bedOccupant: Map<string, Patient>;
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
 }) {
-  const occupied = bedOccupant.size;
+  const occupied = roster.filter((b) => bedOccupant.has(normalizeBed(b.label))).length;
   return (
     <div className="space-y-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
-        <span className="text-xs">({occupied}/{ICU_BEDS.length} occupied)</span>
+        <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {ICU_BEDS.map((bed) => {
-          const label = bed.startsWith("SR") ? bed : `Bed ${bed}`;
+        {roster.map((slot) => {
+          const bed = slot.label;
+          const label = slot.is_side_room ? bed : `Bed ${bed}`;
           const p = bedOccupant.get(normalizeBed(bed));
           if (p) {
             return (
-              <Link key={bed} to="/patients/$patientId" params={{ patientId: p.id }}>
+              <Link key={slot.id} to="/patients/$patientId" params={{ patientId: p.id }}>
                 <Card className="h-full transition-colors hover:border-primary/50">
                   <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
                     {label}
                   </div>
-                  <PatientCardBody p={p} bedLabel={bed.startsWith("SR") ? "Side room" : undefined} />
+                  <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
                 </Card>
               </Link>
             );
           }
           return (
             <button
-              key={bed}
+              key={slot.id}
               type="button"
               onClick={() => onAddToBed(bed)}
               className="group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5"
