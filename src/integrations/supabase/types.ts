@@ -208,6 +208,51 @@ export type Database = {
         }
         Relationships: []
       }
+      record_audit: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          actor_role: string | null
+          after: Json | null
+          before: Json | null
+          changed_fields: string[]
+          created_at: string
+          entity: string
+          id: string
+          record_id: string
+          source: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_role?: string | null
+          after?: Json | null
+          before?: Json | null
+          changed_fields?: string[]
+          created_at?: string
+          entity: string
+          id?: string
+          record_id: string
+          source?: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_role?: string | null
+          after?: Json | null
+          before?: Json | null
+          changed_fields?: string[]
+          created_at?: string
+          entity?: string
+          id?: string
+          record_id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
