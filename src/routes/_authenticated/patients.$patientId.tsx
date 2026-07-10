@@ -16,6 +16,7 @@ import {
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
+import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation } from "@/lib/handover-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
@@ -59,6 +60,51 @@ function InfoBlock({ label, value }: { label: string; value?: string | null }) {
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 whitespace-pre-wrap text-sm">{value?.trim() ? value : "—"}</p>
     </div>
+  );
+}
+
+function RecentInvestigations({ patientId }: { patientId: string }) {
+  const listInv = useServerFn(listInvestigations);
+  const { data: investigations = [], isLoading } = useQuery({
+    queryKey: ["investigations", patientId],
+    queryFn: () => listInv({ data: { patientId } }) as Promise<Investigation[]>,
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <FlaskConical className="h-4 w-4" /> Most recent investigations
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-3">
+        {RECENT_INVESTIGATION_CATEGORIES.map((category) => {
+          const latest = mostRecentInvestigation(investigations, category);
+          return (
+            <div key={category} className="rounded-md border border-border p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {category}
+              </p>
+              {isLoading ? (
+                <p className="mt-1 text-sm text-muted-foreground">Loading…</p>
+              ) : latest ? (
+                <>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">
+                    {latest.findings?.trim() ? latest.findings : "—"}
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {latest.result_at ? fmtDateTime(latest.result_at) : "Date not recorded"}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">No result recorded</p>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -187,7 +233,8 @@ function PatientDetail() {
 
 
 
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <RecentInvestigations patientId={patientId} />
           <Card>
             <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
               <InfoBlock label="Past medical history" value={patient.past_medical_history} />
