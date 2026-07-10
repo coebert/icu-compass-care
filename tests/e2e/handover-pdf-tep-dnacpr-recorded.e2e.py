@@ -202,8 +202,8 @@ def main():
         raw_text, packed = extract_pdf_text(pdf_path)
         Path("/tmp/tep_pdf.txt").write_text(raw_text)
 
-        # ---- The resus/escalation column header is present ----
-        assert "TEP / DNACPR / NOK" in raw_text, (
+        # ---- The resus/escalation column header is present (may wrap across lines) ----
+        assert "TEP/DNACPR/NOK" in packed, (
             "handover PDF missing 'TEP / DNACPR / NOK' column header"
         )
 
