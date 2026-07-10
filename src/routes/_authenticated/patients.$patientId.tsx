@@ -18,6 +18,7 @@ import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation } from "@/lib/handover-pdf";
+import { SpecimenTypeCombobox } from "@/components/SpecimenTypeCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
@@ -915,15 +916,13 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
             className="space-y-4"
           >
             <div className="space-y-1.5">
-              <Label>Specimen type</Label>
-              <Select value={specimenType} onValueChange={setSpecimenType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MICROBIOLOGY_SPECIMENS.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="specimen-type">Specimen type</Label>
+              <SpecimenTypeCombobox
+                id="specimen-type"
+                value={specimenType}
+                onChange={setSpecimenType}
+                options={MICROBIOLOGY_SPECIMENS}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Date / time of result</Label>
