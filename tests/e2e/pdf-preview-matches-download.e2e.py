@@ -201,11 +201,20 @@ def open_preview(page):
 
 
 def read_preview_bytes(page):
-    # Give the debounced useMemo/useEffect rebuild a beat to settle.
-    page.wait_for_timeout(600)
-    arr = page.evaluate(READ_PREVIEW_BYTES)
-    assert arr, "could not read preview iframe blob bytes"
-    return bytes(arr)
+    # The preview rebuilds asynchronously (useMemo -> useEffect -> new blob).
+    # Poll until the bytes stop changing (two identical consecutive reads), so
+    # we compare against a fully-settled preview rather than a stale blob.
+    prev = None
+    for _ in range(20):
+        page.wait_for_timeout(300)
+        arr = page.evaluate(READ_PREVIEW_BYTES)
+        assert arr, "could not read preview iframe blob bytes"
+        cur = bytes(arr)
+        if prev is not None and cur == prev:
+            return cur
+        prev = cur
+    return prev
+
 
 
 def capture_download_bytes(page):
