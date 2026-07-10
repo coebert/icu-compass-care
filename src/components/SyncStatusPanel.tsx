@@ -105,7 +105,8 @@ export function SyncStatusPanel({
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               )}
-              {hasError ? "Last sync failed" : "Last synced"} {relTime(data?.lastSuccess?.created_at ?? null)}
+              {hasError ? "Last sync failed" : "Last synced"}{" "}
+              {relTime(data?.lastSuccess?.created_at ?? null)}
             </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs space-y-1">
@@ -134,8 +135,8 @@ export function SyncStatusPanel({
               )}
             </p>
             <p className="text-xs">
-              <span className="text-muted-foreground">Next scheduled sync:</span>{" "}
-              {nextSync} (every {intervalMinutes} min)
+              <span className="text-muted-foreground">Next scheduled sync:</span> {nextSync} (every{" "}
+              {intervalMinutes} min)
             </p>
           </TooltipContent>
         </Tooltip>
