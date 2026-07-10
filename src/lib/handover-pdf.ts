@@ -9,6 +9,13 @@ export type HandoverInvestigation = {
   [key: string]: any;
 };
 
+export type HandoverMicrobiology = {
+  specimen_type?: string | null;
+  findings?: string | null;
+  result_at?: string | null;
+  [key: string]: any;
+};
+
 export type HandoverPatient = Record<string, any>;
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
@@ -84,6 +91,51 @@ function investigations(p: HandoverPatient): string {
   return lines.join("\n");
 }
 
+/**
+ * Pick the newest microbiology result per specimen type from a patient's
+ * microbiology list, comparing by `result_at`. Returns one entry per specimen
+ * type that has any result, ordered by most recent result first.
+ */
+export function latestMicrobiologyPerSpecimen(
+  results: HandoverMicrobiology[] | null | undefined,
+): HandoverMicrobiology[] {
+  if (!results?.length) return [];
+  const bySpecimen = new Map<string, HandoverMicrobiology>();
+  for (const r of results) {
+    const specimen = (r.specimen_type ?? "").trim() || "Other";
+    const existing = bySpecimen.get(specimen);
+    if (!existing || parseTime(r.result_at) >= parseTime(existing.result_at)) {
+      bySpecimen.set(specimen, r);
+    }
+  }
+  return [...bySpecimen.values()].sort(
+    (a, b) => parseTime(b.result_at) - parseTime(a.result_at),
+  );
+}
+
+/**
+ * Render the "key microbiology" column: the newest result for each specimen
+ * type that has any recorded finding, most recent first.
+ */
+function microbiology(p: HandoverPatient): string {
+  const list: HandoverMicrobiology[] = Array.isArray(p.microbiology_results)
+    ? p.microbiology_results
+    : Array.isArray(p.microbiology)
+      ? p.microbiology
+      : [];
+  const latest = latestMicrobiologyPerSpecimen(list);
+  if (!latest.length) return "—";
+  return latest
+    .map((r) => {
+      const specimen = (r.specimen_type ?? "").trim() || "Other";
+      const when = r.result_at ? ` (${fmtDateTime(r.result_at)})` : "";
+      return `${specimen}: ${r.findings || "—"}${when}`;
+    })
+    .join("\n");
+}
+
+
+
 
 export type HandoverPageSize = "a4" | "letter";
 
@@ -119,7 +171,7 @@ const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
 
 // Proportional column weights (must fit within available content width).
-const COLUMN_WEIGHTS = [30, 30, 38, 44, 44, 40, 44, 35];
+const COLUMN_WEIGHTS = [28, 26, 32, 36, 36, 44, 36, 36, 30];
 const COLUMN_TOTAL = COLUMN_WEIGHTS.reduce((a, b) => a + b, 0);
 
 function clamp(v: number, min: number, max: number): number {
@@ -169,6 +221,7 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       "Current admission",
       "Management",
       "Most recent investigations",
+      "Key microbiology",
       "Outstanding tasks",
       "TEP / DNACPR / NOK",
     ]],
@@ -179,6 +232,7 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
       p.current_admission || "—",
       p.current_management || "—",
       investigations(p),
+      microbiology(p),
       p.outstanding_tasks || "—",
       flags(p),
     ]),

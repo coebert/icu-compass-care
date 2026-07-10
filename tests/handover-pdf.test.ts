@@ -308,6 +308,62 @@ describe("handover PDF export (e2e)", () => {
 
 });
 
+describe("handover PDF key microbiology section (e2e)", () => {
+  it("renders the newest result per specimen type as text and hides superseded ones", async () => {
+    const patient: HandoverPatient = {
+      full_name: "M.B.",
+      age: 62,
+      hospital_number: "MB-MICRO-1",
+      ward: "ICU",
+      bed: "5",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      microbiology_results: [
+        // Blood culture — newest is the 09 Jul entry.
+        { specimen_type: "Blood culture", findings: "OLDBLOODCX", result_at: "2026-07-05T08:00:00.000Z" },
+        { specimen_type: "Blood culture", findings: "NEWBLOODCX", result_at: "2026-07-09T06:30:00.000Z" },
+        // Respiratory — newest is the 08 Jul entry.
+        { specimen_type: "Respiratory (sputum / BAL)", findings: "OLDRESP", result_at: "2026-07-04T10:00:00.000Z" },
+        { specimen_type: "Respiratory (sputum / BAL)", findings: "NEWRESP", result_at: "2026-07-08T14:00:00.000Z" },
+        // Urine — single entry.
+        { specimen_type: "Urine", findings: "URINECX", result_at: "2026-07-06T12:00:00.000Z" },
+      ],
+    };
+
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+
+    // Section heading is present.
+    expect(text.includes("Key microbiology"), "microbiology header").toBe(true);
+
+    // Newest result per specimen type is rendered as text.
+    expect(text.includes("NEWBLOODCX"), "newest blood culture should appear").toBe(true);
+    expect(text.includes("NEWRESP"), "newest respiratory should appear").toBe(true);
+    expect(text.includes("URINECX"), "urine result should appear").toBe(true);
+    expect(text.includes("Blood culture"), "blood culture specimen label").toBe(true);
+    expect(text.includes("Urine"), "urine specimen label").toBe(true);
+
+    // Older, superseded results must NOT appear.
+    expect(text.includes("OLDBLOODCX"), "old blood culture hidden").toBe(false);
+    expect(text.includes("OLDRESP"), "old respiratory hidden").toBe(false);
+  });
+
+  it("shows an em dash when no microbiology is recorded", async () => {
+    const patient: HandoverPatient = {
+      full_name: "N.M.",
+      age: 40,
+      hospital_number: "NM-MICRO-0",
+      ward: "ICU",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+    };
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+    expect(text.includes("Key microbiology"), "microbiology header").toBe(true);
+  });
+});
+
+
 /**
  * Build a long roster that reliably spans several pages so multi-page
  * numbering can be exercised regardless of page size / scaling.
