@@ -252,12 +252,19 @@ def set_status(page, patient_id, new_status):
         pick_today(page)
 
     panel.get_by_role("button", name="Update status").click()
-    try:
-        expect(page.get_by_text("Status updated")).to_be_visible(timeout=10000)
-    except Exception:
-        page.screenshot(path=str(SCREENSHOTS / f"debug_{MARKER}_{new_status}.png"))
-        print("DEBUG toasts:", page.locator("[data-sonner-toast]").all_inner_texts())
-        raise
+
+    # Confirm persistence by polling the DB rather than the transient toast
+    # (Sonner toasts auto-dismiss, which makes a fixed-timeout visibility check
+    # flaky). Retry the click once on an optimistic-concurrency conflict.
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        if read_status(patient_id)["status"] == new_status:
+            return
+        time.sleep(0.5)
+
+    page.screenshot(path=str(SCREENSHOTS / f"debug_{MARKER}_{new_status}.png"))
+    print("DEBUG toasts:", page.locator("[data-sonner-toast]").all_inner_texts())
+    raise AssertionError(f"status did not persist as {new_status!r}: {read_status(patient_id)!r}")
 
 
 def main():
