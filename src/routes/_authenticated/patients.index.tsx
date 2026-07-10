@@ -581,17 +581,22 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
 }
 
 // A patient card that can be dragged onto a bed. Click still opens the detail
-// page; only a real drag gesture starts a move.
+// page; only a real drag gesture starts a move. Supports mouse (HTML5 drag)
+// and touch (long-press pointer drag).
 function DraggablePatientLink({
   p,
   children,
   onDragStartPatient,
   onDragEndPatient,
+  onTouchDragStart,
+  suppressClickRef,
 }: {
   p: Patient;
   children: React.ReactNode;
   onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient?: () => void;
+  onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
+  suppressClickRef?: React.MutableRefObject<boolean>;
 }) {
   return (
     <Link
@@ -600,6 +605,15 @@ function DraggablePatientLink({
       draggable={!!onDragStartPatient}
       onDragStart={(e) => onDragStartPatient?.(p, e)}
       onDragEnd={() => onDragEndPatient?.()}
+      onPointerDown={(e) => onTouchDragStart?.(p, e)}
+      onClick={(e) => {
+        // Swallow the click that trails a touch-drag so it doesn't navigate.
+        if (suppressClickRef?.current) {
+          e.preventDefault();
+          suppressClickRef.current = false;
+        }
+      }}
+      style={onTouchDragStart ? { touchAction: "pan-y" } : undefined}
       className="block cursor-grab active:cursor-grabbing"
     >
       {children}
