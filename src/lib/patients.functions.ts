@@ -196,3 +196,18 @@ export const getPatientAudit = createServerFn({ method: "GET" })
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
+
+// Field-level change history (initials / age / hospital number), most recent first.
+export const getPatientFieldChanges = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("patient_field_changes")
+      .select("*")
+      .eq("patient_id", data.id)
+      .order("changed_at", { ascending: false })
+      .limit(100);
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
