@@ -487,3 +487,59 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
     </div>
   );
 }
+
+type AuditRow = Record<string, any>;
+
+const ACTION_LABEL: Record<string, string> = {
+  insert: "Created",
+  update: "Updated",
+  delete: "Removed",
+};
+
+function AuditTab({ patientId }: { patientId: string }) {
+  const fetchAudit = useServerFn(getPatientAudit);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["patient-audit", patientId],
+    queryFn: () => fetchAudit({ data: { id: patientId } }) as Promise<AuditRow[]>,
+  });
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (rows.length === 0)
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          No change history recorded yet.
+        </CardContent>
+      </Card>
+    );
+
+  return (
+    <div className="space-y-2">
+      {rows.map((r) => {
+        const who = r.actor_email || (r.actor_role ? `a ${r.actor_role}` : "unknown user");
+        const fields: string[] = r.changed_fields ?? [];
+        return (
+          <Card key={r.id}>
+            <CardContent className="space-y-1 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{ACTION_LABEL[r.action] ?? r.action}</Badge>
+                <Badge variant="outline">
+                  {r.source === "bridge" ? "Linked app" : "This app"}
+                </Badge>
+                <span className="text-sm">{who}</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {fmtDateTime(r.created_at)}
+                </span>
+              </div>
+              {r.action === "update" && fields.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Changed: {fields.map((f) => f.replace(/_/g, " ")).join(", ")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
