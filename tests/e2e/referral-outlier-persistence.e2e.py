@@ -177,12 +177,13 @@ def choose_option(dialog, name):
 
 def save(page, dialog):
     dialog.get_by_role("button", name="Save changes").click()
-    try:
-        expect(page.get_by_role("dialog")).to_have_count(0, timeout=15000)
-    except Exception:
-        page.screenshot(path=str(SCREENSHOTS / "referral_FAIL.png"))
-        print("TOASTS:", page.locator("[data-sonner-toast]").all_inner_texts())
-        raise
+    for _ in range(20):
+        t = page.locator("[data-sonner-toast]").all_inner_texts()
+        if t:
+            print("TOASTS:", t)
+            break
+        page.wait_for_timeout(200)
+    expect(page.get_by_role("dialog")).to_have_count(0, timeout=15000)
 
 
 def reload_patient(page, patient_id):
