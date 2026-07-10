@@ -186,6 +186,24 @@ function clamp(v: number, min: number, max: number): number {
  * configurable via `opts` so the table always fits cleanly when text is long,
  * as are the header and footer contents.
  */
+/**
+ * Sanitise a string for use inside the PDF's internal document-info dictionary
+ * (Title/Subject/Author). PDF text strings are delimited by parentheses and use
+ * backslash escapes, and the info dictionary must never contain control
+ * characters (CR/LF/TAB/NUL) that could break the PDF header or be abused for
+ * metadata injection. This strips control characters and neutralises the PDF
+ * string delimiters/escape character, collapsing whitespace runs.
+ */
+export function sanitizePdfMetadataText(input: string, fallback = ""): string {
+  // eslint-disable-next-line no-control-regex
+  const cleaned = (input ?? "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/[()\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || fallback;
+}
+
 export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): jsPDF {
   const pageSize: HandoverPageSize = opts?.pageSize ?? "a4";
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: pageSize });
