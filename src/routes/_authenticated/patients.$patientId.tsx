@@ -232,6 +232,11 @@ function PatientDetail() {
         <TabsContent value="status" className="mt-4">
           <StatusTab patient={patient} />
         </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <AuditTab patientId={patientId} />
+        </TabsContent>
+
       </Tabs>
 
       <Dialog open={editing} onOpenChange={setEditing}>
