@@ -1,0 +1,240 @@
+"""
+End-to-end test: the exported handover PDF displays the correct recorded TEP and
+DNACPR values.
+
+The handover sheet renders a combined "TEP / DNACPR / NOK" column. When both a
+DNACPR decision and a treatment escalation plan (TEP) are recorded, `flags()`
+in src/lib/handover-pdf.ts emits "DNACPR: <details>" and "TEP: <details>" (never
+the em-dash placeholder used for unrecorded flags). This test:
+
+  1. Seeds a patient with dnacpr_decision = true (+ unique details) and
+     tep_in_place = true (+ unique details).
+  2. Restores a clinician session, opens /patients, and exports the PDF through
+     the real UI (Preview PDF -> Download PDF).
+  3. Extracts the PDF text and asserts:
+       - the "TEP / DNACPR / NOK" column header is present,
+       - the recorded DNACPR value ("DNACPR: <details>") is present,
+       - the recorded TEP value ("TEP: <details>") is present,
+       - the em-dash placeholder is NOT the flags cell content (the recorded
+         values render instead of a blank/placeholder).
+
+Throwaway clinician user + patient are created and cleaned up via the Supabase
+admin REST API. Nothing lingers in the clinical dataset.
+
+Requires (already present in the sandbox environment):
+  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_PUBLISHABLE_KEY
+  pdftotext (poppler-utils) on PATH.
+
+Run:  python3 tests/e2e/handover-pdf-tep-dnacpr-recorded.e2e.py
+Exits 0 on success, non-zero on failure.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.parse
+from pathlib import Path
+
+import requests
+from playwright.sync_api import sync_playwright, expect
+
+BASE_URL = os.environ.get("E2E_BASE_URL", "http://localhost:8080")
+SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
+SERVICE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+PUBLISHABLE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
+
+PROJECT_REF = urllib.parse.urlparse(SUPABASE_URL).hostname.split(".")[0]
+STORAGE_KEY = f"sb-{PROJECT_REF}-auth-token"
+
+SCREENSHOTS = Path(__file__).parent / "screenshots"
+SCREENSHOTS.mkdir(parents=True, exist_ok=True)
+
+MARKER = f"E2EPDFTEP{int(time.time())}"
+PASSWORD = "Test-Passw0rd-123!"
+PATIENT_NAME = "T.D.R."
+
+# Single-token (no-space) markers so they survive whitespace collapsing when we
+# pack the extracted PDF text.
+SUFFIX = str(int(time.time()))[-6:]
+DNACPR_DETAILS = f"DNRdetail{SUFFIX}"
+TEP_DETAILS = f"TEPdetail{SUFFIX}"
+WARD = f"Ward{SUFFIX}"
+
+PLACEHOLDER = "\u2014"  # em-dash "—"
+
+
+def admin_headers():
+    return {
+        "apikey": SERVICE_KEY,
+        "Authorization": f"Bearer {SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def create_user():
+    email = f"{MARKER.lower()}@example.com"
+    r = requests.post(
+        f"{SUPABASE_URL}/auth/v1/admin/users",
+        headers=admin_headers(),
+        json={"email": email, "password": PASSWORD, "email_confirm": True},
+        timeout=30,
+    )
+    r.raise_for_status()
+    uid = r.json()["id"]
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/user_roles",
+        headers=admin_headers(),
+        json={"user_id": uid, "role": "clinician"},
+        timeout=30,
+    ).raise_for_status()
+    return uid, email
+
+
+def create_patient():
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/patients",
+        headers={**admin_headers(), "Prefer": "return=representation"},
+        json={
+            "full_name": PATIENT_NAME,
+            "age": 68,
+            "location_type": "icu",
+            "ward": WARD,
+            "bed": "7",
+            "status": "admitted",
+            # Both DNACPR and TEP recorded, each with unique details.
+            "dnacpr_decision": True,
+            "dnacpr_details": DNACPR_DETAILS,
+            "tep_in_place": True,
+            "tep_details": TEP_DETAILS,
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()[0]["id"]
+
+
+def sign_in(email):
+    r = requests.post(
+        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+        headers={"apikey": PUBLISHABLE_KEY, "Content-Type": "application/json"},
+        json={"email": email, "password": PASSWORD},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def cleanup(patient_id, user_id):
+    if patient_id:
+        requests.delete(
+            f"{SUPABASE_URL}/rest/v1/patients?id=eq.{patient_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+    if user_id:
+        requests.delete(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+
+
+def extract_pdf_text(pdf_path):
+    out = subprocess.run(
+        ["pdftotext", "-raw", str(pdf_path), "-"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if out.returncode != 0:
+        raise RuntimeError(f"pdftotext failed: {out.stderr}")
+    # Collapse whitespace so wrapped table cells don't hide our markers.
+    return out.stdout, "".join(out.stdout.split())
+
+
+def main():
+    user_id = patient_id = None
+    try:
+        user_id, email = create_user()
+        patient_id = create_patient()
+
+        session = sign_in(email)
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 1800},
+                accept_downloads=True,
+            )
+            page = context.new_page()
+
+            page.goto(BASE_URL, wait_until="domcontentloaded")
+            page.evaluate(
+                "([k, v]) => window.localStorage.setItem(k, v)",
+                [STORAGE_KEY, json.dumps(session)],
+            )
+
+            page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
+            assert "/auth" not in page.url, f"redirected to /auth while authenticated: {page.url}"
+
+            expect(page.get_by_text(PATIENT_NAME, exact=False).first).to_be_visible(timeout=15000)
+
+            preview_btn = page.get_by_role("button", name="Preview PDF")
+            expect(preview_btn).to_be_enabled(timeout=15000)
+            preview_btn.click()
+
+            dialog = page.get_by_role("dialog")
+            download_btn = dialog.get_by_role("button", name="Download PDF")
+            expect(download_btn).to_be_visible(timeout=10000)
+
+            with page.expect_download(timeout=15000) as dl_info:
+                download_btn.click()
+            download = dl_info.value
+            pdf_path = SCREENSHOTS / f"handover_{MARKER}.pdf"
+            download.save_as(str(pdf_path))
+            assert download.suggested_filename.lower().endswith(".pdf")
+
+            browser.close()
+
+        raw_text, packed = extract_pdf_text(pdf_path)
+
+        # ---- The resus/escalation column header is present ----
+        assert "TEP / DNACPR / NOK" in raw_text, (
+            "handover PDF missing 'TEP / DNACPR / NOK' column header"
+        )
+
+        # ---- The recorded DNACPR value renders (label + details) ----
+        assert f"DNACPR:{DNACPR_DETAILS}" in packed, (
+            f"handover PDF missing recorded DNACPR value 'DNACPR: {DNACPR_DETAILS}'"
+        )
+
+        # ---- The recorded TEP value renders (label + details) ----
+        assert f"TEP:{TEP_DETAILS}" in packed, (
+            f"handover PDF missing recorded TEP value 'TEP: {TEP_DETAILS}'"
+        )
+
+        # ---- The flags cell shows real values, not the not-recorded placeholder ----
+        # (Both flags are set, so this patient's cell must never collapse to "—".
+        # We assert the recorded tokens sit adjacent to each other, i.e. the cell
+        # rendered DNACPR + TEP rather than an em-dash.)
+        assert f"DNACPR:{DNACPR_DETAILS}TEP:{TEP_DETAILS}" in packed, (
+            "recorded DNACPR and TEP values are not both rendered in the flags cell"
+        )
+
+        # Cleanup the artifact.
+        try:
+            pdf_path.unlink()
+        except OSError:
+            pass
+
+        print("PASS: handover PDF displays the correct recorded TEP and DNACPR values")
+        return 0
+    finally:
+        cleanup(patient_id, user_id)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
