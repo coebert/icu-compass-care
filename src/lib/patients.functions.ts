@@ -54,6 +54,74 @@ function clean(data: Record<string, unknown>) {
   return out;
 }
 
+type PatientStatus = "referred" | "admitted" | "discharged" | "died";
+
+// Allowed forward transitions between clinical statuses. Staying on the same
+// status is always allowed (it lets staff edit other fields without changing
+// the lifecycle). "discharged" and "died" are terminal — records are retained
+// and stay editable, but the status cannot move to a different value.
+const ALLOWED_TRANSITIONS: Record<PatientStatus, PatientStatus[]> = {
+  referred: ["admitted", "discharged", "died"],
+  admitted: ["discharged", "died"],
+  discharged: [],
+  died: [],
+};
+
+const STATUS_LABEL: Record<PatientStatus, string> = {
+  referred: "Referred",
+  admitted: "Admitted",
+  discharged: "Discharged",
+  died: "Died",
+};
+
+function isBlank(v: unknown): boolean {
+  return v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+}
+
+// Server-side guard for status lifecycle + per-status required fields.
+// `merged` is the full effective row after the write (current row overlaid with
+// the incoming changes for updates, or the incoming payload for creates).
+// `previousStatus` is the status before this write (undefined on create).
+function validatePatientState(
+  merged: Record<string, unknown>,
+  previousStatus?: PatientStatus,
+) {
+  const next = merged.status as PatientStatus | undefined;
+  if (!next || !(next in ALLOWED_TRANSITIONS)) {
+    throw new Error("A valid patient status is required.");
+  }
+
+  // Transition legality (only checked when the status actually changes).
+  if (previousStatus && previousStatus !== next) {
+    const allowed = ALLOWED_TRANSITIONS[previousStatus] ?? [];
+    if (!allowed.includes(next)) {
+      const options =
+        allowed.length > 0
+          ? allowed.map((s) => STATUS_LABEL[s]).join(" or ")
+          : "no further status changes";
+      throw new Error(
+        `Invalid status change: a ${STATUS_LABEL[previousStatus]} patient cannot become ${STATUS_LABEL[next]} (allowed: ${options}).`,
+      );
+    }
+  }
+
+  // Per-status required fields.
+  if (next === "discharged") {
+    if (isBlank(merged.discharge_destination)) {
+      throw new Error("A discharge destination is required to mark a patient as discharged.");
+    }
+    if (isBlank(merged.discharge_date)) {
+      throw new Error("A discharge date is required to mark a patient as discharged.");
+    }
+  }
+  if (next === "died") {
+    if (isBlank(merged.date_of_death)) {
+      throw new Error("A date of death is required to mark a patient as died.");
+    }
+  }
+}
+
+
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -82,6 +150,7 @@ export const createPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => patientInput.parse(input))
   .handler(async ({ context, data }) => {
+    validatePatientState(clean(data as Record<string, unknown>));
     const { data: row, error } = await context.supabase
       .from("patients")
       .insert({ ...clean(data as Record<string, unknown>), created_by: context.userId, updated_by: context.userId } as never)
@@ -129,6 +198,11 @@ export const updatePatient = createServerFn({ method: "POST" })
         "CONFLICT: This patient was updated by someone else (possibly the linked app). Reload to see the latest before saving.",
       );
     }
+
+    // Validate the lifecycle transition + per-status required fields against
+    // the effective row (current values overlaid with the incoming changes).
+    const merged = { ...current, ...clean(rest) };
+    validatePatientState(merged, current.status as PatientStatus);
 
     const { data: row, error } = await context.supabase
       .from("patients")
