@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
-import { ICU_BEDS, SIDE_ROOMS, normalizeBed, isSideRoom, isKnownBed } from "@/lib/icu-beds";
+import { DEFAULT_BEDS, normalizeBed, type BedSlot } from "@/lib/icu-beds";
 
 /**
  * Read-only bridge endpoint exposing the Radnor Critical Care bed board to the
