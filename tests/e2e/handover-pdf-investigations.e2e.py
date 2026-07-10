@@ -28,12 +28,14 @@ Exits 0 on success, non-zero on failure.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 from playwright.sync_api import sync_playwright, expect
@@ -53,6 +55,13 @@ MARKER = f"E2EPDFINV{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "I.N.V."
 
+# The PDF renders result timestamps with fmtDateTime() (src/lib/icu.ts), i.e.
+# toLocaleString("en-GB", {day,month,year,hour,minute, hour12:false}) which
+# yields "dd/mm/yyyy, HH:MM" in the RENDERING environment's timezone. We pin the
+# browser timezone so the expected strings are deterministic across machines.
+TZ_ID = "Europe/London"
+TZ = ZoneInfo(TZ_ID)
+
 # Short single-token findings (no spaces, kept short so they never wrap inside
 # the narrow investigations column). Uniqueness via a short suffix keeps the
 # assertions specific to this patient's rows.
@@ -63,6 +72,25 @@ CXR_NEW = f"CXNEW{SUFFIX}"
 CT_NEW = f"CTNEW{SUFFIX}"
 
 now = datetime.now(timezone.utc)
+
+# Result timestamps for each seeded investigation (UTC). Kept as named
+# constants so the test can assert the PDF shows the newest entry's timestamp
+# and NOT the superseded one.
+BLOODS_OLD_AT = now - timedelta(days=2)
+BLOODS_NEW_AT = now - timedelta(hours=1)
+CXR_NEW_AT = now - timedelta(hours=3)
+CT_NEW_AT = now - timedelta(hours=5)
+
+
+def fmt_datetime_engb(dt_utc):
+    """Mirror fmtDateTime(): en-GB 'dd/mm/yyyy, HH:MM' in the pinned timezone."""
+    local = dt_utc.astimezone(TZ)
+    return local.strftime("%d/%m/%Y, %H:%M")
+
+
+def packed_datetime(dt_utc):
+    """Same as fmt_datetime_engb but whitespace-stripped to match packed text."""
+    return "".join(fmt_datetime_engb(dt_utc).split())
 
 
 def iso(dt):
@@ -182,10 +210,10 @@ def main():
 
         # Two Bloods results: an OLDER one that must be superseded, and a NEWER
         # one that must appear as the "most recent" Bloods line.
-        add_investigation(patient_id, "Bloods", BLOODS_OLD, iso(now - timedelta(days=2)))
-        add_investigation(patient_id, "Bloods", BLOODS_NEW, iso(now - timedelta(hours=1)))
-        add_investigation(patient_id, "CXR", CXR_NEW, iso(now - timedelta(hours=3)))
-        add_investigation(patient_id, "CT chest", CT_NEW, iso(now - timedelta(hours=5)))
+        add_investigation(patient_id, "Bloods", BLOODS_OLD, iso(BLOODS_OLD_AT))
+        add_investigation(patient_id, "Bloods", BLOODS_NEW, iso(BLOODS_NEW_AT))
+        add_investigation(patient_id, "CXR", CXR_NEW, iso(CXR_NEW_AT))
+        add_investigation(patient_id, "CT chest", CT_NEW, iso(CT_NEW_AT))
 
         session = sign_in(email)
 
@@ -194,6 +222,7 @@ def main():
             context = browser.new_context(
                 viewport={"width": 1280, "height": 1800},
                 accept_downloads=True,
+                timezone_id=TZ_ID,
             )
             page = context.new_page()
 
@@ -243,13 +272,52 @@ def main():
             "older Bloods finding leaked into handover PDF — 'most recent' selection is wrong"
         )
 
+        # ---- Displayed timestamps are correctly formatted AND belong to the
+        #      most recent entry for each category ----
+        expected_new = {
+            "Bloods": (BLOODS_NEW, BLOODS_NEW_AT),
+            "CXR": (CXR_NEW, CXR_NEW_AT),
+            "CT chest": (CT_NEW, CT_NEW_AT),
+        }
+        # In the packed text each key line reads "<Category>:<finding>(<dd/mm/yyyy,HH:MM>)".
+        for category, (finding, at) in expected_new.items():
+            stamp = packed_datetime(at)
+            # Timestamp string must be present and in the exact dd/mm/yyyy,HH:MM shape.
+            assert re.fullmatch(r"\d{2}/\d{2}/\d{4},\d{2}:\d{2}", stamp), (
+                f"expected timestamp '{stamp}' is not in dd/mm/yyyy,HH:MM form (test bug)"
+            )
+            assert stamp in packed, (
+                f"{category}: newest result timestamp '{stamp}' missing/mis-formatted in PDF"
+            )
+            # The timestamp must be directly attached to THIS category's newest
+            # finding — i.e. "<finding>(<stamp>)" — proving it belongs to the
+            # most recent entry, not a stray/older one.
+            pair = f"{finding}({stamp})"
+            assert pair in packed, (
+                f"{category}: timestamp not paired with its newest finding; "
+                f"expected '{pair}' in packed PDF text"
+            )
+
+        # ---- The superseded older Bloods timestamp must NOT appear ----
+        old_stamp = packed_datetime(BLOODS_OLD_AT)
+        # Guard: only meaningful if the old stamp differs from every kept stamp.
+        kept_stamps = {packed_datetime(at) for _, at in expected_new.values()}
+        if old_stamp not in kept_stamps:
+            assert old_stamp not in packed, (
+                f"superseded Bloods timestamp '{old_stamp}' leaked into PDF — "
+                f"'most recent' timestamp selection is wrong"
+            )
+
         # Cleanup the artifact.
         try:
             pdf_path.unlink()
         except OSError:
             pass
 
-        print("PASS: handover PDF contains newest Bloods, CXR, and CT chest sections")
+        print(
+            "PASS: handover PDF shows newest Bloods, CXR, CT chest with correctly "
+            "formatted (dd/mm/yyyy, HH:MM) most-recent timestamps"
+        )
         return 0
     finally:
         cleanup(patient_id, user_id)
