@@ -83,16 +83,20 @@ DATED_AT = (datetime.now(timezone.utc) - timedelta(hours=3)).replace(microsecond
 # rows we want null). The stale Blood-culture row is seeded OLDER so that even
 # if interception were skipped the dated-latest still wins — the test remains
 # meaningful, and interception makes the null path explicit.
-SEED_STALE_AT = (datetime.now(timezone.utc) - timedelta(days=2)).replace(microsecond=0)
+# Distinct seed dates per null row so seroval does not dedup identical strings
+# into references (which would break the text-level null injection below).
+SEED_STALE_A_AT = (datetime.now(timezone.utc) - timedelta(days=2, hours=1)).replace(microsecond=0)
+SEED_STALE_B_AT = (datetime.now(timezone.utc) - timedelta(days=3, hours=2)).replace(microsecond=0)
 
 MICRO_ROWS = [
-    {"specimen_type": SPEC_A, "findings": A_NULL_STALE, "result_at": SEED_STALE_AT.isoformat()},
+    {"specimen_type": SPEC_A, "findings": A_NULL_STALE, "result_at": SEED_STALE_A_AT.isoformat()},
     {"specimen_type": SPEC_A, "findings": A_DATED_LATEST, "result_at": DATED_AT.isoformat()},
-    {"specimen_type": SPEC_B, "findings": B_NULL_ONLY, "result_at": SEED_STALE_AT.isoformat()},
+    {"specimen_type": SPEC_B, "findings": B_NULL_ONLY, "result_at": SEED_STALE_B_AT.isoformat()},
 ]
 
-# Findings whose result_at must be delivered to the client as null.
+# Findings whose result_at must be delivered to the client as missing/null.
 NULL_FINDINGS = {A_NULL_STALE, B_NULL_ONLY}
+
 
 
 def packed(s):
