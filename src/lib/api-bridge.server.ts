@@ -57,8 +57,15 @@ export function authorize(
   rawBody: string,
   opts: { write: boolean },
 ): AuthResult {
-  const secret = process.env.HANDOVER_API_SECRET;
-  if (!secret) return { ok: false, response: json({ error: "Bridge not configured" }, 503) };
+  // Accept the current secret and, during a rotation window, an optional
+  // previous secret. This lets both projects roll over to a new value one at a
+  // time without an outage: while HANDOVER_API_SECRET_PREVIOUS is set, requests
+  // signed with either secret verify. Remove the previous secret once both
+  // sides run the new one.
+  const secrets = [process.env.HANDOVER_API_SECRET, process.env.HANDOVER_API_SECRET_PREVIOUS].filter(
+    (s): s is string => Boolean(s),
+  );
+  if (secrets.length === 0) return { ok: false, response: json({ error: "Bridge not configured" }, 503) };
 
   const timestamp = request.headers.get("x-timestamp");
   const actorHeader = request.headers.get("x-actor");
@@ -72,13 +79,16 @@ export function authorize(
     return { ok: false, response: json({ error: "Stale or invalid timestamp" }, 401) };
   }
 
-  // Verify signature over the exact bytes (including the actor envelope).
-  const expected = createHmac("sha256", secret)
-    .update(`${timestamp}.${actorHeader}.${rawBody}`)
-    .digest("hex");
+  // Verify the signature over the exact bytes (including the actor envelope)
+  // against each accepted secret with a timing-safe compare.
   const sigBuf = Buffer.from(signature);
-  const expBuf = Buffer.from(expected);
-  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+  const signatureValid = secrets.some((secret) => {
+    const expBuf = Buffer.from(
+      createHmac("sha256", secret).update(`${timestamp}.${actorHeader}.${rawBody}`).digest("hex"),
+    );
+    return sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf);
+  });
+  if (!signatureValid) {
     return { ok: false, response: json({ error: "Invalid signature" }, 401) };
   }
 
