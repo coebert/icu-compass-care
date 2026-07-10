@@ -129,4 +129,42 @@ describe("HandoverPreviewModal download filename", () => {
     expect(displayed).not.toMatch(/[/:"]/);
     expect(displayed.endsWith(".pdf")).toBe(true);
   });
+
+  it("revokes the download object URL after clicking Download PDF (no memory leak)", () => {
+    vi.useFakeTimers();
+    captureDownloadFilename();
+
+    // Hand out a unique object URL for the download and record it, so we can
+    // assert the very same URL is later revoked.
+    let created: string | null = null;
+    const createSpy = vi
+      .spyOn(URL, "createObjectURL")
+      .mockImplementation(() => {
+        created = `blob:download-${Math.random().toString(36).slice(2)}`;
+        return created;
+      });
+    const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+
+    try {
+      render(
+        <HandoverPreviewModal open onOpenChange={() => {}} patients={PATIENTS} title="ICU Handover Sheet" />,
+      );
+
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: /Download PDF/i }));
+
+      // A fresh object URL was created for the download.
+      expect(createSpy).toHaveBeenCalled();
+      expect(created).not.toBeNull();
+
+      // Revocation is scheduled on the next tick to let the browser grab the
+      // blob; nothing is leaked once the timer fires.
+      vi.runAllTimers();
+
+      expect(revokeSpy).toHaveBeenCalledWith(created);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
+

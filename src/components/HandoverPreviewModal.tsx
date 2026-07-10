@@ -21,7 +21,7 @@ import {
 import { FileDown, Save, Trash2, X } from "lucide-react";
 import {
   handoverPdfPreviewUrl,
-  downloadHandoverFromUrl,
+  downloadHandover,
   formatHandoverFilename,
   type HandoverPatient,
   type HandoverPdfOptions,
@@ -319,7 +319,7 @@ export function HandoverPreviewModal({
           <Button
             disabled={!url}
             className="h-11 gap-1.5 sm:h-10"
-            onClick={() => url && downloadHandoverFromUrl(url, { title: headerTitle, filenameFormat })}
+            onClick={() => downloadHandover(patients, options)}
           >
             <FileDown className="h-4 w-4" /> Download PDF
           </Button>
