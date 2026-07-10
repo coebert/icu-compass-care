@@ -109,14 +109,15 @@ describe("handover PDF export (e2e)", () => {
       generatedAt,
     );
 
-    expect(filename).toBe("icu_handover_sheet_2026-07-10_2026-07-10-16-45.pdf");
+    expect(filename).toBe("ICU_Handover_Sheet_2026-07-10_2026-07-10-16-45.pdf");
   });
 
   it("appends .pdf to the filename format when missing", () => {
     const generatedAt = new Date("2026-07-10T16:45:00.000Z");
     const filename = formatHandoverFilename("Critical Care", "{title}-{date}", generatedAt);
 
-    expect(filename).toBe("critical_care-2026-07-10.pdf");
+    expect(filename).toBe("Critical_Care-2026-07-10.pdf");
   });
+
 });
 
