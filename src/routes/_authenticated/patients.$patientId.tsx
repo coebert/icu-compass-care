@@ -18,6 +18,7 @@ import { PatientForm, toFormValues, type PatientFormValues } from "@/components/
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -322,7 +323,7 @@ function StatusTab({ patient }: { patient: Patient }) {
           <>
             <div className="space-y-1.5">
               <Label>Discharge date</Label>
-              <Input type="date" value={dischargeDate} onChange={(e) => setDischargeDate(e.target.value)} />
+              <DatePicker value={dischargeDate} onChange={setDischargeDate} />
             </div>
             <div className="space-y-1.5">
               <Label>Discharge destination</Label>
@@ -333,7 +334,7 @@ function StatusTab({ patient }: { patient: Patient }) {
         {status === "died" && (
           <div className="space-y-1.5">
             <Label>Date of death</Label>
-            <Input type="date" value={dod} onChange={(e) => setDod(e.target.value)} />
+            <DatePicker value={dod} onChange={setDod} />
           </div>
         )}
         <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
@@ -484,7 +485,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label>Date / time of result</Label>
-              <Input type="datetime-local" value={resultAt} onChange={(e) => setResultAt(e.target.value)} required />
+              <DateTimePicker value={resultAt} onChange={setResultAt} />
             </div>
             <div className="space-y-1.5">
               <Label>Findings</Label>
@@ -648,7 +649,7 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label>Date / time of result</Label>
-              <Input type="datetime-local" value={resultAt} onChange={(e) => setResultAt(e.target.value)} required />
+              <DateTimePicker value={resultAt} onChange={setResultAt} />
             </div>
             <div className="space-y-1.5">
               <Label>Findings</Label>

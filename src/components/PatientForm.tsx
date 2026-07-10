@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -164,12 +165,12 @@ export function PatientForm({
           <Field label="Ward"><Input value={values.ward} onChange={(e) => set("ward", e.target.value)} /></Field>
           <Field label="Bed"><Input value={values.bed} onChange={(e) => set("bed", e.target.value)} /></Field>
           <Field label="Admission date">
-            <Input type="date" value={values.admission_date} onChange={(e) => set("admission_date", e.target.value)} />
+            <DatePicker value={values.admission_date} onChange={(v) => set("admission_date", v)} />
           </Field>
           {values.status === "discharged" && (
             <>
               <Field label="Discharge date">
-                <Input type="date" value={values.discharge_date} onChange={(e) => set("discharge_date", e.target.value)} />
+                <DatePicker value={values.discharge_date} onChange={(v) => set("discharge_date", v)} />
               </Field>
               <Field label="Discharge destination">
                 <Input value={values.discharge_destination} onChange={(e) => set("discharge_destination", e.target.value)} />
@@ -178,7 +179,7 @@ export function PatientForm({
           )}
           {values.status === "died" && (
             <Field label="Date of death">
-              <Input type="date" value={values.date_of_death} onChange={(e) => set("date_of_death", e.target.value)} />
+              <DatePicker value={values.date_of_death} onChange={(v) => set("date_of_death", v)} />
             </Field>
           )}
         </div>
@@ -226,7 +227,7 @@ export function PatientForm({
         {values.dnacpr_decision && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="DNACPR date">
-              <Input type="date" value={values.dnacpr_date} onChange={(e) => set("dnacpr_date", e.target.value)} />
+              <DatePicker value={values.dnacpr_date} onChange={(v) => set("dnacpr_date", v)} />
             </Field>
             <Field label="DNACPR details">
               <Input value={values.dnacpr_details} onChange={(e) => set("dnacpr_details", e.target.value)} />
@@ -242,7 +243,7 @@ export function PatientForm({
           <Field label="Relationship"><Input value={values.nok_relationship} onChange={(e) => set("nok_relationship", e.target.value)} /></Field>
           <Field label="Contact details"><Input value={values.nok_contact} onChange={(e) => set("nok_contact", e.target.value)} /></Field>
           <Field label="Last updated / spoken to">
-            <Input type="datetime-local" value={values.nok_last_updated} onChange={(e) => set("nok_last_updated", e.target.value)} />
+            <DateTimePicker value={values.nok_last_updated} onChange={(v) => set("nok_last_updated", v)} />
           </Field>
           <Field label="Updated by (staff name)">
             <Input value={values.nok_last_updated_by} onChange={(e) => set("nok_last_updated_by", e.target.value)} />
