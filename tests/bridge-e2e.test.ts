@@ -189,4 +189,104 @@ describe("bridge patient sync (e2e)", () => {
       );
     }
   }, 60_000);
+
+  it("edits a discharged patient record and confirms changes persist and stay editable", async () => {
+    const marker = `H-E2E-EDIT-${Date.now()}`;
+
+    // 1. Create the patient and immediately discharge it.
+    const create = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        full_name: "D.C.",
+        age: 80,
+        hospital_number: marker,
+        location_type: "outlier",
+        ward: "Farley",
+        status: "discharged",
+        discharge_date: new Date().toISOString(),
+        discharge_destination: "Ward 3",
+        current_management: "Initial management note",
+        outstanding_tasks: "Follow up bloods",
+      }),
+    );
+    expect(create.status, `create failed: ${create.text}`).toBe(200);
+    const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
+    expect(createdPatient, "create response missing `patient`").toBeTruthy();
+    const created = createdPatient as Record<string, unknown>;
+    const id = created.id as string;
+    expect(id, "created patient missing id").toBeTruthy();
+    expect(created.status).toBe("discharged");
+
+    // 2. Edit the discharged record's clinical fields.
+    const firstEdit = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "D.C.",
+        status: "discharged",
+        current_management: "Updated plan: escalate antibiotics",
+        outstanding_tasks: "Chase microbiology culture results",
+        discharge_destination: "District General Ward 7",
+      }),
+    );
+    expect(firstEdit.status, `first edit failed: ${firstEdit.text}`).toBe(200);
+    const editedPatient = (firstEdit.json as { patient?: Record<string, unknown> })?.patient;
+    expect(editedPatient, "edit response missing `patient`").toBeTruthy();
+    const edited = editedPatient as Record<string, unknown>;
+    expect(edited.current_management).toBe("Updated plan: escalate antibiotics");
+    expect(edited.outstanding_tasks).toBe("Chase microbiology culture results");
+    expect(edited.discharge_destination).toBe("District General Ward 7");
+    // Still discharged; the edit did not change the lifecycle state.
+    expect(edited.status).toBe("discharged");
+    // The write bumped the version timestamp.
+    expect(edited.updated_at).not.toBe(created.updated_at);
+
+    // 3. The changes persist — re-read the record via the partner pull.
+    const list = await bridge("GET", "/api/public/bridge/patients?status=discharged");
+    expect(list.status, `list failed: ${list.text}`).toBe(200);
+    const rows = (list.json as { patients?: Record<string, unknown>[] })?.patients ?? [];
+    const persisted = rows.find((p) => p.id === id);
+    expect(persisted, "edited discharged record not returned by partner pull").toBeTruthy();
+    const persistedRow = persisted as Record<string, unknown>;
+    expect(persistedRow.current_management).toBe("Updated plan: escalate antibiotics");
+    expect(persistedRow.outstanding_tasks).toBe("Chase microbiology culture results");
+    expect(persistedRow.discharge_destination).toBe("District General Ward 7");
+
+    // 4. The record remains editable after discharge — a second edit succeeds
+    //    with optimistic-concurrency using the latest updated_at.
+    const secondEdit = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "D.C.",
+        status: "discharged",
+        expected_updated_at: persistedRow.updated_at,
+        current_management: "Second revision: for GP follow-up",
+      }),
+    );
+    expect(secondEdit.status, `second edit failed: ${secondEdit.text}`).toBe(200);
+    const secondPatient = (secondEdit.json as { patient?: Record<string, unknown> })?.patient;
+    expect(secondPatient, "second edit response missing `patient`").toBeTruthy();
+    const second = secondPatient as Record<string, unknown>;
+    expect(second.current_management).toBe("Second revision: for GP follow-up");
+    expect(second.updated_at).not.toBe(persistedRow.updated_at);
+
+    // 5. A stale write (using the now-outdated timestamp) is rejected, proving
+    //    the record is guarded by optimistic concurrency, not frozen.
+    const staleEdit = await bridge(
+      "POST",
+      "/api/public/bridge/patients",
+      JSON.stringify({
+        id,
+        full_name: "D.C.",
+        status: "discharged",
+        expected_updated_at: persistedRow.updated_at,
+        current_management: "This should be rejected",
+      }),
+    );
+    expect(staleEdit.status, "stale write should be rejected with 409").toBe(409);
+  }, 60_000);
 });
