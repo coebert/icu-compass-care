@@ -354,7 +354,7 @@ function PatientsBoard() {
         /* vibrate unsupported */
       }
     }, 200);
-    touchStateRef.current = { dragging: false, holdTimer, ghost: null };
+    touchStateRef.current = { dragging: false, holdTimer, ghost: null, startX, startY };
     window.addEventListener("pointermove", onTouchMove, { passive: false });
     window.addEventListener("pointerup", onTouchUp);
     window.addEventListener("pointercancel", onTouchUp);
