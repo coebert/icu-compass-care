@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listPatients, createPatient } from "@/lib/patients.functions";
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
+import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,10 +150,7 @@ function Section({
               <CardContent className="space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold leading-tight">
-                      {p.full_name}
-                      {p.age != null ? ` · ${p.age}y` : ""}
-                    </p>
+                    <PatientName patient={p} showAge />
                     <p className="text-xs text-muted-foreground">
                       {p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location"}
                     </p>
@@ -175,9 +173,12 @@ function Section({
                     {p.outstanding_tasks}
                   </p>
                 )}
-                <p className="text-[11px] text-muted-foreground">
-                  {p.hospital_number ? `MRN ${p.hospital_number} · ` : ""}Adm {fmtDate(p.admission_date)}
-                </p>
+                <PatientMetaLine
+                  patient={p}
+                  showAge={false}
+                  trailing={[`Adm ${fmtDate(p.admission_date)}`]}
+                  className="text-[11px]"
+                />
               </CardContent>
             </Card>
           </Link>
