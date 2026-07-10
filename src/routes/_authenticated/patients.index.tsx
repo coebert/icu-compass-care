@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
-import { normalizeBed } from "@/lib/icu-beds";
+import { normalizeBed, checkBedEligibility } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 
 export const Route = createFileRoute("/_authenticated/patients/")({
