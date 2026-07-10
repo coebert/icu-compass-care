@@ -75,16 +75,48 @@ export const createPatient = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await writeAudit(supabaseAdmin, {
+      entity: "patients",
+      recordId: row.id,
+      action: "insert",
+      source: "app",
+      actor: { id: context.userId, email: (context.claims.email as string) ?? null },
+      after: row as Record<string, unknown>,
+    });
     return row;
   });
 
 export const updatePatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ id: z.string().uuid() }).and(patientInput.partial()).parse(input),
+    z
+      .object({ id: z.string().uuid(), expected_updated_at: z.string().optional() })
+      .and(patientInput.partial())
+      .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { id, ...rest } = data as { id: string } & Record<string, unknown>;
+    const { id, expected_updated_at, ...rest } = data as {
+      id: string;
+      expected_updated_at?: string;
+    } & Record<string, unknown>;
+
+    // Load current row for conflict detection + audit "before" snapshot.
+    const { data: current, error: readErr } = await context.supabase
+      .from("patients")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!current) throw new Error("Patient not found");
+
+    // Optimistic concurrency — block overwriting a newer change from either app.
+    if (expected_updated_at && current.updated_at !== expected_updated_at) {
+      throw new Error(
+        "CONFLICT: This patient was updated by someone else (possibly the linked app). Reload to see the latest before saving.",
+      );
+    }
+
     const { data: row, error } = await context.supabase
       .from("patients")
       .update({ ...clean(rest), updated_by: context.userId } as never)
@@ -92,6 +124,17 @@ export const updatePatient = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await writeAudit(supabaseAdmin, {
+      entity: "patients",
+      recordId: row.id,
+      action: "update",
+      source: "app",
+      actor: { id: context.userId, email: (context.claims.email as string) ?? null },
+      before: current as Record<string, unknown>,
+      after: row as Record<string, unknown>,
+    });
     return row;
   });
 
