@@ -100,4 +100,23 @@ describe("handover PDF export (e2e)", () => {
     const dataUri = doc.output("datauristring");
     expect(dataUri.startsWith("data:application/pdf")).toBe(true);
   });
+
+  it("formats the download filename from title, timestamp and date placeholders", () => {
+    const generatedAt = new Date("2026-07-10T16:45:00.000Z");
+    const filename = formatHandoverFilename(
+      "ICU Handover Sheet",
+      "{title}_{date}_{timestamp}.pdf",
+      generatedAt,
+    );
+
+    expect(filename).toBe("icu_handover_sheet_2026-07-10_2026-07-10-16-45.pdf");
+  });
+
+  it("appends .pdf to the filename format when missing", () => {
+    const generatedAt = new Date("2026-07-10T16:45:00.000Z");
+    const filename = formatHandoverFilename("Critical Care", "{title}-{date}", generatedAt);
+
+    expect(filename).toBe("critical_care-2026-07-10.pdf");
+  });
 });
+
