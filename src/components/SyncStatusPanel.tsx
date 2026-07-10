@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 function relTime(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "never";
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
   const mins = Math.round(diff / 60000);
@@ -18,6 +18,23 @@ function relTime(iso: string | null): string {
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs} h ago`;
   return d.toLocaleString();
+}
+
+function nextSyncText(lastSuccessIso: string | null, intervalMinutes: number): string {
+  const intervalMs = intervalMinutes * 60_000;
+  const lastMs = lastSuccessIso ? Date.parse(lastSuccessIso) : 0;
+  let nextMs = lastMs > 0 ? lastMs + intervalMs : Date.now() + intervalMs;
+  while (nextMs < Date.now()) {
+    nextMs += intervalMs;
+  }
+
+  const diff = nextMs - Date.now();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return "in <1 min";
+  if (mins < 60) return `in ${mins} min`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `in ${hrs} h`;
+  return `at ${new Date(nextMs).toLocaleString()}`;
 }
 
 /**
