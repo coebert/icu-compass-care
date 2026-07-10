@@ -248,8 +248,14 @@ def main():
         assert a_idx != -1, "Blood culture specimen label missing from PDF"
         assert b_idx != -1, "Sputum specimen label missing from PDF"
 
-        a_window = packed_text[a_idx:a_idx + 120]
-        b_window = packed_text[b_idx:b_idx + 120]
+        # Bound each specimen window at the NEXT specimen label so a row cannot
+        # spill into (or be contaminated by) the adjacent specimen's line.
+        bounds = sorted([a_idx, b_idx])
+        a_end = bounds[1] if bounds[1] > a_idx else len(packed_text)
+        b_end = bounds[1] if bounds[1] > b_idx else len(packed_text)
+        a_window = packed_text[a_idx:a_end]
+        b_window = packed_text[b_idx:b_end]
+
         assert packed(A_NEW) in a_window, (
             f"Blood culture row does not carry its own latest findings; window={a_window!r}"
         )
