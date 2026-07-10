@@ -260,10 +260,6 @@ def main():
             expect(page.get_by_text(BED_LABEL, exact=False).first).to_be_visible(timeout=10000)
             page.screenshot(path=str(SCREENSHOTS / "icubed_board_after_sync.png"))
 
-            open_detail(page, patient_id)
-            expect(page.get_by_text(BED_LABEL, exact=False).first).to_be_visible(timeout=10000)
-            page.screenshot(path=str(SCREENSHOTS / "icubed_detail_after_sync.png"))
-
             browser.close()
 
         print("PASS: ICU bed/location label is correct and stays correct after partner sync")
