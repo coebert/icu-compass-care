@@ -544,20 +544,54 @@ function StatusTab({ patient }: { patient: Patient }) {
   );
 }
 
+function toDateTimeLocal(iso?: string | null): string {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 16);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 function InvestigationsTab({ patientId }: { patientId: string }) {
   const qc = useQueryClient();
   const list = useServerFn(listInvestigations);
   const add = useServerFn(addInvestigation);
+  const update = useServerFn(updateInvestigation);
   const del = useServerFn(deleteInvestigation);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [category, setCategory] = useState(INVESTIGATION_CATEGORIES[0]);
   const [findings, setFindings] = useState("");
-  const [resultAt, setResultAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [resultAt, setResultAt] = useState(() => toDateTimeLocal());
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["investigations", patientId],
     queryFn: () => list({ data: { patientId } }) as Promise<Investigation[]>,
   });
+
+  const openAdd = () => {
+    setEditingId(null);
+    setCategory(INVESTIGATION_CATEGORIES[0]);
+    setFindings("");
+    setResultAt(toDateTimeLocal());
+    setOpen(true);
+  };
+
+  const openEdit = (it: Investigation) => {
+    setEditingId(it.id);
+    setCategory(it.category ?? INVESTIGATION_CATEGORIES[0]);
+    setFindings(it.findings ?? "");
+    setResultAt(toDateTimeLocal(it.result_at));
+    setOpen(true);
+  };
+
+  // A single success handler keeps the newest-per-category cards (here and on
+  // the Overview tab, which share this query key) in sync immediately.
+  const refreshAndClose = (message: string) => {
+    qc.invalidateQueries({ queryKey: ["investigations", patientId] });
+    setOpen(false);
+    setEditingId(null);
+    setFindings("");
+    toast.success(message);
+  };
 
   const addMut = useMutation({
     mutationFn: () =>
@@ -569,13 +603,22 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
           result_at: new Date(resultAt).toISOString(),
         },
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["investigations", patientId] });
-      setOpen(false);
-      setFindings("");
-      toast.success("Investigation saved");
-    },
+    onSuccess: () => refreshAndClose("Investigation saved"),
     onError: (e: Error) => toast.error("Could not save", { description: e.message }),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: () =>
+      update({
+        data: {
+          id: editingId as string,
+          category,
+          findings,
+          result_at: new Date(resultAt).toISOString(),
+        },
+      }),
+    onSuccess: () => refreshAndClose("Investigation updated"),
+    onError: (e: Error) => toast.error("Could not update", { description: e.message }),
   });
 
   const delMut = useMutation({
@@ -584,7 +627,10 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
       qc.invalidateQueries({ queryKey: ["investigations", patientId] });
       toast.success("Deleted");
     },
+    onError: (e: Error) => toast.error("Could not delete", { description: e.message }),
   });
+
+  const saving = addMut.isPending || updateMut.isPending;
 
   // Most recent per category
   const mostRecent = useMemo(() => {
@@ -601,7 +647,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Most recent results
         </h2>
-        <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={() => setOpen(true)}>
+        <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Add result
         </Button>
       </div>
@@ -646,14 +692,43 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm">{it.findings}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-destructive"
-                    onClick={() => delMut.mutate(it.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Edit investigation"
+                      onClick={() => openEdit(it)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete investigation"
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this investigation?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently removes the {it.category} result from{" "}
+                            {fmtDateTime(it.result_at)}.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => delMut.mutate(it.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -663,11 +738,13 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add investigation result</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit investigation result" : "Add investigation result"}</DialogTitle>
+          </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              addMut.mutate();
+              (editingId ? updateMut : addMut).mutate();
             }}
             className="space-y-4"
           >
@@ -692,7 +769,9 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={addMut.isPending}>{addMut.isPending ? "Saving…" : "Save"}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving…" : editingId ? "Save changes" : "Save"}
+              </Button>
             </div>
           </form>
         </DialogContent>
