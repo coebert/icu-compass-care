@@ -65,9 +65,10 @@ export function SyncStatusPanel({
     mutationFn: () => runSync() as Promise<SyncRunResult>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sync-status"] });
-      toast.success("Sync retry completed");
+      queryClient.invalidateQueries({ queryKey: ["reconciliation"] });
+      toast.success("Sync completed");
     },
-    onError: (e: Error) => toast.error("Sync retry failed", { description: e.message }),
+    onError: (e: Error) => toast.error("Sync failed", { description: e.message }),
   });
 
   if (isLoading) {
