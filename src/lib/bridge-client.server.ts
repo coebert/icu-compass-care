@@ -69,4 +69,28 @@ export async function fetchPartnerInvestigations(): Promise<InvestigationRow[]> 
   return data.investigations ?? [];
 }
 
+// Pull the partner backend's notifications for cross-project review.
+export async function fetchPartnerNotifications(): Promise<NotificationRow[]> {
+  const data = await getJson<{ notifications: NotificationRow[] | null }>(
+    "/api/public/bridge/notifications",
+  );
+  return data.notifications ?? [];
+}
+
+// Pull the partner backend's referrals for cross-project review.
+export async function fetchPartnerReferrals(): Promise<ReferralRow[]> {
+  const data = await getJson<{ referrals: ReferralRow[] | null }>(
+    "/api/public/bridge/referrals",
+  );
+  return data.referrals ?? [];
+}
+
+// Pull the partner backend's audit log for cross-project review.
+export async function fetchPartnerAuditLog(): Promise<AuditLogRow[]> {
+  const data = await getJson<{ audit_log: AuditLogRow[] | null }>(
+    "/api/public/bridge/audit",
+  );
+  return data.audit_log ?? [];
+}
+
 export const bridgeSystemActor = SYSTEM_ACTOR;
