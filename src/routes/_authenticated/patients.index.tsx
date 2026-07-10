@@ -163,6 +163,7 @@ function PatientsBoard() {
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
   // patients swap places (the previous occupant takes the dragged one's old bed).
+  // Drops that violate bed-eligibility rules are rejected with a clear error.
   function dropOnBed(targetBed: string) {
     const dragged = draggedRef.current;
     draggedRef.current = null;
@@ -172,6 +173,18 @@ function PatientsBoard() {
     const targetKey = normalizeBed(targetBed);
     const occupants = bedOccupants.get(targetKey) ?? [];
     if (occupants.some((o) => o.id === dragged.id)) return; // dropped on its own bed
+
+    const targetLabel = isSideRoom(targetBed, bedRoster) ? targetBed : `Bed ${targetBed}`;
+
+    // Is the dragged patient allowed in the target bed?
+    const eligibility = checkBedEligibility(dragged, targetBed, bedRoster);
+    if (!eligibility.ok) {
+      toast.error(`Can't move ${dragged.full_name ?? "patient"} to ${targetLabel}`, {
+        description: eligibility.reason,
+      });
+      return;
+    }
+
     // Only swap for a clean 1:1 move; if the bed already holds someone, add the
     // dragged patient there too rather than forcing a swap into a shared bed.
     const occupant = occupants.length === 1 ? occupants[0] : null;
@@ -184,6 +197,14 @@ function PatientsBoard() {
       // Swap only makes sense when the dragged patient vacates a real ICU bed.
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
       if (draggedHadBed) {
+        // The displaced occupant must also be eligible for the bed they'd take.
+        const swapEligibility = checkBedEligibility(occupant, dragged.bed, bedRoster);
+        if (!swapEligibility.ok) {
+          toast.error(`Can't swap with ${occupant.full_name ?? "patient"}`, {
+            description: swapEligibility.reason,
+          });
+          return;
+        }
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
       }
     }
