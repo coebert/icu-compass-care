@@ -139,7 +139,7 @@ def tooltip_marker(page, token):
     badge = badge_locator(page)
     expect(badge).to_be_visible(timeout=15000)
     badge.hover()
-    expect(page.get_by_text(re.compile(re.escape(token)))).to_be_visible(timeout=15000)
+    expect(page.get_by_text(re.compile(re.escape(token))).first).to_be_visible(timeout=15000)
 
 
 STALE_MSG = f"{MARKER}-STALE-EVENT"
