@@ -55,7 +55,6 @@ function PatientsBoard() {
       return (
         p.full_name?.toLowerCase().includes(q) ||
         p.hospital_number?.toLowerCase().includes(q) ||
-        p.nhs_number?.toLowerCase().includes(q) ||
         p.ward?.toLowerCase().includes(q)
       );
     });

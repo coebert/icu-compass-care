@@ -5,10 +5,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAudit } from "@/lib/audit";
 
 const patientInput = z.object({
-  full_name: z.string().trim().min(1).max(200),
+  full_name: z.string().trim().min(1).max(10),
   hospital_number: z.string().trim().max(50).optional().nullable(),
-  nhs_number: z.string().trim().max(50).optional().nullable(),
-  dob: z.string().optional().nullable(),
+  age: z.coerce.number().int().min(0).max(130).optional().nullable(),
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
   bed: z.string().trim().max(50).optional().nullable(),

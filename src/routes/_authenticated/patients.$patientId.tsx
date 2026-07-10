@@ -129,8 +129,7 @@ function PatientDetail() {
           <p className="text-sm text-muted-foreground">
             {patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""} · ` : ""}
             {patient.hospital_number ? `MRN ${patient.hospital_number} · ` : ""}
-            {patient.nhs_number ? `NHS ${patient.nhs_number} · ` : ""}
-            DOB {fmtDate(patient.dob)}
+            {patient.age != null ? `Age ${patient.age}` : "Age —"}
           </p>
         </div>
         <div className="ml-auto flex gap-2">
