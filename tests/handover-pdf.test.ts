@@ -149,7 +149,7 @@ describe("handover PDF export (e2e)", () => {
     const doc = buildHandoverPdf(many, {
       title: "Night ICU Handover",
       subtitle: "Salisbury Critical Care Unit",
-      footerText: "Confidential — do not distribute",
+      footerText: "Confidential do not distribute",
       showTimestamp: true,
       showPageNumbers: true,
     });
@@ -167,7 +167,7 @@ describe("handover PDF export (e2e)", () => {
     expect(/Generated\s/.test(text), "generated timestamp should appear").toBe(true);
 
     // Custom footer text.
-    expect(text.includes("Confidential — do not distribute"), "footer should appear").toBe(true);
+    expect(text.includes("Confidential do not distribute"), "footer should appear").toBe(true);
 
     // Page numbering: first page and resolved total (not the placeholder token).
     expect(text.includes(`Page 1 of ${totalPages}`), "page 1 numbering").toBe(true);
