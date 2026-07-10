@@ -121,8 +121,9 @@ function AdminPage() {
               <Card key={s.id}>
                 <CardContent className="flex flex-wrap items-center gap-3 p-4">
                   <div className="min-w-0">
-                    <p className="font-medium">{s.display_name}</p>
-                    <p className="text-xs text-muted-foreground">{s.email}</p>
+                    <p className="truncate font-medium">{s.display_name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{s.email}</p>
+
                   </div>
                   <Badge variant={isAdmin ? "default" : "secondary"}>{isAdmin ? "Admin" : "Clinician"}</Badge>
                   <div className="ml-auto flex gap-2">

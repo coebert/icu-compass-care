@@ -169,16 +169,17 @@ function Section({
             <Card className="h-full transition-colors hover:border-primary/50">
               <CardContent className="space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <PatientName patient={p} showAge />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location"}
                     </p>
                   </div>
-                  <Badge className={STATUS_BADGE[p.status]} variant="secondary">
+                  <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
                     {STATUS_LABELS[p.status]}
                   </Badge>
                 </div>
+
                 <div className="flex flex-wrap gap-1.5">
                   {p.dnacpr_decision && (
                     <Badge variant="outline" className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300">
