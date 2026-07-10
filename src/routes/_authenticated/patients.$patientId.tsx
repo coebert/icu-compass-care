@@ -8,9 +8,14 @@ import {
   addInvestigation,
   deleteInvestigation,
 } from "@/lib/investigations.functions";
+import {
+  listMicrobiology,
+  addMicrobiology,
+  deleteMicrobiology,
+} from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
-import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, fmtDate, fmtDateTime } from "@/lib/icu";
+import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
@@ -172,9 +177,11 @@ function PatientDetail() {
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
+          <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
+
 
 
         <TabsContent value="overview" className="mt-4">
@@ -227,6 +234,11 @@ function PatientDetail() {
         <TabsContent value="investigations" className="mt-4">
           <InvestigationsTab patientId={patientId} />
         </TabsContent>
+
+        <TabsContent value="microbiology" className="mt-4">
+          <MicrobiologyTab patientId={patientId} />
+        </TabsContent>
+
 
         <TabsContent value="status" className="mt-4">
           <StatusTab patient={patient} />
@@ -487,6 +499,171 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
     </div>
   );
 }
+
+type Microbiology = Record<string, any>;
+
+function MicrobiologyTab({ patientId }: { patientId: string }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listMicrobiology);
+  const add = useServerFn(addMicrobiology);
+  const del = useServerFn(deleteMicrobiology);
+  const [open, setOpen] = useState(false);
+  const [specimenType, setSpecimenType] = useState(MICROBIOLOGY_SPECIMENS[0]);
+  const [findings, setFindings] = useState("");
+  const [resultAt, setResultAt] = useState(() => new Date().toISOString().slice(0, 16));
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["microbiology", patientId],
+    queryFn: () => list({ data: { patientId } }) as Promise<Microbiology[]>,
+  });
+
+  const addMut = useMutation({
+    mutationFn: () =>
+      add({
+        data: {
+          patient_id: patientId,
+          specimen_type: specimenType,
+          findings,
+          result_at: new Date(resultAt).toISOString(),
+        },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["microbiology", patientId] });
+      setOpen(false);
+      setFindings("");
+      toast.success("Microbiology result saved");
+    },
+    onError: (e: Error) => toast.error("Could not save", { description: e.message }),
+  });
+
+  const delMut = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["microbiology", patientId] });
+      toast.success("Deleted");
+    },
+  });
+
+  // Most recent per specimen type
+  const mostRecent = useMemo(() => {
+    const map = new Map<string, Microbiology>();
+    for (const it of items) {
+      if (!map.has(it.specimen_type)) map.set(it.specimen_type, it);
+    }
+    return Array.from(map.values());
+  }, [items]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Key microbiology results
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Blood cultures, swabs, CSF and other significant micro findings.
+          </p>
+        </div>
+        <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" /> Add result
+        </Button>
+      </div>
+
+      {mostRecent.length === 0 ? (
+        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No microbiology results recorded.</CardContent></Card>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {mostRecent.map((it) => (
+            <Card key={it.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-1.5 text-sm">
+                  <Microscope className="h-4 w-4 text-primary" /> Latest {it.specimen_type}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                <p className="whitespace-pre-wrap text-sm">{it.findings}</p>
+                <p className="text-xs text-muted-foreground">{fmtDateTime(it.result_at)}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Full history
+        </h2>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No entries.</p>
+        ) : (
+          <div className="space-y-2">
+            {items.map((it) => (
+              <Card key={it.id}>
+                <CardContent className="flex items-start justify-between gap-3 p-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{it.specimen_type}</Badge>
+                      <span className="text-xs text-muted-foreground">{fmtDateTime(it.result_at)}</span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap text-sm">{it.findings}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-destructive"
+                    onClick={() => delMut.mutate(it.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add microbiology result</DialogTitle></DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addMut.mutate();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label>Specimen type</Label>
+              <Select value={specimenType} onValueChange={setSpecimenType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MICROBIOLOGY_SPECIMENS.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date / time of result</Label>
+              <Input type="datetime-local" value={resultAt} onChange={(e) => setResultAt(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Findings</Label>
+              <Textarea rows={4} value={findings} onChange={(e) => setFindings(e.target.value)} placeholder="Organism, sensitivities, source, action taken…" required />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={addMut.isPending}>{addMut.isPending ? "Saving…" : "Save"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 
 type AuditRow = Record<string, any>;
 

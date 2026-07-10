@@ -25,6 +25,20 @@ export const INVESTIGATION_CATEGORIES = [
   "Other",
 ];
 
+// Specimen types for the "key microbiology results" section.
+export const MICROBIOLOGY_SPECIMENS = [
+  "Blood culture",
+  "Wound / skin swab",
+  "Respiratory (sputum / BAL)",
+  "Urine",
+  "CSF",
+  "Line tip",
+  "Stool",
+  "Screening (MRSA / CPE)",
+  "Serology / antigen",
+  "Other",
+];
+
 export function fmtDate(value?: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
