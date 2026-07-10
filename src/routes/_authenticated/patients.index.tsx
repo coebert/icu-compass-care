@@ -393,6 +393,7 @@ function BedBoard({
   unassigned,
   onAddToBed,
   dragging,
+  draggedPatient,
   onDragStartPatient,
   onDragEndPatient,
   onDropOnBed,
@@ -402,6 +403,7 @@ function BedBoard({
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
   dragging: boolean;
+  draggedPatient: Patient | null;
   onDragStartPatient: (p: Patient, e: React.DragEvent) => void;
   onDragEndPatient: () => void;
   onDropOnBed: (bed: string) => void;
