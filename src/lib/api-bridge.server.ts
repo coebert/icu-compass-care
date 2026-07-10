@@ -1,21 +1,31 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 /**
- * Shared HMAC auth + CORS for the cross-project data bridge.
+ * Shared HMAC auth + RBAC for the cross-project data bridge.
  *
- * The calling project signs each request:
- *   message   = `${timestamp}.${rawBody}`   (rawBody is "" for GET)
+ * The two apps run on separate backends, so the bridge cannot validate the
+ * other app's user session directly. Instead the trusted caller (proven by the
+ * HMAC signature) forwards the signed-in user's identity and role in a SIGNED
+ * actor envelope. The bridge:
+ *   1. verifies the HMAC signature  -> request came from the trusted app
+ *   2. requires a valid actor       -> a real logged-in user is acting
+ *   3. checks the actor's role       -> role-based access control
+ *
+ * Signing (done by the caller):
+ *   actor     = JSON string { id, email, role }   (sent as the x-actor header)
+ *   message   = `${timestamp}.${actor}.${rawBody}` (rawBody is "" for GET)
  *   signature = hex( HMAC_SHA256(HANDOVER_API_SECRET, message) )
  *
- * Sent as headers:
+ * Headers:
  *   x-timestamp: <unix seconds>
+ *   x-actor:     <JSON { id, email, role }>
  *   x-signature: <hex signature>
  */
 
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-timestamp, x-signature",
+  "Access-Control-Allow-Headers": "Content-Type, x-timestamp, x-actor, x-signature",
   "Access-Control-Max-Age": "86400",
 } as const;
 
@@ -28,36 +38,64 @@ export function json(body: unknown, status = 200): Response {
 
 const MAX_SKEW_SECONDS = 300;
 
+// Roles recognised by the bridge.
+const READ_ROLES = ["admin", "clinician"] as const;
+const WRITE_ROLES = ["admin", "clinician"] as const;
+
+export type BridgeActor = { id: string; email?: string; role: string };
+
+export type AuthResult =
+  | { ok: true; actor: BridgeActor }
+  | { ok: false; response: Response };
+
 /**
- * Verify the HMAC signature of an incoming request. Returns null when valid,
- * or a ready-to-return error Response when invalid.
+ * Verify the HMAC signature AND authorize the forwarded actor.
+ * Pass `write: true` for state-changing requests to enforce write roles.
  */
-export function verifySignature(request: Request, rawBody: string): Response | null {
+export function authorize(
+  request: Request,
+  rawBody: string,
+  opts: { write: boolean },
+): AuthResult {
   const secret = process.env.HANDOVER_API_SECRET;
-  if (!secret) {
-    return json({ error: "Bridge not configured" }, 503);
-  }
+  if (!secret) return { ok: false, response: json({ error: "Bridge not configured" }, 503) };
 
   const timestamp = request.headers.get("x-timestamp");
+  const actorHeader = request.headers.get("x-actor");
   const signature = request.headers.get("x-signature");
-  if (!timestamp || !signature) {
-    return json({ error: "Missing authentication headers" }, 401);
+  if (!timestamp || !actorHeader || !signature) {
+    return { ok: false, response: json({ error: "Missing authentication headers" }, 401) };
   }
 
   const ts = Number(timestamp);
   if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > MAX_SKEW_SECONDS) {
-    return json({ error: "Stale or invalid timestamp" }, 401);
+    return { ok: false, response: json({ error: "Stale or invalid timestamp" }, 401) };
   }
 
+  // Verify signature over the exact bytes (including the actor envelope).
   const expected = createHmac("sha256", secret)
-    .update(`${timestamp}.${rawBody}`)
+    .update(`${timestamp}.${actorHeader}.${rawBody}`)
     .digest("hex");
-
   const sigBuf = Buffer.from(signature);
   const expBuf = Buffer.from(expected);
   if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-    return json({ error: "Invalid signature" }, 401);
+    return { ok: false, response: json({ error: "Invalid signature" }, 401) };
   }
 
-  return null;
+  // Actor is authenticated only because it is inside the signed envelope.
+  let actor: BridgeActor;
+  try {
+    const parsed = JSON.parse(actorHeader) as Partial<BridgeActor>;
+    if (!parsed.id || !parsed.role) throw new Error("incomplete");
+    actor = { id: String(parsed.id), email: parsed.email ? String(parsed.email) : undefined, role: String(parsed.role) };
+  } catch {
+    return { ok: false, response: json({ error: "Missing or invalid user context" }, 401) };
+  }
+
+  const allowed = opts.write ? WRITE_ROLES : READ_ROLES;
+  if (!(allowed as readonly string[]).includes(actor.role)) {
+    return { ok: false, response: json({ error: "Insufficient role for this action" }, 403) };
+  }
+
+  return { ok: true, actor };
 }
