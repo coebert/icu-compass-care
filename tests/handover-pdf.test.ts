@@ -254,5 +254,49 @@ describe("handover PDF export (e2e)", () => {
     ).toBe(true);
   });
 
+  it("reflects the newest Bloods, CXR and CT chest investigation entries", async () => {
+    // Each category has multiple entries deliberately supplied out of
+    // chronological order; the sheet must surface the newest one per category
+    // by result_at, not the first/last in the array.
+    const patient: HandoverPatient = {
+      full_name: "R.T.",
+      age: 66,
+      hospital_number: "RT-INV-1",
+      ward: "ICU",
+      bed: "2",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      investigations: [
+        // Bloods — newest is the 09 Jul entry.
+        { category: "Bloods", findings: "OLD_BLOODS_CRP_40", result_at: "2026-07-05T08:00:00.000Z" },
+        { category: "Bloods", findings: "NEW_BLOODS_CRP_180", result_at: "2026-07-09T06:30:00.000Z" },
+        { category: "Bloods", findings: "MID_BLOODS_CRP_90", result_at: "2026-07-07T07:00:00.000Z" },
+        // CXR — newest is the 08 Jul entry.
+        { category: "CXR", findings: "OLD_CXR_CLEAR", result_at: "2026-07-04T10:00:00.000Z" },
+        { category: "CXR", findings: "NEW_CXR_RLL_CONSOLIDATION", result_at: "2026-07-08T14:00:00.000Z" },
+        // CT chest — newest is the 06 Jul entry.
+        { category: "CT chest", findings: "NEW_CTCHEST_NO_PE", result_at: "2026-07-06T12:00:00.000Z" },
+        { category: "CT chest", findings: "OLD_CTCHEST_EFFUSION", result_at: "2026-07-02T09:00:00.000Z" },
+      ],
+    };
+
+    const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+    const text = await pdfText(doc);
+
+    // Section headings are present.
+    expect(text.includes("Most recent investigations"), "investigations header").toBe(true);
+
+    // Newest entry for each category is rendered.
+    expect(text.includes("NEW_BLOODS_CRP_180"), "newest bloods should appear").toBe(true);
+    expect(text.includes("NEW_CXR_RLL_CONSOLIDATION"), "newest CXR should appear").toBe(true);
+    expect(text.includes("NEW_CTCHEST_NO_PE"), "newest CT chest should appear").toBe(true);
+
+    // Older, superseded entries must NOT be shown in the "most recent" section.
+    expect(text.includes("OLD_BLOODS_CRP_40"), "old bloods hidden").toBe(false);
+    expect(text.includes("MID_BLOODS_CRP_90"), "mid bloods hidden").toBe(false);
+    expect(text.includes("OLD_CXR_CLEAR"), "old CXR hidden").toBe(false);
+    expect(text.includes("OLD_CTCHEST_EFFUSION"), "old CT chest hidden").toBe(false);
+  });
+
 });
 
