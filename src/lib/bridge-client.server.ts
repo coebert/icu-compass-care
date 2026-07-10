@@ -9,6 +9,7 @@ export type InvestigationRow = Database["public"]["Tables"]["investigations"]["R
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 export type ReferralRow = Database["public"]["Tables"]["referrals"]["Row"];
 export type AuditLogRow = Database["public"]["Tables"]["audit_log"]["Row"];
+export type MicrobiologyRow = Database["public"]["Tables"]["microbiology_results"]["Row"];
 
 // The sync job acts on behalf of an automated system principal. The partner
 // bridge authorizes by role, so we present an admin-level service actor.
