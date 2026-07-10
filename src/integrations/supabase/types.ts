@@ -286,12 +286,10 @@ export type Database = {
           dnacpr_date: string | null
           dnacpr_decision: boolean
           dnacpr_details: string | null
-          dob: string | null
           full_name: string
           hospital_number: string | null
           id: string
           location_type: Database["public"]["Enums"]["patient_location"]
-          nhs_number: string | null
           nok_contact: string | null
           nok_last_updated: string | null
           nok_last_updated_by: string | null
@@ -320,12 +318,10 @@ export type Database = {
           dnacpr_date?: string | null
           dnacpr_decision?: boolean
           dnacpr_details?: string | null
-          dob?: string | null
           full_name: string
           hospital_number?: string | null
           id?: string
           location_type?: Database["public"]["Enums"]["patient_location"]
-          nhs_number?: string | null
           nok_contact?: string | null
           nok_last_updated?: string | null
           nok_last_updated_by?: string | null
@@ -354,12 +350,10 @@ export type Database = {
           dnacpr_date?: string | null
           dnacpr_decision?: boolean
           dnacpr_details?: string | null
-          dob?: string | null
           full_name?: string
           hospital_number?: string | null
           id?: string
           location_type?: Database["public"]["Enums"]["patient_location"]
-          nhs_number?: string | null
           nok_contact?: string | null
           nok_last_updated?: string | null
           nok_last_updated_by?: string | null
