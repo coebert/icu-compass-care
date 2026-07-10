@@ -32,16 +32,41 @@ function flags(p: HandoverPatient): string {
   return f.length ? f.join("\n") : "—";
 }
 
+export type HandoverPdfOptions = {
+  /** Header title text (left of the header). Defaults to "ICU Handover Sheet". */
+  title?: string;
+  /** Optional subtitle shown under the title (e.g. unit / ward name). */
+  subtitle?: string;
+  /** Footer text shown centered. Defaults to a confidentiality notice. */
+  footerText?: string;
+  /** Show the "Generated <timestamp>" stamp in the header. Default true. */
+  showTimestamp?: boolean;
+  /** Show "Page X of Y" in the footer. Default true. */
+  showPageNumbers?: boolean;
+};
+
+const DEFAULT_TITLE = "ICU Handover Sheet";
+const DEFAULT_FOOTER = "Confidential — patient identifiable information";
+
 /**
  * Build a landscape A4 handover sheet document. Every patient becomes one
  * row in a printable table; long free-text fields wrap within their column so
  * each patient's information is scaled to fit on the sheet across pages.
+ * The header (title, subtitle, generated timestamp) and footer (custom text,
+ * page numbers) are configurable via `opts`.
  */
-export function buildHandoverPdf(patients: HandoverPatient[], opts?: { title?: string }): jsPDF {
+export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): jsPDF {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const generated = new Date().toLocaleString("en-GB");
-  const title = opts?.title ?? "ICU Handover Sheet";
+  const title = opts?.title?.trim() || DEFAULT_TITLE;
+  const subtitle = opts?.subtitle?.trim() || "";
+  const footerText = opts?.footerText?.trim() || DEFAULT_FOOTER;
+  const showTimestamp = opts?.showTimestamp ?? true;
+  const showPageNumbers = opts?.showPageNumbers ?? true;
+  const PAGE_TOKEN = "{{TOTAL_PAGES}}";
+
 
   autoTable(doc, {
     head: [[
