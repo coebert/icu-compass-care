@@ -157,25 +157,31 @@ def cleanup(patient_id, user_id):
         )
 
 
+def packed(s):
+    """Whitespace-free text so cell/line wrapping in the narrow PDF columns
+    cannot split a name or label across lines and hide a match."""
+    return "".join(s.split())
+
+
 def extract_pdf_text(pdf_path):
     out = subprocess.run(
-        ["pdftotext", str(pdf_path), "-"],
+        ["pdftotext", "-raw", str(pdf_path), "-"],
         capture_output=True,
         text=True,
         timeout=60,
     )
     if out.returncode != 0:
         raise RuntimeError(f"pdftotext failed: {out.stderr}")
-    return out.stdout
+    return packed(out.stdout)
 
 
-def row_window(text, name):
-    """Return the slice of PDF text belonging to the patient's row, bounded by
-    the next patient name (there is only one seeded patient, but this keeps the
-    assertions robust if the archive view holds other records)."""
-    start = text.find(name)
+def row_window(packed_text, name):
+    """Return the slice of packed PDF text belonging to the patient's row.
+    There is only one seeded patient, but the bounded window keeps assertions
+    robust if the archive view holds other records."""
+    start = packed_text.find(packed(name))
     assert start != -1, f"patient {name!r} not found in exported PDF"
-    return text[start : start + 400]
+    return packed_text[start : start + 400]
 
 
 def open_status_tab(page):
