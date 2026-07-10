@@ -77,7 +77,7 @@ function PatientsBoard() {
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="w-48 pl-8"
-              placeholder="Search…"
+              placeholder="Search initials or hospital no.…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -149,7 +149,10 @@ function Section({
               <CardContent className="space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold leading-tight">{p.full_name}</p>
+                    <p className="font-semibold leading-tight">
+                      {p.full_name}
+                      {p.age != null ? ` · ${p.age}y` : ""}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {p.ward ? `${p.ward}${p.bed ? ` · Bed ${p.bed}` : ""}` : "No location"}
                     </p>
