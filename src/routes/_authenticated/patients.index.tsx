@@ -364,7 +364,7 @@ function DraggablePatientLink({
 
 function BedBoard({
   roster,
-  bedOccupant,
+  bedOccupants,
   unassigned,
   onAddToBed,
   dragging,
@@ -373,7 +373,7 @@ function BedBoard({
   onDropOnBed,
 }: {
   roster: Bed[];
-  bedOccupant: Map<string, Patient>;
+  bedOccupants: Map<string, Patient[]>;
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
   dragging: boolean;
@@ -381,7 +381,7 @@ function BedBoard({
   onDragEndPatient: () => void;
   onDropOnBed: (bed: string) => void;
 }) {
-  const occupied = roster.filter((b) => bedOccupant.has(normalizeBed(b.label))).length;
+  const occupied = roster.filter((b) => (bedOccupants.get(normalizeBed(b.label))?.length ?? 0) > 0).length;
   const [overBed, setOverBed] = useState<string | null>(null);
   return (
     <div className="space-y-3">
@@ -396,7 +396,7 @@ function BedBoard({
         {roster.map((slot) => {
           const bed = slot.label;
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
-          const p = bedOccupant.get(normalizeBed(bed));
+          const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
           const isOver = overBed === bed;
           const dropHandlers = {
             onDragOver: (e: React.DragEvent) => {
@@ -411,21 +411,29 @@ function BedBoard({
               onDropOnBed(bed);
             },
           };
-          if (p) {
+          if (occupants.length > 0) {
             return (
-              <div key={slot.id} {...dropHandlers}>
-                <DraggablePatientLink
-                  p={p}
-                  onDragStartPatient={onDragStartPatient}
-                  onDragEndPatient={onDragEndPatient}
-                >
-                  <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
-                    <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
-                      {label}
-                    </div>
-                    <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
-                  </Card>
-                </DraggablePatientLink>
+              <div key={slot.id} {...dropHandlers} className="space-y-2">
+                {occupants.length > 1 && (
+                  <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
+                  </p>
+                )}
+                {occupants.map((p) => (
+                  <DraggablePatientLink
+                    key={p.id}
+                    p={p}
+                    onDragStartPatient={onDragStartPatient}
+                    onDragEndPatient={onDragEndPatient}
+                  >
+                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
+                      <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
+                        {label}
+                      </div>
+                      <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
+                    </Card>
+                  </DraggablePatientLink>
+                ))}
               </div>
             );
           }
