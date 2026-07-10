@@ -6,6 +6,7 @@ import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFi
 import {
   listInvestigations,
   addInvestigation,
+  updateInvestigation,
   deleteInvestigation,
 } from "@/lib/investigations.functions";
 import {
