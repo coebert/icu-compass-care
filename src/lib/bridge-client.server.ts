@@ -94,4 +94,12 @@ export async function fetchPartnerAuditLog(): Promise<AuditLogRow[]> {
   return data.audit_log ?? [];
 }
 
+// Pull the full microbiology-results list from the partner backend.
+export async function fetchPartnerMicrobiology(): Promise<MicrobiologyRow[]> {
+  const data = await getJson<{ microbiology: MicrobiologyRow[] | null }>(
+    "/api/public/bridge/microbiology",
+  );
+  return data.microbiology ?? [];
+}
+
 export const bridgeSystemActor = SYSTEM_ACTOR;
