@@ -82,6 +82,27 @@ function PatientsBoard() {
   const icu = filtered.filter((p) => p.location_type === "icu");
   const outliers = filtered.filter((p) => p.location_type === "outlier");
 
+  // Map each ICU bed to the active patient occupying it (if any).
+  const bedOccupant = useMemo(() => {
+    const map = new Map<string, Patient>();
+    for (const p of icu) {
+      const key = normalizeBed(p.bed);
+      if (key && !map.has(key)) map.set(key, p);
+    }
+    return map;
+  }, [icu]);
+
+  // Active ICU patients whose bed doesn't match a known bed slot.
+  const icuUnassigned = icu.filter((p) => {
+    const key = normalizeBed(p.bed);
+    return !key || !ICU_BEDS.some((b) => normalizeBed(b) === key);
+  });
+
+  function addToBed(bed: string) {
+    setForm({ ...emptyPatient(), location_type: "icu", bed });
+    setOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
