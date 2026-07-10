@@ -77,7 +77,7 @@ function PatientsBoard() {
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="w-48 pl-8"
-              placeholder="Search…"
+              placeholder="Search initials or hospital no.…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
