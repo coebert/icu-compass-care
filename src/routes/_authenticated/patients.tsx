@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
-import { exportHandoverPdf } from "@/lib/handover-pdf";
+import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 
 export const Route = createFileRoute("/_authenticated/patients")({
   component: PatientsBoard,
