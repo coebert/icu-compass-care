@@ -217,7 +217,17 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   const showPageNumbers = opts?.showPageNumbers ?? true;
   const marginX = clamp(opts?.marginX ?? 8, 2, 30);
   const fontScale = clamp(opts?.fontScale ?? 1, 0.6, 1.6);
-  const PAGE_TOKEN = "{{TOTAL_PAGES}}";
+   const PAGE_TOKEN = "{{TOTAL_PAGES}}";
+
+  // Populate the internal document-info dictionary with sanitised text so
+  // hostile characters in the title/subtitle can never leak into the PDF
+  // header or the embedded metadata.
+  doc.setDocumentProperties({
+    title: sanitizePdfMetadataText(title, DEFAULT_TITLE),
+    subject: sanitizePdfMetadataText(subtitle, DEFAULT_TITLE),
+    author: sanitizePdfMetadataText(footerText, DEFAULT_FOOTER),
+    creator: "ICU Handover",
+  });
 
   const bodyFontSize = 7 * fontScale;
   const headFontSize = 7.5 * fontScale;
