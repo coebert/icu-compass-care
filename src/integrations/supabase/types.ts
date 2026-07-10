@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: Database["public"]["Enums"]["audit_action"]
+          created_at: string
+          diff: Json | null
+          entity: string
+          entity_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["audit_action"]
+          created_at?: string
+          diff?: Json | null
+          entity: string
+          entity_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["audit_action"]
+          created_at?: string
+          diff?: Json | null
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bridge_sync_events: {
         Row: {
           actor_email: string | null
@@ -41,6 +71,30 @@ export type Database = {
           entity?: string
           id?: string
           record_count?: number
+        }
+        Relationships: []
+      }
+      icnarc_targets: {
+        Row: {
+          decision_to_arrival_target_min: number
+          id: boolean
+          time_to_seen_target_min: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          decision_to_arrival_target_min?: number
+          id?: boolean
+          time_to_seen_target_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          decision_to_arrival_target_min?: number
+          id?: boolean
+          time_to_seen_target_min?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -81,6 +135,97 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_deliveries: {
+        Row: {
+          actor_id: string | null
+          channel: string
+          delivered_at: string | null
+          endpoint: string | null
+          error: string | null
+          generated_at: string
+          id: string
+          kind: string
+          notification_id: string | null
+          recipient_id: string
+          referral_id: string | null
+          status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          channel: string
+          delivered_at?: string | null
+          endpoint?: string | null
+          error?: string | null
+          generated_at?: string
+          id?: string
+          kind: string
+          notification_id?: string | null
+          recipient_id: string
+          referral_id?: string | null
+          status: string
+        }
+        Update: {
+          actor_id?: string | null
+          channel?: string
+          delivered_at?: string | null
+          endpoint?: string | null
+          error?: string | null
+          generated_at?: string
+          id?: string
+          kind?: string
+          notification_id?: string | null
+          recipient_id?: string
+          referral_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message: string
+          read_at: string | null
+          referral_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          message: string
+          read_at?: string | null
+          referral_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string
+          read_at?: string | null
+          referral_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
             referencedColumns: ["id"]
           },
         ]
@@ -187,23 +332,184 @@ export type Database = {
         }
         Relationships: []
       }
+      postop_bookings: {
+        Row: {
+          age: number | null
+          arrived_at: string | null
+          bmi: number | null
+          booking_status: Database["public"]["Enums"]["postop_booking_status"]
+          cancellation_notes: string | null
+          cancellation_reason:
+            | Database["public"]["Enums"]["postop_cancellation_reason"]
+            | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          converted_referral_id: string | null
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
+          height_cm: number | null
+          hospital_number_enc: string | null
+          hospital_number_hash: string | null
+          id: string
+          intensivist_reviewed_at: string | null
+          intensivist_reviewed_by: string | null
+          is_test: boolean
+          past_medical_history_enc: string | null
+          past_surgical_history_enc: string | null
+          predicted_level: Database["public"]["Enums"]["postop_level"]
+          preop_signed_off_at: string | null
+          preop_signed_off_by: string | null
+          proposed_procedure_enc: string | null
+          proposed_surgery_date: string | null
+          reason_for_bed_enc: string | null
+          sex: string | null
+          social_history_enc: string | null
+          surgical_specialty: string | null
+          updated_at: string
+          updated_by: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          age?: number | null
+          arrived_at?: string | null
+          bmi?: number | null
+          booking_status?: Database["public"]["Enums"]["postop_booking_status"]
+          cancellation_notes?: string | null
+          cancellation_reason?:
+            | Database["public"]["Enums"]["postop_cancellation_reason"]
+            | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          converted_referral_id?: string | null
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          height_cm?: number | null
+          hospital_number_enc?: string | null
+          hospital_number_hash?: string | null
+          id?: string
+          intensivist_reviewed_at?: string | null
+          intensivist_reviewed_by?: string | null
+          is_test?: boolean
+          past_medical_history_enc?: string | null
+          past_surgical_history_enc?: string | null
+          predicted_level: Database["public"]["Enums"]["postop_level"]
+          preop_signed_off_at?: string | null
+          preop_signed_off_by?: string | null
+          proposed_procedure_enc?: string | null
+          proposed_surgery_date?: string | null
+          reason_for_bed_enc?: string | null
+          sex?: string | null
+          social_history_enc?: string | null
+          surgical_specialty?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          age?: number | null
+          arrived_at?: string | null
+          bmi?: number | null
+          booking_status?: Database["public"]["Enums"]["postop_booking_status"]
+          cancellation_notes?: string | null
+          cancellation_reason?:
+            | Database["public"]["Enums"]["postop_cancellation_reason"]
+            | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          converted_referral_id?: string | null
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          height_cm?: number | null
+          hospital_number_enc?: string | null
+          hospital_number_hash?: string | null
+          id?: string
+          intensivist_reviewed_at?: string | null
+          intensivist_reviewed_by?: string | null
+          is_test?: boolean
+          past_medical_history_enc?: string | null
+          past_surgical_history_enc?: string | null
+          predicted_level?: Database["public"]["Enums"]["postop_level"]
+          preop_signed_off_at?: string | null
+          preop_signed_off_by?: string | null
+          proposed_procedure_enc?: string | null
+          proposed_surgery_date?: string | null
+          reason_for_bed_enc?: string | null
+          sex?: string | null
+          social_history_enc?: string | null
+          surgical_specialty?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postop_bookings_converted_referral_id_fkey"
+            columns: ["converted_referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
           display_name: string
+          full_name: string | null
           id: string
+          is_at_work: boolean
+          job_title: string | null
+          notify_capacity: boolean
+          notify_capacity_l1: boolean
+          notify_capacity_l2: boolean
+          notify_capacity_l3: boolean
+          notify_new_referral: boolean
+          notify_notes: boolean
+          notify_status: boolean
+          notify_updated_referral: boolean
+          shift_updated_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           display_name?: string
+          full_name?: string | null
           id: string
+          is_at_work?: boolean
+          job_title?: string | null
+          notify_capacity?: boolean
+          notify_capacity_l1?: boolean
+          notify_capacity_l2?: boolean
+          notify_capacity_l3?: boolean
+          notify_new_referral?: boolean
+          notify_notes?: boolean
+          notify_status?: boolean
+          notify_updated_referral?: boolean
+          shift_updated_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           display_name?: string
+          full_name?: string | null
           id?: string
+          is_at_work?: boolean
+          job_title?: string | null
+          notify_capacity?: boolean
+          notify_capacity_l1?: boolean
+          notify_capacity_l2?: boolean
+          notify_capacity_l3?: boolean
+          notify_new_referral?: boolean
+          notify_notes?: boolean
+          notify_status?: boolean
+          notify_updated_referral?: boolean
+          shift_updated_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -253,6 +559,193 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          accepting_consultant: string | null
+          admission_urgency:
+            | Database["public"]["Enums"]["admission_urgency"]
+            | null
+          age: number | null
+          allergies: string | null
+          anticipated_interventions: string[]
+          arrived_on_unit_at: string | null
+          baseline_function_enc: string | null
+          ceiling_of_care: Database["public"]["Enums"]["ceiling_of_care"] | null
+          consultant_to_consultant_only: boolean
+          created_at: string
+          created_by: string | null
+          current_bed: string | null
+          current_ward: string | null
+          decision_at: string | null
+          decline_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          discussed_with_consultant: string | null
+          dnacpr_respect: boolean
+          first_seen_at: string | null
+          for_ongoing_ccot_review: boolean
+          frailty_score: number | null
+          hospital_number_enc: string | null
+          hospital_number_hash: string | null
+          id: string
+          infection_organism: string | null
+          infection_status:
+            | Database["public"]["Enums"]["infection_status"]
+            | null
+          is_test: boolean
+          needs_ward_review: boolean
+          news2_recorded_at: string | null
+          news2_score: number | null
+          origin_booking_id: string | null
+          outcome: Database["public"]["Enums"]["referral_outcome"] | null
+          outcome_recorded_at: string | null
+          past_medical_history_enc: string | null
+          previous_referral_id: string | null
+          reason_category:
+            | Database["public"]["Enums"]["referral_reason_category"]
+            | null
+          reason_for_referral_enc: string | null
+          referral_received_at: string
+          referring_specialty: string | null
+          resus_status: Database["public"]["Enums"]["resus_status"] | null
+          sex: Database["public"]["Enums"]["patient_sex"] | null
+          status: Database["public"]["Enums"]["referral_status"]
+          updated_at: string
+          updated_by: string | null
+          ward_review_timeframe: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          accepting_consultant?: string | null
+          admission_urgency?:
+            | Database["public"]["Enums"]["admission_urgency"]
+            | null
+          age?: number | null
+          allergies?: string | null
+          anticipated_interventions?: string[]
+          arrived_on_unit_at?: string | null
+          baseline_function_enc?: string | null
+          ceiling_of_care?:
+            | Database["public"]["Enums"]["ceiling_of_care"]
+            | null
+          consultant_to_consultant_only?: boolean
+          created_at?: string
+          created_by?: string | null
+          current_bed?: string | null
+          current_ward?: string | null
+          decision_at?: string | null
+          decline_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          discussed_with_consultant?: string | null
+          dnacpr_respect?: boolean
+          first_seen_at?: string | null
+          for_ongoing_ccot_review?: boolean
+          frailty_score?: number | null
+          hospital_number_enc?: string | null
+          hospital_number_hash?: string | null
+          id?: string
+          infection_organism?: string | null
+          infection_status?:
+            | Database["public"]["Enums"]["infection_status"]
+            | null
+          is_test?: boolean
+          needs_ward_review?: boolean
+          news2_recorded_at?: string | null
+          news2_score?: number | null
+          origin_booking_id?: string | null
+          outcome?: Database["public"]["Enums"]["referral_outcome"] | null
+          outcome_recorded_at?: string | null
+          past_medical_history_enc?: string | null
+          previous_referral_id?: string | null
+          reason_category?:
+            | Database["public"]["Enums"]["referral_reason_category"]
+            | null
+          reason_for_referral_enc?: string | null
+          referral_received_at?: string
+          referring_specialty?: string | null
+          resus_status?: Database["public"]["Enums"]["resus_status"] | null
+          sex?: Database["public"]["Enums"]["patient_sex"] | null
+          status?: Database["public"]["Enums"]["referral_status"]
+          updated_at?: string
+          updated_by?: string | null
+          ward_review_timeframe?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          accepting_consultant?: string | null
+          admission_urgency?:
+            | Database["public"]["Enums"]["admission_urgency"]
+            | null
+          age?: number | null
+          allergies?: string | null
+          anticipated_interventions?: string[]
+          arrived_on_unit_at?: string | null
+          baseline_function_enc?: string | null
+          ceiling_of_care?:
+            | Database["public"]["Enums"]["ceiling_of_care"]
+            | null
+          consultant_to_consultant_only?: boolean
+          created_at?: string
+          created_by?: string | null
+          current_bed?: string | null
+          current_ward?: string | null
+          decision_at?: string | null
+          decline_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          discussed_with_consultant?: string | null
+          dnacpr_respect?: boolean
+          first_seen_at?: string | null
+          for_ongoing_ccot_review?: boolean
+          frailty_score?: number | null
+          hospital_number_enc?: string | null
+          hospital_number_hash?: string | null
+          id?: string
+          infection_organism?: string | null
+          infection_status?:
+            | Database["public"]["Enums"]["infection_status"]
+            | null
+          is_test?: boolean
+          needs_ward_review?: boolean
+          news2_recorded_at?: string | null
+          news2_score?: number | null
+          origin_booking_id?: string | null
+          outcome?: Database["public"]["Enums"]["referral_outcome"] | null
+          outcome_recorded_at?: string | null
+          past_medical_history_enc?: string | null
+          previous_referral_id?: string | null
+          reason_category?:
+            | Database["public"]["Enums"]["referral_reason_category"]
+            | null
+          reason_for_referral_enc?: string | null
+          referral_received_at?: string
+          referring_specialty?: string | null
+          resus_status?: Database["public"]["Enums"]["resus_status"] | null
+          sex?: Database["public"]["Enums"]["patient_sex"] | null
+          status?: Database["public"]["Enums"]["referral_status"]
+          updated_at?: string
+          updated_by?: string | null
+          ward_review_timeframe?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_origin_booking_id_fkey"
+            columns: ["origin_booking_id"]
+            isOneToOne: false
+            referencedRelation: "postop_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_previous_referral_id_fkey"
+            columns: ["previous_referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -279,6 +772,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_clinical_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -288,9 +782,54 @@ export type Database = {
       }
     }
     Enums: {
+      admission_urgency:
+        | "within_15_min"
+        | "within_30_min"
+        | "within_1_hour"
+        | "within_1_2_hours"
       app_role: "admin" | "clinician"
+      audit_action: "view" | "create" | "update" | "delete"
+      ceiling_of_care:
+        | "full_escalation"
+        | "no_cpr"
+        | "ward_based"
+        | "symptom_control"
+        | "not_documented"
+      infection_status: "none" | "suspected" | "confirmed" | "unknown"
       patient_location: "icu" | "outlier"
+      patient_sex: "male" | "female" | "other" | "unknown"
       patient_status: "referred" | "admitted" | "discharged" | "died"
+      postop_booking_status:
+        | "requested"
+        | "provisionally_confirmed"
+        | "confirmed"
+        | "admitted"
+        | "cancelled"
+      postop_cancellation_reason:
+        | "no_bed"
+        | "patient_unfit"
+        | "surgery_deferred"
+        | "died_pre_op"
+        | "other"
+      postop_level: "level_1" | "level_2" | "level_3"
+      referral_outcome:
+        | "admit_for_admission"
+        | "review_on_ward"
+        | "advice_given"
+        | "declined"
+      referral_reason_category:
+        | "respiratory_failure"
+        | "sepsis"
+        | "shock"
+        | "post_op"
+        | "neurology"
+        | "trauma"
+        | "gi_bleed"
+        | "metabolic"
+        | "overdose"
+        | "other"
+      referral_status: "pending" | "declined" | "admitted"
+      resus_status: "for_cpr" | "dnacpr" | "not_documented"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -418,9 +957,60 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      admission_urgency: [
+        "within_15_min",
+        "within_30_min",
+        "within_1_hour",
+        "within_1_2_hours",
+      ],
       app_role: ["admin", "clinician"],
+      audit_action: ["view", "create", "update", "delete"],
+      ceiling_of_care: [
+        "full_escalation",
+        "no_cpr",
+        "ward_based",
+        "symptom_control",
+        "not_documented",
+      ],
+      infection_status: ["none", "suspected", "confirmed", "unknown"],
       patient_location: ["icu", "outlier"],
+      patient_sex: ["male", "female", "other", "unknown"],
       patient_status: ["referred", "admitted", "discharged", "died"],
+      postop_booking_status: [
+        "requested",
+        "provisionally_confirmed",
+        "confirmed",
+        "admitted",
+        "cancelled",
+      ],
+      postop_cancellation_reason: [
+        "no_bed",
+        "patient_unfit",
+        "surgery_deferred",
+        "died_pre_op",
+        "other",
+      ],
+      postop_level: ["level_1", "level_2", "level_3"],
+      referral_outcome: [
+        "admit_for_admission",
+        "review_on_ward",
+        "advice_given",
+        "declined",
+      ],
+      referral_reason_category: [
+        "respiratory_failure",
+        "sepsis",
+        "shock",
+        "post_op",
+        "neurology",
+        "trauma",
+        "gi_bleed",
+        "metabolic",
+        "overdose",
+        "other",
+      ],
+      referral_status: ["pending", "declined", "admitted"],
+      resus_status: ["for_cpr", "dnacpr", "not_documented"],
     },
   },
 } as const
