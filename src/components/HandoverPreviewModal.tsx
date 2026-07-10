@@ -131,6 +131,7 @@ export function HandoverPreviewModal({
           <div className="flex items-center gap-2">
             <Switch id="pdf-pages" checked={showPageNumbers} onCheckedChange={setShowPageNumbers} />
             <Label htmlFor="pdf-pages" className="text-xs">Show page numbers</Label>
+          </div>
           <div className="space-y-1">
             <Label htmlFor="pdf-pagesize" className="text-xs">Page size</Label>
             <Select value={pageSize} onValueChange={(v) => setPageSize(v as HandoverPageSize)}>
