@@ -285,6 +285,11 @@ def main():
         for label in ("Bloods", "CXR", "CT chest"):
             assert label in raw_text, f"handover PDF missing '{label}' investigation block"
 
+        # ---- Microbiology column label present ----
+        assert "Key microbiology" in raw_text, (
+            "handover PDF missing the 'Key microbiology' column"
+        )
+
         # ---- Only the most recent result per block appears ----
         for category, entries in BLOCKS.items():
             *older, (newest_finding, _) = entries
@@ -297,12 +302,28 @@ def main():
                     "PDF — 'most recent per block' selection is wrong"
                 )
 
+        # ---- Only the most recent microbiology result per specimen appears ----
+        for specimen, entries in MICRO.items():
+            *older, (newest_finding, _) = entries
+            assert newest_finding in packed, (
+                f"{specimen}: newest microbiology finding '{newest_finding}' missing "
+                "from handover PDF"
+            )
+            for old_finding, _ in older:
+                assert old_finding not in packed, (
+                    f"{specimen}: superseded microbiology finding '{old_finding}' leaked "
+                    "into handover PDF — 'newest per specimen' selection is wrong"
+                )
+
         try:
             pdf_path.unlink()
         except OSError:
             pass
 
-        print("PASS: handover PDF shows only the most recent Bloods, CXR, and CT chest result")
+        print(
+            "PASS: handover PDF shows only the most recent Bloods, CXR, CT chest, and "
+            "microbiology (per specimen) result"
+        )
         return 0
     finally:
         cleanup(patient_id, user_id)
