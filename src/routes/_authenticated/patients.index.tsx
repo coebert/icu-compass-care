@@ -15,8 +15,9 @@ import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDo
 import { toast } from "sonner";
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
-// Radnor Critical Care Unit bed roster (shared with the cross-project bridge).
-import { ICU_BEDS, normalizeBed } from "@/lib/icu-beds";
+// Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
+import { normalizeBed } from "@/lib/icu-beds";
+import { listBeds, type Bed } from "@/lib/beds.functions";
 
 export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
