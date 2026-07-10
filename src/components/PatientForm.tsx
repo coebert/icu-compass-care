@@ -221,6 +221,38 @@ export function PatientForm({
 
       <section className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Systems review
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Resp">
+            <Textarea rows={3} value={values.systems_resp} onChange={(e) => set("systems_resp", e.target.value)} />
+          </Field>
+          <Field label="CVS">
+            <Textarea rows={3} value={values.systems_cvs} onChange={(e) => set("systems_cvs", e.target.value)} />
+          </Field>
+          <Field label="CNS / Neuro">
+            <Textarea rows={3} value={values.systems_neuro} onChange={(e) => set("systems_neuro", e.target.value)} />
+          </Field>
+          <Field label="Renal">
+            <Textarea rows={3} value={values.systems_renal} onChange={(e) => set("systems_renal", e.target.value)} />
+          </Field>
+          <Field label="Gastro / Nutri">
+            <Textarea rows={3} value={values.systems_gastro} onChange={(e) => set("systems_gastro", e.target.value)} />
+          </Field>
+          <Field label="Haem">
+            <Textarea rows={3} value={values.systems_haem} onChange={(e) => set("systems_haem", e.target.value)} />
+          </Field>
+          <Field label="Micro">
+            <Textarea rows={3} value={values.systems_micro} onChange={(e) => set("systems_micro", e.target.value)} />
+          </Field>
+          <Field label="Other">
+            <Textarea rows={3} value={values.systems_other} onChange={(e) => set("systems_other", e.target.value)} />
+          </Field>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Placement & isolation
         </h3>
         <div className="flex items-center justify-between rounded-lg border p-3">
