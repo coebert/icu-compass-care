@@ -3,6 +3,9 @@ import {
   buildHandoverPdf,
   formatHandoverFilename,
   sanitizeContentDispositionFilename,
+  mostRecentInvestigation,
+  RECENT_INVESTIGATION_CATEGORIES,
+  type HandoverInvestigation,
   type HandoverPatient,
 } from "@/lib/handover-pdf";
 
@@ -500,5 +503,91 @@ describe("handover filename sanitization", () => {
     expect(isContentDispositionSafe(filename)).toBe(true);
   });
 });
+
+describe("most recent investigation selection", () => {
+  it("picks the newest entry per category, ignoring array order", () => {
+    const list: HandoverInvestigation[] = [
+      { category: "Bloods", findings: "OLD", result_at: "2026-07-05T08:00:00.000Z" },
+      { category: "Bloods", findings: "NEW", result_at: "2026-07-09T06:30:00.000Z" },
+      { category: "Bloods", findings: "MID", result_at: "2026-07-07T07:00:00.000Z" },
+    ];
+    expect(mostRecentInvestigation(list, "Bloods")?.findings).toBe("NEW");
+  });
+
+  it("matches categories case-insensitively", () => {
+    const list: HandoverInvestigation[] = [
+      { category: "ct chest", findings: "CT-A", result_at: "2026-07-02T09:00:00.000Z" },
+      { category: "CT CHEST", findings: "CT-B", result_at: "2026-07-06T12:00:00.000Z" },
+    ];
+    expect(mostRecentInvestigation(list, "CT chest")?.findings).toBe("CT-B");
+  });
+
+  it("does not bleed entries across categories", () => {
+    const list: HandoverInvestigation[] = [
+      { category: "CXR", findings: "CXR-ONLY", result_at: "2026-07-08T14:00:00.000Z" },
+      { category: "Bloods", findings: "BLOODS-ONLY", result_at: "2026-07-09T14:00:00.000Z" },
+    ];
+    expect(mostRecentInvestigation(list, "CXR")?.findings).toBe("CXR-ONLY");
+    expect(mostRecentInvestigation(list, "CT chest")).toBeUndefined();
+  });
+
+  it("prefers the later item on a result_at tie (last wins)", () => {
+    const at = "2026-07-09T06:30:00.000Z";
+    const list: HandoverInvestigation[] = [
+      { category: "Bloods", findings: "FIRST", result_at: at },
+      { category: "Bloods", findings: "SECOND", result_at: at },
+    ];
+    expect(mostRecentInvestigation(list, "Bloods")?.findings).toBe("SECOND");
+  });
+
+  it("treats missing/invalid result_at as oldest", () => {
+    const list: HandoverInvestigation[] = [
+      { category: "Bloods", findings: "NO-DATE" },
+      { category: "Bloods", findings: "BAD-DATE", result_at: "not-a-date" },
+      { category: "Bloods", findings: "DATED", result_at: "2026-07-01T00:00:00.000Z" },
+    ];
+    expect(mostRecentInvestigation(list, "Bloods")?.findings).toBe("DATED");
+  });
+
+  it("returns undefined for empty/nullish lists", () => {
+    expect(mostRecentInvestigation([], "Bloods")).toBeUndefined();
+    expect(mostRecentInvestigation(null, "Bloods")).toBeUndefined();
+    expect(mostRecentInvestigation(undefined, "Bloods")).toBeUndefined();
+  });
+
+  it("exposes the three surfaced categories in display order", () => {
+    expect([...RECENT_INVESTIGATION_CATEGORIES]).toEqual(["Bloods", "CXR", "CT chest"]);
+  });
+
+  it("renders exactly one 'most recent' line per category in the PDF, newest only", async () => {
+    const patient: HandoverPatient = {
+      full_name: "Inv Test",
+      status: "admitted",
+      admission_date: "2026-07-01T00:00:00.000Z",
+      investigations: [
+        { category: "Bloods", findings: "OLDBLOODS", result_at: "2026-07-05T08:00:00.000Z" },
+        { category: "Bloods", findings: "NEWBLOODS", result_at: "2026-07-09T06:30:00.000Z" },
+        { category: "CXR", findings: "OLDCXR", result_at: "2026-07-04T10:00:00.000Z" },
+        { category: "CXR", findings: "NEWCXR", result_at: "2026-07-08T14:00:00.000Z" },
+        { category: "CT chest", findings: "NEWCT", result_at: "2026-07-06T12:00:00.000Z" },
+        { category: "CT chest", findings: "OLDCT", result_at: "2026-07-02T09:00:00.000Z" },
+      ],
+    };
+
+    const text = await (async () => {
+      const doc = buildHandoverPdf([patient], { title: "ICU Handover Sheet" });
+      const bytes = new Uint8Array(await (doc.output("blob") as Blob).arrayBuffer());
+      return new TextDecoder("latin1").decode(bytes);
+    })();
+
+    for (const findings of ["NEWBLOODS", "NEWCXR", "NEWCT"]) {
+      expect(text.includes(findings), `${findings} should render`).toBe(true);
+    }
+    for (const findings of ["OLDBLOODS", "OLDCXR", "OLDCT"]) {
+      expect(text.includes(findings), `${findings} should be hidden`).toBe(false);
+    }
+  });
+});
+
 
 
