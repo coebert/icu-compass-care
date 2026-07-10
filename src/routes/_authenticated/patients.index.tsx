@@ -118,12 +118,17 @@ function PatientsBoard() {
   const icu = filtered.filter((p) => p.location_type === "icu");
   const outliers = filtered.filter((p) => p.location_type === "outlier");
 
-  // Map each ICU bed to the active patient occupying it (if any).
-  const bedOccupant = useMemo(() => {
-    const map = new Map<string, Patient>();
+  // Map each ICU bed to the active patient(s) occupying it. Normally a bed has
+  // at most one patient, but during transfers/data conflicts two rows can share
+  // a bed number — we keep ALL of them so no patient is silently hidden.
+  const bedOccupants = useMemo(() => {
+    const map = new Map<string, Patient[]>();
     for (const p of icu) {
       const key = normalizeBed(p.bed);
-      if (key && !map.has(key)) map.set(key, p);
+      if (!key) continue;
+      const list = map.get(key);
+      if (list) list.push(p);
+      else map.set(key, [p]);
     }
     return map;
   }, [icu]);
@@ -165,8 +170,11 @@ function PatientsBoard() {
     if (!dragged) return;
 
     const targetKey = normalizeBed(targetBed);
-    const occupant = bedOccupant.get(targetKey) ?? null;
-    if (occupant && occupant.id === dragged.id) return; // dropped on itself
+    const occupants = bedOccupants.get(targetKey) ?? [];
+    if (occupants.some((o) => o.id === dragged.id)) return; // dropped on its own bed
+    // Only swap for a clean 1:1 move; if the bed already holds someone, add the
+    // dragged patient there too rather than forcing a swap into a shared bed.
+    const occupant = occupants.length === 1 ? occupants[0] : null;
 
     const moves: { id: string; bed: string; expected_updated_at?: string }[] = [
       { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
@@ -177,11 +185,6 @@ function PatientsBoard() {
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
       if (draggedHadBed) {
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
-      } else {
-        toast.error("That bed is occupied", {
-          description: "Move the current patient out first, or drag onto an empty bed.",
-        });
-        return;
       }
     }
 
@@ -247,7 +250,7 @@ function PatientsBoard() {
         <div className="space-y-8">
           <BedBoard
             roster={bedRoster}
-            bedOccupant={bedOccupant}
+            bedOccupants={bedOccupants}
             unassigned={icuUnassigned}
             onAddToBed={addToBed}
             dragging={dragging}
@@ -361,7 +364,7 @@ function DraggablePatientLink({
 
 function BedBoard({
   roster,
-  bedOccupant,
+  bedOccupants,
   unassigned,
   onAddToBed,
   dragging,
@@ -370,7 +373,7 @@ function BedBoard({
   onDropOnBed,
 }: {
   roster: Bed[];
-  bedOccupant: Map<string, Patient>;
+  bedOccupants: Map<string, Patient[]>;
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
   dragging: boolean;
@@ -378,7 +381,7 @@ function BedBoard({
   onDragEndPatient: () => void;
   onDropOnBed: (bed: string) => void;
 }) {
-  const occupied = roster.filter((b) => bedOccupant.has(normalizeBed(b.label))).length;
+  const occupied = roster.filter((b) => (bedOccupants.get(normalizeBed(b.label))?.length ?? 0) > 0).length;
   const [overBed, setOverBed] = useState<string | null>(null);
   return (
     <div className="space-y-3">
@@ -393,7 +396,7 @@ function BedBoard({
         {roster.map((slot) => {
           const bed = slot.label;
           const label = slot.is_side_room ? bed : `Bed ${bed}`;
-          const p = bedOccupant.get(normalizeBed(bed));
+          const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
           const isOver = overBed === bed;
           const dropHandlers = {
             onDragOver: (e: React.DragEvent) => {
@@ -408,21 +411,29 @@ function BedBoard({
               onDropOnBed(bed);
             },
           };
-          if (p) {
+          if (occupants.length > 0) {
             return (
-              <div key={slot.id} {...dropHandlers}>
-                <DraggablePatientLink
-                  p={p}
-                  onDragStartPatient={onDragStartPatient}
-                  onDragEndPatient={onDragEndPatient}
-                >
-                  <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
-                    <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
-                      {label}
-                    </div>
-                    <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
-                  </Card>
-                </DraggablePatientLink>
+              <div key={slot.id} {...dropHandlers} className="space-y-2">
+                {occupants.length > 1 && (
+                  <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
+                  </p>
+                )}
+                {occupants.map((p) => (
+                  <DraggablePatientLink
+                    key={p.id}
+                    p={p}
+                    onDragStartPatient={onDragStartPatient}
+                    onDragEndPatient={onDragEndPatient}
+                  >
+                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? "border-primary ring-2 ring-primary/40" : ""}`}>
+                      <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
+                        {label}
+                      </div>
+                      <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
+                    </Card>
+                  </DraggablePatientLink>
+                ))}
               </div>
             );
           }
