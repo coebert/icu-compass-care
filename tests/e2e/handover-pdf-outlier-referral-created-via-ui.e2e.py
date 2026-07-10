@@ -210,7 +210,7 @@ def main():
             dialog.get_by_role("button", name="Add patient").click()
 
             # Dialog closes and the patient appears on the board.
-            expect(page.get_by_text("Add patient").last).to_be_hidden(timeout=10000)
+            expect(dialog.get_by_role("heading", name="Add patient")).to_be_hidden(timeout=10000)
             expect(page.get_by_text(PATIENT_NAME, exact=False).first).to_be_visible(timeout=15000)
 
             # ---- Export the handover PDF via the UI ----
