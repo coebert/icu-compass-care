@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { writeAudit } from "@/lib/audit";
+import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
 
 // Age must be a real number within a plausible clinical range; empty/null is rejected.
 const ageSchema = z
