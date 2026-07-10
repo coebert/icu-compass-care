@@ -277,12 +277,13 @@ def main():
             )
 
             # ---- STAGE A: Admitted (current view) ----
+            dest_packed = packed(f"To {DESTINATION}")
             text_a = export_pdf(page, archived=False, expect_name=PATIENT_NAME, suffix="admitted")
             win_a = row_window(text_a, PATIENT_NAME)
             assert "Admitted" in win_a, f"STAGE A: 'Admitted' missing.\n{win_a!r}"
             assert "Discharged" not in win_a, f"STAGE A: unexpected 'Discharged'.\n{win_a!r}"
             assert "Died" not in win_a, f"STAGE A: unexpected 'Died'.\n{win_a!r}"
-            assert f"To {DESTINATION}" not in win_a, f"STAGE A: unexpected destination line.\n{win_a!r}"
+            assert dest_packed not in win_a, f"STAGE A: unexpected destination line.\n{win_a!r}"
 
             # ---- transition Admitted -> Discharged ----
             set_status(page, patient_id, "discharged")
@@ -295,7 +296,7 @@ def main():
             text_b = export_pdf(page, archived=True, expect_name=PATIENT_NAME, suffix="discharged")
             win_b = row_window(text_b, PATIENT_NAME)
             assert "Discharged" in win_b, f"STAGE B: 'Discharged' missing.\n{win_b!r}"
-            assert f"To {DESTINATION}" in win_b, f"STAGE B: destination 'To {DESTINATION}' missing.\n{win_b!r}"
+            assert dest_packed in win_b, f"STAGE B: destination 'To {DESTINATION}' missing.\n{win_b!r}"
             assert "Died" not in win_b, f"STAGE B: unexpected 'Died'.\n{win_b!r}"
 
             # ---- transition Discharged -> Died ----
@@ -309,7 +310,7 @@ def main():
             win_c = row_window(text_c, PATIENT_NAME)
             assert "Died" in win_c, f"STAGE C: 'Died' missing.\n{win_c!r}"
             assert "Discharged" not in win_c, f"STAGE C: stale 'Discharged' leaked.\n{win_c!r}"
-            assert f"To {DESTINATION}" not in win_c, (
+            assert dest_packed not in win_c, (
                 f"STAGE C: stale discharge destination leaked after death.\n{win_c!r}"
             )
 
