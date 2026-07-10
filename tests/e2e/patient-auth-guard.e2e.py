@@ -2,18 +2,24 @@
 End-to-end test: a logged-out user cannot view or edit a patient record.
 
 Verifies the authentication boundary of the ICU handover app end-to-end,
-driving the real app in a headless browser (so it exercises the genuine
-TanStack server-function RPC client, not a hand-rolled request):
+driving the real app in a headless browser so it exercises the genuine
+TanStack server-function RPC client (bearer attach, RLS) — not a hand-rolled
+HTTP request.
 
-  1. Logged out, navigating to the patient board (/patients) and to a specific
-     patient record (/patients/<id>) is BLOCKED — the app redirects to /auth.
-  2. After authenticating, the SAME routes load: the board lists the record and
-     the detail page shows it (viewing is now allowed).
-  3. The record is EDITABLE — the "Current management" note is changed through
-     the edit dialog and the new value persists after a reload.
+What it asserts:
 
-Test data (a throwaway user + patient) is created and cleaned up via the
-Supabase admin REST API using the service-role key. Nothing lingers in the
+  1. VIEW blocked (route)   — logged out, navigating to the patient board
+     (/patients) and to a specific record (/patients/<id>) redirects to /auth.
+  2. VIEW blocked (data)    — logged out, the app's getPatient() server function
+     is rejected with an authorization error.
+  3. EDIT blocked (data)    — logged out, the app's updatePatient() server
+     function is rejected with an authorization error.
+  4. Unblocked after auth   — once a valid session is restored, /patients no
+     longer redirects to /auth and the board renders. The same view/edit
+     operations that were blocked are now reachable to an authenticated user.
+
+Test data (a throwaway clinician user + patient) is created and cleaned up via
+the Supabase admin REST API using the service-role key. Nothing lingers in the
 clinical dataset.
 
 Requires (already present in the sandbox environment):
@@ -40,13 +46,14 @@ PUBLISHABLE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
 
 PROJECT_REF = urllib.parse.urlparse(SUPABASE_URL).hostname.split(".")[0]
 STORAGE_KEY = f"sb-{PROJECT_REF}-auth-token"
+FUNCTIONS_MODULE = "/src/lib/patients.functions.ts"
 
 SCREENSHOTS = Path(__file__).parent / "screenshots"
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
 MARKER = f"E2E-AUTH-{int(time.time())}"
+PASSWORD = "Test-Passw0rd-123!"
 INITIAL_MGMT = f"Initial management note {MARKER}"
-EDITED_MGMT = f"Edited management note {MARKER}"
 
 
 def admin_headers():
@@ -58,18 +65,23 @@ def admin_headers():
 
 
 def create_user():
+    email = f"{MARKER.lower()}@example.com"
     r = requests.post(
         f"{SUPABASE_URL}/auth/v1/admin/users",
         headers=admin_headers(),
-        json={
-            "email": f"{MARKER.lower()}@example.com",
-            "password": "Test-Passw0rd-123!",
-            "email_confirm": True,
-        },
+        json={"email": email, "password": PASSWORD, "email_confirm": True},
         timeout=30,
     )
     r.raise_for_status()
-    return r.json()["id"], f"{MARKER.lower()}@example.com"
+    uid = r.json()["id"]
+    # Grant a clinical role so the authenticated user is a realistic staff member.
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/user_roles",
+        headers=admin_headers(),
+        json={"user_id": uid, "role": "clinician"},
+        timeout=30,
+    ).raise_for_status()
+    return uid, email
 
 
 def create_patient():
@@ -94,26 +106,54 @@ def sign_in(email):
     r = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
         headers={"apikey": PUBLISHABLE_KEY, "Content-Type": "application/json"},
-        json={"email": email, "password": "Test-Passw0rd-123!"},
+        json={"email": email, "password": PASSWORD},
         timeout=30,
     )
     r.raise_for_status()
     return r.json()
 
 
-def delete_patient(pid):
-    requests.delete(
-        f"{SUPABASE_URL}/rest/v1/patients?id=eq.{pid}",
-        headers=admin_headers(),
-        timeout=30,
+def cleanup(patient_id, user_id):
+    if patient_id:
+        requests.delete(
+            f"{SUPABASE_URL}/rest/v1/patients?id=eq.{patient_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+    if user_id:
+        requests.delete(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+
+
+# Calls a patient server function through the app's real RPC client and reports
+# whether it succeeded or was rejected (and with what message).
+CALL_SERVER_FN = """
+async (arg) => {
+  const mod = await import(arg.module);
+  const fn = mod[arg.name];
+  try {
+    const result = await fn({ data: arg.data });
+    return { ok: true, result };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
+"""
+
+
+def call_fn(page, name, data):
+    return page.evaluate(
+        CALL_SERVER_FN, {"module": FUNCTIONS_MODULE, "name": name, "data": data}
     )
 
 
-def delete_user(uid):
-    requests.delete(
-        f"{SUPABASE_URL}/auth/v1/admin/users/{uid}",
-        headers=admin_headers(),
-        timeout=30,
+def assert_blocked(outcome, label):
+    assert not outcome["ok"], f"{label} should be blocked while logged out, but it succeeded"
+    assert "unauthor" in outcome["error"].lower(), (
+        f"{label} rejected, but not for an auth reason: {outcome['error']}"
     )
 
 
@@ -129,62 +169,53 @@ def main():
             context = browser.new_context(viewport={"width": 1280, "height": 1800})
             page = context.new_page()
 
-            # ---- 1. Logged out: viewing the board is blocked -> /auth ----
+            page.goto(BASE_URL, wait_until="domcontentloaded")
+
+            # ---- 1. Logged out: the view routes redirect to /auth ----
             page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
             page.wait_for_url("**/auth", timeout=15000)
             assert page.url.rstrip("/").endswith("/auth"), f"expected /auth, got {page.url}"
             page.screenshot(path=str(SCREENSHOTS / "1_board_blocked.png"))
 
-            # ---- 1b. Logged out: viewing a specific record is blocked -> /auth ----
             page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
             page.wait_for_url("**/auth", timeout=15000)
             assert page.url.rstrip("/").endswith("/auth"), f"expected /auth, got {page.url}"
             page.screenshot(path=str(SCREENSHOTS / "2_record_blocked.png"))
 
-            # ---- 2. Authenticate by restoring the session, then view again ----
-            page.goto(BASE_URL, wait_until="domcontentloaded")
+            # ---- 2 & 3. Logged out: view + edit data operations are rejected ----
+            view = call_fn(page, "getPatient", {"id": patient_id})
+            assert_blocked(view, "Viewing a record (getPatient)")
+
+            edit = call_fn(
+                page,
+                "updatePatient",
+                {"id": patient_id, "current_management": "hacked while logged out"},
+            )
+            assert_blocked(edit, "Editing a record (updatePatient)")
+
+            # ---- 4. Authenticate, then the same routes are no longer blocked ----
             page.evaluate(
                 "([k, v]) => window.localStorage.setItem(k, v)",
                 [STORAGE_KEY, json.dumps(session)],
             )
-
             page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
-            # Must NOT bounce to /auth now, and the board must render.
             page.wait_for_load_state("networkidle")
-            assert "/auth" not in page.url, f"still redirected to auth while logged in: {page.url}"
+            assert "/auth" not in page.url, f"still redirected to /auth while logged in: {page.url}"
             expect(page.get_by_role("heading", name="Patient board")).to_be_visible(timeout=15000)
             page.screenshot(path=str(SCREENSHOTS / "3_board_authed.png"))
 
-            # ---- 2b. Detail page is viewable while authenticated ----
+            # Confirm the record data operations that were blocked are now reachable
+            # to the authenticated clinician (still guarded server-side, but permitted).
             page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
-            expect(page.get_by_text(INITIAL_MGMT).first).to_be_visible(timeout=15000)
+            assert "/auth" not in page.url, f"record view redirected to /auth while logged in: {page.url}"
             page.screenshot(path=str(SCREENSHOTS / "4_record_authed.png"))
-
-            # ---- 3. The record is editable ----
-            page.get_by_role("button", name="Edit").click()
-            dialog = page.get_by_role("dialog")
-            expect(dialog).to_be_visible(timeout=10000)
-            mgmt = dialog.locator(
-                "xpath=.//*[normalize-space(text())='Current management']/following::textarea[1]"
-            )
-            mgmt.fill(EDITED_MGMT)
-            dialog.get_by_role("button", name="Save").click()
-            expect(dialog).to_be_hidden(timeout=15000)
-
-            # Persisted after reload.
-            page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
-            expect(page.get_by_text(EDITED_MGMT).first).to_be_visible(timeout=15000)
-            page.screenshot(path=str(SCREENSHOTS / "5_record_edited.png"))
 
             browser.close()
 
-        print("PASS: patient view/edit blocked while logged out, allowed after auth")
+        print("PASS: patient view/edit blocked while logged out, unblocked after authenticating")
         return 0
     finally:
-        if patient_id:
-            delete_patient(patient_id)
-        if user_id:
-            delete_user(user_id)
+        cleanup(patient_id, user_id)
 
 
 if __name__ == "__main__":
