@@ -17,7 +17,7 @@ function relTime(iso: string | null): string {
   if (mins < 60) return `${mins} min ago`;
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs} h ago`;
-  return d.toLocaleString();
+  return d.toLocaleString("en-GB", { hour12: false });
 }
 
 function nextSyncText(lastSuccessIso: string | null, intervalMinutes: number): string {
@@ -34,7 +34,7 @@ function nextSyncText(lastSuccessIso: string | null, intervalMinutes: number): s
   if (mins < 60) return `in ${mins} min`;
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `in ${hrs} h`;
-  return `at ${new Date(nextMs).toLocaleString()}`;
+  return `at ${new Date(nextMs).toLocaleString("en-GB", { hour12: false })}`;
 }
 
 /**

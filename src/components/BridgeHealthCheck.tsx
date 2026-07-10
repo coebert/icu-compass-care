@@ -63,7 +63,7 @@ export function BridgeHealthCheck() {
               <Badge variant="destructive">Issues found</Badge>
             )}
             <span className="text-xs text-muted-foreground">
-              {r.config.partnerHost ?? "partner not configured"} · {new Date(r.checkedAt).toLocaleTimeString()}
+              {r.config.partnerHost ?? "partner not configured"} · {new Date(r.checkedAt).toLocaleTimeString("en-GB", { hour12: false })}
             </span>
           </div>
 
