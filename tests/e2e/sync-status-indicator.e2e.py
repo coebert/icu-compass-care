@@ -82,23 +82,25 @@ def create_admin_user():
     return uid, email
 
 
-def insert_sync_event(created_at, record_count):
+def insert_sync_event(created_at, *, status, error_message=None, entity="patients"):
     r = requests.post(
         f"{SUPABASE_URL}/rest/v1/bridge_sync_events",
         headers={**admin_headers(), "Prefer": "return=representation"},
         json={
             "direction": "push",
-            "entity": "patients",
-            "record_count": record_count,
+            "entity": entity,
+            "record_count": 3,
             "actor_role": "admin",
             "actor_email": f"{MARKER.lower()}@example.com",
-            "status": "success",
+            "status": status,
+            "error_message": error_message,
             "created_at": created_at.isoformat(),
         },
         timeout=30,
     )
     r.raise_for_status()
     return r.json()[0]["id"]
+
 
 
 def sign_in(email):
