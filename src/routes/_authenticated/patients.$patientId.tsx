@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
@@ -180,6 +180,7 @@ function PatientDetail() {
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
           <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
@@ -242,6 +243,10 @@ function PatientDetail() {
         </TabsContent>
 
 
+        <TabsContent value="timeline" className="mt-4">
+          <TimelineTab patient={patient} patientId={patientId} />
+        </TabsContent>
+
         <TabsContent value="status" className="mt-4">
           <StatusTab patient={patient} />
         </TabsContent>
@@ -270,6 +275,152 @@ function PatientDetail() {
     </div>
   );
 }
+
+type TimelineEvent = {
+  key: string;
+  at: string | null;
+  icon: React.ReactNode;
+  title: string;
+  detail?: string | null;
+  kind: "admission" | "discharge" | "investigation" | "microbiology";
+};
+
+const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
+  admission: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  discharge: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+  investigation: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  microbiology: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+};
+
+function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
+  const listInv = useServerFn(listInvestigations);
+  const listMicro = useServerFn(listMicrobiology);
+
+  const { data: investigations = [] } = useQuery({
+    queryKey: ["investigations", patientId],
+    queryFn: () => listInv({ data: { patientId } }) as Promise<Investigation[]>,
+  });
+  const { data: micro = [] } = useQuery({
+    queryKey: ["microbiology", patientId],
+    queryFn: () => listMicro({ data: { patientId } }) as Promise<Microbiology[]>,
+  });
+
+  const events = useMemo<TimelineEvent[]>(() => {
+    const evs: TimelineEvent[] = [];
+
+    const admissionAt = patient.admission_date ?? patient.created_at;
+    if (admissionAt) {
+      evs.push({
+        key: "admission",
+        at: admissionAt,
+        icon: <LogIn className="h-4 w-4" />,
+        title: "Admitted to critical care",
+        detail: patient.ward
+          ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""}`
+          : patient.admission_date
+            ? null
+            : "Admission date not recorded — using record creation date",
+        kind: "admission",
+      });
+    }
+
+    if (patient.status === "discharged" && (patient.discharge_date || patient.discharge_destination)) {
+      evs.push({
+        key: "discharge",
+        at: patient.discharge_date ?? null,
+        icon: <LogOut className="h-4 w-4" />,
+        title: "Discharged",
+        detail: patient.discharge_destination || null,
+        kind: "discharge",
+      });
+    }
+
+    if (patient.status === "died" && patient.date_of_death) {
+      evs.push({
+        key: "death",
+        at: patient.date_of_death,
+        icon: <AlertTriangle className="h-4 w-4" />,
+        title: "Died",
+        detail: null,
+        kind: "discharge",
+      });
+    }
+
+    for (const it of investigations) {
+      evs.push({
+        key: `inv-${it.id}`,
+        at: it.result_at,
+        icon: <FlaskConical className="h-4 w-4" />,
+        title: it.category,
+        detail: it.findings,
+        kind: "investigation",
+      });
+    }
+
+    for (const m of micro) {
+      evs.push({
+        key: `micro-${m.id}`,
+        at: m.result_at,
+        icon: <Microscope className="h-4 w-4" />,
+        title: m.specimen_type,
+        detail: m.findings,
+        kind: "microbiology",
+      });
+    }
+
+    return evs.sort((a, b) => {
+      const ta = a.at ? new Date(a.at).getTime() : 0;
+      const tb = b.at ? new Date(b.at).getTime() : 0;
+      return tb - ta;
+    });
+  }, [patient, investigations, micro]);
+
+  const isDate = (v: string | null) => !!v && v.length <= 10;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Activity className="h-4 w-4" />
+        Admission, discharge and key investigation snapshots — retained after discharge.
+      </div>
+
+      {events.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No timeline events recorded yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <ol className="relative space-y-4 border-l border-border pl-6">
+          {events.map((ev) => (
+            <li key={ev.key} className="relative">
+              <span
+                className={`absolute -left-[35px] flex h-7 w-7 items-center justify-center rounded-full ${KIND_STYLE[ev.kind]}`}
+              >
+                {ev.icon}
+              </span>
+              <Card>
+                <CardContent className="space-y-1 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{ev.title}</span>
+                    <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
+                    </span>
+                  </div>
+                  {ev.detail?.trim() && (
+                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 
 function StatusTab({ patient }: { patient: Patient }) {
   const qc = useQueryClient();
