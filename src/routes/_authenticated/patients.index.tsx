@@ -295,12 +295,13 @@ function PatientsBoard() {
           return;
         }
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
+        previous.push({ id: occupant.id, bed: occupant.bed ?? null, location_type: occupant.location_type });
         const fromLabel = isSideRoom(dragged.bed, bedRoster) ? dragged.bed : `Bed ${dragged.bed}`;
         summary = `${dragged.full_name ?? "Patient"} and ${occupant.full_name ?? "patient"} swapped between ${fromLabel} and ${targetLabel}.`;
       }
     }
 
-    moveMut.mutate({ moves, summary });
+    moveMut.mutate({ moves, summary, previous });
   }
 
   return (
