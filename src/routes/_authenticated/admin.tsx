@@ -46,6 +46,7 @@ function AdminPage() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [role, setRole2] = useState<"admin" | "clinician">("clinician");
 
