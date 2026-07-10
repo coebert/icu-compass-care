@@ -679,13 +679,27 @@ describe("most recent investigation selection", () => {
     expect(mostRecentInvestigation(list, "CT chest")).toBeUndefined();
   });
 
-  it("prefers the later item on a result_at tie (last wins)", () => {
+  it("breaks a result_at tie deterministically, independent of array order", () => {
     const at = "2026-07-09T06:30:00.000Z";
-    const list: HandoverInvestigation[] = [
-      { category: "Bloods", findings: "FIRST", result_at: at },
-      { category: "Bloods", findings: "SECOND", result_at: at },
-    ];
-    expect(mostRecentInvestigation(list, "Bloods")?.findings).toBe("SECOND");
+    const a: HandoverInvestigation = { id: "a", category: "Bloods", findings: "A", result_at: at };
+    const b: HandoverInvestigation = { id: "b", category: "Bloods", findings: "B", result_at: at };
+    // Same inputs, opposite order → same winner (larger id 'b').
+    expect(mostRecentInvestigation([a, b], "Bloods")?.findings).toBe("B");
+    expect(mostRecentInvestigation([b, a], "Bloods")?.findings).toBe("B");
+  });
+
+  it("breaks a result_at tie on the newer created_at", () => {
+    const at = "2026-07-09T06:30:00.000Z";
+    const older = {
+      id: "x", category: "Bloods", findings: "EARLIER-ENTRY", result_at: at,
+      created_at: "2026-07-09T06:31:00.000Z",
+    };
+    const newer = {
+      id: "y", category: "Bloods", findings: "LATER-ENTRY", result_at: at,
+      created_at: "2026-07-09T07:00:00.000Z",
+    };
+    expect(mostRecentInvestigation([older, newer], "Bloods")?.findings).toBe("LATER-ENTRY");
+    expect(mostRecentInvestigation([newer, older], "Bloods")?.findings).toBe("LATER-ENTRY");
   });
 
   it("treats missing/invalid result_at as oldest", () => {
@@ -695,6 +709,26 @@ describe("most recent investigation selection", () => {
       { category: "Bloods", findings: "DATED", result_at: "2026-07-01T00:00:00.000Z" },
     ];
     expect(mostRecentInvestigation(list, "Bloods")?.findings).toBe("DATED");
+  });
+
+  it("is deterministic when ALL entries have missing result_at (tie-break on created_at, order-independent)", () => {
+    const a = { id: "a", category: "Bloods", findings: "A", created_at: "2026-07-01T00:00:00.000Z" };
+    const b = { id: "b", category: "Bloods", findings: "B", created_at: "2026-07-03T00:00:00.000Z" };
+    const c = { id: "c", category: "Bloods", findings: "C", created_at: "2026-07-02T00:00:00.000Z" };
+    // Newest created_at ('b') wins regardless of input order.
+    expect(mostRecentInvestigation([a, b, c], "Bloods")?.findings).toBe("B");
+    expect(mostRecentInvestigation([c, a, b], "Bloods")?.findings).toBe("B");
+    expect(mostRecentInvestigation([b, c, a], "Bloods")?.findings).toBe("B");
+  });
+
+  it("is deterministic when result_at AND created_at all tie (stable id tie-break)", () => {
+    const at = "2026-07-09T06:30:00.000Z";
+    const ct = "2026-07-09T06:30:00.000Z";
+    const mk = (id: string) => ({ id, category: "Bloods", findings: id, result_at: at, created_at: ct });
+    const a = mk("a1"), b = mk("b2"), c = mk("c3");
+    // Largest id ('c3') wins regardless of order.
+    expect(mostRecentInvestigation([a, b, c], "Bloods")?.findings).toBe("c3");
+    expect(mostRecentInvestigation([c, b, a], "Bloods")?.findings).toBe("c3");
   });
 
   it("returns undefined for empty/nullish lists", () => {
