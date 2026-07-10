@@ -6,7 +6,7 @@
 // result is eventual bidirectional convergence with no duplicate rows,
 // because every record keeps its stable id across both databases.
 import { fetchPartnerPatients, fetchPartnerInvestigations, bridgeSystemActor, type PatientRow, type InvestigationRow } from "@/lib/bridge-client.server";
-import { logSync } from "@/lib/api-bridge.server";
+import { logSync, logSyncError } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 
 export type EntitySyncResult = {
@@ -75,6 +75,7 @@ async function syncPatients(admin: any): Promise<EntitySyncResult> {
     await logSync(admin, { direction: "pull", entity: "patients", record_count: result.applied, actor: bridgeSystemActor });
   } catch (e) {
     result.error = e instanceof Error ? e.message : String(e);
+    await logSyncError(admin, { direction: "pull", entity: "patients", message: result.error, actor: bridgeSystemActor });
   }
   return result;
 }
@@ -122,6 +123,7 @@ async function syncInvestigations(admin: any): Promise<EntitySyncResult> {
     await logSync(admin, { direction: "pull", entity: "investigations", record_count: result.applied, actor: bridgeSystemActor });
   } catch (e) {
     result.error = e instanceof Error ? e.message : String(e);
+    await logSyncError(admin, { direction: "pull", entity: "investigations", message: result.error, actor: bridgeSystemActor });
   }
   return result;
 }

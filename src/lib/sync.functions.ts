@@ -8,10 +8,14 @@ export type SyncEvent = {
   record_count: number;
   actor_role: string | null;
   actor_email: string | null;
+  status: "success" | "error";
+  error_message: string | null;
   created_at: string;
 };
 
 export type SyncStatus = {
+  lastSuccess: SyncEvent | null;
+  lastError: SyncEvent | null;
   lastPush: SyncEvent | null;
   lastPull: SyncEvent | null;
   recent: SyncEvent[];
@@ -25,11 +29,13 @@ export const getSyncStatus = createServerFn({ method: "GET" })
       .from("bridge_sync_events")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
     if (error) throw new Error(error.message);
 
     const events = (data ?? []) as SyncEvent[];
     return {
+      lastSuccess: events.find((e) => e.status !== "error") ?? null,
+      lastError: events.find((e) => e.status === "error") ?? null,
       lastPush: events.find((e) => e.direction === "push") ?? null,
       lastPull: events.find((e) => e.direction === "pull") ?? null,
       recent: events.slice(0, 8),
