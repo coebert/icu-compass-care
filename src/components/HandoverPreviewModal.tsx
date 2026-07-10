@@ -154,7 +154,49 @@ export function HandoverPreviewModal({
           <DialogTitle>Handover PDF preview</DialogTitle>
         </DialogHeader>
 
+        {/* Header / footer presets */}
+        <div className="flex flex-wrap items-end gap-2 rounded-md border bg-muted/40 p-3">
+          <div className="min-w-[180px] flex-1 space-y-1">
+            <Label htmlFor="pdf-preset" className="text-xs">Saved preset</Label>
+            <Select
+              value={selectedPresetId}
+              onValueChange={applyPreset}
+              disabled={presets.length === 0}
+            >
+              <SelectTrigger id="pdf-preset">
+                <SelectValue placeholder={presets.length ? "Load a preset…" : "No saved presets"} />
+              </SelectTrigger>
+              <SelectContent>
+                {presets.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[180px] flex-1 space-y-1">
+            <Label htmlFor="pdf-preset-name" className="text-xs">Preset name</Label>
+            <Input
+              id="pdf-preset-name"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="e.g. Night handover"
+            />
+          </div>
+          <Button variant="secondary" className="gap-1.5" onClick={handleSavePreset}>
+            <Save className="h-4 w-4" /> Save
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleDeletePreset}
+            disabled={!selectedPresetId}
+          >
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
+
         {/* Header / footer configuration */}
+
         <div className="grid gap-3 rounded-md border bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
             <Label htmlFor="pdf-title" className="text-xs">Header title</Label>
