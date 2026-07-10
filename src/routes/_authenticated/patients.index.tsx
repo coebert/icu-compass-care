@@ -512,7 +512,7 @@ function BedBoard({
           const validRing = validTarget && !isOver ? "ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : "";
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} {...dropHandlers} className="space-y-2">
+              <div key={slot.id} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
