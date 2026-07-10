@@ -104,6 +104,33 @@ export type Database = {
         }
         Relationships: []
       }
+      icu_beds: {
+        Row: {
+          created_at: string
+          id: string
+          is_side_room: boolean
+          label: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_side_room?: boolean
+          label: string
+          position: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_side_room?: boolean
+          label?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       investigations: {
         Row: {
           category: string
@@ -857,7 +884,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       admission_urgency:
