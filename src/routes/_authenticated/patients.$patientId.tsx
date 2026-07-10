@@ -177,9 +177,11 @@ function PatientDetail() {
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
+          <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
+
 
 
         <TabsContent value="overview" className="mt-4">
