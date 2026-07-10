@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildHandoverPdf, type HandoverPatient } from "@/lib/handover-pdf";
+import { buildHandoverPdf, formatHandoverFilename, type HandoverPatient } from "@/lib/handover-pdf";
+
 
 /**
  * End-to-end test for the landscape handover PDF export.
