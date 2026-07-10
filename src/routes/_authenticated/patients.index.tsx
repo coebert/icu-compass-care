@@ -56,6 +56,8 @@ function PatientsBoard() {
   const draggedRef = useRef<Patient | null>(null);
   const [draggedPatient, setDraggedPatient] = useState<Patient | null>(null);
   const dragging = draggedPatient !== null;
+  // Holds the custom drag-image node so we can clean it up on drag end.
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
