@@ -41,6 +41,7 @@ function PatientsBoard() {
   const qc = useQueryClient();
   const list = useServerFn(listPatients);
   const create = useServerFn(createPatient);
+  const beds = useServerFn(listBeds);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
