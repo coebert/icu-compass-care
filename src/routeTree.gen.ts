@@ -25,6 +25,7 @@ import { Route as ApiPublicBridgeVerifySignatureRouteImport } from './routes/api
 import { Route as ApiPublicBridgeReferralsRouteImport } from './routes/api/public/bridge.referrals'
 import { Route as ApiPublicBridgePatientsRouteImport } from './routes/api/public/bridge.patients'
 import { Route as ApiPublicBridgeNotificationsRouteImport } from './routes/api/public/bridge.notifications'
+import { Route as ApiPublicBridgeMicrobiologyRouteImport } from './routes/api/public/bridge.microbiology'
 import { Route as ApiPublicBridgeInvestigationsRouteImport } from './routes/api/public/bridge.investigations'
 import { Route as ApiPublicBridgeHealthRouteImport } from './routes/api/public/bridge.health'
 import { Route as ApiPublicBridgeAuditRouteImport } from './routes/api/public/bridge.audit'
@@ -114,6 +115,12 @@ const ApiPublicBridgeNotificationsRoute =
     path: '/api/public/bridge/notifications',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicBridgeMicrobiologyRoute =
+  ApiPublicBridgeMicrobiologyRouteImport.update({
+    id: '/api/public/bridge/microbiology',
+    path: '/api/public/bridge/microbiology',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicBridgeInvestigationsRoute =
   ApiPublicBridgeInvestigationsRouteImport.update({
     id: '/api/public/bridge/investigations',
@@ -144,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/health': typeof ApiPublicBridgeHealthRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
+  '/api/public/bridge/microbiology': typeof ApiPublicBridgeMicrobiologyRoute
   '/api/public/bridge/notifications': typeof ApiPublicBridgeNotificationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
   '/api/public/bridge/referrals': typeof ApiPublicBridgeReferralsRoute
@@ -163,6 +171,7 @@ export interface FileRoutesByTo {
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/health': typeof ApiPublicBridgeHealthRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
+  '/api/public/bridge/microbiology': typeof ApiPublicBridgeMicrobiologyRoute
   '/api/public/bridge/notifications': typeof ApiPublicBridgeNotificationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
   '/api/public/bridge/referrals': typeof ApiPublicBridgeReferralsRoute
@@ -185,6 +194,7 @@ export interface FileRoutesById {
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/health': typeof ApiPublicBridgeHealthRoute
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
+  '/api/public/bridge/microbiology': typeof ApiPublicBridgeMicrobiologyRoute
   '/api/public/bridge/notifications': typeof ApiPublicBridgeNotificationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
   '/api/public/bridge/referrals': typeof ApiPublicBridgeReferralsRoute
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/audit'
     | '/api/public/bridge/health'
     | '/api/public/bridge/investigations'
+    | '/api/public/bridge/microbiology'
     | '/api/public/bridge/notifications'
     | '/api/public/bridge/patients'
     | '/api/public/bridge/referrals'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/audit'
     | '/api/public/bridge/health'
     | '/api/public/bridge/investigations'
+    | '/api/public/bridge/microbiology'
     | '/api/public/bridge/notifications'
     | '/api/public/bridge/patients'
     | '/api/public/bridge/referrals'
@@ -247,6 +259,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/audit'
     | '/api/public/bridge/health'
     | '/api/public/bridge/investigations'
+    | '/api/public/bridge/microbiology'
     | '/api/public/bridge/notifications'
     | '/api/public/bridge/patients'
     | '/api/public/bridge/referrals'
@@ -263,6 +276,7 @@ export interface RootRouteChildren {
   ApiPublicBridgeAuditRoute: typeof ApiPublicBridgeAuditRoute
   ApiPublicBridgeHealthRoute: typeof ApiPublicBridgeHealthRoute
   ApiPublicBridgeInvestigationsRoute: typeof ApiPublicBridgeInvestigationsRoute
+  ApiPublicBridgeMicrobiologyRoute: typeof ApiPublicBridgeMicrobiologyRoute
   ApiPublicBridgeNotificationsRoute: typeof ApiPublicBridgeNotificationsRoute
   ApiPublicBridgePatientsRoute: typeof ApiPublicBridgePatientsRoute
   ApiPublicBridgeReferralsRoute: typeof ApiPublicBridgeReferralsRoute
@@ -385,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBridgeNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bridge/microbiology': {
+      id: '/api/public/bridge/microbiology'
+      path: '/api/public/bridge/microbiology'
+      fullPath: '/api/public/bridge/microbiology'
+      preLoaderRoute: typeof ApiPublicBridgeMicrobiologyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bridge/investigations': {
       id: '/api/public/bridge/investigations'
       path: '/api/public/bridge/investigations'
@@ -449,6 +470,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBridgeAuditRoute: ApiPublicBridgeAuditRoute,
   ApiPublicBridgeHealthRoute: ApiPublicBridgeHealthRoute,
   ApiPublicBridgeInvestigationsRoute: ApiPublicBridgeInvestigationsRoute,
+  ApiPublicBridgeMicrobiologyRoute: ApiPublicBridgeMicrobiologyRoute,
   ApiPublicBridgeNotificationsRoute: ApiPublicBridgeNotificationsRoute,
   ApiPublicBridgePatientsRoute: ApiPublicBridgePatientsRoute,
   ApiPublicBridgeReferralsRoute: ApiPublicBridgeReferralsRoute,

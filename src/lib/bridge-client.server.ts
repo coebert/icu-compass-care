@@ -9,6 +9,7 @@ export type InvestigationRow = Database["public"]["Tables"]["investigations"]["R
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 export type ReferralRow = Database["public"]["Tables"]["referrals"]["Row"];
 export type AuditLogRow = Database["public"]["Tables"]["audit_log"]["Row"];
+export type MicrobiologyRow = Database["public"]["Tables"]["microbiology_results"]["Row"];
 
 // The sync job acts on behalf of an automated system principal. The partner
 // bridge authorizes by role, so we present an admin-level service actor.
@@ -91,6 +92,14 @@ export async function fetchPartnerAuditLog(): Promise<AuditLogRow[]> {
     "/api/public/bridge/audit",
   );
   return data.audit_log ?? [];
+}
+
+// Pull the full microbiology-results list from the partner backend.
+export async function fetchPartnerMicrobiology(): Promise<MicrobiologyRow[]> {
+  const data = await getJson<{ microbiology: MicrobiologyRow[] | null }>(
+    "/api/public/bridge/microbiology",
+  );
+  return data.microbiology ?? [];
 }
 
 export const bridgeSystemActor = SYSTEM_ACTOR;

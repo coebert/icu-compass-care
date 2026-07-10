@@ -45,7 +45,7 @@ const WRITE_ROLES = ["admin", "clinician"] as const;
 export type BridgeActor = { id: string; email?: string; role: string };
 
 // Clinical entities reconciled across the bridge.
-export type BridgeEntity = "patients" | "investigations" | "referrals";
+export type BridgeEntity = "patients" | "investigations" | "referrals" | "microbiology";
 
 export type AuthResult =
   | { ok: true; actor: BridgeActor }

@@ -146,6 +146,22 @@ export function SyncStatusPanel({
               <span className="text-muted-foreground">Next scheduled sync:</span> {nextSync} (every{" "}
               {intervalMinutes} min)
             </p>
+            {data?.byEntity && data.byEntity.length > 0 && (
+              <div className="border-t pt-1">
+                <p className="text-xs font-medium">Records synced (last run)</p>
+                <ul className="mt-0.5 space-y-0.5">
+                  {data.byEntity.map((e) => (
+                    <li key={e.entity} className="flex justify-between gap-4 text-xs capitalize">
+                      <span className="text-muted-foreground">{e.entity}</span>
+                      <span>
+                        {e.lastCount} record{e.lastCount === 1 ? "" : "s"}
+                        {e.lastSyncedAt ? "" : " (never)"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </TooltipContent>
         </Tooltip>
         {showSync && (
