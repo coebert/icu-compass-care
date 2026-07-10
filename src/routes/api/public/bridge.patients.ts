@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           .from("patients")
           .select("*")
           .order("updated_at", { ascending: false });
-        if (status) query = query.eq("status", status);
+        if (status) query = query.eq("status", status as "admitted" | "died" | "discharged" | "referred");
 
         const { data, error } = await query;
         if (error) return json({ error: error.message }, 500);
