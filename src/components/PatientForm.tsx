@@ -132,17 +132,14 @@ export function PatientForm({
           Identity & location
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Full name *">
-            <Input value={values.full_name} onChange={(e) => set("full_name", e.target.value)} required />
+          <Field label="Initials *">
+            <Input value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={10} placeholder="e.g. J.S." required />
           </Field>
-          <Field label="Date of birth">
-            <Input type="date" value={values.dob} onChange={(e) => set("dob", e.target.value)} />
+          <Field label="Age">
+            <Input type="number" min={0} max={130} value={values.age} onChange={(e) => set("age", e.target.value)} />
           </Field>
           <Field label="Hospital number">
             <Input value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
-          </Field>
-          <Field label="NHS number">
-            <Input value={values.nhs_number} onChange={(e) => set("nhs_number", e.target.value)} />
           </Field>
           <Field label="Location">
             <Select value={values.location_type} onValueChange={(v) => set("location_type", v as PatientFormValues["location_type"])}>
