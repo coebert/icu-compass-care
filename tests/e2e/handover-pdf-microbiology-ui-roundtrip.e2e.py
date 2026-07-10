@@ -172,7 +172,7 @@ def add_result_via_ui(page, specimen, findings, hhmm):
     time_input = dialog.get_by_label("Time")
     time_input.fill(hhmm)
 
-    dialog.get_by_label("Findings").fill(findings)
+    dialog.get_by_placeholder("Organism").fill(findings)
 
     dialog.get_by_role("button", name="Save").click()
     expect(dialog).to_be_hidden(timeout=10000)
