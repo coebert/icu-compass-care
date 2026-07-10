@@ -119,6 +119,15 @@ function PatientsBoard() {
         </div>
       )}
 
+      <HandoverPreviewModal
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        patients={filtered}
+        title={showArchived ? "ICU Handover — Archived" : "ICU Handover Sheet"}
+      />
+
+
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
