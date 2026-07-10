@@ -191,7 +191,7 @@ def main():
                     page,
                     "addInvestigation",
                     {
-                        "patientId": patient_id,
+                        "patient_id": patient_id,
                         "category": category,
                         "findings": old_find,
                         "result_at": (now - timedelta(days=3)).isoformat(),
@@ -202,7 +202,7 @@ def main():
                     page,
                     "addInvestigation",
                     {
-                        "patientId": patient_id,
+                        "patient_id": patient_id,
                         "category": category,
                         "findings": new_find,
                         "result_at": now.isoformat(),
