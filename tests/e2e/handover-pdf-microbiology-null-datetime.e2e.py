@@ -267,18 +267,14 @@ def main():
                 # The patients list is delivered via the listPatients server fn.
                 if "/_serverFn/" in url and is_list_patients(url):
                     resp = route.fetch()
-                    try:
-                        data = resp.json()
-                    except Exception:
-                        route.fulfill(response=resp)
-                        return
-                    n = null_out_datetimes(data)
+                    body = resp.text()
+                    new_body, n = null_out_datetimes(body)
                     if n:
                         intercept_stats["patient_responses"] += 1
                         intercept_stats["rows_nulled"] += n
                     route.fulfill(
                         response=resp,
-                        body=json.dumps(data),
+                        body=new_body,
                         headers={**resp.headers, "content-type": "application/json"},
                     )
                     return
