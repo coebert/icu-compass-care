@@ -79,7 +79,10 @@ function PatientsBoard() {
   });
 
   const moveMut = useMutation({
-    mutationFn: (moves: { id: string; bed: string; expected_updated_at?: string }[]) =>
+    mutationFn: ({ moves }: {
+      moves: { id: string; bed: string; expected_updated_at?: string }[];
+      summary?: string;
+    }) =>
       Promise.all(
         moves.map((m) =>
           update({
@@ -92,9 +95,11 @@ function PatientsBoard() {
           }),
         ),
       ),
-    onSuccess: () => {
+    onSuccess: (_res, { summary }) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
-      toast.success("Bed board updated");
+      toast.success("Move saved", {
+        description: summary ?? "The bed board has been updated.",
+      });
     },
     onError: (e: Error) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
