@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
+import { writeAudit } from "@/lib/audit";
 
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
+  // Optimistic concurrency: the updated_at the caller last saw. When present on
+  // an update, the write is rejected (409) if the record changed since then.
+  expected_updated_at: z.string().optional(),
   full_name: z.string().trim().min(1).max(200),
   hospital_number: z.string().trim().max(50).optional().nullable(),
   nhs_number: z.string().trim().max(50).optional().nullable(),
