@@ -1,6 +1,13 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { STATUS_LABELS, fmtDate } from "@/lib/icu";
+import { STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
+
+export type HandoverInvestigation = {
+  category?: string | null;
+  findings?: string | null;
+  result_at?: string | null;
+  [key: string]: any;
+};
 
 export type HandoverPatient = Record<string, any>;
 
@@ -31,6 +38,52 @@ function flags(p: HandoverPatient): string {
   if (p.nok_name) f.push(`NOK: ${p.nok_name}${p.nok_relationship ? ` (${p.nok_relationship})` : ""}${p.nok_contact ? ` ${p.nok_contact}` : ""}`);
   return f.length ? f.join("\n") : "—";
 }
+
+/**
+ * The investigation categories the handover sheet surfaces as dedicated
+ * "most recent" lines, in display order. Their labels drive the text rendered
+ * for each patient's investigations column.
+ */
+export const RECENT_INVESTIGATION_CATEGORIES = ["Bloods", "CXR", "CT chest"] as const;
+
+function parseTime(value?: string | null): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
+}
+
+/**
+ * Pick the newest investigation for `category` from a patient's investigation
+ * list, comparing by `result_at`. Returns undefined when none exist.
+ */
+export function mostRecentInvestigation(
+  investigations: HandoverInvestigation[] | null | undefined,
+  category: string,
+): HandoverInvestigation | undefined {
+  if (!investigations?.length) return undefined;
+  return investigations
+    .filter((i) => (i.category ?? "").toLowerCase() === category.toLowerCase())
+    .reduce<HandoverInvestigation | undefined>((best, cur) => {
+      if (!best) return cur;
+      return parseTime(cur.result_at) >= parseTime(best.result_at) ? cur : best;
+    }, undefined);
+}
+
+/**
+ * Render the "most recent" investigations column: one line per key category
+ * (Bloods / CXR / CT chest) showing the newest findings and its result time.
+ */
+function investigations(p: HandoverPatient): string {
+  const list: HandoverInvestigation[] = Array.isArray(p.investigations) ? p.investigations : [];
+  const lines = RECENT_INVESTIGATION_CATEGORIES.map((category) => {
+    const latest = mostRecentInvestigation(list, category);
+    if (!latest) return `${category}: —`;
+    const when = latest.result_at ? ` (${fmtDateTime(latest.result_at)})` : "";
+    return `${category}: ${latest.findings || "—"}${when}`;
+  });
+  return lines.join("\n");
+}
+
 
 export type HandoverPageSize = "a4" | "letter";
 
