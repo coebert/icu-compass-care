@@ -199,10 +199,6 @@ def open_board(page):
     assert "/auth" not in page.url, f"bounced to /auth: {page.url}"
 
 
-def open_detail(page, patient_id):
-    page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
-    page.wait_for_load_state("networkidle")
-    assert "/auth" not in page.url, f"bounced to /auth: {page.url}"
 
 
 def main():
