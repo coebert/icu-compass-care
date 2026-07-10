@@ -7,6 +7,7 @@ import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, LogOut, Users, Shield, User, RefreshCw } from "lucide-react";
+import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
