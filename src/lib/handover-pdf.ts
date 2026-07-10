@@ -91,6 +91,51 @@ function investigations(p: HandoverPatient): string {
   return lines.join("\n");
 }
 
+/**
+ * Pick the newest microbiology result per specimen type from a patient's
+ * microbiology list, comparing by `result_at`. Returns one entry per specimen
+ * type that has any result, ordered by most recent result first.
+ */
+export function latestMicrobiologyPerSpecimen(
+  results: HandoverMicrobiology[] | null | undefined,
+): HandoverMicrobiology[] {
+  if (!results?.length) return [];
+  const bySpecimen = new Map<string, HandoverMicrobiology>();
+  for (const r of results) {
+    const specimen = (r.specimen_type ?? "").trim() || "Other";
+    const existing = bySpecimen.get(specimen);
+    if (!existing || parseTime(r.result_at) >= parseTime(existing.result_at)) {
+      bySpecimen.set(specimen, r);
+    }
+  }
+  return [...bySpecimen.values()].sort(
+    (a, b) => parseTime(b.result_at) - parseTime(a.result_at),
+  );
+}
+
+/**
+ * Render the "key microbiology" column: the newest result for each specimen
+ * type that has any recorded finding, most recent first.
+ */
+function microbiology(p: HandoverPatient): string {
+  const list: HandoverMicrobiology[] = Array.isArray(p.microbiology_results)
+    ? p.microbiology_results
+    : Array.isArray(p.microbiology)
+      ? p.microbiology
+      : [];
+  const latest = latestMicrobiologyPerSpecimen(list);
+  if (!latest.length) return "—";
+  return latest
+    .map((r) => {
+      const specimen = (r.specimen_type ?? "").trim() || "Other";
+      const when = r.result_at ? ` (${fmtDateTime(r.result_at)})` : "";
+      return `${specimen}: ${r.findings || "—"}${when}`;
+    })
+    .join("\n");
+}
+
+
+
 
 export type HandoverPageSize = "a4" | "letter";
 
