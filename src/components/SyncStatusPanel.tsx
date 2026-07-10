@@ -50,7 +50,7 @@ export function SyncStatusPanel({
   });
 
   const retry = useMutation({
-    mutationFn: () => runSync() as Promise<SyncStatus>,
+    mutationFn: () => runSync() as Promise<SyncRunResult>,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sync-status"] });
       toast.success("Sync retry completed");
