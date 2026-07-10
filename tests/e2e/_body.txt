@@ -1,0 +1,13 @@
+ICU Handover
+Patients
+My profile
+dbg-1783703894@example.com
+Sign out
+Patient board
+
+Current ICU patients and outlying referrals
+
+Archive
+Preview PDF
+Add patient
+No patients to show.
