@@ -150,6 +150,17 @@ def pdf_text(data: bytes) -> str:
         os.unlink(path)
 
 
+def normalize_text(text: str) -> str:
+    # The header stamps "Generated DD/MM/YYYY, HH:MM:SS" from the wall clock at
+    # build time; the preview blob and the download blob are built a moment
+    # apart, so this one field can differ by a second. Normalize it away — it is
+    # not part of the clinical content the two surfaces must agree on.
+    import re
+
+    return re.sub(r"Generated \d{2}/\d{2}/\d{4}, \d{2}:\d{2}:\d{2}", "Generated <ts>", text)
+
+
+
 # Read the exact bytes the preview <iframe> is displaying, by fetching its blob
 # URL from within the page context (blob URLs are only resolvable in-page).
 READ_PREVIEW_BYTES = """
