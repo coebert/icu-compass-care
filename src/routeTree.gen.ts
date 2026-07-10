@@ -18,6 +18,7 @@ import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
 import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
+import { Route as ApiPublicBridgeReferralsRouteImport } from './routes/api/public/bridge.referrals'
 import { Route as ApiPublicBridgePatientsRouteImport } from './routes/api/public/bridge.patients'
 import { Route as ApiPublicBridgeNotificationsRouteImport } from './routes/api/public/bridge.notifications'
 import { Route as ApiPublicBridgeInvestigationsRouteImport } from './routes/api/public/bridge.investigations'
@@ -68,6 +69,12 @@ const ApiPublicHooksBridgeSyncRoute =
     path: '/api/public/hooks/bridge-sync',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicBridgeReferralsRoute =
+  ApiPublicBridgeReferralsRouteImport.update({
+    id: '/api/public/bridge/referrals',
+    path: '/api/public/bridge/referrals',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicBridgePatientsRoute = ApiPublicBridgePatientsRouteImport.update({
   id: '/api/public/bridge/patients',
   path: '/api/public/bridge/patients',
@@ -97,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
   '/api/public/bridge/notifications': typeof ApiPublicBridgeNotificationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
+  '/api/public/bridge/referrals': typeof ApiPublicBridgeReferralsRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
 }
 export interface FileRoutesByTo {
@@ -110,6 +118,7 @@ export interface FileRoutesByTo {
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
   '/api/public/bridge/notifications': typeof ApiPublicBridgeNotificationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
+  '/api/public/bridge/referrals': typeof ApiPublicBridgeReferralsRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
 }
 export interface FileRoutesById {
@@ -125,6 +134,7 @@ export interface FileRoutesById {
   '/api/public/bridge/investigations': typeof ApiPublicBridgeInvestigationsRoute
   '/api/public/bridge/notifications': typeof ApiPublicBridgeNotificationsRoute
   '/api/public/bridge/patients': typeof ApiPublicBridgePatientsRoute
+  '/api/public/bridge/referrals': typeof ApiPublicBridgeReferralsRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/investigations'
     | '/api/public/bridge/notifications'
     | '/api/public/bridge/patients'
+    | '/api/public/bridge/referrals'
     | '/api/public/hooks/bridge-sync'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/investigations'
     | '/api/public/bridge/notifications'
     | '/api/public/bridge/patients'
+    | '/api/public/bridge/referrals'
     | '/api/public/hooks/bridge-sync'
   id:
     | '__root__'
@@ -167,6 +179,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/investigations'
     | '/api/public/bridge/notifications'
     | '/api/public/bridge/patients'
+    | '/api/public/bridge/referrals'
     | '/api/public/hooks/bridge-sync'
   fileRoutesById: FileRoutesById
 }
@@ -178,6 +191,7 @@ export interface RootRouteChildren {
   ApiPublicBridgeInvestigationsRoute: typeof ApiPublicBridgeInvestigationsRoute
   ApiPublicBridgeNotificationsRoute: typeof ApiPublicBridgeNotificationsRoute
   ApiPublicBridgePatientsRoute: typeof ApiPublicBridgePatientsRoute
+  ApiPublicBridgeReferralsRoute: typeof ApiPublicBridgeReferralsRoute
   ApiPublicHooksBridgeSyncRoute: typeof ApiPublicHooksBridgeSyncRoute
 }
 
@@ -246,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksBridgeSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bridge/referrals': {
+      id: '/api/public/bridge/referrals'
+      path: '/api/public/bridge/referrals'
+      fullPath: '/api/public/bridge/referrals'
+      preLoaderRoute: typeof ApiPublicBridgeReferralsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bridge/patients': {
       id: '/api/public/bridge/patients'
       path: '/api/public/bridge/patients'
@@ -306,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBridgeInvestigationsRoute: ApiPublicBridgeInvestigationsRoute,
   ApiPublicBridgeNotificationsRoute: ApiPublicBridgeNotificationsRoute,
   ApiPublicBridgePatientsRoute: ApiPublicBridgePatientsRoute,
+  ApiPublicBridgeReferralsRoute: ApiPublicBridgeReferralsRoute,
   ApiPublicHooksBridgeSyncRoute: ApiPublicHooksBridgeSyncRoute,
 }
 export const routeTree = rootRouteImport
