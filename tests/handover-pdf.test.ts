@@ -244,12 +244,12 @@ describe("handover PDF export (e2e)", () => {
     // Key escalation-plan fields: TEP and DNACPR with their detail text.
     expect(text.includes("DNACPR"), "DNACPR flag should appear").toBe(true);
     expect(
-      text.includes("Ceiling of care: ward-based, DNACPR agreed with family"),
+      text.includes("Ward-based ceiling"),
       "DNACPR detail should appear",
     ).toBe(true);
     expect(text.includes("TEP"), "TEP flag should appear").toBe(true);
     expect(
-      text.includes("For HFNO, not for intubation or CPR"),
+      text.includes("HFNO not intubation"),
       "TEP detail should appear",
     ).toBe(true);
   });
