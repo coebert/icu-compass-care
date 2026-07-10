@@ -73,14 +73,16 @@ export function HandoverPreviewModal({
       title: headerTitle,
       subtitle,
       footerText,
+      filenameFormat,
       showTimestamp,
       showPageNumbers,
       pageSize,
       marginX,
       fontScale,
     }),
-    [headerTitle, subtitle, footerText, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
+    [headerTitle, subtitle, footerText, filenameFormat, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
   );
+
 
   useEffect(() => {
     if (!open) return;
