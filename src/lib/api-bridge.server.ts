@@ -123,7 +123,7 @@ export async function logSync(
   admin: any,
   entry: {
     direction: "push" | "pull";
-    entity: "patients" | "investigations";
+    entity: BridgeEntity;
     record_count: number;
     actor: BridgeActor;
   },
@@ -151,7 +151,7 @@ export async function logSyncError(
   admin: any,
   entry: {
     direction: "push" | "pull";
-    entity: "patients" | "investigations";
+    entity: BridgeEntity;
     message: string;
     actor: BridgeActor;
   },
