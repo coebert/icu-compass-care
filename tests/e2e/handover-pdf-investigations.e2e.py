@@ -28,12 +28,14 @@ Exits 0 on success, non-zero on failure.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 from playwright.sync_api import sync_playwright, expect
@@ -53,6 +55,13 @@ MARKER = f"E2EPDFINV{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "I.N.V."
 
+# The PDF renders result timestamps with fmtDateTime() (src/lib/icu.ts), i.e.
+# toLocaleString("en-GB", {day,month,year,hour,minute, hour12:false}) which
+# yields "dd/mm/yyyy, HH:MM" in the RENDERING environment's timezone. We pin the
+# browser timezone so the expected strings are deterministic across machines.
+TZ_ID = "Europe/London"
+TZ = ZoneInfo(TZ_ID)
+
 # Short single-token findings (no spaces, kept short so they never wrap inside
 # the narrow investigations column). Uniqueness via a short suffix keeps the
 # assertions specific to this patient's rows.
@@ -63,6 +72,25 @@ CXR_NEW = f"CXNEW{SUFFIX}"
 CT_NEW = f"CTNEW{SUFFIX}"
 
 now = datetime.now(timezone.utc)
+
+# Result timestamps for each seeded investigation (UTC). Kept as named
+# constants so the test can assert the PDF shows the newest entry's timestamp
+# and NOT the superseded one.
+BLOODS_OLD_AT = now - timedelta(days=2)
+BLOODS_NEW_AT = now - timedelta(hours=1)
+CXR_NEW_AT = now - timedelta(hours=3)
+CT_NEW_AT = now - timedelta(hours=5)
+
+
+def fmt_datetime_engb(dt_utc):
+    """Mirror fmtDateTime(): en-GB 'dd/mm/yyyy, HH:MM' in the pinned timezone."""
+    local = dt_utc.astimezone(TZ)
+    return local.strftime("%d/%m/%Y, %H:%M")
+
+
+def packed_datetime(dt_utc):
+    """Same as fmt_datetime_engb but whitespace-stripped to match packed text."""
+    return "".join(fmt_datetime_engb(dt_utc).split())
 
 
 def iso(dt):
