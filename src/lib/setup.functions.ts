@@ -28,7 +28,7 @@ export const bootstrapAdmin = createServerFn({ method: "POST" })
       page: 1,
       perPage: 1,
     });
-    if (listErr) throw new Error(listErr.message);
+    if (listErr) throw safeDbError(listErr, "complete setup");
     if ((existing?.users?.length ?? 0) > 0) {
       throw new Error("Setup already completed. Ask an administrator to create your account.");
     }
@@ -38,12 +38,12 @@ export const bootstrapAdmin = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: { display_name: data.display_name },
     });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "create the admin account");
     const id = created.user!.id;
     await supabaseAdmin.from("profiles").update({ display_name: data.display_name }).eq("id", id);
     const { error: roleErr } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: id, role: "admin" });
-    if (roleErr) throw new Error(roleErr.message);
+    if (roleErr) throw safeDbError(roleErr, "assign the admin role");
     return { ok: true };
   });
