@@ -74,12 +74,13 @@ export const Route = createFileRoute("/api/public/bridge/verify-signature")({
               valid_signature_accepted: validResult.ok,
               tampered_signature_rejected: !tamperedResult.ok,
             },
+            // NOTE: we intentionally do NOT return the signed timestamp/actor/
+            // signature triple here. This route is unauthenticated, and a live,
+            // working signature would be replayable against the real bridge
+            // endpoints. Only the pass/fail result and message format are exposed.
             envelope: {
               message_format: "`${x-timestamp}.${x-actor}.${rawBody}`",
-              timestamp,
-              actor: TEST_ACTOR,
               raw_body: rawBody,
-              signature,
             },
             timestamp: new Date().toISOString(),
           },
