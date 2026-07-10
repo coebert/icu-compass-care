@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getPatient, updatePatient, deletePatient, getPatientAudit } from "@/lib/patients.functions";
+import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges } from "@/lib/patients.functions";
 import {
   listInvestigations,
   addInvestigation,
@@ -281,6 +281,7 @@ function StatusTab({ patient }: { patient: Patient }) {
       qc.invalidateQueries({ queryKey: ["patient", patient.id] });
       qc.invalidateQueries({ queryKey: ["patients"] });
       qc.invalidateQueries({ queryKey: ["patient-audit", patient.id] });
+      qc.invalidateQueries({ queryKey: ["patient-field-changes", patient.id] });
       toast.success("Status updated");
     },
     onError: (e: Error) =>
@@ -513,32 +514,73 @@ function AuditTab({ patientId }: { patientId: string }) {
     );
 
   return (
-    <div className="space-y-2">
-      {rows.map((r) => {
-        const who = r.actor_email || (r.actor_role ? `a ${r.actor_role}` : "unknown user");
-        const fields: string[] = r.changed_fields ?? [];
-        return (
-          <Card key={r.id}>
-            <CardContent className="space-y-1 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{ACTION_LABEL[r.action] ?? r.action}</Badge>
-                <Badge variant="outline">
-                  {r.source === "bridge" ? "Linked app" : "This app"}
-                </Badge>
-                <span className="text-sm">{who}</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {fmtDateTime(r.created_at)}
-                </span>
-              </div>
-              {r.action === "update" && fields.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Changed: {fields.map((f) => f.replace(/_/g, " ")).join(", ")}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="space-y-4">
+      <FieldChangeHistory patientId={patientId} />
+      <div className="space-y-2">
+        {rows.map((r) => {
+          const who = r.actor_email || (r.actor_role ? `a ${r.actor_role}` : "unknown user");
+          const fields: string[] = r.changed_fields ?? [];
+          return (
+            <Card key={r.id}>
+              <CardContent className="space-y-1 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{ACTION_LABEL[r.action] ?? r.action}</Badge>
+                  <Badge variant="outline">
+                    {r.source === "bridge" ? "Linked app" : "This app"}
+                  </Badge>
+                  <span className="text-sm">{who}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {fmtDateTime(r.created_at)}
+                  </span>
+                </div>
+                {r.action === "update" && fields.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Changed: {fields.map((f) => f.replace(/_/g, " ")).join(", ")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+const FIELD_LABEL: Record<string, string> = {
+  initials: "Initials",
+  age: "Age",
+  hospital_number: "Hospital number",
+};
+
+function FieldChangeHistory({ patientId }: { patientId: string }) {
+  const fetchChanges = useServerFn(getPatientFieldChanges);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["patient-field-changes", patientId],
+    queryFn: () => fetchChanges({ data: { id: patientId } }) as Promise<AuditRow[]>,
+  });
+
+  if (isLoading || rows.length === 0) return null;
+
+  return (
+    <Card>
+      <CardContent className="space-y-2 p-3">
+        <p className="text-sm font-semibold">Field changes (initials, age, hospital number)</p>
+        <div className="space-y-1.5">
+          {rows.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+              <span className="font-medium">{FIELD_LABEL[r.field_name] ?? r.field_name}</span>
+              <span className="text-muted-foreground">
+                {r.old_value ?? "—"} → {r.new_value ?? "—"}
+              </span>
+              <span className="text-muted-foreground">
+                by {r.changed_by_email || "unknown user"}
+              </span>
+              <span className="ml-auto text-muted-foreground">{fmtDateTime(r.changed_at)}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

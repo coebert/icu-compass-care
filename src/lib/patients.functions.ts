@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { writeAudit } from "@/lib/audit";
+import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
 
 // Age must be a real number within a plausible clinical range; empty/null is rejected.
 const ageSchema = z
@@ -139,14 +139,21 @@ export const updatePatient = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: row.id,
       action: "update",
       source: "app",
-      actor: { id: context.userId, email: (context.claims.email as string) ?? null },
+      actor,
       before: current as Record<string, unknown>,
       after: row as Record<string, unknown>,
+    });
+    await writePatientFieldChanges(supabaseAdmin, {
+      patientId: row.id,
+      before: current as Record<string, unknown>,
+      after: row as Record<string, unknown>,
+      actor,
     });
     return row;
   });
@@ -186,6 +193,21 @@ export const getPatientAudit = createServerFn({ method: "GET" })
       .eq("record_id", data.id)
       .order("created_at", { ascending: false })
       .limit(50);
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+// Field-level change history (initials / age / hospital number), most recent first.
+export const getPatientFieldChanges = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("patient_field_changes")
+      .select("*")
+      .eq("patient_id", data.id)
+      .order("changed_at", { ascending: false })
+      .limit(100);
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
