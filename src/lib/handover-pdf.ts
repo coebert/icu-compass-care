@@ -186,6 +186,24 @@ function clamp(v: number, min: number, max: number): number {
  * configurable via `opts` so the table always fits cleanly when text is long,
  * as are the header and footer contents.
  */
+/**
+ * Sanitise a string for use inside the PDF's internal document-info dictionary
+ * (Title/Subject/Author). PDF text strings are delimited by parentheses and use
+ * backslash escapes, and the info dictionary must never contain control
+ * characters (CR/LF/TAB/NUL) that could break the PDF header or be abused for
+ * metadata injection. This strips control characters and neutralises the PDF
+ * string delimiters/escape character, collapsing whitespace runs.
+ */
+export function sanitizePdfMetadataText(input: string, fallback = ""): string {
+  // eslint-disable-next-line no-control-regex
+  const cleaned = (input ?? "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/[()\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || fallback;
+}
+
 export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): jsPDF {
   const pageSize: HandoverPageSize = opts?.pageSize ?? "a4";
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: pageSize });
@@ -199,7 +217,17 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   const showPageNumbers = opts?.showPageNumbers ?? true;
   const marginX = clamp(opts?.marginX ?? 8, 2, 30);
   const fontScale = clamp(opts?.fontScale ?? 1, 0.6, 1.6);
-  const PAGE_TOKEN = "{{TOTAL_PAGES}}";
+   const PAGE_TOKEN = "{{TOTAL_PAGES}}";
+
+  // Populate the internal document-info dictionary with sanitised text so
+  // hostile characters in the title/subtitle can never leak into the PDF
+  // header or the embedded metadata.
+  doc.setDocumentProperties({
+    title: sanitizePdfMetadataText(title, DEFAULT_TITLE),
+    subject: sanitizePdfMetadataText(subtitle, DEFAULT_TITLE),
+    author: sanitizePdfMetadataText(footerText, DEFAULT_FOOTER),
+    creator: "ICU Handover",
+  });
 
   const bodyFontSize = 7 * fontScale;
   const headFontSize = 7.5 * fontScale;
