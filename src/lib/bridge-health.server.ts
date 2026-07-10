@@ -168,10 +168,10 @@ export async function runBridgeHealth(): Promise<BridgeHealthResult> {
       const forbiddenKeysPresent = FORBIDDEN_FIELDS.filter((f) => keys.includes(f));
       // Only surface the agreed identity fields in the sample to avoid echoing
       // clinical free-text back into the UI.
-      const sample: Record<string, unknown> = {
-        full_name: first.full_name ?? null,
-        age: first.age ?? null,
-        hospital_number: first.hospital_number ?? null,
+      const sample = {
+        full_name: (first.full_name as string | null) ?? null,
+        age: (first.age as number | null) ?? null,
+        hospital_number: (first.hospital_number as string | null) ?? null,
       };
       result.samplePayload = {
         source: "/api/public/bridge/patients",
