@@ -225,13 +225,19 @@ def main():
 
         assert "Discharged" in raw_text, "'Discharged' status not rendered in PDF"
 
+        # Positions of every seeded patient name so each row window can be bounded
+        # by the NEXT patient's name (rows are compact; a fixed width overruns).
+        positions = sorted(packed_text.find(packed(c["name"])) for c in CASES)
+
         for case in CASES:
             name_packed = packed(case["name"])
             assert name_packed in packed_text, (
                 f"discharged patient {case['name']!r} missing from the exported PDF"
             )
             start = packed_text.find(name_packed)
-            window = packed_text[start:start + 220]
+            nexts = [pos for pos in positions if pos > start]
+            end = min(nexts) if nexts else start + 220
+            window = packed_text[start:end]
 
             # ---- Status renders as Discharged in this patient's row ----
             assert "Discharged" in window, (
@@ -244,7 +250,7 @@ def main():
                     f"{case['name']}'s row missing 'To {case['dest']}'; window: {window!r}"
                 )
             else:
-                assert "To" + MARKER not in window and "ToRadnor" not in window, (
+                assert "To" not in window.replace("Adm", ""), (
                     f"{case['name']} has no destination but a 'To ...' line rendered; "
                     f"window: {window!r}"
                 )
