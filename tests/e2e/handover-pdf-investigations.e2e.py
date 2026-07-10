@@ -272,13 +272,52 @@ def main():
             "older Bloods finding leaked into handover PDF — 'most recent' selection is wrong"
         )
 
+        # ---- Displayed timestamps are correctly formatted AND belong to the
+        #      most recent entry for each category ----
+        expected_new = {
+            "Bloods": (BLOODS_NEW, BLOODS_NEW_AT),
+            "CXR": (CXR_NEW, CXR_NEW_AT),
+            "CT chest": (CT_NEW, CT_NEW_AT),
+        }
+        # In the packed text each key line reads "<Category>:<finding>(<dd/mm/yyyy,HH:MM>)".
+        for category, (finding, at) in expected_new.items():
+            stamp = packed_datetime(at)
+            # Timestamp string must be present and in the exact dd/mm/yyyy,HH:MM shape.
+            assert re.fullmatch(r"\d{2}/\d{2}/\d{4},\d{2}:\d{2}", stamp), (
+                f"expected timestamp '{stamp}' is not in dd/mm/yyyy,HH:MM form (test bug)"
+            )
+            assert stamp in packed, (
+                f"{category}: newest result timestamp '{stamp}' missing/mis-formatted in PDF"
+            )
+            # The timestamp must be directly attached to THIS category's newest
+            # finding — i.e. "<finding>(<stamp>)" — proving it belongs to the
+            # most recent entry, not a stray/older one.
+            pair = f"{finding}({stamp})"
+            assert pair in packed, (
+                f"{category}: timestamp not paired with its newest finding; "
+                f"expected '{pair}' in packed PDF text"
+            )
+
+        # ---- The superseded older Bloods timestamp must NOT appear ----
+        old_stamp = packed_datetime(BLOODS_OLD_AT)
+        # Guard: only meaningful if the old stamp differs from every kept stamp.
+        kept_stamps = {packed_datetime(at) for _, at in expected_new.values()}
+        if old_stamp not in kept_stamps:
+            assert old_stamp not in packed, (
+                f"superseded Bloods timestamp '{old_stamp}' leaked into PDF — "
+                f"'most recent' timestamp selection is wrong"
+            )
+
         # Cleanup the artifact.
         try:
             pdf_path.unlink()
         except OSError:
             pass
 
-        print("PASS: handover PDF contains newest Bloods, CXR, and CT chest sections")
+        print(
+            "PASS: handover PDF shows newest Bloods, CXR, CT chest with correctly "
+            "formatted (dd/mm/yyyy, HH:MM) most-recent timestamps"
+        )
         return 0
     finally:
         cleanup(patient_id, user_id)
