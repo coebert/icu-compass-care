@@ -320,40 +320,7 @@ function Section({
         {patients.map((p) => (
           <Link key={p.id} to="/patients/$patientId" params={{ patientId: p.id }}>
             <Card className="h-full transition-colors hover:border-primary/50">
-              <CardContent className="space-y-2 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <PatientName patient={p} showAge />
-                    <p className="truncate text-xs text-muted-foreground">
-                      {formatLocation(p)}
-                    </p>
-                  </div>
-                  <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
-                    {STATUS_LABELS[p.status]}
-                  </Badge>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {p.dnacpr_decision && (
-                    <Badge variant="outline" className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300">
-                      <AlertTriangle className="h-3 w-3" /> DNACPR
-                    </Badge>
-                  )}
-                  {p.tep_in_place && <Badge variant="outline">TEP</Badge>}
-                </div>
-                {p.outstanding_tasks && (
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Tasks: </span>
-                    {p.outstanding_tasks}
-                  </p>
-                )}
-                <PatientMetaLine
-                  patient={p}
-                  showAge={false}
-                  trailing={[`Adm ${fmtDate(p.admission_date)}`]}
-                  className="text-[11px]"
-                />
-              </CardContent>
+              <PatientCardBody p={p} />
             </Card>
           </Link>
         ))}
