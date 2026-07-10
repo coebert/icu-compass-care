@@ -44,8 +44,7 @@ export function emptyPatient(): PatientFormValues {
   return {
     full_name: "",
     hospital_number: "",
-    nhs_number: "",
-    dob: "",
+    age: "",
     location_type: "icu",
     ward: "",
     bed: "",
