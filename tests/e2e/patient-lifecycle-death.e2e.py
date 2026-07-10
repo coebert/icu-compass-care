@@ -111,6 +111,17 @@ def read_patient(patient_id):
     return r.json()[0]
 
 
+def read_audit_actions(patient_id):
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/record_audit"
+        f"?entity=eq.patients&record_id=eq.{patient_id}&select=action",
+        headers=admin_headers(),
+        timeout=30,
+    )
+    r.raise_for_status()
+    return [row["action"] for row in r.json()]
+
+
 def sign_in(email):
     r = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
