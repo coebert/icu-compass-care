@@ -595,7 +595,7 @@ describe("handover filename sanitization", () => {
   });
 
   it("yields a valid quoted Content-Disposition value for a non-ASCII name", () => {
-    const filename = formatHandoverFilename("Réanimation — Übergabe", undefined, generatedAt);
+    const filename = sanitizeContentDispositionFilename("Réanimation — Übergabe");
 
     // Non-ASCII survives into the final assembled filename.
     expect(filename.includes("é")).toBe(true);
