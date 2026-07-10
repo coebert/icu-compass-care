@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
+import { exportHandoverPdf } from "@/lib/handover-pdf";
 
 export const Route = createFileRoute("/_authenticated/patients")({
   component: PatientsBoard,
@@ -85,6 +86,19 @@ function PatientsBoard() {
           </div>
           <Button variant={showArchived ? "secondary" : "outline"} onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            disabled={filtered.length === 0}
+            onClick={() => {
+              exportHandoverPdf(filtered, {
+                title: showArchived ? "ICU Handover — Archived" : "ICU Handover Sheet",
+              });
+              toast.success("Handover PDF exported");
+            }}
+          >
+            <FileDown className="h-4 w-4" /> Export PDF
           </Button>
           <Button onClick={() => setOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> Add patient
