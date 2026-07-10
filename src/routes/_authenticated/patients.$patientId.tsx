@@ -173,7 +173,7 @@ function PatientDetail() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="flex w-full max-w-full justify-start overflow-x-auto">
+        <TabsList className="flex h-11 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
