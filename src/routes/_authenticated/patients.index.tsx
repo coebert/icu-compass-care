@@ -27,6 +27,15 @@ type Patient = Record<string, any>;
 
 const DRAG_MIME = "application/x-patient";
 
+// Escape user-supplied text before injecting it into the drag-ghost innerHTML.
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+  );
+}
+
+
+
 
 // Build a human-readable location label. ICU patients are identified by
 // location_type and a bed number (ward is usually blank for them), so we must
@@ -56,6 +65,8 @@ function PatientsBoard() {
   const draggedRef = useRef<Patient | null>(null);
   const [draggedPatient, setDraggedPatient] = useState<Patient | null>(null);
   const dragging = draggedPatient !== null;
+  // Holds the custom drag-image node so we can clean it up on drag end.
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
   const { data: patients = [], isLoading } = useQuery({
     queryKey: ["patients"],
@@ -79,7 +90,10 @@ function PatientsBoard() {
   });
 
   const moveMut = useMutation({
-    mutationFn: (moves: { id: string; bed: string; expected_updated_at?: string }[]) =>
+    mutationFn: ({ moves }: {
+      moves: { id: string; bed: string; expected_updated_at?: string }[];
+      summary?: string;
+    }) =>
       Promise.all(
         moves.map((m) =>
           update({
@@ -92,9 +106,11 @@ function PatientsBoard() {
           }),
         ),
       ),
-    onSuccess: () => {
+    onSuccess: (_res, { summary }) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
-      toast.success("Bed board updated");
+      toast.success("Move saved", {
+        description: summary ?? "The bed board has been updated.",
+      });
     },
     onError: (e: Error) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
@@ -156,12 +172,39 @@ function PatientsBoard() {
     } catch {
       /* ignore */
     }
+    // Build a styled "ghost" card that follows the cursor during the drag so
+    // it's obvious which patient is being moved (instead of a plain text row).
+    try {
+      const ghost = document.createElement("div");
+      ghost.style.cssText =
+        "position:absolute;top:-9999px;left:-9999px;width:230px;pointer-events:none;" +
+        "border-radius:12px;padding:12px 14px;background:hsl(var(--card));" +
+        "color:hsl(var(--card-foreground));border:2px solid hsl(var(--primary));" +
+        "box-shadow:0 12px 28px -8px rgba(0,0,0,0.45);font-family:inherit;";
+      const from = p.location_type === "icu" && p.bed ? `Bed ${p.bed}` : "Unassigned";
+      ghost.innerHTML =
+        `<div style="font-weight:600;font-size:14px;line-height:1.2;">${escapeHtml(p.full_name ?? "Patient")}</div>` +
+        `<div style="font-size:11px;opacity:0.7;margin-top:2px;">Moving from ${escapeHtml(from)}</div>` +
+        (p.isolation_required
+          ? `<div style="font-size:11px;color:hsl(var(--primary));margin-top:4px;">Isolation · side rooms only</div>`
+          : "");
+      document.body.appendChild(ghost);
+      ghostRef.current = ghost;
+      e.dataTransfer.setDragImage(ghost, 20, 20);
+    } catch {
+      /* setDragImage unsupported — fall back to the default drag image */
+    }
   }
 
   function onDragEndPatient() {
     draggedRef.current = null;
     setDraggedPatient(null);
+    if (ghostRef.current) {
+      ghostRef.current.remove();
+      ghostRef.current = null;
+    }
   }
+
 
 
   // Drop a dragged patient into `targetBed`. If that bed is occupied, the two
@@ -196,6 +239,8 @@ function PatientsBoard() {
       { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
     ];
 
+    let summary = `${dragged.full_name ?? "Patient"} moved to ${targetLabel}.`;
+
     if (occupant) {
       // Swap only makes sense when the dragged patient vacates a real ICU bed.
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
@@ -209,10 +254,12 @@ function PatientsBoard() {
           return;
         }
         moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
+        const fromLabel = isSideRoom(dragged.bed, bedRoster) ? dragged.bed : `Bed ${dragged.bed}`;
+        summary = `${dragged.full_name ?? "Patient"} and ${occupant.full_name ?? "patient"} swapped between ${fromLabel} and ${targetLabel}.`;
       }
     }
 
-    moveMut.mutate(moves);
+    moveMut.mutate({ moves, summary });
   }
 
   return (
@@ -438,6 +485,13 @@ function BedBoard({
           const ineligible = Boolean(
             draggedPatient && !checkBedEligibility(draggedPatient, bed, roster).ok,
           );
+          const isOwnBed = Boolean(
+            draggedPatient && occupants.some((o) => o.id === draggedPatient.id),
+          );
+          // A valid drop target: dragging an eligible patient onto a bed that
+          // isn't the one they already occupy. Highlighted persistently so all
+          // legal targets are visible at a glance, not just the hovered one.
+          const validTarget = dragging && !ineligible && !isOwnBed;
           const dropHandlers = {
             onDragOver: (e: React.DragEvent) => {
               e.preventDefault();
@@ -454,9 +508,11 @@ function BedBoard({
           const overRing = ineligible
             ? "border-destructive ring-2 ring-destructive/40"
             : "border-primary ring-2 ring-primary/40";
+          // Steady highlight applied to every legal target during a drag.
+          const validRing = validTarget && !isOver ? "ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : "";
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} {...dropHandlers} className="space-y-2">
+              <div key={slot.id} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
@@ -486,7 +542,7 @@ function BedBoard({
               type="button"
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
+              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
               <span className="text-xs font-semibold text-muted-foreground">{label}</span>
               <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary">
