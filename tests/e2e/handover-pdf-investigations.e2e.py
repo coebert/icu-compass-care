@@ -53,12 +53,14 @@ MARKER = f"E2EPDFINV{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "I.N.V."
 
-# Single-token findings (no spaces) so poppler text extraction can't split them
-# across wrapped table lines. Uniqueness via MARKER keeps assertions specific.
-BLOODS_OLD = f"BLOODSOLD{MARKER}"
-BLOODS_NEW = f"BLOODSNEW{MARKER}"
-CXR_NEW = f"CXRLATEST{MARKER}"
-CT_NEW = f"CTCHESTLATEST{MARKER}"
+# Short single-token findings (no spaces, kept short so they never wrap inside
+# the narrow investigations column). Uniqueness via a short suffix keeps the
+# assertions specific to this patient's rows.
+SUFFIX = str(int(time.time()))[-6:]
+BLOODS_OLD = f"BOLD{SUFFIX}"
+BLOODS_NEW = f"BNEW{SUFFIX}"
+CXR_NEW = f"CXNEW{SUFFIX}"
+CT_NEW = f"CTNEW{SUFFIX}"
 
 now = datetime.now(timezone.utc)
 
