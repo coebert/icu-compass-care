@@ -100,7 +100,6 @@ def create_patient(fields):
             "age": 66,
             "location_type": "icu",
             "ward": "Critical Care",
-            "bed": "5",
             "status": "admitted",
             **fields,
         },
