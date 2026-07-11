@@ -57,6 +57,8 @@ const EMPTY_PATIENTS: Patient[] = [];
 function HandoverPreviewPage() {
   const { archived } = Route.useSearch();
   const list = useServerFn(listPatients);
+  const validateExport = useServerFn(validateHandoverExport);
+  const [exporting, setExporting] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["patients"],
