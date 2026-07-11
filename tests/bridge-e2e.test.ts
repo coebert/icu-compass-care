@@ -459,24 +459,20 @@ describe("bridge patient sync (e2e)", () => {
     const dnacprDate = "2026-07-10";
 
     // 1. Admit a patient with an active treatment escalation plan (TEP) and a
-    //    decision not to attempt CPR (DNACPR) fully documented.
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "T.E.",
-        age: 78,
-        hospital_number: marker,
-        location_type: "icu",
-        ward: "Critical Care",
-        status: "admitted",
-        tep_in_place: true,
-        tep_details: "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
-        dnacpr_decision: true,
-        dnacpr_details: "DNACPR agreed with patient and family. Not for chest compressions.",
-        dnacpr_date: dnacprDate,
-      }),
-    );
+    //    decision not to attempt CPR (DNACPR) fully documented, seeded as shared.
+    const create = await seedSharedPatient({
+      full_name: "T.E.",
+      age: 78,
+      hospital_number: marker,
+      location_type: "icu",
+      ward: "Critical Care",
+      status: "admitted",
+      tep_in_place: true,
+      tep_details: "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
+      dnacpr_decision: true,
+      dnacpr_details: "DNACPR agreed with patient and family. Not for chest compressions.",
+      dnacpr_date: dnacprDate,
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
