@@ -1328,6 +1328,23 @@ function PatientDetail() {
           <Button
             variant="outline"
             className="gap-1.5"
+            onClick={() => exportMut.mutate()}
+            disabled={exportMut.isPending}
+            aria-busy={exportMut.isPending}
+          >
+            {exportMut.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Preparing…
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4" /> Handover PDF
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-1.5"
             onClick={() => {
               setForm(toFormValues(patient));
               setEditing(true);
