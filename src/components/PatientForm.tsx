@@ -42,6 +42,7 @@ export type PatientFormValues = {
   current_management: string;
   outstanding_tasks: string;
   systems_resp: string;
+  resp_fio2: string;
   systems_cvs: string;
   systems_neuro: string;
   systems_renal: string;
