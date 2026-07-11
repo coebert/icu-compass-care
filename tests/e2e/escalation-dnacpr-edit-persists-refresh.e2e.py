@@ -198,15 +198,24 @@ def main():
                 "data-state", "checked", timeout=5000
             )
             # DNACPR date via the British DatePicker popover. The day cell is
-            # force-clicked: Radix's popover open animation can otherwise
-            # intercept the first pointer event and drop the selection.
-            dialog.get_by_role("button", name="DD/MM/YYYY").first.click()
-            cell = page.locator(f"button[data-day='{data_day}']").first
-            expect(cell).to_be_visible(timeout=5000)
-            cell.click(force=True)
-            expect(dialog.get_by_role("button", name="DD/MM/YYYY")).to_have_count(
-                1, timeout=5000
+            # force-clicked with a retry: Radix's popover open animation can
+            # intercept the first pointer event and silently drop the selection.
+            dnacpr_date_btn = dialog.locator(
+                "xpath=.//label[normalize-space()='DNACPR date']/following::button[1]"
             )
+            selected = False
+            for _ in range(4):
+                dnacpr_date_btn.click()
+                cell = page.locator(f"button[data-day='{data_day}']").first
+                expect(cell).to_be_visible(timeout=5000)
+                cell.click(force=True)
+                page.wait_for_timeout(400)
+                if data_day not in (dnacpr_date_btn.inner_text() or "") and (
+                    "DD/MM/YYYY" not in (dnacpr_date_btn.inner_text() or "")
+                ):
+                    selected = True
+                    break
+            assert selected, "DNACPR date did not register in the picker"
             dialog.locator(
                 "xpath=.//label[normalize-space()='DNACPR details']/following-sibling::input[1]"
             ).fill(DNACPR_DETAILS)
