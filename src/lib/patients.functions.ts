@@ -53,6 +53,7 @@ const patientInput = z.object({
       z.object({
         name: z.string().max(100),
         started_on: z.string().max(20),
+        ended_on: z.string().max(20).optional().nullable(),
       }),
     )
     .max(30)
