@@ -127,6 +127,72 @@ function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Fingerprint className="h-4 w-4" /> Biometric access (passkeys)
+          </CardTitle>
+          <CardDescription>
+            Add this device's fingerprint or Face ID to unlock ICU Handover quickly and securely.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!supported ? (
+            <p className="text-sm text-muted-foreground">
+              This device or browser does not support passkeys.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label>Device name (optional)</Label>
+                <Input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="e.g. My iPhone"
+                />
+              </div>
+              <Button
+                className="gap-2"
+                onClick={() => registerMut.mutate()}
+                disabled={registerMut.isPending}
+              >
+                <Fingerprint className="h-4 w-4" />
+                {registerMut.isPending ? "Waiting for device…" : "Add passkey on this device"}
+              </Button>
+
+              {(passkeys ?? []).length > 0 && (
+                <ul className="divide-y rounded-md border">
+                  {(passkeys ?? []).map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {p.device_label || "Passkey"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Added {new Date(p.created_at).toLocaleDateString("en-GB")}
+                          {p.last_used_at
+                            ? ` · last used ${new Date(p.last_used_at).toLocaleDateString("en-GB")}`
+                            : ""}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMut.mutate(p.id)}
+                        disabled={deleteMut.isPending}
+                        aria-label="Remove passkey"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
+
   );
 }
