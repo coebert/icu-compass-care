@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   listHandoverVersions,
   getHandoverVersion,
+  captureHandoverVersionNow,
   type HandoverVersionSummary,
 } from "@/lib/handover-versions.functions";
+import { getMe } from "@/lib/me.functions";
 import { handoverPdfPreviewUrl, downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, FileDown, History, Search, Sunrise, Sunset } from "lucide-react";
+import { ArrowLeft, Camera, FileDown, History, Search, Sunrise, Sunset } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/patients/history")({
   component: HandoverHistoryPage,
