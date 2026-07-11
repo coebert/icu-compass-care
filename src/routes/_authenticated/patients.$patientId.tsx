@@ -718,6 +718,24 @@ const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   completed: "not_started",
 };
 
+const TASK_PRIORITY_STYLE: Record<TaskPriority, string> = {
+  routine: "border-border text-muted-foreground",
+  urgent: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  critical: "border-rose-500/40 text-rose-600 dark:text-rose-400",
+};
+
+const PRIORITY_RANK: Record<TaskPriority, number> = { critical: 0, urgent: 1, routine: 2 };
+
+function taskDueState(due?: string | null): "none" | "soon" | "overdue" {
+  if (!due) return "none";
+  const t = new Date(due).getTime();
+  if (Number.isNaN(t)) return "none";
+  const diff = t - Date.now();
+  if (diff < 0) return "overdue";
+  if (diff < 2 * 60 * 60 * 1000) return "soon";
+  return "none";
+}
+
 function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText?: string | null }) {
   const qc = useQueryClient();
   const listTasks = useServerFn(listPatientTasks);
@@ -726,6 +744,10 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
   const removeTask = useServerFn(deletePatientTask);
 
   const [newTask, setNewTask] = useState("");
+  const [newPriority, setNewPriority] = useState<TaskPriority>("routine");
+  const [newCategory, setNewCategory] = useState<TaskCategory>("job");
+  const [newOwner, setNewOwner] = useState("");
+  const [newDue, setNewDue] = useState<Date | undefined>(undefined);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["patient-tasks", patientId],
@@ -735,11 +757,25 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
   const invalidate = () => qc.invalidateQueries({ queryKey: ["patient-tasks", patientId] });
 
   const addMut = useMutation({
-    mutationFn: (description: string) =>
-      addTask({ data: { patient_id: patientId, description, position: tasks.length } as never }),
+    mutationFn: () =>
+      addTask({
+        data: {
+          patient_id: patientId,
+          description: newTask.trim(),
+          position: tasks.length,
+          priority: newPriority,
+          category: newCategory,
+          owner: newOwner.trim() || null,
+          due_at: newDue ? newDue.toISOString() : null,
+        } as never,
+      }),
     onSuccess: () => {
       invalidate();
       setNewTask("");
+      setNewOwner("");
+      setNewDue(undefined);
+      setNewPriority("routine");
+      setNewCategory("job");
     },
     onError: (e: Error) => toast.error("Could not add task", { description: e.message }),
   });
@@ -758,9 +794,23 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
   });
 
   const submit = () => {
-    const v = newTask.trim();
-    if (v) addMut.mutate(v);
+    if (newTask.trim()) addMut.mutate();
   };
+
+  // Sort open tasks by priority then due time; completed sink to the bottom.
+  const sorted = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      const aDone = a.status === "completed" ? 1 : 0;
+      const bDone = b.status === "completed" ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      const pa = PRIORITY_RANK[(a.priority ?? "routine") as TaskPriority] ?? 2;
+      const pb = PRIORITY_RANK[(b.priority ?? "routine") as TaskPriority] ?? 2;
+      if (pa !== pb) return pa - pb;
+      const da = a.due_at ? new Date(a.due_at).getTime() : Infinity;
+      const db = b.due_at ? new Date(b.due_at).getTime() : Infinity;
+      return da - db;
+    });
+  }, [tasks]);
 
   return (
     <Card>
@@ -770,7 +820,7 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
+        <div className="space-y-2 rounded-md border border-border p-3">
           <Input
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
@@ -780,11 +830,45 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
                 submit();
               }
             }}
-            placeholder="Add a task…"
+            placeholder="Describe a task…"
           />
-          <Button className="gap-1.5" onClick={submit} disabled={addMut.isPending || !newTask.trim()}>
-            <Plus className="h-4 w-4" /> Add
-          </Button>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Select value={newPriority} onValueChange={(v) => setNewPriority(v as TaskPriority)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {TASK_PRIORITY_LABEL[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={newCategory} onValueChange={(v) => setNewCategory(v as TaskCategory)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {TASK_CATEGORY_LABEL[c]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={newOwner}
+              onChange={(e) => setNewOwner(e.target.value)}
+              placeholder="Owner (e.g. Reg)"
+            />
+            <DateTimePicker value={newDue} onChange={setNewDue} placeholder="Due (optional)" />
+          </div>
+          <div className="flex justify-end">
+            <Button className="gap-1.5" onClick={submit} disabled={addMut.isPending || !newTask.trim()}>
+              <Plus className="h-4 w-4" /> Add task
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -793,23 +877,56 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
           <p className="text-sm text-muted-foreground">No tasks yet.</p>
         ) : (
           <ul className="space-y-1.5">
-            {tasks.map((t) => {
+            {sorted.map((t) => {
               const status = (t.status ?? "not_started") as TaskStatus;
+              const priority = (t.priority ?? "routine") as TaskPriority;
+              const category = (t.category ?? "job") as TaskCategory;
+              const dueState = status === "completed" ? "none" : taskDueState(t.due_at);
               return (
-                <li key={t.id} className="flex items-center gap-2 rounded-md border border-border p-2">
+                <li key={t.id} className="flex items-start gap-2 rounded-md border border-border p-2">
                   <button
                     type="button"
                     title={`${TASK_STATUS_LABEL[status]} — click to change`}
-                    className={`shrink-0 transition-colors ${TASK_STATUS_STYLE[status]}`}
+                    className={`mt-0.5 shrink-0 transition-colors ${TASK_STATUS_STYLE[status]}`}
                     onClick={() => statusMut.mutate({ id: t.id, status: NEXT_STATUS[status] })}
                   >
                     {TASK_STATUS_ICON[status]}
                   </button>
-                  <span
-                    className={`flex-1 text-sm ${status === "completed" ? "text-muted-foreground line-through" : ""}`}
-                  >
-                    {t.description}
-                  </span>
+                  <div className="flex-1 space-y-1">
+                    <span
+                      className={`block text-sm ${status === "completed" ? "text-muted-foreground line-through" : ""}`}
+                    >
+                      {t.description}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {priority !== "routine" && (
+                        <Badge variant="outline" className={`shrink-0 ${TASK_PRIORITY_STYLE[priority]}`}>
+                          {TASK_PRIORITY_LABEL[priority]}
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="shrink-0">
+                        {TASK_CATEGORY_LABEL[category]}
+                      </Badge>
+                      {t.owner && (
+                        <span className="text-xs text-muted-foreground">{t.owner}</span>
+                      )}
+                      {t.due_at && (
+                        <span
+                          className={`flex items-center gap-1 text-xs ${
+                            dueState === "overdue"
+                              ? "font-medium text-rose-600 dark:text-rose-400"
+                              : dueState === "soon"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          <Clock className="h-3 w-3" />
+                          {dueState === "overdue" ? "Overdue · " : ""}
+                          {fmtDateTime(t.due_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <Badge variant="outline" className={`shrink-0 ${TASK_STATUS_STYLE[status]}`}>
                     {TASK_STATUS_LABEL[status]}
                   </Badge>
@@ -839,6 +956,7 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
     </Card>
   );
 }
+
 
 
 function RecentInvestigations({ patientId }: { patientId: string }) {
