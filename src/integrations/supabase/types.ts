@@ -499,7 +499,10 @@ export type Database = {
           nok_relationship: string | null
           outstanding_tasks: string | null
           past_medical_history: string | null
+          pca_agents: string[]
+          regional_analgesia: string[]
           resp_support: string[]
+          sedative_agents: string[]
           status: Database["public"]["Enums"]["patient_status"]
           systems_cvs: string | null
           systems_gastro: string | null
@@ -543,7 +546,10 @@ export type Database = {
           nok_relationship?: string | null
           outstanding_tasks?: string | null
           past_medical_history?: string | null
+          pca_agents?: string[]
+          regional_analgesia?: string[]
           resp_support?: string[]
+          sedative_agents?: string[]
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
@@ -587,7 +593,10 @@ export type Database = {
           nok_relationship?: string | null
           outstanding_tasks?: string | null
           past_medical_history?: string | null
+          pca_agents?: string[]
+          regional_analgesia?: string[]
           resp_support?: string[]
+          sedative_agents?: string[]
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
