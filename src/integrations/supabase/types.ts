@@ -44,6 +44,33 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_lockouts: {
+        Row: {
+          first_strike_at: string
+          ip: string
+          last_reason: string | null
+          locked_until: string | null
+          strikes: number
+          updated_at: string
+        }
+        Insert: {
+          first_strike_at?: string
+          ip: string
+          last_reason?: string | null
+          locked_until?: string | null
+          strikes?: number
+          updated_at?: string
+        }
+        Update: {
+          first_strike_at?: string
+          ip?: string
+          last_reason?: string | null
+          locked_until?: string | null
+          strikes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bridge_rate_limits: {
         Row: {
           bucket_key: string
@@ -1429,6 +1456,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_bridge_lockout: {
+        Args: { _ip: string }
+        Returns: {
+          locked: boolean
+          retry_after: number
+        }[]
+      }
       check_bridge_rate_limit: {
         Args: { _bucket_key: string; _limit: number; _window_seconds?: number }
         Returns: {
@@ -1450,6 +1484,20 @@ export type Database = {
           _window_minutes?: number
         }
         Returns: undefined
+      }
+      register_bridge_strike: {
+        Args: {
+          _base_lock_seconds?: number
+          _ip: string
+          _max_lock_seconds?: number
+          _reason?: string
+          _threshold?: number
+          _window_seconds?: number
+        }
+        Returns: {
+          locked: boolean
+          retry_after: number
+        }[]
       }
     }
     Enums: {
