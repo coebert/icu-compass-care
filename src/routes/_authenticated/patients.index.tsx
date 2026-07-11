@@ -588,6 +588,17 @@ function PatientsBoard() {
 
 function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   const flags = deriveSafetyFlags(p);
+  const obsMap = useContext(AcuityContext);
+  const latestObs = obsMap.get(p.id);
+  const support = {
+    ventilated:
+      p.airway_type === "ett" ||
+      p.airway_type === "tracheostomy" ||
+      (Array.isArray(p.resp_support) && p.resp_support.length > 0),
+    rrt: p.renal_rrt === true,
+    vasoactive: Array.isArray(p.vasoactive_agents) && p.vasoactive_agents.length > 0,
+  };
+  const showAcuity = !!latestObs || support.ventilated || support.rrt || support.vasoactive;
   return (
     <CardContent className="space-y-2 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -603,6 +614,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
+        {showAcuity && <AcuityBadge latest={latestObs} support={support} />}
         {flags.hasAllergies && (
           <Badge variant="outline" className="max-w-[12rem] gap-1 border-rose-400 text-rose-700 dark:text-rose-300">
             <AlertTriangle className="h-3 w-3 shrink-0" />
