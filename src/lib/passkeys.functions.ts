@@ -112,7 +112,7 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
       transports: credential.transports ?? [],
       device_label: data.deviceLabel || null,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "register your passkey");
 
     await db.from("webauthn_challenges").delete().eq("user_id", context.userId);
 
