@@ -61,7 +61,8 @@ import {
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
-import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation } from "@/lib/handover-pdf";
+import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation, downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
+import { listObservations } from "@/lib/observations.functions";
 import { courseDays, type Antimicrobial } from "@/lib/antimicrobials";
 import { SpecimenTypeCombobox } from "@/components/SpecimenTypeCombobox";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2 } from "lucide-react";
 import { listReferralCandidates, prefillPatientFromReferral, previewReferralPrefill } from "@/lib/referral-prefill.functions";
 import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
@@ -1240,6 +1241,40 @@ function PatientDetail() {
     onError: (e: Error) => toast.error("Delete failed", { description: e.message }),
   });
 
+  // Handover PDF export for this single patient. All the clinical detail the
+  // sheet needs (investigations, microbiology, observations) is fetched fresh
+  // and in parallel BEFORE the PDF is built, so a failed or in-flight fetch can
+  // never produce a blank or partial sheet — the button stays in a loading
+  // state until every source resolves, and surfaces an error toast otherwise.
+  const listInvFn = useServerFn(listInvestigations);
+  const listMicroFn = useServerFn(listMicrobiology);
+  const listObsFn = useServerFn(listObservations);
+
+  const exportMut = useMutation({
+    mutationFn: async () => {
+      if (!patient) throw new Error("Patient record is still loading");
+      const [investigations, microbiology_results, patient_observations] = await Promise.all([
+        listInvFn({ data: { patientId } }),
+        listMicroFn({ data: { patientId } }),
+        listObsFn({ data: { patientId } }),
+      ]);
+      const handoverPatient = {
+        ...patient,
+        investigations,
+        microbiology_results,
+        patient_observations,
+      } as HandoverPatient;
+      downloadHandover([handoverPatient], {
+        title: `ICU Handover — ${patient.full_name ?? "Patient"}`,
+        orientation: "portrait",
+      });
+    },
+    onSuccess: () => toast.success("Handover PDF downloaded"),
+    onError: (e: Error) =>
+      toast.error("Could not generate handover PDF", { description: e.message }),
+  });
+
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!patient)
     return (
@@ -1290,6 +1325,23 @@ function PatientDetail() {
               qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
             }}
           />
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => exportMut.mutate()}
+            disabled={exportMut.isPending}
+            aria-busy={exportMut.isPending}
+          >
+            {exportMut.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Preparing…
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4" /> Handover PDF
+              </>
+            )}
+          </Button>
           <Button
             variant="outline"
             className="gap-1.5"
