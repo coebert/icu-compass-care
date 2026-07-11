@@ -1,89 +1,71 @@
-# App Review & Improvement Plan
+# ICU Handover App — Senior Critical Care Review & Improvement Plan
 
-An expert review of the ICU handover app covering security (highest priority — sensitive patient-identifiable clinical data), code quality, and elegance. Findings are backed by the security scanner, the database linter, direct RLS inspection, and a full code read.
+Reviewed as a Salisbury Critical Care consultant/senior-nurse group. The app is already strong: bed board with drag/drop, systems-based patient cards, escalation/resus, NOK, investigations, microbiology, specialty reviews, timeline, tasks, handover PDF, bridge sync with the referral app, audit and RBAC. The gaps below are about turning a good record into a genuine day-to-day clinical workhorse.
 
-## What's already good
+## What works well (keep)
+- Systems-by-systems structure mirrors how we hand over.
+- Bed board with eligibility/isolation logic and undo is excellent ergonomics.
+- Retain-not-delete lifecycle, audit trail, and strict RLS suit clinical governance.
+- Deterministic handover PDF with recency selection.
 
-- Server functions consistently gate on `requireSupabaseAuth`; admin ops verify the caller's role.
-- The cross-project bridge uses timing-safe HMAC verification, timestamp skew limits, a signed actor envelope, RBAC, and a secret-rotation window.
-- Patient input is validated with tight Zod schemas; most DB errors route through `safeDbError`.
-- `setup`/`claimFirstAdmin` bootstrap paths are correctly self-disabling.
+## Key findings (clinician perspective)
 
----
+### 1. Clinical content gaps
+- **No structured observations / trend.** Everything physiological is free text. We can't see a NEWS2 or a simple obs trend (HR/BP/SpO2/temp, ventilator settings, lactate) at a glance. This is the single biggest utility gap.
+- **No severity/organ-support scoring.** No SOFA (or even organ-support count) to convey acuity at handover or for the board.
+- **No fluid balance / 24h summary.** Ubiquitous on a ward round; currently absent.
+- **Allergies not first-class.** Allergy lives inside free text; it should be a prominent, structured, always-visible safety field (like DNACPR).
+- **Weight / dosing basis not surfaced** despite being carried from referral.
+- **Lines & devices not tracked** (CVC/arterial/VAS/CVL/drains with insertion dates) — needed for daily line reviews and infection surveillance.
+- **VTE / stress-ulcer / glycaemic "daily goals" checklist** (FAST-HUG style) missing — high-yield safety net.
 
-## Priority 1 — Security
+### 2. Ergonomics / workflow
+- **Patient page is a 2,264-line monolith with 9 tabs.** Slow to scan on a ward round; overview should be a single dense, printable "one-look" summary.
+- **Tasks are unstructured.** No owner, no due time, no priority, no "for ward round vs jobs list" split; can't see all outstanding jobs unit-wide.
+- **No unit-level dashboard.** No single view of occupancy, acuity, isolation, outstanding jobs, DNACPR/TEP status, or overdue reviews across the whole unit.
+- **No explicit shift-handover workflow.** Handover is a PDF export, not a "handover mode" (read-out order, acknowledgement, what-changed-since-last-shift).
+- **Board cards are light on safety flags.** Isolation shows, but DNACPR/TEP ceiling, allergy, and acuity aren't glanceable on the card.
+- **"What changed" not surfaced.** patient_field_changes exists but there's no per-patient "recent changes" ribbon for the incoming team.
 
-### 1.1 Inconsistent RLS on three clinical tables (highest risk)
-`patient_events`, `patient_reviews`, and `patient_tasks` use `USING (true)` / `WITH CHECK (true)` for all operations. Every comparable clinical table (`patients`, `investigations`, `referrals`) requires `private.has_clinical_access(auth.uid())`. Result: any authenticated account — even one with no clinical role — can read and modify patient event history, specialty review notes, and task lists. This is the source of the 3 scanner findings and most of the 9 linter warnings.
-
-**Fix:** a migration that drops the 12 permissive policies and recreates them scoped to `private.has_clinical_access(auth.uid())`, exactly matching the `patients` table pattern (SELECT/INSERT/UPDATE/DELETE). Verify afterwards with the linter and by re-reading `pg_policies`.
-
-### 1.2 Raw database errors leaked to clients
-Five handlers throw `error.message` from Postgres directly instead of using `safeDbError` (which logs server-side and returns a generic message): `me.functions.ts` (updateMyProfile), `passkeys.functions.ts` (two sites), `sync.functions.ts`, and `reconcile.server.ts` (two sites). These can expose column/constraint names.
-
-**Fix:** route all five through `safeDbError(error, "<action>")`.
-
-### 1.3 Duplicated admin role-check
-`assertAdmin` is copy-pasted verbatim in four files (`admin`, `beds`, `bridge-health`, `reconcile` functions). A future change to role logic risks reopening a privilege-escalation gap if a copy is missed.
-
-**Fix:** extract one shared `assertAdmin(context)` (e.g. `src/lib/roles.server.ts`) and import it everywhere.
-
-### 1.4 Bridge data-integrity / PII scope (governance flags)
-- `bridge.patients.ts` selects `*`, exporting full PII (NOK contact, DNACPR/TEP details) to any caller holding the shared secret. Confirm this is an accepted, documented data-sharing agreement; if not, project to a safe column allow-list.
-- The bridge `POST` handler bypasses the app's status-transition validator (`validatePatientState`), so a partner can push a patient to "died"/"discharged" without `date_of_death`/`discharge_destination`. Share and apply the same validator on the bridge write path.
-
-These are decisions to confirm with you before changing behaviour.
+### 3. Safety & data quality
+- `full_name` capped at 10 chars (initials-only) is deliberate for IG, but the board/PDF should make the identity model explicit to avoid mis-ID.
+- Allergy and weight being free-text is a prescribing-safety risk.
+- No "stale record" indicator (last meaningful clinical update age) on the board.
 
 ---
 
-## Priority 2 — Code quality
+## Implementation plan (phased)
 
-### 2.1 Shared patient schema & helpers between app and bridge
-The ~50-field patient Zod schema exists twice (`patients.functions.ts` and `bridge.patients.ts`) and has already drifted — structured fields (`antimicrobials`, `vasoactive_agents`, `airway_type`, etc.) exist in the app but not the bridge, so they can never sync. Also duplicated: `clean()`/`cleanEmpty` and status-transition logic.
+### Phase 1 — High-yield safety & glanceability (low risk, mostly frontend)
+1. **Structured allergies** field (array of {substance, reaction, severity}) surfaced prominently on the card header, board card, and handover PDF. Migration + schema + form + display.
+2. **Board safety flags:** add DNACPR/TEP-ceiling chip, allergy chip, isolation (existing), and a "stale > Xh" indicator to each bed/patient card.
+3. **Overview "one-look" summary:** restructure the Overview tab into a single dense, print-friendly panel (identity + acuity + safety flags + systems one-liners + active jobs) so a ward round needs no tab switching.
+4. **Daily goals / FAST-HUG checklist** (VTE, stress ulcer, glucose, sedation hold, head-up, catheter review, bowels, nutrition) as structured toggles with a "last reviewed" stamp.
 
-**Fix:** extract a single shared schema + helpers module imported by both paths, closing the sync gap.
+### Phase 2 — Tasks & unit dashboard (ergonomics)
+5. **Upgrade tasks:** add owner, priority, due time, and category (ward-round item vs job). Reuse existing patient_tasks (add columns).
+6. **Unit dashboard route** (`/unit`): occupancy grid, acuity/organ-support counts, isolation list, outstanding jobs across all patients, patients with no DNACPR/TEP decision, overdue specialty reviews.
+7. **"What changed since" ribbon** on the patient page and dashboard, driven by existing `patient_field_changes`.
 
-### 2.2 Duplicated antimicrobial/course logic
-`courseDays` and antimicrobial summarisation exist in both `handover-pdf.ts` and `patients.$patientId.tsx`.
+### Phase 3 — Structured physiology (largest, highest utility)
+8. **Observations model:** new `patient_observations` table (timestamped HR, BP, MAP, SpO2, FiO2, RR, temp, GCS, lactate, ventilator mode/settings, vasopressor dose, urine output). Migration + GRANT + RLS + server fns.
+9. **Compact trend view:** sparkline/mini-charts on the systems tabs and a numeric "latest obs" block on Overview and the PDF.
+10. **Organ-support / SOFA-lite score** derived from obs + support fields, shown as an acuity badge on the board and dashboard.
+11. **Fluid balance:** simple 24h in/out/balance capture and display.
 
-**Fix:** move to one shared module (e.g. `src/lib/antimicrobials.ts`) and import in both.
-
-### 2.3 Stronger types
-`Record<string, any>` is used pervasively for patient/investigation data. Adopt the generated Supabase `Database` row types so field typos are caught at compile time.
-
----
-
-## Priority 3 — Elegance / maintainability
-
-### 3.1 Refactor `patients.$patientId.tsx` (2249 lines)
-Ten near-identical systems-status widgets repeat the same mutation/toggle boilerplate. Extract a generic `useSystemFieldMutation` hook and a declarative field config (mirroring the clean `HANDOVER_COLUMNS` pattern), then split widgets into their own files.
-
-### 3.2 Split `handover-pdf.ts` (641 lines)
-Separate the three concerns into modules: column renderers, data-selection/sorting, and jsPDF layout — improving testability.
-
-### 3.3 `getAdmin()` helper
-Replace the ~12 repeated inline `await import(".../client.server")` lines with one small lazy helper that preserves the client-bundle exclusion.
+### Phase 4 — Handover workflow & devices
+12. **Lines & devices tracker** (type, site, insertion date, days in-situ, remove-by prompt) with an infection-surveillance view.
+13. **Shift-handover mode:** ordered read-out (by bed), per-patient "handover given/received" acknowledgement, and an auto "changes since last handover" section; extend the existing PDF.
+14. **Refactor patients.$patientId.tsx** into per-tab components alongside the above (reduce the monolith; no behaviour change).
 
 ---
 
-## Suggested execution order
+## Technical notes
+- All new tables: `CREATE TABLE` in `public` + explicit `GRANT` to `authenticated`/`service_role` + `ENABLE RLS` + shared-team policies matching existing patient tables; add to bridge schema only where the partner app needs it.
+- New reads/writes as `createServerFn` with `requireSupabaseAuth`, mirroring `patient-tasks.functions.ts`.
+- Keep free-text systems fields (clinicians rely on narrative) — add structure alongside, never replace.
+- Preserve handover PDF determinism; extend `handover-columns.ts`/`handover-types.ts` rather than rewriting.
+- Each phase ships independently with typecheck + existing test suite green.
 
-1. **Migration** for 1.1 (RLS) — biggest risk, self-contained; verify with linter.
-2. **1.2 + 1.3** — small, safe server-function edits; add/confirm tests.
-3. **Confirm 1.4 decisions** with you, then implement agreed bridge changes.
-4. **2.1 + 2.2** — shared modules; run the existing test suite.
-5. **2.3** typing pass.
-6. **3.1 / 3.2 / 3.3** incremental refactors, each behind existing tests, no behaviour change.
-
-Priorities 1–2 are behaviour-preserving except the intended RLS tightening and bridge validation; Priority 3 is pure refactor. I can start with the Priority 1 migration on approval.
-
----
-
-## Status — all priorities complete
-
-- **1.1–1.3, 2.1–2.2, 3.3** — done previously.
-- **2.3 Stronger types** — done. Added `src/lib/domain-types.ts` (generated row-type aliases) and applied `Patient`/`Investigation`/`Microbiology`/`PatientTask`/`PatientEvent`/`PatientReview` types across the patient detail, list, preview, and handover modules. `AuditRow` kept loose (heterogeneous audit sources).
-- **3.2 Split `handover-pdf.ts`** — done. Extracted `handover-types.ts`, `handover-recency.ts`, `handover-columns.ts`, `handover-filename.ts`; `handover-pdf.ts` now holds only jsPDF layout/orchestration and re-exports the public API (all importers unchanged).
-- **3.1 Refactor systems widgets** — done. Added `src/components/patient/systems-widgets.tsx` with `usePatientFieldMutation`, `CheckboxOptionGroup`, and `SystemMultiSelectCard`; the repeated widget boilerplate in `patients.$patientId.tsx` now delegates to these.
-
-Typecheck clean, all 33 tests pass.
+## Suggested first step
+Phase 1 (structured allergies + board safety flags + one-look Overview + daily-goals checklist) delivers the most clinical safety value per unit of work and is almost entirely additive. I'd recommend starting there.
