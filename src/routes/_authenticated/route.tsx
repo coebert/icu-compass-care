@@ -79,6 +79,21 @@ function AuthenticatedLayout() {
 
   if (!hydrated) return null;
 
+  if (locked) {
+    return (
+      <PasskeyLockScreen
+        displayName={profile?.profile?.display_name ?? profile?.email}
+        onUnlocked={() => {
+          markSessionUnlocked();
+          setUnlocked(true);
+        }}
+        onSignOut={signOut}
+      />
+    );
+  }
+
+
+
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
