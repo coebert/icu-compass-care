@@ -242,12 +242,43 @@ const RATE_LIMIT_WRITE = 30;
 
 export type RateLimitResult = { ok: true } | { ok: false; response: Response };
 
+function tooMany(message: string, retryAfterSeconds: number): Response {
+  const response = json({ error: message }, 429);
+  response.headers.set("Retry-After", String(Math.max(1, retryAfterSeconds)));
+  return response;
+}
+
 /**
- * Server-side fixed-window rate limit for a bridge request. Applied BEFORE auth
- * so an unauthenticated flood (bad signatures, probing) is throttled too. Uses a
- * service-role-only counter table via an atomic RPC. Fails OPEN on any limiter
- * error so a limiter outage can never take the clinical bridge down; sustained
- * limiting is logged and feeds the review-alert threshold.
+ * Record an abuse "strike" for a client IP. Repeated strikes within a rolling
+ * window escalate into a temporary lockout (see register_bridge_strike). Returns
+ * the lockout duration in seconds when this strike triggered/extended a lockout,
+ * otherwise 0. Never throws — abuse accounting must not break request handling.
+ */
+export async function registerBridgeStrike(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  ip: string,
+  reason: string,
+): Promise<number> {
+  try {
+    const { data } = await admin.rpc("register_bridge_strike", { _ip: ip, _reason: reason });
+    const row = Array.isArray(data) ? data[0] : data;
+    return row && row.locked ? Number(row.retry_after) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Server-side rate limiting + temporary lockouts for a bridge request. Applied
+ * BEFORE auth so an unauthenticated flood (bad signatures, probing) is throttled
+ * too. Order per request:
+ *   1. If the IP is currently locked out -> reject immediately (cheap fast path).
+ *   2. Fixed-window rate limit. On breach, record a strike (which may escalate to
+ *      a lockout) and reject.
+ * Uses service-role-only tables via atomic RPCs. Fails OPEN on any limiter error
+ * so a limiter outage can never take the clinical bridge down; sustained
+ * limiting / lockouts are logged and feed the review-alert threshold.
  */
 export async function enforceBridgeRateLimit(
   request: Request,
@@ -256,10 +287,31 @@ export async function enforceBridgeRateLimit(
 ): Promise<RateLimitResult> {
   try {
     const ip = clientIp(request) ?? "unknown";
-    const limit = write ? RATE_LIMIT_WRITE : RATE_LIMIT_READ;
-    const bucketKey = `${ip}|${request.method}|${endpoint}`;
     const { getAdmin } = await import("@/lib/admin-db.server");
     const admin = await getAdmin();
+
+    // 1. Temporary lockout — block already-flagged abusers before any other work.
+    try {
+      const { data: lockData } = await admin.rpc("check_bridge_lockout", { _ip: ip });
+      const lock = Array.isArray(lockData) ? lockData[0] : lockData;
+      if (lock && lock.locked === true) {
+        const retryAfter = Number(lock.retry_after) || 60;
+        await logSecurityEvent(admin, {
+          event_type: "locked_out",
+          endpoint,
+          method: request.method,
+          ip,
+          detail: `retry_after=${retryAfter}`,
+        });
+        return { ok: false, response: tooMany("Temporarily locked out", retryAfter) };
+      }
+    } catch {
+      // fail open on lockout check
+    }
+
+    // 2. Fixed-window rate limit.
+    const limit = write ? RATE_LIMIT_WRITE : RATE_LIMIT_READ;
+    const bucketKey = `${ip}|${request.method}|${endpoint}`;
     const { data, error } = await admin.rpc("check_bridge_rate_limit", {
       _bucket_key: bucketKey,
       _limit: limit,
@@ -268,17 +320,20 @@ export async function enforceBridgeRateLimit(
     if (error) return { ok: true }; // fail open — never let the limiter cause an outage
     const row = Array.isArray(data) ? data[0] : data;
     if (row && row.allowed === false) {
-      const retryAfter = Number(row.retry_after) || RATE_WINDOW_SECONDS;
+      // A rate-limit breach is an abuse strike; repeated breaches lock the IP out.
+      const lockSeconds = await registerBridgeStrike(admin, ip, "rate_limit");
+      const retryAfter = lockSeconds > 0 ? lockSeconds : Number(row.retry_after) || RATE_WINDOW_SECONDS;
       await logSecurityEvent(admin, {
-        event_type: "rate_limited",
+        event_type: lockSeconds > 0 ? "locked_out" : "rate_limited",
         endpoint,
         method: request.method,
         ip,
         detail: `count=${row.current_count} limit=${limit}`,
       });
-      const response = json({ error: "Rate limit exceeded" }, 429);
-      response.headers.set("Retry-After", String(retryAfter));
-      return { ok: false, response };
+      return {
+        ok: false,
+        response: tooMany(lockSeconds > 0 ? "Temporarily locked out" : "Rate limit exceeded", retryAfter),
+      };
     }
     return { ok: true };
   } catch {
