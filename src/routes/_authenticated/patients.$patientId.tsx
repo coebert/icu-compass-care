@@ -292,6 +292,139 @@ function HaemStatus({
   );
 }
 
+type Antimicrobial = { name: string; started_on: string };
+
+function courseDays(startedOn: string): number | null {
+  if (!startedOn) return null;
+  const start = new Date(startedOn + "T00:00:00");
+  if (isNaN(start.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  return diff < 0 ? null : diff + 1;
+}
+
+function MicroStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+
+  const agents: Antimicrobial[] = Array.isArray(patient.antimicrobials)
+    ? patient.antimicrobials
+    : [];
+
+  const [name, setName] = useState("");
+  const [startedOn, setStartedOn] = useState(
+    () => new Date().toISOString().slice(0, 10),
+  );
+
+  const mut = useMutation({
+    mutationFn: (next: Antimicrobial[]) =>
+      update({ data: { id: patientId, antimicrobials: next } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  const add = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    mut.mutate([...agents, { name: trimmed, started_on: startedOn }]);
+    setName("");
+    setStartedOn(new Date().toISOString().slice(0, 10));
+  };
+
+  const remove = (idx: number) => {
+    mut.mutate(agents.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Antimicrobials
+        </p>
+        {agents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No antimicrobials recorded.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {agents.map((a, i) => {
+              const days = courseDays(a.started_on);
+              return (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <div>
+                    <span className="font-medium">{a.name}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      started {a.started_on}
+                      {days != null && (
+                        <> · day {days} of course</>
+                      )}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    disabled={mut.isPending}
+                    onClick={() => remove(i)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="flex-1 min-w-[140px]">
+            <label className="mb-1 block text-xs text-muted-foreground">
+              Agent
+            </label>
+            <Input
+              value={name}
+              placeholder="e.g. Piperacillin/tazobactam"
+              disabled={mut.isPending}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">
+              Start date
+            </label>
+            <Input
+              type="date"
+              value={startedOn}
+              max={new Date().toISOString().slice(0, 10)}
+              disabled={mut.isPending}
+              onChange={(e) => setStartedOn(e.target.value)}
+            />
+          </div>
+          <Button type="button" onClick={add} disabled={mut.isPending || !name.trim()}>
+            <Plus className="mr-1 h-4 w-4" /> Add
+          </Button>
+        </div>
+      </div>
+      <InfoBlock label="Micro notes" value={patient.systems_micro} />
+    </div>
+  );
+}
+
 const SEDATIVE_OPTIONS: { value: string; label: string }[] = [
   { value: "propofol", label: "Propofol" },
   { value: "fentanyl", label: "Fentanyl" },
