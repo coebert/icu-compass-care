@@ -238,7 +238,56 @@ const SCENARIOS: {
     expectContains: ["HR 105", "RR 22"],
     expectAbsent: ["HR 70"],
   },
+  // ---- Very long text: wrapping / ellipses inside a narrow cell ----
+  {
+    // A long free-text pressor name forces autoTable to wrap the vitals block
+    // across many visual lines inside the narrow column. The extractor stitches
+    // those lines back with " | "; normalizePdfText must fold them so the full
+    // content is still recoverable and identical across both surfaces.
+    name: "very long pressor text wraps across many lines",
+    patient: patient("Long Pressor", [
+      obs({
+        id: "long-pressor",
+        recorded_at: SAME_TIME,
+        hr: 110,
+        vasopressor:
+          "Noradrenaline plus Vasopressin plus Adrenaline plus Dobutamine titrated to MAP target with escalating multi-agent haemodynamic support regimen",
+        vasopressor_dose: 0.45,
+      }),
+    ]),
+    expectFragment: "long-pressor",
+    expectContains: [
+      "HR 110",
+      // The entire long string survives wrapping when whitespace is folded.
+      "PressorNoradrenalineplusVasopressinplusAdrenalineplusDobutamine",
+      "haemodynamicsupportregimen",
+    ],
+  },
+  {
+    // Every vital present AND a long note-like vent descriptor: a maximally
+    // dense cell that wraps heavily. Preview and download must still be equal.
+    name: "maximal-density cell with long vent descriptor wraps heavily",
+    patient: patient("Dense Cell", [
+      obs({
+        id: "dense-cell",
+        recorded_at: SAME_TIME,
+        hr: 118, sbp: 95, dbp: 55, spo2: 89, fio2: 0.8, rr: 28,
+        temp: 39.1, gcs: 6, lactate: 4.2, urine_ml: 15, peep: 12,
+        vent_mode: "Pressure-controlled SIMV with recruitment and prone positioning",
+      }),
+    ]),
+    expectFragment: "dense-cell",
+    expectContains: [
+      "HR 118",
+      "BP 95/55",
+      "GCS 6",
+      "Lac 4.2",
+      "UO 15mL/h",
+      "VentPressure-controlledSIMVwithrecruitmentandpronepositioning",
+    ],
+  },
 ];
+
 
 
 // ---- Tests ------------------------------------------------------------------
