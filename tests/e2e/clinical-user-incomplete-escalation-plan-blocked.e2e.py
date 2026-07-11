@@ -174,13 +174,10 @@ async def run(patient_id):
         )
 
         # ---- Positive control: completing the plan enables save + persists ----
-        await dialog.get_by_role("textbox").last.fill(TEP_DETAILS)
-        # Re-locate the details textbox specifically and fill it.
-        details = dialog.locator("textarea")
-        # Find the textarea rendered under the "TEP details" field.
-        await details.first.wait_for(timeout=5000)
-        # The TEP details textarea is the one whose value we just want set.
+        tep_field = dialog.locator("div.space-y-1\\.5").filter(has_text="TEP details")
+        await tep_field.locator("textarea").fill(TEP_DETAILS)
         await page.wait_for_timeout(200)
+        assert await alert.count() == 0, "validation error should clear once details are filled"
         save = dialog.get_by_role("button", name="Save changes")
         assert not await save.is_disabled(), (
             "Save should be enabled once TEP details are provided"
@@ -188,6 +185,7 @@ async def run(patient_id):
         await save.click()
         await page.wait_for_timeout(1500)
         await page.screenshot(path=str(SCREENSHOTS / "2_after_save.png"))
+
 
         after_ok = read_patient(patient_id)
         assert after_ok["tep_in_place"] is True, (
