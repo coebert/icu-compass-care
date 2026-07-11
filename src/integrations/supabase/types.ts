@@ -508,6 +508,7 @@ export type Database = {
           renal_rrt: boolean
           resp_support: string[]
           sedative_agents: string[]
+          source_referral_id: string | null
           status: Database["public"]["Enums"]["patient_status"]
           systems_cvs: string | null
           systems_gastro: string | null
@@ -560,6 +561,7 @@ export type Database = {
           renal_rrt?: boolean
           resp_support?: string[]
           sedative_agents?: string[]
+          source_referral_id?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
@@ -612,6 +614,7 @@ export type Database = {
           renal_rrt?: boolean
           resp_support?: string[]
           sedative_agents?: string[]
+          source_referral_id?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
