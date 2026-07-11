@@ -182,7 +182,8 @@ def main():
 
             # Open the date picker and choose today's date.
             page.get_by_role("button", name="DD/MM/YYYY").click()
-            page.locator(".rdp-day_today, [aria-current='date'], button[data-today]").first.click()
+            # react-day-picker marks today's cell with data-today="true".
+            page.locator('[data-today="true"] button, [data-today="true"]').first.click()
 
             page.get_by_role("button", name="Update status").click()
             expect(page.get_by_text("Status updated")).to_be_visible(timeout=15000)
