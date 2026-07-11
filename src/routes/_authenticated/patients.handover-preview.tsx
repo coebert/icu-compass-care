@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -40,6 +40,12 @@ export const Route = createFileRoute("/_authenticated/patients/handover-preview"
 import type { Patient as DomainPatient } from "@/lib/domain-types";
 type Patient = DomainPatient & Record<string, any>;
 
+// Stable empty reference so that, while the query is loading, `patients` keeps
+// the same identity across renders. A fresh `[]` default here would change the
+// `handoverPatients` memo identity every render and re-run the preview effect
+// endlessly ("Maximum update depth exceeded").
+const EMPTY_PATIENTS: Patient[] = [];
+
 /**
  * Full-page printable preview of the ICU handover sheet. Renders the exact PDF
  * that will be exported inside a large embedded viewer so scaling and
@@ -50,10 +56,12 @@ function HandoverPreviewPage() {
   const { archived } = Route.useSearch();
   const list = useServerFn(listPatients);
 
-  const { data: patients = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ["patients"],
     queryFn: () => list() as Promise<Patient[]>,
   });
+  const patients = data ?? EMPTY_PATIENTS;
+
 
   const handoverPatients = useMemo<HandoverPatient[]>(() => {
     return patients.filter((p) => {
@@ -84,16 +92,24 @@ function HandoverPreviewPage() {
     [title, showTimestamp, showPageNumbers, pageSize, marginX, fontScale, columns],
   );
 
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
+  // Derive the preview object URL directly from the inputs. Using useMemo (not
+  // effect + setState) keeps PDF generation out of the render→setState→render
+  // cycle, so it can never drive an infinite update loop. The previous blob is
+  // revoked as inputs change, and the last one is revoked on unmount.
+  const urlRef = useRef<string | null>(null);
+  const url = useMemo(() => {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     const objectUrl = handoverPdfPreviewUrl(handoverPatients, options);
-    setUrl(objectUrl);
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-      setUrl(null);
-    };
+    urlRef.current = objectUrl;
+    return objectUrl;
   }, [handoverPatients, options]);
+
+  useEffect(
+    () => () => {
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    },
+    [],
+  );
 
   const toggleColumn = (key: HandoverColumnKey) =>
     setColumns((prev) =>
