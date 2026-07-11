@@ -136,7 +136,7 @@ function AuthenticatedLayout() {
           markSessionUnlocked();
           setUnlocked(true);
         }}
-        onSignOut={signOut}
+        onSignOut={() => void signOut()}
       />
     );
   }
