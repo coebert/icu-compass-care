@@ -8,7 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
@@ -17,6 +18,12 @@ import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble, Lock, La
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
+import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
+
+// Automatically end a session after this much inactivity, warning shortly
+// before. Clinical data must not stay editable on an unattended workstation.
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+const INACTIVITY_WARN_MS = 60 * 1000;
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
