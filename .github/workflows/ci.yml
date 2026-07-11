@@ -1,0 +1,37 @@
+name: CI
+
+# Runs the full TypeScript check, test suite, and production build on every
+# change so PDF (and other) regressions are caught before they merge.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Typecheck, test & build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript typecheck
+        run: bun run typecheck
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Production build
+        run: bun run build
