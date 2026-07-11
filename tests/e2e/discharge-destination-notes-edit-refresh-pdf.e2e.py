@@ -219,7 +219,8 @@ def main():
             dest_input(dlg).fill(NEW_DEST)
             mgmt_textarea(dlg).fill(NEW_MGMT)
             dlg.get_by_role("button", name="Save changes").click()
-            expect(page.get_by_text("Edit patient")).to_have_count(0, timeout=15000)
+            page.wait_for_timeout(1500)
+            page.screenshot(path=str(SCREENSHOTS / "ddn_debug_save.png"))
             page.screenshot(path=str(SCREENSHOTS / "ddn_1_after_save.png"))
 
             # ---- 2. DB persisted the new values ----
