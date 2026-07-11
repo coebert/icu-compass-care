@@ -766,7 +766,7 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
           priority: newPriority,
           category: newCategory,
           owner: newOwner.trim() || null,
-          due_at: newDue ? newDue.toISOString() : null,
+          due_at: newDue ? new Date(newDue).toISOString() : null,
         } as never,
       }),
     onSuccess: () => {
