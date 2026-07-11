@@ -1326,6 +1326,7 @@ function PatientDetail() {
       <Tabs defaultValue="overview">
         <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="observations">Observations</TabsTrigger>
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
