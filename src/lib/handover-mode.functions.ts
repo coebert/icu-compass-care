@@ -127,7 +127,7 @@ export const listRecentFieldChanges = createServerFn({ method: "GET" })
     const since = new Date(Date.now() - sinceHours * 3_600_000).toISOString();
     const { data: rows, error } = await context.supabase
       .from("patient_field_changes")
-      .select("id, patient_id, field, changed_at")
+      .select("id, patient_id, field_name, changed_at")
       .gte("changed_at", since)
       .order("changed_at", { ascending: false })
       .limit(1000);
