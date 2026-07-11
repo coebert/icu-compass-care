@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges } from "@/lib/patients.functions";
+import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges, getPatientStatusChanges } from "@/lib/patients.functions";
 import type {
   Patient as DomainPatient,
   Investigation as DomainInvestigation,
