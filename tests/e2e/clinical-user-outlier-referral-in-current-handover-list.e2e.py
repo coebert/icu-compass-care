@@ -238,14 +238,14 @@ def main():
             )
 
             # ---- Switch to the Archive view: the active outlier must be ABSENT ----
+            # NB: the board's search deliberately spans current AND archived
+            # records (so a discharged patient stays findable by hospital
+            # number), so the archived-exclusion check must run with NO search.
             page.get_by_placeholder("Search initials or hospital no.…").fill("")
             page.get_by_role("button", name="Archive").click()
             expect(
                 page.get_by_role("button", name="Show current")
             ).to_be_visible(timeout=10000)
-            page.get_by_placeholder("Search initials or hospital no.…").fill(
-                HOSPITAL_NUMBER
-            )
             page.wait_for_timeout(800)
             assert page.get_by_text(PATIENT_NAME, exact=False).count() == 0, (
                 "active referred outlier wrongly appears in the archived handover list"
