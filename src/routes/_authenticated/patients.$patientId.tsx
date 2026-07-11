@@ -2451,7 +2451,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
 
-function MicrobiologyTab({ patientId }: { patientId: string }) {
+function MicrobiologyTab({ patientId, patient }: { patientId: string; patient: Record<string, any> }) {
   const qc = useQueryClient();
   const list = useServerFn(listMicrobiology);
   const add = useServerFn(addMicrobiology);
