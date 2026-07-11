@@ -268,6 +268,15 @@ describe("Latest observations: preview iframe vs downloaded PDF", () => {
         expect(previewCell).toContain("—");
         expect(previewCell).not.toContain("id ");
       }
+
+      // Partial / missing vitals must render exactly the fields present and omit
+      // the absent ones — consistently in both surfaces (already asserted equal).
+      for (const frag of scenario.expectContains ?? []) {
+        expect(noSpace(previewCell)).toContain(noSpace(frag));
+      }
+      for (const frag of scenario.expectAbsent ?? []) {
+        expect(noSpace(previewCell)).not.toContain(noSpace(frag));
+      }
     });
   }
 
