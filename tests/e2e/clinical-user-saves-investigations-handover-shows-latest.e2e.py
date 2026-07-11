@@ -141,6 +141,8 @@ def create_patient():
             "ward": "Critical Care",
             "bed": "17",
             "status": "admitted",
+            "hospital_number": f"MRN{str(int(time.time()))[-6:]}",
+            "current_admission": f"Admission note {MARKER}",
             "admission_date": NOW.date().isoformat(),
         },
         timeout=30,
