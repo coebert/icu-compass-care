@@ -72,6 +72,7 @@ function AuthenticatedLayout() {
 
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
+    { to: "/patients/history", label: "History", icon: History },
     { to: "/unit", label: "Unit", icon: LayoutDashboard },
     ...(profile?.isAdmin
       ? [
