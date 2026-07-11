@@ -163,15 +163,19 @@ function microbiology(p: HandoverPatient): string {
       ? p.microbiology
       : [];
   const latest = latestMicrobiologyPerSpecimen(list);
-  if (!latest.length) return "—";
-  return latest
-    .map((r) => {
-      const specimen = (r.specimen_type ?? "").trim() || "Other";
-      const when = r.result_at ? ` (${fmtDateTime(r.result_at)})` : "";
-      return `${specimen}: ${r.findings || "—"}${when}`;
-    })
-    .join("\n");
+  const lines = latest.map((r) => {
+    const specimen = (r.specimen_type ?? "").trim() || "Other";
+    const when = r.result_at ? ` (${fmtDateTime(r.result_at)})` : "";
+    return `${specimen}: ${r.findings || "—"}${when}`;
+  });
+  // Surface the structured antimicrobial data (current course days / completed
+  // total length) in the Micro column so it prints even when the free-text
+  // Systems review column is not included.
+  const antimicrobials = antimicrobialsSummary(p);
+  if (antimicrobials) lines.push(`Abx: ${antimicrobials}`);
+  return lines.length ? lines.join("\n") : "—";
 }
+
 
 // Combine the systems-based review into a single labelled block for the PDF,
 // skipping any system with no notes.
