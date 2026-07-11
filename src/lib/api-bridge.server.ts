@@ -65,7 +65,7 @@ export function json(body: unknown, status = 200): Response {
 }
 
 
-const MAX_SKEW_SECONDS = 300;
+const MAX_SKEW_SECONDS = 60;
 
 // Roles recognised by the bridge.
 const READ_ROLES = ["admin", "clinician"] as const;
