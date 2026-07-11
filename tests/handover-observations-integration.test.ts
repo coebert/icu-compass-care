@@ -375,3 +375,68 @@ describe("Latest observations: preview iframe vs downloaded PDF", () => {
     expect(noSpace(forward)).toContain(noSpace("HR 120"));
   });
 });
+
+// ---- Metadata provenance: recorded_at + id of the chosen row ----------------
+//
+// The cell ends with a parenthesised metadata group "(<recorded_at> · id <id>)"
+// that pins down *exactly* which observation row the generator selected. These
+// tests assert that group carries the SAME recorded_at (formatted by the app's
+// own fmtDateTime) and id that the app's selection logic (latestObservation)
+// resolves for the fixture — so the PDF's provenance line is verifiably correct,
+// not just non-empty.
+
+/** Normalised "(<recorded_at> · id <id>)" group the cell must contain. */
+function expectedMetadata(o: Observation): string {
+  return noSpace(`(${fmtDateTime(o.recorded_at)} · id ${o.id})`);
+}
+
+/** Pull the fixture's observations back out of a HandoverPatient. */
+function observationsOf(p: HandoverPatient): Observation[] {
+  return ((p as unknown as { patient_observations?: Observation[] })
+    .patient_observations ?? []) as Observation[];
+}
+
+describe("Latest observations: recorded_at + id metadata provenance", () => {
+  for (const scenario of SCENARIOS) {
+    // Only scenarios that actually select a row carry metadata.
+    if (!scenario.expectFragment) continue;
+
+    it(`PDF metadata matches the app-selected row — ${scenario.name}`, async () => {
+      const chosen = latestObservation(observationsOf(scenario.patient));
+      expect(chosen, "fixture should select an observation").not.toBeNull();
+      // Sanity: the row the app picks is the one the scenario expects.
+      expect(chosen!.id).toBe(scenario.expectFragment);
+
+      const previewCell = extractObservationsCell(
+        await pdfTextItems(previewBytes([scenario.patient])),
+      );
+      const downloadCell = extractObservationsCell(
+        await pdfTextItems(downloadBytes([scenario.patient])),
+      );
+
+      // Both surfaces carry the identical, exact metadata group.
+      const meta = expectedMetadata(chosen!);
+      expect(noSpace(previewCell)).toContain(meta);
+      expect(noSpace(downloadCell)).toContain(meta);
+
+      // And the id/recorded_at individually match the chosen row exactly.
+      expect(noSpace(previewCell)).toContain(noSpace(`id ${chosen!.id}`));
+      expect(noSpace(previewCell)).toContain(noSpace(fmtDateTime(chosen!.recorded_at)));
+    });
+  }
+
+  it("tie-break metadata names the winning id, not the loser", async () => {
+    const a = obs({ id: "obs-aaaa", recorded_at: SAME_TIME, hr: 70 });
+    const b = obs({ id: "obs-bbbb", recorded_at: SAME_TIME, hr: 120 });
+    const p = patient("Tie Meta", [a, b]);
+
+    const chosen = latestObservation(observationsOf(p));
+    expect(chosen!.id).toBe("obs-bbbb");
+
+    const cell = extractObservationsCell(await pdfTextItems(previewBytes([p])));
+    expect(noSpace(cell)).toContain(expectedMetadata(chosen!));
+    expect(noSpace(cell)).toContain(noSpace("id obs-bbbb"));
+    expect(noSpace(cell)).not.toContain(noSpace("id obs-aaaa"));
+  });
+});
+
