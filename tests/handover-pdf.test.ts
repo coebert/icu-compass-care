@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   buildHandoverPdf,
+  antimicrobialsSummary,
+  renalSupportSummary,
   type HandoverPatient,
   type HandoverPageSize,
 } from "@/lib/handover-pdf";
