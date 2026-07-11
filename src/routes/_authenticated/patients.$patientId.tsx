@@ -773,7 +773,7 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
       invalidate();
       setNewTask("");
       setNewOwner("");
-      setNewDue(undefined);
+      setNewDue("");
       setNewPriority("routine");
       setNewCategory("job");
     },
