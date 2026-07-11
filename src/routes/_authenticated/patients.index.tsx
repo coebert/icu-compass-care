@@ -633,7 +633,7 @@ function DraggablePatientLink({
         }
       }}
       style={onTouchDragStart ? { touchAction: "pan-y" } : undefined}
-      className="block cursor-grab active:cursor-grabbing"
+      className={onDragStartPatient ? "block cursor-grab active:cursor-grabbing" : "block cursor-pointer"}
     >
       {children}
     </Link>
