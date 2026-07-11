@@ -105,9 +105,17 @@ function AdminPage() {
           <h1 className="text-2xl font-bold">Staff accounts</h1>
           <p className="text-sm text-muted-foreground">Create and manage who can access the handover.</p>
         </div>
-        <Button className="ml-auto h-11 gap-1.5 sm:h-10" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> New account
-        </Button>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
+            <Link to="/patients/sharing">
+              <Share2 className="h-4 w-4" /> Partner sharing
+            </Link>
+          </Button>
+          <Button className="h-11 gap-1.5 sm:h-10" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" /> New account
+          </Button>
+        </div>
+
 
       </div>
 
