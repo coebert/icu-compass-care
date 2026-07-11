@@ -244,23 +244,20 @@ export function renalSupportSummary(p: HandoverPatient): string {
 }
 
 function systemsReview(p: HandoverPatient): string {
-  const antimicrobials = antimicrobialsSummary(p);
   const renalSupport = renalSupportSummary(p);
   const lines = SYSTEMS_FIELDS.map(([key, label]) => {
     let val = typeof p[key] === "string" ? (p[key] as string).trim() : "";
-    // Fold the structured renal support and antimicrobial fields into their
-    // matching systems lines so they print on the handover sheet.
+    // Fold the structured renal support flags (diuretics / RRT) into the Renal
+    // line so they print on the handover sheet. Antimicrobial course data is
+    // rendered in the dedicated Micro column instead (see `microbiology`).
     if (key === "systems_renal" && renalSupport) {
       val = val ? `${val} · ${renalSupport}` : renalSupport;
-    }
-    if (key === "systems_micro" && antimicrobials) {
-      const abx = `Abx: ${antimicrobials}`;
-      val = val ? `${val}\n${abx}` : abx;
     }
     return val ? `${label}: ${val}` : "";
   }).filter(Boolean);
   return lines.length ? lines.join("\n") : "—";
 }
+
 
 
 
