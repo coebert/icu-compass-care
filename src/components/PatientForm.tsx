@@ -249,6 +249,102 @@ export function PatientForm({
       </section>
 
       <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Allergies</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() =>
+              set("allergies", [...values.allergies, { substance: "", reaction: "", severity: "unknown" }])
+            }
+          >
+            <Plus className="h-4 w-4" /> Add allergy
+          </Button>
+        </div>
+        {values.allergies.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No known allergies recorded.</p>
+        ) : (
+          <div className="space-y-3">
+            {values.allergies.map((a, i) => (
+              <div key={i} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_9rem_auto]">
+                <Input
+                  placeholder="Substance *"
+                  value={a.substance}
+                  onChange={(e) => {
+                    const next = [...values.allergies];
+                    next[i] = { ...a, substance: e.target.value };
+                    set("allergies", next);
+                  }}
+                />
+                <Input
+                  placeholder="Reaction"
+                  value={a.reaction ?? ""}
+                  onChange={(e) => {
+                    const next = [...values.allergies];
+                    next[i] = { ...a, reaction: e.target.value };
+                    set("allergies", next);
+                  }}
+                />
+                <Select
+                  value={a.severity ?? "unknown"}
+                  onValueChange={(v) => {
+                    const next = [...values.allergies];
+                    next[i] = { ...a, severity: v as AllergySeverity };
+                    set("allergies", next);
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALLERGY_SEVERITIES.map((s) => (
+                      <SelectItem key={s} value={s}>{ALLERGY_SEVERITY_LABEL[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  aria-label="Remove allergy"
+                  onClick={() => set("allergies", values.allergies.filter((_, j) => j !== i))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Daily goals</h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {DAILY_GOAL_ITEMS.map((item) => (
+            <label key={item.key} className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+              <Checkbox
+                checked={!!values.daily_goals[item.key]}
+                onCheckedChange={(v) => {
+                  set("daily_goals", { ...values.daily_goals, [item.key]: v === true });
+                  set("daily_goals_reviewed_at", new Date().toISOString());
+                }}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="block text-sm font-medium">{item.label}</span>
+                <span className="block text-xs text-muted-foreground">{item.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <Field label="Daily goals reviewed by (staff name)">
+          <Input value={values.daily_goals_reviewed_by} onChange={(e) => set("daily_goals_reviewed_by", e.target.value)} />
+        </Field>
+      </section>
+
+
+      <section className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Systems review
         </h3>
