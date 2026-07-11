@@ -653,6 +653,9 @@ export type Database = {
           resp_fio2: string | null
           resp_support: string[]
           sedative_agents: string[]
+          shared_with_partner: boolean
+          shared_with_partner_at: string | null
+          shared_with_partner_by: string | null
           source_referral_id: string | null
           status: Database["public"]["Enums"]["patient_status"]
           systems_cvs: string | null
@@ -712,6 +715,9 @@ export type Database = {
           resp_fio2?: string | null
           resp_support?: string[]
           sedative_agents?: string[]
+          shared_with_partner?: boolean
+          shared_with_partner_at?: string | null
+          shared_with_partner_by?: string | null
           source_referral_id?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
@@ -771,6 +777,9 @@ export type Database = {
           resp_fio2?: string | null
           resp_support?: string[]
           sedative_agents?: string[]
+          shared_with_partner?: boolean
+          shared_with_partner_at?: string | null
+          shared_with_partner_by?: string | null
           source_referral_id?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null

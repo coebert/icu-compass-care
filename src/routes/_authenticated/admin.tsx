@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -105,9 +105,17 @@ function AdminPage() {
           <h1 className="text-2xl font-bold">Staff accounts</h1>
           <p className="text-sm text-muted-foreground">Create and manage who can access the handover.</p>
         </div>
-        <Button className="ml-auto h-11 gap-1.5 sm:h-10" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> New account
-        </Button>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
+            <Link to="/patients/sharing">
+              <Share2 className="h-4 w-4" /> Partner sharing
+            </Link>
+          </Button>
+          <Button className="h-11 gap-1.5 sm:h-10" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" /> New account
+          </Button>
+        </div>
+
 
       </div>
 

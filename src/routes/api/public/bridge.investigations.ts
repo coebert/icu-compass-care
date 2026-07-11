@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
+import { CORS_HEADERS, json, authorize, logSync, sharedPatientIds } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 
@@ -26,11 +26,23 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         const patientId = url.searchParams.get("patient_id");
         const category = url.searchParams.get("category");
 
+        // Gate to patients an admin has shared. If none are shared, or the
+        // requested patient isn't shared, return an empty set — never leak
+        // investigations for non-shared patients.
+        const allowedIds = await sharedPatientIds(supabaseAdmin);
+        const scopedIds = patientId
+          ? allowedIds.filter((id) => id === patientId)
+          : allowedIds;
+        if (scopedIds.length === 0) {
+          await logSync(supabaseAdmin, { direction: "pull", entity: "investigations", record_count: 0, actor: auth.actor });
+          return json({ investigations: [] });
+        }
+
         let query = supabaseAdmin
           .from("investigations")
           .select("*")
+          .in("patient_id", scopedIds)
           .order("result_at", { ascending: false });
-        if (patientId) query = query.eq("patient_id", patientId);
         if (category) query = query.eq("category", category);
 
         const { data, error } = await query;
@@ -38,6 +50,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         await logSync(supabaseAdmin, { direction: "pull", entity: "investigations", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ investigations: data });
       },
+
 
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {

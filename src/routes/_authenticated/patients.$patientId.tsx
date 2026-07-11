@@ -96,7 +96,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound, Pill } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound, Pill, Share2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { setPatientsShared } from "@/lib/sharing.functions";
 import { listReferralCandidates, prefillPatientFromReferral, previewReferralPrefill } from "@/lib/referral-prefill.functions";
 import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
@@ -1247,6 +1249,20 @@ function PatientDetail() {
         : toast.error("Update failed", { description: e.message }),
   });
 
+  // Admin-only: mark this single patient as shared / not shared with the partner
+  // app. The backend enforces admin-only; this is the per-patient control.
+  const shareFn = useServerFn(setPatientsShared);
+  const shareMut = useMutation({
+    mutationFn: (shared: boolean) => shareFn({ data: { ids: [patientId], shared } }),
+    onSuccess: (_res, shared) => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-sharing"] });
+      toast.success(shared ? "Shared with partner app" : "Sharing stopped");
+    },
+    onError: (e: Error) => toast.error("Could not update sharing", { description: e.message }),
+  });
+
   const deleteMut = useMutation({
     mutationFn: () => del({ data: { id: patientId } }),
     onSuccess: () => {
@@ -1384,13 +1400,31 @@ function PatientDetail() {
                 <ClipboardPlus className="h-3 w-3" /> From referral
               </Badge>
             )}
+            {patient.shared_with_partner && (
+              <Badge variant="outline" className="gap-1 border-sky-300 text-sky-700 dark:text-sky-300">
+                <Share2 className="h-3 w-3" /> Shared with partner
+              </Badge>
+            )}
+
           </div>
           <PatientMetaLine
             patient={patient}
             leading={[patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""}` : null]}
           />
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {profile?.isAdmin && (
+            <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+              <Share2 className="h-4 w-4 text-muted-foreground" />
+              <span>Share with partner</span>
+              <Switch
+                checked={Boolean(patient.shared_with_partner)}
+                disabled={shareMut.isPending}
+                onCheckedChange={(v) => shareMut.mutate(v)}
+                aria-label="Share this patient with the partner app"
+              />
+            </label>
+          )}
           <PrefillFromReferral
             patientId={patientId}
             linked={Boolean(patient.source_referral_id)}
@@ -1400,6 +1434,7 @@ function PatientDetail() {
               qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
             }}
           />
+
           <div className="flex flex-col items-start gap-1.5">
             <Button
               variant="outline"

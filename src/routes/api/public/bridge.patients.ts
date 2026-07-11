@@ -71,14 +71,28 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         let query = supabaseAdmin
           .from("patients")
           .select("*")
+          // Only patients an administrator has explicitly marked as shared are
+          // ever exposed across the bridge. This is the governance gate for
+          // cross-project PHI sharing.
+          .eq("shared_with_partner", true)
           .order("updated_at", { ascending: false });
         if (status) query = query.eq("status", status as "admitted" | "died" | "discharged" | "referred");
 
         const { data, error } = await query;
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
-        await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: data?.length ?? 0, actor: auth.actor });
-        return json({ patients: data });
+        // The sharing flag is a local governance decision, not clinical data —
+        // never leak it to the partner (and never let it overwrite their copy).
+        const patients = (data ?? []).map((p: Record<string, unknown>) => {
+          const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...rest } = p;
+          void shared_with_partner;
+          void shared_with_partner_at;
+          void shared_with_partner_by;
+          return rest;
+        });
+        await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: patients.length, actor: auth.actor });
+        return json({ patients });
       },
+
 
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {

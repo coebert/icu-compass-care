@@ -56,7 +56,14 @@ async function syncPatients(admin: any): Promise<EntitySyncResult> {
         result.skipped++;
         continue;
       }
-      const { error: upErr } = await admin.from("patients").upsert(remote, { onConflict: "id" });
+      // `shared_with_partner*` is a local governance decision — never let a
+      // pulled partner copy overwrite it.
+      const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...remoteSafe } =
+        remote as Record<string, unknown>;
+      void shared_with_partner;
+      void shared_with_partner_at;
+      void shared_with_partner_by;
+      const { error: upErr } = await admin.from("patients").upsert(remoteSafe, { onConflict: "id" });
       if (upErr) {
         result.skipped++;
         continue;
