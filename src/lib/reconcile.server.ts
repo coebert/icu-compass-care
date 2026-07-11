@@ -12,6 +12,7 @@ import {
   fetchPartnerAuditLog,
   bridgeSystemActor,
 } from "@/lib/bridge-client.server";
+import { safeDbError } from "@/lib/db-error";
 import type { ReconEntity, EntityRecon, ReconRow, ReconcileResult } from "@/lib/reconcile.functions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
