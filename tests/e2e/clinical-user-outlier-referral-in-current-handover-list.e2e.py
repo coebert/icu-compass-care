@@ -261,7 +261,7 @@ def main():
             f"patient '{PATIENT_NAME}' missing from current handover list"
         )
         assert WARD in packed, f"outlying ward '{WARD}' missing from current handover"
-        assert REFERRED_LABEL in raw_text, (
+        assert "".join(REFERRED_LABEL.split()) in packed, (
             "current handover does not show the 'Referred (outlier)' status"
         )
         assert CONSULTANT in packed, (
