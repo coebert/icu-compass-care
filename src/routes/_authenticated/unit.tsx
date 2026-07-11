@@ -356,6 +356,8 @@ function UnitDashboard() {
           }}
         />
       </div>
+
+      <LinesSurveillanceCard patientById={patientById} />
     </div>
   );
 }
