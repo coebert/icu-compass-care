@@ -60,6 +60,11 @@ export type PatientFormValues = {
   nok_contact: string;
   nok_last_updated: string;
   nok_last_updated_by: string;
+  weight_kg: string;
+  allergies: AllergyEntry[];
+  daily_goals: DailyGoals;
+  daily_goals_reviewed_by: string;
+  daily_goals_reviewed_at: string;
 };
 
 export function emptyPatient(): PatientFormValues {
