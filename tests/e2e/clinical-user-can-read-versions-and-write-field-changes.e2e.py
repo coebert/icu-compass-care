@@ -129,18 +129,24 @@ def sign_in(email):
     return r.json()["access_token"]
 
 
-def cleanup(version_id, user_id):
+def cleanup(version_id, user_id, patient_id):
     if version_id:
         requests.delete(
             f"{SUPABASE_URL}/rest/v1/handover_versions?id=eq.{version_id}",
             headers=admin_headers(),
             timeout=30,
         )
-    requests.delete(
-        f"{SUPABASE_URL}/rest/v1/patient_field_changes?patient_id=eq.{PATIENT_ID}",
-        headers=admin_headers(),
-        timeout=30,
-    )
+    if patient_id:
+        requests.delete(
+            f"{SUPABASE_URL}/rest/v1/patient_field_changes?patient_id=eq.{patient_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
+        requests.delete(
+            f"{SUPABASE_URL}/rest/v1/patients?id=eq.{patient_id}",
+            headers=admin_headers(),
+            timeout=30,
+        )
     if user_id:
         requests.delete(
             f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
@@ -150,11 +156,15 @@ def cleanup(version_id, user_id):
 
 
 def main():
+    global PATIENT_ID
     user_id = None
     version_id = None
+    patient_id = None
     try:
         user_id, email = create_clinical_user()
         version_id = create_version()
+        patient_id = create_patient()
+        PATIENT_ID = patient_id
         token = sign_in(email)
 
         # ---- 1. Clinical READ of handover_versions must return the seeded row ----
