@@ -75,7 +75,7 @@ function CompareVersionsPage() {
 
   const { data: versions = [], isLoading } = useQuery({
     queryKey: ["handover-versions", "compare-all"],
-    queryFn: () => list({ data: {} }) as Promise<HandoverVersionSummary[]>,
+    queryFn: async () => (await list({ data: { pageSize: 100 } })).rows,
   });
 
   const [aId, setAId] = useState<string | null>(null);
