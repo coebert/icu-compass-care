@@ -931,7 +931,7 @@ function PatientDetail() {
                 <InfoBlock label="Renal" value={patient.systems_renal} />
                 <GastroNutritionStatus patientId={patientId} patient={patient} />
                 <HaemStatus patientId={patientId} patient={patient} />
-                <InfoBlock label="Micro" value={patient.systems_micro} />
+                <MicroStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="Other" value={patient.systems_other} />
               </div>
             </CardContent>
