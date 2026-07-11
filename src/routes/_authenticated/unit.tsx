@@ -322,7 +322,6 @@ function UnitDashboard() {
         empty="No ICU patients."
         right={(p) => <AcuityBadge latest={obsByPatient.get(p.id)} support={patientSupport(p)} />}
       />
-      </div>
 
       <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
 
