@@ -19,6 +19,13 @@ import { createHmac } from "crypto";
 
 const BASE_URL = process.env.BRIDGE_BASE_URL ?? "http://localhost:8080";
 const SECRET = process.env.HANDOVER_API_SECRET ?? "";
+// The partner bridge only ever exposes patients an administrator has explicitly
+// marked as shared (patients.shared_with_partner = true). Bridge writes cannot
+// flip that governance flag (the admin-only guard trigger blocks it, and the
+// flag is not part of the bridge upsert schema), so e2e fixtures must be seeded
+// as shared directly via the admin Data API — the flag may only be set on INSERT.
+const SUPABASE_URL = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 // The only demographic/identity fields that may describe a patient.
 const ALLOWED_IDENTITY_FIELDS = ["full_name", "age", "hospital_number"] as const;
