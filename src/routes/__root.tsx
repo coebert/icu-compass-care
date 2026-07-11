@@ -111,12 +111,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // The Lovable dev source-tagger injects `data-tsd-source` attributes whose
+  // line/column values differ between the SSR and client transforms of this
+  // file (the client build's refresh preamble shifts line numbers), so the
+  // shell elements would otherwise fail hydration and force a full client
+  // regeneration. These attributes are dev-only (stripped in production);
+  // suppressing hydration warnings on the shell elements is safe and keeps the
+  // app from re-rendering the whole tree on load.
   return (
-    <html lang="en">
-      <head>
+    <html lang="en" suppressHydrationWarning>
+      <head suppressHydrationWarning>
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
