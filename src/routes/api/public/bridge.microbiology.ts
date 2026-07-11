@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { corsHeaders, json, authorize, sharedPatientIds, logSync } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorizeBridge, sharedPatientIds, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // Read-only bridge endpoint exposing this backend's microbiology results so the
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/public/bridge/microbiology")({
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       GET: async ({ request }) => {
-        const auth = authorize(request, "", { write: false });
+        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/microbiology");
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();

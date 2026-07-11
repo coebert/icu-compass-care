@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { corsHeaders, json, authorize, logSync } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { DEFAULT_BEDS, normalizeBed, type BedSlot } from "@/lib/icu-beds";
 import { getAdmin } from "@/lib/admin-db.server";
 
@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       GET: async ({ request }) => {
-        const auth = authorize(request, "", { write: false });
+        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/beds");
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
