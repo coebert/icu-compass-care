@@ -1055,6 +1055,11 @@ function PatientDetail() {
                 <AlertTriangle className="h-3 w-3" /> DNACPR
               </Badge>
             )}
+            {patient.source_referral_id && (
+              <Badge variant="outline" className="gap-1">
+                <ClipboardPlus className="h-3 w-3" /> From referral
+              </Badge>
+            )}
           </div>
           <PatientMetaLine
             patient={patient}
