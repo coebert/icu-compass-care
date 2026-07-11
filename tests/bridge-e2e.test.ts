@@ -67,6 +67,37 @@ async function bridge(method: "GET" | "POST", path: string, body = "") {
   return { status: res.status, json: jsonBody, text };
 }
 
+/**
+ * Seed a patient fixture directly via the admin Data API, marked as shared with
+ * the partner so it is visible to the bridge GET pull. INSERTing the
+ * shared_with_partner flag is permitted (the admin-only guard trigger only
+ * fires on UPDATE of the flag), whereas the bridge upsert endpoint can never
+ * set it. The return shape mirrors `bridge(...)` so callers can treat a seeded
+ * create exactly like a bridge create.
+ */
+async function seedSharedPatient(fields: Record<string, unknown>) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/patients`, {
+    method: "POST",
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({ ...fields, shared_with_partner: true }),
+  });
+  const text = await res.text();
+  let rows: unknown = null;
+  try {
+    rows = JSON.parse(text);
+  } catch {
+    /* non-JSON error body — leave as null */
+  }
+  const patient = Array.isArray(rows) ? rows[0] : rows;
+  // Normalise the 201 Created from PostgREST to the 200 the bridge returns.
+  return { status: res.status === 201 ? 200 : res.status, json: { patient }, text };
+}
+
 describe("bridge patient sync (e2e)", () => {
   beforeAll(() => {
     if (!SECRET) {
@@ -75,11 +106,17 @@ describe("bridge patient sync (e2e)", () => {
           "Set it in the environment before running vitest.",
       );
     }
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      throw new Error(
+        "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required to run the bridge " +
+          "e2e test: fixtures are seeded as shared-with-partner via the admin Data API.",
+      );
+    }
   });
 
   it("inserts an outlying-ward referral and exposes only agreed identity fields", async () => {
     const marker = `H-E2E-${Date.now()}`;
-    const payload = JSON.stringify({
+    const payload = {
       full_name: "Z.Q.",
       age: 72,
       hospital_number: marker,
