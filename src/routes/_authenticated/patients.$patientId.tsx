@@ -420,6 +420,54 @@ function MicroStatus({
           </Button>
         </div>
       </div>
+      {agents.length > 0 && (() => {
+        const sorted = [...agents].sort((a, b) =>
+          (b.started_on || "").localeCompare(a.started_on || ""),
+        );
+        const latest = sorted[0]?.started_on || "";
+        return (
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Timeline (most recent first)
+            </p>
+            <ol className="relative space-y-3 border-l pl-5">
+              {sorted.map((a, i) => {
+                const days = courseDays(a.started_on);
+                const isLatest = a.started_on === latest;
+                return (
+                  <li key={i} className="relative">
+                    <span
+                      className={`absolute -left-[1.4rem] top-1 h-3 w-3 rounded-full border-2 border-background ${
+                        isLatest ? "bg-primary" : "bg-muted-foreground/40"
+                      }`}
+                    />
+                    <div
+                      className={`rounded-md px-3 py-2 text-sm ${
+                        isLatest
+                          ? "bg-primary/10 ring-1 ring-primary/30"
+                          : "bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{a.name}</span>
+                        {isLatest && (
+                          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase text-primary-foreground">
+                            Newest
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground">
+                        started {a.started_on}
+                        {days != null && <> · day {days} of course</>}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        );
+      })()}
       <InfoBlock label="Micro notes" value={patient.systems_micro} />
     </div>
   );
