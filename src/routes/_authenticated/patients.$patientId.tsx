@@ -233,6 +233,65 @@ function CardiovascularStatus({
   );
 }
 
+const ANTICOAGULATION_OPTIONS: { value: string; label: string }[] = [
+  { value: "plmwh", label: "pLMWH" },
+  { value: "tlmwh", label: "tLMWH" },
+  { value: "ufh", label: "UFH" },
+  { value: "doac", label: "DOAC" },
+  { value: "none", label: "None" },
+  { value: "other", label: "Other" },
+];
+
+function HaemStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+
+  const selected: string[] = patient.anticoagulation ?? [];
+
+  const mut = useMutation({
+    mutationFn: (next: string[]) =>
+      update({ data: { id: patientId, anticoagulation: next } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  const toggle = (value: string) => {
+    const next = selected.includes(value)
+      ? selected.filter((s) => s !== value)
+      : [...selected, value];
+    mut.mutate(next);
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Anticoagulation
+        </p>
+        <div className="flex flex-wrap gap-4">
+          {ANTICOAGULATION_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={selected.includes(opt.value)}
+                disabled={mut.isPending}
+                onCheckedChange={() => toggle(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <InfoBlock label="Haem notes" value={patient.systems_haem} />
+    </div>
+  );
+}
+
 const SEDATIVE_OPTIONS: { value: string; label: string }[] = [
   { value: "propofol", label: "Propofol" },
   { value: "fentanyl", label: "Fentanyl" },
