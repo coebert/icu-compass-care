@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
+import { courseDays, type Antimicrobial } from "@/lib/antimicrobials";
 
 export type HandoverInvestigation = {
   category?: string | null;
