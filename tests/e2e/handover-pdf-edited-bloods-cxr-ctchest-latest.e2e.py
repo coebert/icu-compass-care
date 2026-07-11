@@ -264,22 +264,19 @@ def main():
             for s in SECTIONS:
                 edit_investigation(page, s["placeholder"], s["new"])
 
-            # Export the handover PDF from the board.
-            page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
+            # Export the handover PDF for THIS patient only (the per-patient
+            # "Handover PDF" button on the detail page). This avoids the board's
+            # whole-cohort export, which validation blocks if any other patient
+            # in the dataset is incomplete.
+            page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            expect(page.get_by_text(PATIENT_NAME, exact=False).first).to_be_visible(timeout=15000)
 
-            preview_btn = page.get_by_role("button", name="Preview PDF")
-            expect(preview_btn).to_be_enabled(timeout=15000)
-            preview_btn.click()
-
-            pdf_dialog = page.get_by_role("dialog")
-            download_btn = pdf_dialog.get_by_role("button", name="Download PDF")
-            expect(download_btn).to_be_visible(timeout=10000)
+            export_btn = page.get_by_role("button", name="Handover PDF")
+            expect(export_btn).to_be_enabled(timeout=15000)
 
             try:
                 with page.expect_download(timeout=30000) as dl_info:
-                    download_btn.click()
+                    export_btn.click()
             except Exception:
                 page.screenshot(path=str(SCREENSHOTS / f"handover_{MARKER}_nodl.png"))
                 print("PAGE TEXT:", page.inner_text("body")[:2000], file=sys.stderr)
