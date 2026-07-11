@@ -19,7 +19,7 @@ export type HandoverMicrobiology = {
 
 import type { Patient } from "@/lib/domain-types";
 
-export type HandoverPatient = Patient & Record<string, any>;
+export type HandoverPatient = Partial<Patient> & Record<string, any>;
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
   return parts.filter(Boolean).join(sep);
