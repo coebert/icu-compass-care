@@ -441,7 +441,7 @@ describe("handover PDF latest-observations block", () => {
       ([, c]) => c.text.join(" ") === "Latest observations",
     )?.[0];
     expect(idx).toBeTruthy();
-    return (table.body[0].cells[idx!].text as string[]).join("\n");
+    return (table.body[0].cells[idx!].text as string[]).join(" ");
   }
 
   it("includes the Latest observations column by default", () => {
