@@ -226,7 +226,7 @@ def main():
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
     finally:
-        cleanup(version_id, user_id)
+        cleanup(version_id, user_id, patient_id)
 
 
 if __name__ == "__main__":
