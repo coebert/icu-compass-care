@@ -477,6 +477,7 @@ export type Database = {
           age: number | null
           airway_type: string | null
           anticoagulation: string[]
+          antimicrobials: Json
           bed: string | null
           created_at: string
           created_by: string | null
@@ -526,6 +527,7 @@ export type Database = {
           age?: number | null
           airway_type?: string | null
           anticoagulation?: string[]
+          antimicrobials?: Json
           bed?: string | null
           created_at?: string
           created_by?: string | null
@@ -575,6 +577,7 @@ export type Database = {
           age?: number | null
           airway_type?: string | null
           anticoagulation?: string[]
+          antimicrobials?: Json
           bed?: string | null
           created_at?: string
           created_by?: string | null

@@ -48,6 +48,15 @@ const patientInput = z.object({
   systems_haem: z.string().max(10000).optional().nullable(),
   anticoagulation: z.array(z.string().max(20)).max(10).optional(),
   systems_micro: z.string().max(10000).optional().nullable(),
+  antimicrobials: z
+    .array(
+      z.object({
+        name: z.string().max(100),
+        started_on: z.string().max(20),
+      }),
+    )
+    .max(30)
+    .optional(),
   systems_other: z.string().max(10000).optional().nullable(),
   isolation_required: z.boolean(),
   tep_in_place: z.boolean(),
