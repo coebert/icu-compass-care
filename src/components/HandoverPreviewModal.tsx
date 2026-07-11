@@ -316,6 +316,50 @@ export function HandoverPreviewModal({
             </div>
           </div>
 
+          {/* Column selection: choose which handover sections appear. */}
+          <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium">Columns to include</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setColumns(ALL_HANDOVER_COLUMN_KEYS)}
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:underline"
+                  onClick={() => setColumns([])}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+              {HANDOVER_COLUMNS.map((c) => (
+                <label
+                  key={c.key}
+                  className="flex items-center gap-2 text-xs"
+                >
+                  <Checkbox
+                    checked={columns.includes(c.key)}
+                    onCheckedChange={() => toggleColumn(c.key)}
+                  />
+                  {c.header}
+                </label>
+              ))}
+            </div>
+            {columns.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                No columns selected — all columns will be shown.
+              </p>
+            )}
+          </div>
+
+
+
           <div className="min-h-[55vh] shrink-0 overflow-hidden rounded-md border bg-muted sm:min-h-0 sm:flex-1">
             {url ? (
               <iframe
