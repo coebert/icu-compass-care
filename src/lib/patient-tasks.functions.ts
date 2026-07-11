@@ -12,6 +12,23 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   completed: "Completed",
 };
 
+export const TASK_PRIORITIES = ["routine", "urgent", "critical"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
+  routine: "Routine",
+  urgent: "Urgent",
+  critical: "Critical",
+};
+
+export const TASK_CATEGORIES = ["job", "ward_round"] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
+
+export const TASK_CATEGORY_LABEL: Record<TaskCategory, string> = {
+  job: "Job",
+  ward_round: "Ward round",
+};
+
 export const listPatientTasks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { patientId: string }) =>
@@ -28,6 +45,21 @@ export const listPatientTasks = createServerFn({ method: "GET" })
     return rows;
   });
 
+// All open (not-completed) tasks across every patient, for the unit dashboard.
+export const listOpenTasks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("patient_tasks")
+      .select("id, patient_id, description, priority, category, owner, due_at, status")
+      .neq("status", "completed")
+      .order("due_at", { ascending: true, nullsFirst: false });
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+
+
 export const addPatientTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -36,6 +68,10 @@ export const addPatientTask = createServerFn({ method: "POST" })
         patient_id: z.string().uuid(),
         description: z.string().trim().min(1).max(2000),
         position: z.number().int().optional(),
+        priority: z.enum(TASK_PRIORITIES).optional(),
+        category: z.enum(TASK_CATEGORIES).optional(),
+        owner: z.string().trim().max(120).nullish(),
+        due_at: z.string().datetime().nullish(),
       })
       .parse(input),
   )
@@ -46,6 +82,10 @@ export const addPatientTask = createServerFn({ method: "POST" })
         patient_id: data.patient_id,
         description: data.description,
         position: data.position ?? 0,
+        priority: data.priority ?? "routine",
+        category: data.category ?? "job",
+        owner: data.owner ?? null,
+        due_at: data.due_at ?? null,
         created_by: context.userId,
       } as never)
       .select()
@@ -62,6 +102,10 @@ export const updatePatientTask = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         description: z.string().trim().min(1).max(2000).optional(),
         status: z.enum(TASK_STATUSES).optional(),
+        priority: z.enum(TASK_PRIORITIES).optional(),
+        category: z.enum(TASK_CATEGORIES).optional(),
+        owner: z.string().trim().max(120).nullish(),
+        due_at: z.string().datetime().nullish(),
       })
       .parse(input),
   )

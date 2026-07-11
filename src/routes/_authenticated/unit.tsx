@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listPatients } from "@/lib/patients.functions";
+import { listOpenTasks, TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/patient-tasks.functions";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 import { normalizeBed } from "@/lib/icu-beds";
 import { deriveSafetyFlags, parseAllergies } from "@/lib/patient-safety";
@@ -118,9 +119,100 @@ function has(arr: unknown): boolean {
   return Array.isArray(arr) && arr.length > 0;
 }
 
+const PRIORITY_BADGE: Record<string, string> = {
+  critical: "border-rose-500/40 text-rose-600 dark:text-rose-400",
+  urgent: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  routine: "border-border text-muted-foreground",
+};
+
+function fmtDue(due: string | null): { text: string; overdue: boolean } | null {
+  if (!due) return null;
+  const t = new Date(due).getTime();
+  if (Number.isNaN(t)) return null;
+  const overdue = t < Date.now();
+  const text = new Date(due).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return { text, overdue };
+}
+
+function OpenTasksCard({
+  tasks,
+  patientById,
+}: {
+  tasks: OpenTask[];
+  patientById: Map<string, Record<string, any>>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <ClipboardList className="h-4 w-4" /> Outstanding tasks (unit-wide)
+          <Badge variant="secondary" className="ml-auto">{tasks.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {tasks.length === 0 ? (
+          <p className="px-2 py-1 text-sm text-muted-foreground">No outstanding tasks.</p>
+        ) : (
+          <div className="space-y-1">
+            {tasks.map((t) => {
+              const p = patientById.get(t.patient_id);
+              const due = fmtDue(t.due_at);
+              return (
+                <Link
+                  key={t.id}
+                  to="/patients/$patientId"
+                  params={{ patientId: t.patient_id }}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                >
+                  {t.priority !== "routine" && (
+                    <Badge variant="outline" className={`shrink-0 ${PRIORITY_BADGE[t.priority] ?? ""}`}>
+                      {TASK_PRIORITY_LABEL[t.priority as TaskPriority] ?? t.priority}
+                    </Badge>
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{t.description}</span>
+                  {t.owner && <span className="shrink-0 text-xs text-muted-foreground">{t.owner}</span>}
+                  {due && (
+                    <span
+                      className={`shrink-0 text-xs ${due.overdue ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+                    >
+                      {due.overdue ? "Overdue · " : ""}
+                      {due.text}
+                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {p ? <PatientName patient={p} /> : "—"}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+type OpenTask = {
+  id: string;
+  patient_id: string;
+  description: string;
+  priority: string;
+  category: string;
+  owner: string | null;
+  due_at: string | null;
+  status: string;
+};
+
 function UnitDashboard() {
   const list = useServerFn(listPatients);
   const beds = useServerFn(listBeds);
+  const openTasksFn = useServerFn(listOpenTasks);
 
   const { data: patients = [] } = useQuery({
     queryKey: ["patients"],
@@ -129,6 +221,10 @@ function UnitDashboard() {
   const { data: bedRoster = [] } = useQuery({
     queryKey: ["beds"],
     queryFn: () => beds() as Promise<Bed[]>,
+  });
+  const { data: openTasks = [] } = useQuery({
+    queryKey: ["open-tasks"],
+    queryFn: () => openTasksFn() as Promise<OpenTask[]>,
   });
 
   const active = useMemo(
@@ -153,6 +249,23 @@ function UnitDashboard() {
     return { ventilated, vasoactive, rrt, isolation, allergy, noResus, stale, jobs, occupied, totalBeds };
   }, [icu, active, bedRoster]);
 
+  const patientById = useMemo(() => {
+    const m = new Map<string, Patient>();
+    for (const p of patients) m.set(p.id, p);
+    return m;
+  }, [patients]);
+
+  const taskStats = useMemo(() => {
+    const now = Date.now();
+    const overdue = openTasks.filter((t) => t.due_at && new Date(t.due_at).getTime() < now);
+    const critical = openTasks.filter((t) => t.priority === "critical");
+    // Show highest-signal tasks first: critical, then overdue, then rest.
+    const rank = (t: OpenTask) =>
+      t.priority === "critical" ? 0 : t.due_at && new Date(t.due_at).getTime() < now ? 1 : 2;
+    const sorted = [...openTasks].sort((a, b) => rank(a) - rank(b));
+    return { overdue, critical, sorted };
+  }, [openTasks]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -165,9 +278,13 @@ function UnitDashboard() {
         <StatCard icon={Wind} label="Ventilated / resp support" value={stats.ventilated.length} />
         <StatCard icon={HeartPulse} label="On vasoactives" value={stats.vasoactive.length} tone="warn" />
         <StatCard icon={Droplets} label="On RRT" value={stats.rrt.length} tone="warn" />
+        <StatCard icon={ClipboardList} label="Open tasks" value={openTasks.length} sub={`${taskStats.critical.length} critical`} tone={taskStats.critical.length ? "danger" : "default"} />
+        <StatCard icon={Clock} label="Overdue tasks" value={taskStats.overdue.length} tone={taskStats.overdue.length ? "danger" : "default"} />
         <StatCard icon={Activity} label="Total active patients" value={active.length} />
         <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
       </div>
+
+      <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ListCard
@@ -175,12 +292,6 @@ function UnitDashboard() {
           title="Awaiting resus / escalation decision"
           patients={stats.noResus}
           empty="Every ICU patient has a TEP or DNACPR decision recorded."
-        />
-        <ListCard
-          icon={ClipboardList}
-          title="Outstanding jobs"
-          patients={stats.jobs}
-          empty="No outstanding jobs recorded."
         />
         <ListCard
           icon={BedDouble}

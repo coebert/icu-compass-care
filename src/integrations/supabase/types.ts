@@ -432,32 +432,44 @@ export type Database = {
       }
       patient_tasks: {
         Row: {
+          category: string
           created_at: string
           created_by: string | null
           description: string
+          due_at: string | null
           id: string
+          owner: string | null
           patient_id: string
           position: number
+          priority: string
           status: string
           updated_at: string
         }
         Insert: {
+          category?: string
           created_at?: string
           created_by?: string | null
           description: string
+          due_at?: string | null
           id?: string
+          owner?: string | null
           patient_id: string
           position?: number
+          priority?: string
           status?: string
           updated_at?: string
         }
         Update: {
+          category?: string
           created_at?: string
           created_by?: string | null
           description?: string
+          due_at?: string | null
           id?: string
+          owner?: string | null
           patient_id?: string
           position?: number
+          priority?: string
           status?: string
           updated_at?: string
         }
