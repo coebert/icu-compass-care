@@ -276,13 +276,8 @@ def main():
             export_btn = page.get_by_role("button", name="Handover PDF")
             expect(export_btn).to_be_enabled(timeout=15000)
 
-            try:
-                with page.expect_download(timeout=30000) as dl_info:
-                    export_btn.click()
-            except Exception:
-                page.screenshot(path=str(SCREENSHOTS / f"handover_{MARKER}_nodl.png"))
-                print("PAGE TEXT:", page.inner_text("body")[:2000], file=sys.stderr)
-                raise
+            with page.expect_download(timeout=30000) as dl_info:
+                export_btn.click()
             download = dl_info.value
             pdf_path = SCREENSHOTS / f"handover_{MARKER}.pdf"
             download.save_as(str(pdf_path))
