@@ -159,7 +159,10 @@ export async function reconcilePull(
     const { error } = await admin.from(spec.table).upsert(row, { onConflict: "id" });
     if (error) {
       failed++;
-      if (errors.length < 10) errors.push(`${String(row.id).slice(0, 8)}: ${error.message}`);
+      // Log full detail server-side; surface only the row id to the admin report
+      // so raw DB error text (schema/constraint names) is never leaked.
+      console.error(`[reconcile] upsert failed for ${spec.table} row ${String(row.id)}:`, error);
+      if (errors.length < 10) errors.push(`${String(row.id).slice(0, 8)}: upsert failed`);
     } else {
       applied++;
     }
