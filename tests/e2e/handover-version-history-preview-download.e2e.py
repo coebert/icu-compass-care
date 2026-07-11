@@ -272,10 +272,13 @@ def main():
             )
 
             # ---- 6. Selecting the version renders a preview ----
+            # Search by the marker so only our version's patients remain, then
+            # select the version by its label.
             page.get_by_role("textbox", name="Search (patient or text)").fill(MARKER)
-            first_version = page.locator("button", has_text="patient").first
-            expect(first_version).to_be_visible(timeout=15000)
-            first_version.click()
+            version_label = rows[0]["label"]
+            version_btn = page.get_by_role("button", name=version_label)
+            expect(version_btn).to_be_visible(timeout=15000)
+            version_btn.click()
             iframe = page.locator("iframe[title='Saved handover preview']")
             expect(iframe).to_be_visible(timeout=20000)
             src = iframe.get_attribute("src") or ""
