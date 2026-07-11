@@ -2824,14 +2824,16 @@ function truncate(v: string | null | undefined, n = 80): string {
 }
 
 function RecentChangesRibbon({ patientId }: { patientId: string }) {
+  const { hasClinicalAccess } = useClinicalAccess();
   const fetchChanges = useServerFn(getPatientFieldChanges);
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["patient-field-changes", patientId],
     queryFn: () => fetchChanges({ data: { id: patientId } }) as Promise<AuditRow[]>,
+    enabled: hasClinicalAccess,
   });
 
   const recent = useMemo(() => rows.slice(0, 6), [rows]);
-  if (isLoading || recent.length === 0) return null;
+  if (!hasClinicalAccess || isLoading || recent.length === 0) return null;
 
   return (
     <Card className="border-primary/30 bg-primary/5">
