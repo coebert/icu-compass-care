@@ -261,6 +261,15 @@ def main():
                 time.sleep(0.05)  # distinct created_at, mirroring save order
 
             # ---- Open the handover preview and export the PDF ----
+            # Filter the board to just this patient by hospital number, so the
+            # export validates/renders only our record (the shared board may
+            # hold other active patients missing critical fields).
+            search = page.get_by_placeholder("Search initials or hospital no.…")
+            search.fill(HOSPITAL_NUMBER)
+            expect(page.get_by_text(PATIENT_NAME, exact=False).first).to_be_visible(
+                timeout=10000
+            )
+
             preview_btn = page.get_by_role("button", name="Preview PDF")
             expect(preview_btn).to_be_enabled(timeout=15000)
             preview_btn.click()
