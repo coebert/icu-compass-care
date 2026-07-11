@@ -239,6 +239,47 @@ export type Database = {
         }
         Relationships: []
       }
+      handover_acknowledgements: {
+        Row: {
+          ack_by: string | null
+          ack_name: string | null
+          action: string
+          created_at: string
+          id: string
+          note: string | null
+          patient_id: string
+          shift_key: string
+        }
+        Insert: {
+          ack_by?: string | null
+          ack_name?: string | null
+          action: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          patient_id: string
+          shift_key: string
+        }
+        Update: {
+          ack_by?: string | null
+          ack_name?: string | null
+          action?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          patient_id?: string
+          shift_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_acknowledgements_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handover_versions: {
         Row: {
           captured_at: string
