@@ -49,7 +49,13 @@ import {
   deletePatientTask,
   TASK_STATUSES,
   TASK_STATUS_LABEL,
+  TASK_PRIORITIES,
+  TASK_PRIORITY_LABEL,
+  TASK_CATEGORIES,
+  TASK_CATEGORY_LABEL,
   type TaskStatus,
+  type TaskPriority,
+  type TaskCategory,
 } from "@/lib/patient-tasks.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
