@@ -12,6 +12,23 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   completed: "Completed",
 };
 
+export const TASK_PRIORITIES = ["routine", "urgent", "critical"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
+  routine: "Routine",
+  urgent: "Urgent",
+  critical: "Critical",
+};
+
+export const TASK_CATEGORIES = ["job", "ward_round"] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
+
+export const TASK_CATEGORY_LABEL: Record<TaskCategory, string> = {
+  job: "Job",
+  ward_round: "Ward round",
+};
+
 export const listPatientTasks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { patientId: string }) =>
