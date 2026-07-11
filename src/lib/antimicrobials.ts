@@ -8,7 +8,7 @@ export type Antimicrobial = {
 };
 
 /** Whole-day inclusive course length between a start and (end|today), or null. */
-export function courseDays(startedOn: string, endedOn?: string | null): number | null {
+export function courseDays(startedOn?: string | null, endedOn?: string | null): number | null {
   if (!startedOn) return null;
   const start = new Date(startedOn + "T00:00:00");
   if (isNaN(start.getTime())) return null;
