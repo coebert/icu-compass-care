@@ -108,6 +108,8 @@ def create_patient():
             "status": "admitted",
             # Complete critical fields so the export guard allows generation.
             "current_admission": f"Admission {MARKER}",
+            # weight_kg is a required field in the edit form's validation.
+            "weight_kg": 80,
             # Pre-existing TEP + DNACPR entry that the UI edit will replace.
             "tep_in_place": True,
             "tep_details": TEP_OLD,
