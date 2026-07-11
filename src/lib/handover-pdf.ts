@@ -197,7 +197,7 @@ const SYSTEMS_FIELDS: [keyof HandoverPatient, string][] = [
  */
 export function antimicrobialsSummary(p: HandoverPatient): string {
   const list: Antimicrobial[] = Array.isArray(p.antimicrobials)
-    ? p.antimicrobials
+    ? (p.antimicrobials as Antimicrobial[])
     : [];
   if (!list.length) return "";
   return list
