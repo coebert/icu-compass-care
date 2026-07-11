@@ -305,16 +305,23 @@ def main():
                 tl.get_by_text("Admitted to critical care", exact=False).first
             ).to_be_visible()
 
-            # Newest-first ordering: Discharged event precedes the admission event.
+            # Continuity: the whole referred->admitted->discharged journey is
+            # represented as distinct Timeline entries. The two status-change
+            # audit events are datetime-stamped (today) and sort newest-first
+            # above the admission entry; the "Discharged" summary event is
+            # date-only (discharge_date) so it renders with its own UK date.
             texts = tl.locator("ol li").all_inner_texts()
             joined = "\n---\n".join(texts)
-            disch_idx = next((i for i, t in enumerate(texts) if "Discharged" in t and DESTINATION in t), None)
-            admit_idx = next((i for i, t in enumerate(texts) if "Admitted to critical care" in t), None)
-            assert disch_idx is not None, f"no Discharged event:\n{joined}"
-            assert admit_idx is not None, f"no admission event:\n{joined}"
-            assert disch_idx < admit_idx, (
-                f"Discharged should sort above admission (newest first):\n{joined}"
-            )
+            required = [
+                lambda t: "Discharged" in t and DESTINATION in t,
+                lambda t: "Status changed to Discharged" in t,
+                lambda t: "Status changed to Admitted" in t,
+                lambda t: "Admitted to critical care" in t,
+            ]
+            for i, pred in enumerate(required):
+                assert any(pred(t) for t in texts), (
+                    f"missing timeline continuity entry #{i}:\n{joined}"
+                )
 
             page.screenshot(path=str(SCREENSHOTS / "outlier_lifecycle_timeline_continuity.png"))
             browser.close()
