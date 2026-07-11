@@ -383,7 +383,8 @@ export function sanitizePdfMetadataText(input: string, fallback = ""): string {
 
 export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): jsPDF {
   const pageSize: HandoverPageSize = opts?.pageSize ?? "a4";
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: pageSize });
+  const orientation: HandoverOrientation = opts?.orientation ?? "landscape";
+  const doc = new jsPDF({ orientation, unit: "mm", format: pageSize });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const generated = new Date().toLocaleString("en-GB");
