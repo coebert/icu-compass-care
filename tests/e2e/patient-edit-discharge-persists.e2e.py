@@ -233,6 +233,13 @@ def main():
             )
             expect(dest_input).to_be_visible(timeout=10000)
             dest_input.fill(DESTINATION)
+
+            # A discharge date is required to mark a patient as discharged.
+            panel.get_by_role("button", name="DD/MM/YYYY").click()
+            today_day = str(int(time.strftime("%d")))
+            page.get_by_role("dialog").get_by_role("gridcell").filter(
+                has_text=re.compile(rf"^{today_day}$")
+            ).first.click()
             panel.get_by_role("button", name="Update status").click()
             expect(page.get_by_text("Status updated", exact=False).first).to_be_visible(timeout=15000)
 
