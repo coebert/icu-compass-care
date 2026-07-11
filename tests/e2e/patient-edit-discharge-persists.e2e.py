@@ -93,6 +93,7 @@ def create_patient():
         json={
             "full_name": PATIENT_NAME,
             "age": 62,
+            "weight_kg": 78,
             "location_type": "icu",
             "ward": "Critical Care",
             "bed": "6",
