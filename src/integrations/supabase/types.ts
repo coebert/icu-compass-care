@@ -386,6 +386,50 @@ export type Database = {
           },
         ]
       }
+      patient_reviews: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          patient_id: string
+          plan: string | null
+          review: string | null
+          reviewed_at: string
+          specialty: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          patient_id: string
+          plan?: string | null
+          review?: string | null
+          reviewed_at?: string
+          specialty: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          patient_id?: string
+          plan?: string | null
+          review?: string | null
+          reviewed_at?: string
+          specialty?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           admission_date: string | null
