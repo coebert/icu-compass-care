@@ -2445,7 +2445,68 @@ const FIELD_LABEL: Record<string, string> = {
   initials: "Initials",
   age: "Age",
   hospital_number: "Hospital number",
+  current_admission: "Current admission",
+  current_management: "Current management",
+  past_medical_history: "Past medical history",
+  dnacpr_decision: "DNACPR decision",
+  dnacpr_details: "DNACPR details",
+  tep_in_place: "TEP in place",
+  tep_details: "TEP details",
+  isolation_required: "Isolation",
+  airway_type: "Airway",
+  nutrition_route: "Nutrition",
+  systems_resp: "Respiratory",
+  systems_cvs: "Cardiovascular",
+  systems_neuro: "Neurology",
+  systems_renal: "Renal",
+  systems_gastro: "Gastro",
+  systems_micro: "Microbiology",
+  systems_haem: "Haematology",
+  systems_other: "Other systems",
 };
+
+// Compact ribbon of the most recent clinical changes, for the incoming team.
+function truncate(v: string | null | undefined, n = 80): string {
+  const s = (v ?? "").trim();
+  if (!s) return "—";
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+function RecentChangesRibbon({ patientId }: { patientId: string }) {
+  const fetchChanges = useServerFn(getPatientFieldChanges);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["patient-field-changes", patientId],
+    queryFn: () => fetchChanges({ data: { id: patientId } }) as Promise<AuditRow[]>,
+  });
+
+  const recent = useMemo(() => rows.slice(0, 6), [rows]);
+  if (isLoading || recent.length === 0) return null;
+
+  return (
+    <Card className="border-primary/30 bg-primary/5">
+      <CardContent className="space-y-2 p-3">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <Clock className="h-4 w-4" /> What changed recently
+        </p>
+        <div className="space-y-1.5">
+          {recent.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+              <span className="font-medium">{FIELD_LABEL[r.field_name] ?? r.field_name}</span>
+              <span className="text-muted-foreground">
+                {truncate(r.old_value)} → {truncate(r.new_value)}
+              </span>
+              <span className="ml-auto text-muted-foreground">
+                {r.changed_by_email ? `${r.changed_by_email} · ` : ""}
+                {fmtDateTime(r.changed_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function FieldChangeHistory({ patientId }: { patientId: string }) {
   const fetchChanges = useServerFn(getPatientFieldChanges);
