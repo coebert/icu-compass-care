@@ -17,6 +17,7 @@ import {
   usePatientFieldMutation,
 } from "@/components/patient/systems-widgets";
 import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summary";
+import { ObservationsCard } from "@/components/patient/observations-card";
 import {
   listInvestigations,
   addInvestigation,
@@ -1325,6 +1326,7 @@ function PatientDetail() {
       <Tabs defaultValue="overview">
         <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="observations">Observations</TabsTrigger>
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
@@ -1336,6 +1338,20 @@ function PatientDetail() {
         </TabsList>
 
 
+
+        <TabsContent value="observations" className="mt-4 space-y-4">
+          <ObservationsCard
+            patientId={patientId}
+            support={{
+              ventilated:
+                patient.airway_type === "ett" ||
+                patient.airway_type === "tracheostomy" ||
+                (Array.isArray(patient.resp_support) && patient.resp_support.length > 0),
+              rrt: patient.renal_rrt === true,
+              vasoactive: Array.isArray(patient.vasoactive_agents) && patient.vasoactive_agents.length > 0,
+            }}
+          />
+        </TabsContent>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />

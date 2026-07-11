@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listPatients, createPatient, updatePatient } from "@/lib/patients.functions";
@@ -13,7 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
+import { listLatestObservations } from "@/lib/observations.functions";
+import { type Observation } from "@/lib/observations";
+import { AcuityBadge } from "@/components/patient/observations-card";
 import { toast } from "sonner";
+
+// Supplies the latest observation per patient down to the deeply-nested cards.
+const AcuityContext = createContext<Map<string, Observation>>(new Map());
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
@@ -94,6 +100,17 @@ function PatientsBoard() {
     queryKey: ["beds"],
     queryFn: () => beds() as Promise<Bed[]>,
   });
+
+  const latestObsFn = useServerFn(listLatestObservations);
+  const { data: latestObs = [] } = useQuery({
+    queryKey: ["latest-observations"],
+    queryFn: () => latestObsFn() as Promise<Observation[]>,
+  });
+  const obsByPatient = useMemo(() => {
+    const m = new Map<string, Observation>();
+    for (const o of latestObs) m.set(o.patient_id, o);
+    return m;
+  }, [latestObs]);
 
   const createMut = useMutation({
     mutationFn: (v: PatientFormValues) => create({ data: v as never }),
@@ -431,6 +448,7 @@ function PatientsBoard() {
   }
 
   return (
+    <AcuityContext.Provider value={obsByPatient}>
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
@@ -564,11 +582,23 @@ function PatientsBoard() {
         </DialogContent>
       </Dialog>
     </div>
+    </AcuityContext.Provider>
   );
 }
 
 function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   const flags = deriveSafetyFlags(p);
+  const obsMap = useContext(AcuityContext);
+  const latestObs = obsMap.get(p.id);
+  const support = {
+    ventilated:
+      p.airway_type === "ett" ||
+      p.airway_type === "tracheostomy" ||
+      (Array.isArray(p.resp_support) && p.resp_support.length > 0),
+    rrt: p.renal_rrt === true,
+    vasoactive: Array.isArray(p.vasoactive_agents) && p.vasoactive_agents.length > 0,
+  };
+  const showAcuity = !!latestObs || support.ventilated || support.rrt || support.vasoactive;
   return (
     <CardContent className="space-y-2 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -584,6 +614,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
+        {showAcuity && <AcuityBadge latest={latestObs} support={support} />}
         {flags.hasAllergies && (
           <Badge variant="outline" className="max-w-[12rem] gap-1 border-rose-400 text-rose-700 dark:text-rose-300">
             <AlertTriangle className="h-3 w-3 shrink-0" />

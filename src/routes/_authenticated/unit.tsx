@@ -5,6 +5,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { listPatients } from "@/lib/patients.functions";
 import { listOpenTasks, TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/patient-tasks.functions";
 import { listBeds, type Bed } from "@/lib/beds.functions";
+import { listLatestObservations } from "@/lib/observations.functions";
+import { computeAcuity, type Observation } from "@/lib/observations";
+import { AcuityBadge } from "@/components/patient/observations-card";
 import { normalizeBed } from "@/lib/icu-beds";
 import { deriveSafetyFlags, parseAllergies } from "@/lib/patient-safety";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -226,6 +229,24 @@ function UnitDashboard() {
     queryKey: ["open-tasks"],
     queryFn: () => openTasksFn() as Promise<OpenTask[]>,
   });
+  const latestObsFn = useServerFn(listLatestObservations);
+  const { data: latestObs = [] } = useQuery({
+    queryKey: ["latest-observations"],
+    queryFn: () => latestObsFn() as Promise<Observation[]>,
+  });
+
+  const obsByPatient = useMemo(() => {
+    const m = new Map<string, Observation>();
+    for (const o of latestObs) m.set(o.patient_id, o);
+    return m;
+  }, [latestObs]);
+
+  const patientSupport = (p: Patient) => ({
+    ventilated:
+      p.airway_type === "ett" || p.airway_type === "tracheostomy" || has(p.resp_support),
+    rrt: p.renal_rrt === true,
+    vasoactive: has(p.vasoactive_agents),
+  });
 
   const active = useMemo(
     () => patients.filter((p) => p.status === "admitted" || p.status === "referred"),
@@ -248,6 +269,15 @@ function UnitDashboard() {
 
     return { ventilated, vasoactive, rrt, isolation, allergy, noResus, stale, jobs, occupied, totalBeds };
   }, [icu, active, bedRoster]);
+
+  const highAcuity = useMemo(
+    () =>
+      icu.filter(
+        (p) => computeAcuity(obsByPatient.get(p.id), patientSupport(p)).band === "high",
+      ),
+    [icu, obsByPatient],
+  );
+
 
   const patientById = useMemo(() => {
     const m = new Map<string, Patient>();
@@ -282,7 +312,16 @@ function UnitDashboard() {
         <StatCard icon={Clock} label="Overdue tasks" value={taskStats.overdue.length} tone={taskStats.overdue.length ? "danger" : "default"} />
         <StatCard icon={Activity} label="Total active patients" value={active.length} />
         <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
+        <StatCard icon={HeartPulse} label="High acuity" value={highAcuity.length} tone={highAcuity.length ? "danger" : "default"} />
       </div>
+
+      <ListCard
+        icon={Activity}
+        title="ICU acuity"
+        patients={icu}
+        empty="No ICU patients."
+        right={(p) => <AcuityBadge latest={obsByPatient.get(p.id)} support={patientSupport(p)} />}
+      />
 
       <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
 
