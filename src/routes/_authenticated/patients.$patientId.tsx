@@ -1821,12 +1821,31 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
       });
     }
 
+    for (const sc of statusChanges) {
+      const toStatus = sc.to as keyof typeof STATUS_LABELS | null;
+      const label = toStatus && STATUS_LABELS[toStatus] ? STATUS_LABELS[toStatus] : sc.to ?? "Unknown";
+      evs.push({
+        key: `status-${sc.id}`,
+        at: sc.at,
+        icon: <UserRound className="h-4 w-4" />,
+        title: `Status changed to ${label}`,
+        detail: null,
+        kind:
+          toStatus === "discharged" || toStatus === "died"
+            ? "discharge"
+            : toStatus === "admitted"
+              ? "admission"
+              : "event",
+        changedBy: sc.changedBy,
+      });
+    }
+
     return evs.sort((a, b) => {
       const ta = a.at ? new Date(a.at).getTime() : 0;
       const tb = b.at ? new Date(b.at).getTime() : 0;
       return tb - ta;
     });
-  }, [patient, investigations, micro, keyEvents]);
+  }, [patient, investigations, micro, keyEvents, statusChanges]);
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
