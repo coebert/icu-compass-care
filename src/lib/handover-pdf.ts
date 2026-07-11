@@ -339,40 +339,29 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   const bodyFontSize = 7 * fontScale;
   const headFontSize = 7.5 * fontScale;
 
+  // Resolve which columns to render (default to all; empty selection falls
+  // back to all so the sheet is never blank), keeping display order.
+  const requested = opts?.columns;
+  const selectedCols =
+    requested && requested.length > 0
+      ? HANDOVER_COLUMNS.filter((c) => requested.includes(c.key))
+      : HANDOVER_COLUMNS;
+  const cols = selectedCols.length > 0 ? selectedCols : HANDOVER_COLUMNS;
+  const columnTotal = cols.reduce((a, c) => a + c.weight, 0);
+
   // Distribute the proportional weights across the available content width so
   // the columns always span the page exactly, whatever the size/margin.
   const contentWidth = pageWidth - marginX * 2;
   const columnStyles: Record<number, { cellWidth: number; fontStyle?: "bold" }> = {};
-  COLUMN_WEIGHTS.forEach((w, i) => {
-    columnStyles[i] = { cellWidth: (w / COLUMN_TOTAL) * contentWidth };
+  cols.forEach((c, i) => {
+    columnStyles[i] = { cellWidth: (c.weight / columnTotal) * contentWidth };
   });
-  columnStyles[0].fontStyle = "bold";
+  // Bold the leading column (patient identity) when it is present first.
+  if (cols[0]?.key === "patient") columnStyles[0].fontStyle = "bold";
 
   autoTable(doc, {
-    head: [[
-      "Patient",
-      "Location / status",
-      "Past medical history",
-      "Current admission",
-      "Management",
-      "Systems review",
-      "Most recent investigations",
-      "Key microbiology",
-      "Outstanding tasks",
-      "TEP / DNACPR / NOK",
-    ]],
-    body: patients.map((p) => [
-      identity(p),
-      location(p),
-      p.past_medical_history || "—",
-      p.current_admission || "—",
-      p.current_management || "—",
-      systemsReview(p),
-      investigations(p),
-      microbiology(p),
-      p.outstanding_tasks || "—",
-      flags(p),
-    ]),
+    head: [cols.map((c) => c.header)],
+    body: patients.map((p) => cols.map((c) => c.render(p))),
     startY: subtitle ? 22 : 20,
     margin: { top: subtitle ? 22 : 18, left: marginX, right: marginX, bottom: 12 },
     tableWidth: contentWidth,
