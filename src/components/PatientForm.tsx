@@ -180,13 +180,13 @@ export function PatientForm({
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Initials *">
-            <Input value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={10} placeholder="e.g. J.S." required />
+            <Input id="pf-full_name" value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={10} placeholder="e.g. J.S." required />
           </Field>
           <Field label="Age *">
             <Input type="number" min={0} max={130} step={1} value={values.age} onChange={(e) => set("age", e.target.value)} required />
           </Field>
           <Field label="Hospital number">
-            <Input value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
+            <Input id="pf-hospital_number" value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
           </Field>
           <Field label="Weight (kg)">
             <Input type="number" min={0} max={600} step="0.1" value={values.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} placeholder="e.g. 78" />
@@ -211,7 +211,7 @@ export function PatientForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Ward"><Input value={values.ward} onChange={(e) => set("ward", e.target.value)} /></Field>
+          <Field label="Ward"><Input id="pf-ward" value={values.ward} onChange={(e) => set("ward", e.target.value)} /></Field>
           <Field label="Bed"><Input value={values.bed} onChange={(e) => set("bed", e.target.value)} /></Field>
           <Field label="Admission date">
             <DatePicker value={values.admission_date} onChange={(v) => set("admission_date", v)} />
@@ -240,7 +240,7 @@ export function PatientForm({
           <Textarea rows={3} value={values.past_medical_history} onChange={(e) => set("past_medical_history", e.target.value)} />
         </Field>
         <Field label="Current admission">
-          <Textarea rows={3} value={values.current_admission} onChange={(e) => set("current_admission", e.target.value)} />
+          <Textarea id="pf-current_admission" rows={3} value={values.current_admission} onChange={(e) => set("current_admission", e.target.value)} />
         </Field>
         <Field label="Current management">
           <Textarea rows={3} value={values.current_management} onChange={(e) => set("current_management", e.target.value)} />
