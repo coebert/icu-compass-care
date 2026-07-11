@@ -7,7 +7,7 @@ import {
   listHandoverVersions,
   getHandoverVersion,
   captureHandoverVersionNow,
-  type HandoverVersionSummary,
+  
 } from "@/lib/handover-versions.functions";
 import { getMe } from "@/lib/me.functions";
 import { handoverPdfPreviewUrl, downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
