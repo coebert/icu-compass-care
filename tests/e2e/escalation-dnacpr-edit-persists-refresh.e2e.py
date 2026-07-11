@@ -98,6 +98,7 @@ def create_patient():
             "ward": "Critical Care",
             "bed": "12",
             "status": "admitted",
+            "weight_kg": 80,
             "tep_in_place": False,
             "dnacpr_decision": False,
             "current_admission": f"Admission note {MARKER}",
