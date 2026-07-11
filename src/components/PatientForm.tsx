@@ -166,14 +166,22 @@ export function PatientForm({
   const set = <K extends keyof PatientFormValues>(k: K, v: PatientFormValues[K]) =>
     onChange({ ...values, [k]: v });
 
+  // Escalation-plan completeness: if a TEP is switched on, ceiling-of-care /
+  // escalation details are mandatory. An incomplete escalation plan is a
+  // clinical-safety risk, so the form blocks submission until it is filled in.
+  const tepDetailsMissing =
+    values.tep_in_place && values.tep_details.trim() === "";
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (tepDetailsMissing) return;
         onSubmit();
       }}
       className="space-y-6"
     >
+
       <section className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Identity & location
@@ -414,9 +422,21 @@ export function PatientForm({
         </div>
         {values.tep_in_place && (
           <Field label="TEP details">
-            <Textarea rows={2} value={values.tep_details} onChange={(e) => set("tep_details", e.target.value)} />
+            <Textarea
+              rows={2}
+              value={values.tep_details}
+              onChange={(e) => set("tep_details", e.target.value)}
+              aria-invalid={tepDetailsMissing}
+            />
+
+            {tepDetailsMissing && (
+              <p role="alert" className="text-sm text-destructive">
+                TEP details are required when a treatment escalation plan is in place.
+              </p>
+            )}
           </Field>
         )}
+
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
             <p className="text-sm font-medium">DNACPR — decision not to attempt CPR</p>
@@ -453,7 +473,7 @@ export function PatientForm({
 
       <div className="flex justify-end gap-2 border-t pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? "Saving…" : submitLabel}</Button>
+        <Button type="submit" disabled={submitting || tepDetailsMissing}>{submitting ? "Saving…" : submitLabel}</Button>
       </div>
     </form>
   );
