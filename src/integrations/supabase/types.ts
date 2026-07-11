@@ -44,6 +44,102 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_security_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_key: string
+          created_at: string
+          event_count: number
+          event_type: string
+          first_seen: string
+          id: string
+          last_seen: string
+          note: string | null
+          sample_actor_email: string | null
+          sample_detail: string | null
+          sample_ip: string | null
+          status: string
+          threshold: number
+          updated_at: string
+          window_minutes: number
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_key: string
+          created_at?: string
+          event_count?: number
+          event_type: string
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          note?: string | null
+          sample_actor_email?: string | null
+          sample_detail?: string | null
+          sample_ip?: string | null
+          status?: string
+          threshold: number
+          updated_at?: string
+          window_minutes: number
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_key?: string
+          created_at?: string
+          event_count?: number
+          event_type?: string
+          first_seen?: string
+          id?: string
+          last_seen?: string
+          note?: string | null
+          sample_actor_email?: string | null
+          sample_detail?: string | null
+          sample_ip?: string | null
+          status?: string
+          threshold?: number
+          updated_at?: string
+          window_minutes?: number
+        }
+        Relationships: []
+      }
+      bridge_security_events: {
+        Row: {
+          actor_email: string | null
+          actor_role: string | null
+          created_at: string
+          detail: string | null
+          endpoint: string | null
+          event_type: string
+          id: string
+          ip: string | null
+          method: string | null
+        }
+        Insert: {
+          actor_email?: string | null
+          actor_role?: string | null
+          created_at?: string
+          detail?: string | null
+          endpoint?: string | null
+          event_type: string
+          id?: string
+          ip?: string | null
+          method?: string | null
+        }
+        Update: {
+          actor_email?: string | null
+          actor_role?: string | null
+          created_at?: string
+          detail?: string | null
+          endpoint?: string | null
+          event_type?: string
+          id?: string
+          ip?: string | null
+          method?: string | null
+        }
+        Relationships: []
+      }
       bridge_sync_events: {
         Row: {
           actor_email: string | null
@@ -1312,7 +1408,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      record_bridge_security_event: {
+        Args: {
+          _actor_email?: string
+          _actor_role?: string
+          _detail?: string
+          _endpoint?: string
+          _event_type: string
+          _ip?: string
+          _method?: string
+          _threshold?: number
+          _window_minutes?: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       admission_urgency:
