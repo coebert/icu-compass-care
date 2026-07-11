@@ -1339,6 +1339,20 @@ function PatientDetail() {
 
 
 
+        <TabsContent value="observations" className="mt-4 space-y-4">
+          <ObservationsCard
+            patientId={patientId}
+            support={{
+              ventilated:
+                patient.airway_type === "ett" ||
+                patient.airway_type === "tracheostomy" ||
+                (Array.isArray(patient.resp_support) && patient.resp_support.length > 0),
+              rrt: patient.renal_rrt === true,
+              vasoactive: Array.isArray(patient.vasoactive_agents) && patient.vasoactive_agents.length > 0,
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />
           <RecentChangesRibbon patientId={patientId} />
