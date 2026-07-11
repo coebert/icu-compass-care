@@ -129,7 +129,16 @@ function patient(name: string, observations: Observation[]): HandoverPatient {
 
 const SAME_TIME = "2026-07-10T08:00:00.000Z";
 
-const SCENARIOS: { name: string; patient: HandoverPatient; expectFragment: string }[] = [
+const SCENARIOS: {
+  name: string;
+  patient: HandoverPatient;
+  /** Empty string = the "no observations" placeholder case. */
+  expectFragment: string;
+  /** Substrings that MUST appear (whitespace-insensitive). */
+  expectContains?: string[];
+  /** Substrings that MUST NOT appear (whitespace-insensitive). */
+  expectAbsent?: string[];
+}[] = [
   {
     name: "single observation",
     patient: patient("Single Obs", [
@@ -158,7 +167,79 @@ const SCENARIOS: { name: string; patient: HandoverPatient; expectFragment: strin
     patient: patient("No Obs", []),
     expectFragment: "",
   },
+  // ---- Partial / missing vital fields ----
+  {
+    name: "no SpO2 (HR + RR only)",
+    patient: patient("No Spo2", [
+      obs({ id: "no-spo2", recorded_at: SAME_TIME, hr: 92, rr: 18 }),
+    ]),
+    expectFragment: "no-spo2",
+    expectContains: ["HR 92", "RR 18"],
+    expectAbsent: ["SpO"],
+  },
+  {
+    name: "BP present, no HR (MAP derived not shown without map)",
+    patient: patient("Bp Only", [
+      obs({ id: "bp-only", recorded_at: SAME_TIME, sbp: 90, dbp: 60 }),
+    ]),
+    expectFragment: "bp-only",
+    expectContains: ["BP 90/60"],
+    expectAbsent: ["HR ", "SpO"],
+  },
+  {
+    name: "MAP only, no systolic/diastolic",
+    patient: patient("Map Only", [
+      obs({ id: "map-only", recorded_at: SAME_TIME, map: 65 }),
+    ]),
+    expectFragment: "map-only",
+    expectContains: ["MAP 65"],
+    expectAbsent: ["BP ", "HR "],
+  },
+  {
+    name: "support-only: vent + pressor, no basic vitals",
+    patient: patient("Support Only", [
+      obs({
+        id: "support-1",
+        recorded_at: SAME_TIME,
+        vent_mode: "SIMV",
+        peep: 8,
+        vasopressor: "Noradrenaline",
+        vasopressor_dose: 0.12,
+      }),
+    ]),
+    expectFragment: "support-1",
+    expectContains: ["Vent SIMV", "PEEP 8", "Pressor Noradrenaline"],
+    expectAbsent: ["HR ", "BP ", "SpO"],
+  },
+  {
+    name: "observation with all vitals null → placeholder vitals, still timestamped",
+    patient: patient("Empty Vitals", [
+      obs({ id: "empty-vitals", recorded_at: SAME_TIME }),
+    ]),
+    expectFragment: "empty-vitals",
+    // No vitals render, but the timestamp + id line is still present.
+    expectContains: ["id empty-vitals"],
+    expectAbsent: ["HR ", "BP ", "SpO", "MAP "],
+  },
+  {
+    name: "mixed completeness across rows → latest (fullest) chosen",
+    patient: patient("Mixed Rows", [
+      obs({ id: "old-sparse", recorded_at: "2026-07-10T05:00:00.000Z", hr: 70 }),
+      obs({
+        id: "new-full",
+        recorded_at: "2026-07-10T10:00:00.000Z",
+        hr: 105,
+        spo2: 92,
+        rr: 22,
+        temp: 38.4,
+      }),
+    ]),
+    expectFragment: "new-full",
+    expectContains: ["HR 105", "RR 22"],
+    expectAbsent: ["HR 70"],
+  },
 ];
+
 
 // ---- Tests ------------------------------------------------------------------
 
