@@ -42,8 +42,33 @@ function ShiftBadge({ shift }: { shift: "am" | "pm" }) {
 }
 
 function HandoverHistoryPage() {
+  const qc = useQueryClient();
   const list = useServerFn(listHandoverVersions);
   const getOne = useServerFn(getHandoverVersion);
+  const me = useServerFn(getMe);
+  const captureNow = useServerFn(captureHandoverVersionNow);
+  const [capturing, setCapturing] = useState(false);
+
+  const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
+  const isAdmin = profile?.isAdmin ?? false;
+
+  async function handleCaptureNow() {
+    setCapturing(true);
+    try {
+      const r = await captureNow();
+      if (r.captured) {
+        toast.success(`Saved version — ${r.patient_count} patient(s)`);
+        qc.invalidateQueries({ queryKey: ["handover-versions"] });
+      } else {
+        toast.message(r.skipped ?? "No version saved");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save version");
+    } finally {
+      setCapturing(false);
+    }
+  }
+
 
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
