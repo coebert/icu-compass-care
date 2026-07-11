@@ -37,6 +37,7 @@ const patientInput = z.object({
   airway_type: z.string().max(20).optional().nullable(),
   resp_support: z.array(z.string().max(20)).max(10).optional(),
   systems_cvs: z.string().max(10000).optional().nullable(),
+  vasoactive_agents: z.array(z.string().max(20)).max(10).optional(),
   systems_neuro: z.string().max(10000).optional().nullable(),
   systems_renal: z.string().max(10000).optional().nullable(),
   systems_gastro: z.string().max(10000).optional().nullable(),
