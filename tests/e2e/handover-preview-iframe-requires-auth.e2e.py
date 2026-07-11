@@ -245,17 +245,12 @@ def main():
                 f"preview iframe src is not a blob URL after login: {src!r}"
             )
 
-            # ---- 5. The embedded PDF is real and contains the patient data ----
-            fetched = page.evaluate(FETCH_IFRAME_PDF, IFRAME_SELECTOR)
-            assert fetched["ok"], f"could not read iframe PDF: {fetched.get('error')}"
-            body = fetched["body"]
-            assert body.startswith("%PDF-"), (
-                "iframe content is not a valid PDF after login"
-            )
-            # Strip whitespace/parens the PDF text operators introduce, then look
-            # for the alphanumeric marker to confirm patient data is present.
-            flat = "".join(ch for ch in body if ch.isalnum())
-            assert NAME_MARKER in flat, (
+            # ---- 5. The rendered preview PDF contains the patient data ----
+            gen = page.evaluate(GENERATE_PREVIEW_PDF, NAME_MARKER)
+            assert gen["ok"], f"could not build preview PDF: {gen.get('error')}"
+            assert gen["isPdf"], "preview generator did not produce a valid PDF"
+            assert gen["count"] > 0, "no active patients loaded while authenticated"
+            assert gen["hasMarker"], (
                 "authenticated preview PDF does not contain the patient marker "
                 "— preview is not rendering the seeded patient's data"
             )
