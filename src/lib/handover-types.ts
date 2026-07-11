@@ -28,6 +28,7 @@ export type HandoverColumnKey =
   | "admission"
   | "management"
   | "systems"
+  | "observations"
   | "investigations"
   | "microbiology"
   | "tasks"
