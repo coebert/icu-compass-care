@@ -74,22 +74,14 @@ export async function captureHandoverSnapshot(
   opts: { force?: boolean; now?: Date } = {},
 ): Promise<CaptureResult> {
   const now = opts.now ?? new Date();
-  const parts = londonParts(now);
 
-  let shift: ShiftKey;
-  if (opts.force) {
-    shift = shiftForHour(parts.hour);
-  } else {
-    if (parts.hour === 8) shift = "am";
-    else if (parts.hour === 20) shift = "pm";
-    else {
-      return {
-        ok: true,
-        captured: false,
-        skipped: `Not a handover hour (London ${String(parts.hour).padStart(2, "0")}:00)`,
-      };
-    }
+  const decision = decideShiftGate(now, opts.force);
+  const parts = decision.parts;
+  if (!decision.capture) {
+    return { ok: true, captured: false, skipped: decision.reason };
   }
+  const shift: ShiftKey = decision.shift;
+
 
   const admin = await getAdmin();
 
