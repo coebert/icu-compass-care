@@ -2,19 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
+import { assertAdmin } from "@/lib/roles.server";
 
-async function assertAdmin(context: { supabase: any; userId: string }) {
-  // Verify admin via the user_roles table directly (readable under the
-  // "Users can view own roles" policy) instead of an API-exposed RPC.
-  const { data, error } = await context.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", context.userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (error) throw safeDbError(error, "verify permissions");
-  if (!data) throw new Error("Forbidden: admin only");
-}
 
 // List all staff accounts (admin only).
 export const listStaff = createServerFn({ method: "GET" })
