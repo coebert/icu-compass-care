@@ -4,6 +4,7 @@ import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
 import {
+import { getAdmin } from "@/lib/admin-db.server";
   patientInput,
   clean,
   validatePatientState,
@@ -47,7 +48,7 @@ export const createPatient = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw safeDbError(error);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: row.id,
@@ -102,7 +103,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .single();
     if (error) throw safeDbError(error);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
     await writeAudit(supabaseAdmin, {
       entity: "patients",
@@ -133,7 +134,7 @@ export const deletePatient = createServerFn({ method: "POST" })
       .maybeSingle();
     const { error } = await context.supabase.from("patients").delete().eq("id", data.id);
     if (error) throw safeDbError(error);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: data.id,

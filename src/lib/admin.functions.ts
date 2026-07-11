@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
 import { assertAdmin } from "@/lib/roles.server";
+import { getAdmin } from "@/lib/admin-db.server";
 
 
 // List all staff accounts (admin only).
@@ -10,7 +11,7 @@ export const listStaff = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     const { data: profiles, error } = await context.supabase
       .from("profiles")
       .select("*")
@@ -42,7 +43,7 @@ export const createStaff = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
@@ -70,7 +71,7 @@ export const setStaffRole = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin
       .from("user_roles")
@@ -88,7 +89,7 @@ export const deleteStaff = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
     if (data.user_id === context.userId) throw new Error("You cannot delete your own account");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     if (error) throw safeDbError(error);
     return { ok: true };
@@ -99,7 +100,7 @@ export const deleteStaff = createServerFn({ method: "POST" })
 export const claimFirstAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     const { count, error: countErr } = await supabaseAdmin
       .from("user_roles")
       .select("id", { count: "exact", head: true })

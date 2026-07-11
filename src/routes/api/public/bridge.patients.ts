@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
+import { getAdmin } from "@/lib/admin-db.server";
 
 // The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
 // the partner system is trusted, may send longer names, treats every field as
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         const auth = authorize(request, "", { write: false });
         if (!auth.ok) return auth.response;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         const url = new URL(request.url);
         const status = url.searchParams.get("status");
 
@@ -91,7 +92,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           return json({ error: "Invalid patient payload" }, 400);
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         // Strip control fields that are not table columns.
         const { expected_updated_at, ...columns } = parsed;
         const record = clean(columns);

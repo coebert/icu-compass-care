@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 import { DEFAULT_BEDS, normalizeBed, type BedSlot } from "@/lib/icu-beds";
+import { getAdmin } from "@/lib/admin-db.server";
 
 /**
  * Read-only bridge endpoint exposing the Radnor Critical Care bed board to the
@@ -45,7 +46,7 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
         const auth = authorize(request, "", { write: false });
         if (!auth.ok) return auth.response;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
 
         // Active ICU patients are the only ones that occupy beds.
         const { data, error } = await supabaseAdmin

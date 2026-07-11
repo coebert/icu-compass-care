@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { getAdmin } from "@/lib/admin-db.server";
 
 // Read-only bridge endpoint exposing this backend's referrals so the partner
 // project can review and reconcile the synced set.
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/api/public/bridge/referrals")({
         const auth = authorize(request, "", { write: false });
         if (!auth.ok) return auth.response;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         const { data, error } = await supabaseAdmin
           .from("referrals")
           .select("*")
