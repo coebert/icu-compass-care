@@ -233,6 +233,126 @@ function CardiovascularStatus({
   );
 }
 
+const SEDATIVE_OPTIONS: { value: string; label: string }[] = [
+  { value: "propofol", label: "Propofol" },
+  { value: "fentanyl", label: "Fentanyl" },
+  { value: "alfentanil", label: "Alfentanil" },
+  { value: "remifentanil", label: "Remifentanil" },
+  { value: "clonidine", label: "Clonidine" },
+  { value: "dexmedetomidine", label: "Dexmedetomidine" },
+  { value: "midazolam", label: "Midazolam" },
+  { value: "ketamine", label: "Ketamine" },
+];
+
+const PCA_OPTIONS: { value: string; label: string }[] = [
+  { value: "morphine", label: "Morphine" },
+  { value: "fentanyl", label: "Fentanyl" },
+];
+
+const REGIONAL_OPTIONS: { value: string; label: string }[] = [
+  { value: "epidural", label: "Epidural" },
+  { value: "rscs", label: "RSCs" },
+  { value: "esp", label: "ESP" },
+  { value: "sap", label: "SAP" },
+  { value: "other", label: "Other LA catheter" },
+];
+
+function CheckboxRow({
+  label,
+  options,
+  selected,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  disabled: boolean;
+  onToggle: (value: string) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-4">
+        {options.map((opt) => (
+          <label key={opt.value} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={selected.includes(opt.value)}
+              disabled={disabled}
+              onCheckedChange={() => onToggle(opt.value)}
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NeuroStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+
+  const sedatives: string[] = patient.sedative_agents ?? [];
+  const pca: string[] = patient.pca_agents ?? [];
+  const regional: string[] = patient.regional_analgesia ?? [];
+
+  const mut = useMutation({
+    mutationFn: (payload: Record<string, string[]>) =>
+      update({ data: { id: patientId, ...payload } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  const toggleIn = (
+    field: "sedative_agents" | "pca_agents" | "regional_analgesia",
+    current: string[],
+    value: string,
+  ) => {
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    mut.mutate({ [field]: next });
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <CheckboxRow
+        label="Sedative / analgesic agents"
+        options={SEDATIVE_OPTIONS}
+        selected={sedatives}
+        disabled={mut.isPending}
+        onToggle={(v) => toggleIn("sedative_agents", sedatives, v)}
+      />
+      <CheckboxRow
+        label="PCA"
+        options={PCA_OPTIONS}
+        selected={pca}
+        disabled={mut.isPending}
+        onToggle={(v) => toggleIn("pca_agents", pca, v)}
+      />
+      <CheckboxRow
+        label="Epidural / LA catheter(s)"
+        options={REGIONAL_OPTIONS}
+        selected={regional}
+        disabled={mut.isPending}
+        onToggle={(v) => toggleIn("regional_analgesia", regional, v)}
+      />
+      <InfoBlock label="CNS / Neuro notes" value={patient.systems_neuro} />
+    </div>
+  );
+}
+
+
+
 
 
 
