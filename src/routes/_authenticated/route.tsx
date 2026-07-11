@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble, Lock, LayoutDashboard } from "lucide-react";
+import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History } from "lucide-react";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
@@ -72,6 +72,7 @@ function AuthenticatedLayout() {
 
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
+    { to: "/patients/history", label: "History", icon: History },
     { to: "/unit", label: "Unit", icon: LayoutDashboard },
     ...(profile?.isAdmin
       ? [
@@ -110,7 +111,16 @@ function AuthenticatedLayout() {
           </Link>
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
-              const active = pathname.startsWith(item.to);
+              // Pick the most specific matching nav item so e.g. /patients/history
+              // highlights "History" rather than also lighting up "Patients".
+              const matches = navItems.filter(
+                (n) => pathname === n.to || pathname.startsWith(n.to + "/"),
+              );
+              const best = matches.reduce(
+                (a, b) => (b.to.length > a.to.length ? b : a),
+                { to: "" } as { to: string },
+              );
+              const active = best.to === item.to;
               return (
                 <Link key={item.to} to={item.to}>
                   <Button variant={active ? "secondary" : "ghost"} size="sm" className="gap-1.5">
@@ -121,6 +131,7 @@ function AuthenticatedLayout() {
               );
             })}
           </nav>
+
           <div className="ml-auto flex items-center gap-3">
             <SyncStatusPanel
               className="hidden sm:inline-flex"

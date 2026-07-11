@@ -20,8 +20,10 @@ import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
+import { Route as AuthenticatedPatientsHistoryRouteImport } from './routes/_authenticated/patients.history'
 import { Route as AuthenticatedPatientsHandoverPreviewRouteImport } from './routes/_authenticated/patients.handover-preview'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
+import { Route as ApiPublicHooksHandoverSnapshotRouteImport } from './routes/api/public/hooks/handover-snapshot'
 import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
 import { Route as ApiPublicHealthSchemaRouteImport } from './routes/api/public/health.schema'
 import { Route as ApiPublicBridgeVerifySignatureRouteImport } from './routes/api/public/bridge.verify-signature'
@@ -90,6 +92,12 @@ const AuthenticatedPatientsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
+const AuthenticatedPatientsHistoryRoute =
+  AuthenticatedPatientsHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => AuthenticatedPatientsRoute,
+  } as any)
 const AuthenticatedPatientsHandoverPreviewRoute =
   AuthenticatedPatientsHandoverPreviewRouteImport.update({
     id: '/handover-preview',
@@ -101,6 +109,12 @@ const AuthenticatedPatientsPatientIdRoute =
     id: '/$patientId',
     path: '/$patientId',
     getParentRoute: () => AuthenticatedPatientsRoute,
+  } as any)
+const ApiPublicHooksHandoverSnapshotRoute =
+  ApiPublicHooksHandoverSnapshotRouteImport.update({
+    id: '/api/public/hooks/handover-snapshot',
+    path: '/api/public/hooks/handover-snapshot',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksBridgeSyncRoute =
   ApiPublicHooksBridgeSyncRouteImport.update({
@@ -181,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
+  '/patients/history': typeof AuthenticatedPatientsHistoryRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/beds': typeof ApiPublicBridgeBedsRoute
@@ -194,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/api/public/bridge/verify-signature': typeof ApiPublicBridgeVerifySignatureRoute
   '/api/public/health/schema': typeof ApiPublicHealthSchemaRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
+  '/api/public/hooks/handover-snapshot': typeof ApiPublicHooksHandoverSnapshotRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +222,7 @@ export interface FileRoutesByTo {
   '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
+  '/patients/history': typeof AuthenticatedPatientsHistoryRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/beds': typeof ApiPublicBridgeBedsRoute
@@ -219,6 +236,7 @@ export interface FileRoutesByTo {
   '/api/public/bridge/verify-signature': typeof ApiPublicBridgeVerifySignatureRoute
   '/api/public/health/schema': typeof ApiPublicHealthSchemaRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
+  '/api/public/hooks/handover-snapshot': typeof ApiPublicHooksHandoverSnapshotRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -234,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/unit': typeof AuthenticatedUnitRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/_authenticated/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
+  '/_authenticated/patients/history': typeof AuthenticatedPatientsHistoryRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/beds': typeof ApiPublicBridgeBedsRoute
@@ -247,6 +266,7 @@ export interface FileRoutesById {
   '/api/public/bridge/verify-signature': typeof ApiPublicBridgeVerifySignatureRoute
   '/api/public/health/schema': typeof ApiPublicHealthSchemaRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
+  '/api/public/hooks/handover-snapshot': typeof ApiPublicHooksHandoverSnapshotRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -262,6 +282,7 @@ export interface FileRouteTypes {
     | '/unit'
     | '/patients/$patientId'
     | '/patients/handover-preview'
+    | '/patients/history'
     | '/patients/'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/beds'
@@ -275,6 +296,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/verify-signature'
     | '/api/public/health/schema'
     | '/api/public/hooks/bridge-sync'
+    | '/api/public/hooks/handover-snapshot'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -287,6 +309,7 @@ export interface FileRouteTypes {
     | '/unit'
     | '/patients/$patientId'
     | '/patients/handover-preview'
+    | '/patients/history'
     | '/patients'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/beds'
@@ -300,6 +323,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/verify-signature'
     | '/api/public/health/schema'
     | '/api/public/hooks/bridge-sync'
+    | '/api/public/hooks/handover-snapshot'
   id:
     | '__root__'
     | '/'
@@ -314,6 +338,7 @@ export interface FileRouteTypes {
     | '/_authenticated/unit'
     | '/_authenticated/patients/$patientId'
     | '/_authenticated/patients/handover-preview'
+    | '/_authenticated/patients/history'
     | '/_authenticated/patients/'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/beds'
@@ -327,6 +352,7 @@ export interface FileRouteTypes {
     | '/api/public/bridge/verify-signature'
     | '/api/public/health/schema'
     | '/api/public/hooks/bridge-sync'
+    | '/api/public/hooks/handover-snapshot'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -346,6 +372,7 @@ export interface RootRouteChildren {
   ApiPublicBridgeVerifySignatureRoute: typeof ApiPublicBridgeVerifySignatureRoute
   ApiPublicHealthSchemaRoute: typeof ApiPublicHealthSchemaRoute
   ApiPublicHooksBridgeSyncRoute: typeof ApiPublicHooksBridgeSyncRoute
+  ApiPublicHooksHandoverSnapshotRoute: typeof ApiPublicHooksHandoverSnapshotRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -427,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsIndexRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
+    '/_authenticated/patients/history': {
+      id: '/_authenticated/patients/history'
+      path: '/history'
+      fullPath: '/patients/history'
+      preLoaderRoute: typeof AuthenticatedPatientsHistoryRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
+    }
     '/_authenticated/patients/handover-preview': {
       id: '/_authenticated/patients/handover-preview'
       path: '/handover-preview'
@@ -440,6 +474,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/patients/$patientId'
       preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
+    }
+    '/api/public/hooks/handover-snapshot': {
+      id: '/api/public/hooks/handover-snapshot'
+      path: '/api/public/hooks/handover-snapshot'
+      fullPath: '/api/public/hooks/handover-snapshot'
+      preLoaderRoute: typeof ApiPublicHooksHandoverSnapshotRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/bridge-sync': {
       id: '/api/public/hooks/bridge-sync'
@@ -531,6 +572,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedPatientsRouteChildren {
   AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute
   AuthenticatedPatientsHandoverPreviewRoute: typeof AuthenticatedPatientsHandoverPreviewRoute
+  AuthenticatedPatientsHistoryRoute: typeof AuthenticatedPatientsHistoryRoute
   AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
 }
 
@@ -538,6 +580,7 @@ const AuthenticatedPatientsRouteChildren: AuthenticatedPatientsRouteChildren = {
   AuthenticatedPatientsPatientIdRoute: AuthenticatedPatientsPatientIdRoute,
   AuthenticatedPatientsHandoverPreviewRoute:
     AuthenticatedPatientsHandoverPreviewRoute,
+  AuthenticatedPatientsHistoryRoute: AuthenticatedPatientsHistoryRoute,
   AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,
 }
 
@@ -584,7 +627,18 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBridgeVerifySignatureRoute: ApiPublicBridgeVerifySignatureRoute,
   ApiPublicHealthSchemaRoute: ApiPublicHealthSchemaRoute,
   ApiPublicHooksBridgeSyncRoute: ApiPublicHooksBridgeSyncRoute,
+  ApiPublicHooksHandoverSnapshotRoute: ApiPublicHooksHandoverSnapshotRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
