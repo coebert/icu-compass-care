@@ -109,6 +109,7 @@ def create_patient():
             "discharge_date": TODAY,
             "discharge_destination": OLD_DEST,
             "current_management": OLD_MGMT,
+            "weight_kg": 82,
         },
         timeout=30,
     )
