@@ -226,6 +226,12 @@ export type HandoverPdfOptions = {
    * Default: "{title} - {timestamp}.pdf"
    */
   filenameFormat?: string;
+  /**
+   * Which columns to include, in display order. Defaults to all columns.
+   * An empty selection also falls back to all columns so the sheet is never
+   * blank.
+   */
+  columns?: HandoverColumnKey[];
 };
 
 
