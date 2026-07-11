@@ -66,7 +66,7 @@ async function compareEntity(admin: Admin, spec: Spec): Promise<EntityRecon> {
     spec.fetchRemote(),
     admin.from(spec.table).select("*").limit(5000),
   ]);
-  if (localRes.error) throw new Error(localRes.error.message);
+  if (localRes.error) throw safeDbError(localRes.error, "read local records for reconciliation");
   const local: Record0[] = localRes.data ?? [];
 
   const localById = new Map(local.map((r) => [String(r.id), r]));
