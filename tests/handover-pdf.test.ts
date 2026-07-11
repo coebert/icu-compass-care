@@ -364,7 +364,8 @@ describe("handover PDF antimicrobial & renal fields", () => {
     )?.[0];
     expect(systemsIdx).toBeTruthy();
     const systemsText = (table.body[0].cells[systemsIdx!].text as string[]).join(" ");
-    expect(systemsText).toContain("Broad-spectrum-antimicrobial-agent-number-0");
+    expect(systemsText).toContain("Abx:");
+    expect(systemsText).toContain("escalated for resistant organism");
     expect(systemsText).toContain("CVVHDF");
     // Every cell (including the long wrapped content) stays within the margins.
     for (const row of table.body) {
