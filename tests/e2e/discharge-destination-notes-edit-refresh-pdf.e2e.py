@@ -243,34 +243,18 @@ def main():
             expect(dest_input(dlg)).to_have_value(NEW_DEST, timeout=10000)
             expect(mgmt_textarea(dlg)).to_have_value(NEW_MGMT)
             page.keyboard.press("Escape")
+            expect(page.get_by_text("Edit patient")).to_have_count(0, timeout=10000)
 
-            # ---- 4. Export the archived handover PDF and check the new values ----
-            page.goto(f"{BASE_URL}/patients", wait_until="domcontentloaded")
-            page.wait_for_load_state("networkidle")
-            page.get_by_role("button", name="Archive").click()
-            expect(page.get_by_text(PATIENT_NAME, exact=False).first).to_be_visible(timeout=15000)
-
-            preview_btn = page.get_by_role("button", name="Preview PDF")
-            expect(preview_btn).to_be_enabled(timeout=15000)
-            preview_btn.click()
-
-            pdf_dlg = page.get_by_role("dialog")
-            download_btn = pdf_dlg.get_by_role("button", name="Download PDF")
-            expect(download_btn).to_be_visible(timeout=10000)
-            # The client-side PDF preview can take a while to render the whole
-            # archived board; give it time before triggering the download.
-            page.wait_for_timeout(6000)
+            # ---- 4. Export this patient's handover PDF from the detail page and
+            #         check the new values render (single-patient export keeps the
+            #         test independent of unrelated records on the board). ----
+            export_btn = page.get_by_role("button", name="Handover PDF")
+            expect(export_btn).to_be_enabled(timeout=10000)
             pdf_path = SCREENSHOTS / f"handover_{MARKER}.pdf"
-            for attempt in range(3):
-                try:
-                    with page.expect_download(timeout=30000) as dl_info:
-                        download_btn.click()
-                    dl_info.value.save_as(str(pdf_path))
-                    break
-                except Exception:
-                    if attempt == 2:
-                        raise
-                    page.wait_for_timeout(4000)
+            with page.expect_download(timeout=30000) as dl_info:
+                export_btn.click()
+            dl_info.value.save_as(str(pdf_path))
+            expect(page.get_by_text("Handover PDF downloaded")).to_be_visible(timeout=10000)
 
             browser.close()
 
