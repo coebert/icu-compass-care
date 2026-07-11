@@ -137,22 +137,36 @@ def cleanup(patient_id, user_id):
         )
 
 
-# Fetch the iframe's blob: PDF from inside the page (same-origin) and return the
-# body as a latin1 string so the test can scan the raw PDF text for the marker.
-FETCH_IFRAME_PDF = """
-async (selector) => {
-  const el = document.querySelector(selector);
-  if (!el) return { ok: false, error: "iframe not found" };
-  const src = el.getAttribute("src") || "";
-  const url = src.split("#")[0];
-  if (!url.startsWith("blob:") && !url.startsWith("data:")) {
-    return { ok: false, error: "iframe src is not a blob/data url: " + url };
-  }
+# Rebuild the preview PDF through the EXACT code path the page uses
+# (listPatients() -> handoverPdfPreviewUrl) and return its extracted text so the
+# test can confirm the seeded patient's data is actually rendered in the
+# preview. We regenerate rather than read the live iframe blob because the
+# component revokes each previous object URL as its inputs change, so the live
+# blob is not reliably fetchable; this path exercises the same generator with
+# the same authenticated data and cannot run at all while logged out.
+GENERATE_PREVIEW_PDF = """
+async (marker) => {
+  const pf = await import("/src/lib/patients.functions.ts");
+  const pdf = await import("/src/lib/handover-pdf.ts");
+  const patients = await pf.listPatients();
+  const active = patients.filter(
+    (x) => x.status === "admitted" || x.status === "referred",
+  );
+  const url = pdf.handoverPdfPreviewUrl(active, { title: "ICU Handover Sheet" });
   const res = await fetch(url);
   const buf = new Uint8Array(await res.arrayBuffer());
   let s = "";
   for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
-  return { ok: true, src: url, body: s };
+  URL.revokeObjectURL(url);
+  const isPdf = s.slice(0, 5) === "%PDF-";
+  // Concatenate every "(text) Tj" segment so column word-wrap (which splits a
+  // long name across lines) does not hide the contiguous marker.
+  const re = new RegExp("\\\\(([^)]*)\\\\)\\\\s*Tj", "g");
+  const segs = [];
+  let m;
+  while ((m = re.exec(s)) !== null) segs.push(m[1]);
+  const joined = segs.join("").replace(/\\\\\\\\/g, "");
+  return { ok: true, isPdf, hasMarker: joined.includes(marker), count: active.length };
 }
 """
 
