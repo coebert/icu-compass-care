@@ -128,3 +128,35 @@ describe("handover PDF export", () => {
     expect(() => buildHandoverPdf([])).not.toThrow();
   });
 });
+
+describe("handover PDF column selection", () => {
+  it("renders only the selected columns", () => {
+    const doc = buildHandoverPdf([makePatient(1)], {
+      columns: ["patient", "systems"],
+    });
+    const table = (doc as any).lastAutoTable;
+    const headers = table.head[0].cells;
+    const headerTexts = Object.values(headers).map((c: any) => c.text.join(" "));
+    expect(headerTexts).toEqual(["Patient", "Systems review"]);
+  });
+
+  it("falls back to all columns when selection is empty", () => {
+    const doc = buildHandoverPdf([makePatient(1)], { columns: [] });
+    const table = (doc as any).lastAutoTable;
+    expect(Object.keys(table.head[0].cells).length).toBe(10);
+  });
+
+  it("keeps selected columns fitted within the printable width", () => {
+    const marginX = 8;
+    const doc = buildHandoverPdf([makePatient(1)], {
+      columns: ["patient", "management", "tasks"],
+      marginX,
+    });
+    const table = (doc as any).lastAutoTable;
+    const cells = Object.values(table.body[0].cells) as any[];
+    const rightEdge = Math.max(...cells.map((c) => c.x + c.width));
+    expect(rightEdge).toBeLessThanOrEqual(
+      doc.internal.pageSize.getWidth() - marginX + 0.5,
+    );
+  });
+});
