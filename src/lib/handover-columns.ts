@@ -126,7 +126,11 @@ function observations(p: HandoverPatient): string {
       `Pressor ${latest.vasopressor}${latest.vasopressor_dose != null ? ` ${latest.vasopressor_dose}` : ""}`,
   ];
   const vitals = parts.filter(Boolean).join(" · ") || "—";
-  return `${vitals}\n(${fmtDateTime(latest.recorded_at)})`;
+  // Include the selected observation's timestamp and id so it is unambiguous
+  // which row was chosen during PDF generation (important when several rows
+  // share the same recorded_at and a tie-breaker picked one).
+  const idSuffix = latest.id ? ` · id ${latest.id}` : "";
+  return `${vitals}\n(${fmtDateTime(latest.recorded_at)}${idSuffix})`;
 }
 
 // Combine the systems-based review into a single labelled block for the PDF,
