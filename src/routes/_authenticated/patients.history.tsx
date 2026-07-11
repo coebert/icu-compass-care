@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Camera, FileDown, History, Search, Sunrise, Sunset } from "lucide-react";
+import { ArrowLeft, Camera, FileDown, GitCompareArrows, History, Search, Sunrise, Sunset } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/patients/history")({
   component: HandoverHistoryPage,
