@@ -188,7 +188,7 @@ function AuthenticatedLayout() {
                 <span className="hidden sm:inline">Lock now</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => void signOut()} className="gap-1.5">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sign out</span>
             </Button>
