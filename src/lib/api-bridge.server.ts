@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 
 /**
  * Shared HMAC auth + RBAC for the cross-project data bridge.
