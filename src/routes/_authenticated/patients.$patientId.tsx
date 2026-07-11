@@ -1412,7 +1412,19 @@ function PatientDetail() {
             leading={[patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""}` : null]}
           />
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {profile?.isAdmin && (
+            <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+              <Share2 className="h-4 w-4 text-muted-foreground" />
+              <span>Share with partner</span>
+              <Switch
+                checked={Boolean(patient.shared_with_partner)}
+                disabled={shareMut.isPending}
+                onCheckedChange={(v) => shareMut.mutate(v)}
+                aria-label="Share this patient with the partner app"
+              />
+            </label>
+          )}
           <PrefillFromReferral
             patientId={patientId}
             linked={Boolean(patient.source_referral_id)}
@@ -1422,6 +1434,7 @@ function PatientDetail() {
               qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
             }}
           />
+
           <div className="flex flex-col items-start gap-1.5">
             <Button
               variant="outline"
