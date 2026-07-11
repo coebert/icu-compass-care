@@ -94,8 +94,24 @@ async function seedSharedPatient(fields: Record<string, unknown>) {
     /* non-JSON error body — leave as null */
   }
   const patient = Array.isArray(rows) ? rows[0] : rows;
+  const id = (patient as Record<string, unknown> | null)?.id;
+  if (typeof id === "string") seededIds.push(id);
   // Normalise the 201 Created from PostgREST to the 200 the bridge returns.
   return { status: res.status === 201 ? 200 : res.status, json: { patient }, text };
+}
+
+// Seeded fixtures are shared-with-partner clinical rows; hard-delete them after
+// the run via the admin Data API so no test data lingers in the shared dataset.
+const seededIds: string[] = [];
+async function deleteSeededPatients() {
+  await Promise.all(
+    seededIds.splice(0).map((id) =>
+      fetch(`${SUPABASE_URL}/rest/v1/patients?id=eq.${id}`, {
+        method: "DELETE",
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      }).catch(() => undefined),
+    ),
+  );
 }
 
 describe("bridge patient sync (e2e)", () => {
@@ -113,6 +129,9 @@ describe("bridge patient sync (e2e)", () => {
       );
     }
   });
+
+  afterAll(deleteSeededPatients);
+
 
   it("inserts an outlying-ward referral and exposes only agreed identity fields", async () => {
     const marker = `H-E2E-${Date.now()}`;
