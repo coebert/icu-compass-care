@@ -118,6 +118,19 @@ function CompareVersionsPage() {
   const sameSelected = aId && bId && aId === bId;
   const bothLoaded = !!fullA && !!fullB && !loadingA && !loadingB;
 
+  if (profile && !hasClinicalAccess) {
+    return (
+      <div className="space-y-4">
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link to="/patients/history">
+            <ArrowLeft className="h-4 w-4" /> History
+          </Link>
+        </Button>
+        <ClinicalAccessRequired description="You need clinical access (clinician or admin) to compare saved handover snapshots." />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
