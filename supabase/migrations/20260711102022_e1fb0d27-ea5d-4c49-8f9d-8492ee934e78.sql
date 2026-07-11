@@ -1,0 +1,1 @@
+ALTER TABLE public.patients ADD COLUMN nutrition_route text[] NOT NULL DEFAULT '{}'::text[];
