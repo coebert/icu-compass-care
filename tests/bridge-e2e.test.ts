@@ -177,7 +177,7 @@ describe("bridge patient sync (e2e)", () => {
 
     for (const status of STATUSES) {
       const marker = `H-E2E-${status}-${Date.now()}`;
-      const payload = JSON.stringify({
+      const payload = {
         full_name: "Y.X.",
         age: 65,
         hospital_number: marker,
@@ -189,11 +189,11 @@ describe("bridge patient sync (e2e)", () => {
           ? { discharge_date: new Date().toISOString(), discharge_destination: "Ward 5" }
           : {}),
         ...(status === "died" ? { date_of_death: new Date().toISOString() } : {}),
-      });
+      };
 
-      // Insert via the live bridge endpoint.
-      const post = await bridge("POST", "/api/public/bridge/patients", payload);
-      expect(post.status, `POST (${status}) failed: ${post.text}`).toBe(200);
+      // Seed as shared with the partner via the admin Data API.
+      const post = await seedSharedPatient(payload);
+      expect(post.status, `seed (${status}) failed: ${post.text}`).toBe(200);
       const patient = (post.json as { patient?: Record<string, unknown> })?.patient;
       expect(patient, `POST (${status}) missing patient`).toBeTruthy();
       const created = patient as Record<string, unknown>;
