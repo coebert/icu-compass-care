@@ -1270,18 +1270,10 @@ function PatientDetail() {
     observations: SectionState;
   }>({ investigations: "idle", microbiology: "idle", observations: "idle" });
 
-  // Critical fields that must be present for a safe, unambiguous handover sheet.
-  // Location (ward/bed) is treated as a single requirement since either
-  // identifies where the patient is.
-  const missingCriticalFields = (p: typeof patient): string[] => {
-    if (!p) return ["Patient record"];
-    const missing: string[] = [];
-    if (!p.full_name?.trim()) missing.push("Patient name");
-    if (!p.hospital_number?.trim()) missing.push("Hospital number");
-    if (!p.ward?.trim() && !p.bed?.trim()) missing.push("Location (ward/bed)");
-    if (!p.current_admission?.trim()) missing.push("Current admission");
-    return missing;
-  };
+  // Critical-field validation lives in @/lib/handover-validation (shared with
+  // the export guard below and covered by unit tests).
+
+
 
   const exportMut = useMutation({
     mutationFn: async () => {
