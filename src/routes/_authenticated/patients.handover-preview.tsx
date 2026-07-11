@@ -92,16 +92,24 @@ function HandoverPreviewPage() {
     [title, showTimestamp, showPageNumbers, pageSize, marginX, fontScale, columns],
   );
 
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
+  // Derive the preview object URL directly from the inputs. Using useMemo (not
+  // effect + setState) keeps PDF generation out of the render→setState→render
+  // cycle, so it can never drive an infinite update loop. The previous blob is
+  // revoked as inputs change, and the last one is revoked on unmount.
+  const urlRef = useRef<string | null>(null);
+  const url = useMemo(() => {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     const objectUrl = handoverPdfPreviewUrl(handoverPatients, options);
-    setUrl(objectUrl);
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-      setUrl(null);
-    };
+    urlRef.current = objectUrl;
+    return objectUrl;
   }, [handoverPatients, options]);
+
+  useEffect(
+    () => () => {
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    },
+    [],
+  );
 
   const toggleColumn = (key: HandoverColumnKey) =>
     setColumns((prev) =>
