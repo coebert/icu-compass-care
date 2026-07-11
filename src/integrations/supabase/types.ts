@@ -497,6 +497,7 @@ export type Database = {
           nok_last_updated_by: string | null
           nok_name: string | null
           nok_relationship: string | null
+          nutrition_route: string[]
           outstanding_tasks: string | null
           past_medical_history: string | null
           pca_agents: string[]
@@ -544,6 +545,7 @@ export type Database = {
           nok_last_updated_by?: string | null
           nok_name?: string | null
           nok_relationship?: string | null
+          nutrition_route?: string[]
           outstanding_tasks?: string | null
           past_medical_history?: string | null
           pca_agents?: string[]
@@ -591,6 +593,7 @@ export type Database = {
           nok_last_updated_by?: string | null
           nok_name?: string | null
           nok_relationship?: string | null
+          nutrition_route?: string[]
           outstanding_tasks?: string | null
           past_medical_history?: string | null
           pca_agents?: string[]

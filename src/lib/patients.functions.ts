@@ -44,6 +44,7 @@ const patientInput = z.object({
   regional_analgesia: z.array(z.string().max(20)).max(10).optional(),
   systems_renal: z.string().max(10000).optional().nullable(),
   systems_gastro: z.string().max(10000).optional().nullable(),
+  nutrition_route: z.array(z.string().max(20)).max(10).optional(),
   systems_haem: z.string().max(10000).optional().nullable(),
   systems_micro: z.string().max(10000).optional().nullable(),
   systems_other: z.string().max(10000).optional().nullable(),
