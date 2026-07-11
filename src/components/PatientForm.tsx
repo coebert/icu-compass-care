@@ -186,6 +186,9 @@ export function PatientForm({
           <Field label="Hospital number">
             <Input value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
           </Field>
+          <Field label="Weight (kg)">
+            <Input type="number" min={0} max={600} step="0.1" value={values.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} placeholder="e.g. 78" />
+          </Field>
           <Field label="Location">
             <Select value={values.location_type} onValueChange={(v) => set("location_type", v as PatientFormValues["location_type"])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
