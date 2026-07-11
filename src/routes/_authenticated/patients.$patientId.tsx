@@ -1373,7 +1373,15 @@ function PatientDetail() {
             <Button
               variant="outline"
               className="gap-1.5"
-              onClick={() => exportMut.mutate()}
+              onClick={() => {
+                if (missingForHandover.length > 0) {
+                  toast.warning("Cannot generate handover PDF", {
+                    description: `Missing required data: ${missingForHandover.join(", ")}`,
+                  });
+                  return;
+                }
+                exportMut.mutate();
+              }}
               disabled={exportMut.isPending}
               aria-busy={exportMut.isPending}
             >
@@ -1387,6 +1395,12 @@ function PatientDetail() {
                 </>
               )}
             </Button>
+            {missingForHandover.length > 0 && !exportMut.isPending && (
+              <p className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Missing: {missingForHandover.join(", ")}
+              </p>
+            )}
             {exportMut.isPending && (
               <ul className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs" aria-live="polite">
                 {([
