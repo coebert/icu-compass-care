@@ -1200,6 +1200,15 @@ function PrefillFromReferral({
   );
 }
 
+// Maps each critical-field warning label to the id of its input in PatientForm,
+// so the amber warning can deep-link the user straight to the field to fix.
+const MISSING_FIELD_ANCHORS: Record<string, string> = {
+  "Patient name": "pf-full_name",
+  "Hospital number": "pf-hospital_number",
+  "Location (ward/bed)": "pf-ward",
+  "Current admission": "pf-current_admission",
+};
+
 function PatientDetail() {
   const { patientId } = Route.useParams();
   const navigate = useNavigate();
