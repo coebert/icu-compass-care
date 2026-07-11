@@ -171,19 +171,22 @@ function PatientsBoard() {
 
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     return patients.filter((p) => {
-      const active = p.status === "admitted" || p.status === "referred";
-      if (!showArchived && !active) return false;
-      if (showArchived && active) return false;
-      if (!q) return true;
-      return (
+      const matches =
+        !q ||
         p.full_name?.toLowerCase().includes(q) ||
         p.hospital_number?.toLowerCase().includes(q) ||
-        p.ward?.toLowerCase().includes(q)
-      );
+        p.ward?.toLowerCase().includes(q);
+      if (!matches) return false;
+      // While searching, span every record (current AND discharged/died) so a
+      // patient can always be found by hospital number after discharge.
+      if (q) return true;
+      const active = p.status === "admitted" || p.status === "referred";
+      return showArchived ? !active : active;
     });
   }, [patients, search, showArchived]);
+
 
   const icu = filtered.filter((p) => p.location_type === "icu");
   const outliers = filtered.filter((p) => p.location_type === "outlier");
