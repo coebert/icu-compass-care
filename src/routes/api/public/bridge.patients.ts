@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         // Strip control fields that are not table columns.
         const { expected_updated_at, ...columns } = parsed;
-        const record = cleanEmpty(columns);
+        const record = clean(columns);
 
         if (record.id) {
           // Load the current row for conflict detection + audit "before" snapshot.
