@@ -23,10 +23,14 @@ import {
   handoverPdfPreviewUrl,
   downloadHandover,
   formatHandoverFilename,
+  HANDOVER_COLUMNS,
+  ALL_HANDOVER_COLUMN_KEYS,
   type HandoverPatient,
   type HandoverPdfOptions,
   type HandoverPageSize,
+  type HandoverColumnKey,
 } from "@/lib/handover-pdf";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   loadHandoverPresets,
   saveHandoverPreset,
