@@ -2597,6 +2597,67 @@ function MicrobiologyTab({ patientId, patient }: { patientId: string; patient: R
       )}
 
       <div className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Combined timeline
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Key micro results and antimicrobial courses, most recent first.
+          </p>
+        </div>
+        {timeline.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No micro results or antimicrobial courses recorded yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <ol className="relative space-y-4 border-l pl-6">
+            {timeline.map((ev) => {
+              const isResult = ev.kind === "result";
+              const isStart = ev.kind === "abx-start";
+              return (
+                <li key={ev.key} className="relative">
+                  <span
+                    className={
+                      "absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-background " +
+                      (isResult
+                        ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                        : isStart
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-muted text-muted-foreground")
+                    }
+                  >
+                    {isResult ? (
+                      <Microscope className="h-3 w-3" />
+                    ) : (
+                      <Pill className="h-3 w-3" />
+                    )}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{ev.title}</span>
+                    {ev.detail && !isResult && (
+                      <Badge variant="secondary" className="text-xs">
+                        {ev.detail}
+                      </Badge>
+                    )}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {isResult ? fmtDateTime(ev.at) : fmtDate(ev.at)}
+                    </span>
+                  </div>
+                  {ev.detail && isResult && (
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                      {ev.detail}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+
+      <div className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Full history
         </h2>
