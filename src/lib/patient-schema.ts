@@ -80,10 +80,14 @@ export const patientInput = z.object({
   nok_last_updated: z.string().optional().nullable(),
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
   weight_kg: z
-    .union([z.number(), z.string().trim().min(1)])
-    .pipe(z.coerce.number().min(0).max(600))
-    .optional()
-    .nullable(),
+    .preprocess(
+      (v) => (v === "" || v === null || v === undefined ? null : v),
+      z
+        .union([z.number(), z.string().trim().min(1)])
+        .pipe(z.coerce.number().min(0).max(600))
+        .nullable(),
+    )
+    .optional(),
   allergies: z.preprocess(
     (v) =>
       Array.isArray(v)
