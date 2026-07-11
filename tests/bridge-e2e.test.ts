@@ -123,11 +123,11 @@ describe("bridge patient sync (e2e)", () => {
       location_type: "outlier",
       ward: "Farley",
       status: "referred",
-    });
+    };
 
-    // 1. Insert the sample outlying-ward referral.
-    const post = await bridge("POST", "/api/public/bridge/patients", payload);
-    expect(post.status, `POST failed: ${post.text}`).toBe(200);
+    // 1. Seed the sample outlying-ward referral as shared with the partner.
+    const post = await seedSharedPatient(payload);
+    expect(post.status, `seed failed: ${post.text}`).toBe(200);
 
     const created = (post.json as { patient?: Record<string, unknown> })?.patient;
     expect(created, "POST response missing `patient`").toBeTruthy();
