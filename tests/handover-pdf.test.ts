@@ -162,3 +162,103 @@ describe("handover PDF column selection", () => {
     );
   });
 });
+
+describe("handover PDF antimicrobial & renal fields", () => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  it("summarises ongoing antimicrobials with a running course day", () => {
+    const p: HandoverPatient = {
+      id: "1",
+      antimicrobials: [
+        { name: "Meropenem", started_on: today },
+      ],
+    };
+    const s = antimicrobialsSummary(p);
+    expect(s).toContain("Meropenem");
+    expect(s).toContain(`from ${today}`);
+    expect(s).toContain("day 1");
+  });
+
+  it("summarises completed antimicrobials with a total course length", () => {
+    const p: HandoverPatient = {
+      id: "1",
+      antimicrobials: [
+        { name: "Amoxicillin", started_on: "2026-07-01", ended_on: "2026-07-05" },
+      ],
+    };
+    const s = antimicrobialsSummary(p);
+    expect(s).toContain("Amoxicillin");
+    expect(s).toContain("2026-07-01→2026-07-05");
+    expect(s).toContain("5d total");
+  });
+
+  it("returns empty summaries when nothing is recorded", () => {
+    expect(antimicrobialsSummary({ id: "1" })).toBe("");
+    expect(renalSupportSummary({ id: "1" })).toBe("");
+  });
+
+  it("summarises renal support flags", () => {
+    expect(renalSupportSummary({ id: "1", renal_diuretics: true })).toBe("Diuretics");
+    expect(renalSupportSummary({ id: "1", renal_rrt: true })).toBe("RRT");
+    expect(
+      renalSupportSummary({ id: "1", renal_diuretics: true, renal_rrt: true }),
+    ).toBe("Diuretics, RRT");
+  });
+
+  it("renders antimicrobial and renal fields into the systems column text", () => {
+    const p: HandoverPatient = {
+      id: "1",
+      status: "admitted",
+      admission_date: "2026-07-01",
+      renal_diuretics: true,
+      renal_rrt: true,
+      antimicrobials: [
+        { name: "Meropenem", started_on: "2026-07-06" },
+        { name: "Vancomycin", started_on: "2026-07-04", ended_on: "2026-07-08" },
+      ],
+    };
+    const doc = buildHandoverPdf([p]);
+    const table = (doc as any).lastAutoTable;
+    // Find the Systems review column index from the header row.
+    const headerCells = table.head[0].cells as Record<string, any>;
+    const systemsIdx = Object.entries(headerCells).find(
+      ([, c]) => c.text.join(" ") === "Systems review",
+    )?.[0];
+    expect(systemsIdx).toBeTruthy();
+    const cellText = (table.body[0].cells[systemsIdx!].text as string[]).join(" ");
+    expect(cellText).toContain("Diuretics");
+    expect(cellText).toContain("RRT");
+    expect(cellText).toContain("Meropenem");
+    expect(cellText).toContain("Vancomycin");
+  });
+
+  it("wraps long antimicrobial/renal content without overflowing the margins", () => {
+    const marginX = 8;
+    const manyAgents = Array.from({ length: 10 }, (_, i) => ({
+      name: `Antimicrobial-agent-with-a-very-long-name-${i}`,
+      started_on: "2026-07-01",
+    }));
+    const p: HandoverPatient = {
+      id: "1",
+      status: "admitted",
+      admission_date: "2026-07-01",
+      renal_diuretics: true,
+      renal_rrt: true,
+      systems_renal: "Long renal note. ".repeat(20),
+      systems_micro: "Long micro note. ".repeat(20),
+      antimicrobials: manyAgents,
+    };
+    const doc = buildHandoverPdf([p], { marginX });
+    const table = (doc as any).lastAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    for (const row of table.body) {
+      for (const cell of Object.values(row.cells) as any[]) {
+        // Cells wrap within their column and never spill past either margin.
+        expect(cell.x + cell.width).toBeLessThanOrEqual(pageWidth - marginX + 0.5);
+        expect(cell.x).toBeGreaterThanOrEqual(marginX - 0.5);
+        expect(cell.y).toBeLessThanOrEqual(pageHeight - 12 + 0.5);
+      }
+    }
+  });
+});
