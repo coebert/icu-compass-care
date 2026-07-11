@@ -422,9 +422,20 @@ export function PatientForm({
         </div>
         {values.tep_in_place && (
           <Field label="TEP details">
-            <Textarea rows={2} value={values.tep_details} onChange={(e) => set("tep_details", e.target.value)} />
+            <Textarea
+              rows={2}
+              value={values.tep_details}
+              onChange={(e) => set("tep_details", e.target.value)}
+              aria-invalid={tepDetailsMissing}
+　          />
+            {tepDetailsMissing && (
+              <p role="alert" className="text-sm text-destructive">
+                TEP details are required when a treatment escalation plan is in place.
+              </p>
+            )}
           </Field>
         )}
+
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
             <p className="text-sm font-medium">DNACPR — decision not to attempt CPR</p>
