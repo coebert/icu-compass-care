@@ -357,6 +357,13 @@ export function PatientForm({
           <Field label="Resp">
             <Textarea rows={3} value={values.systems_resp} onChange={(e) => set("systems_resp", e.target.value)} />
           </Field>
+          <Field label="Current FiO2">
+            <Input
+              value={values.resp_fio2}
+              onChange={(e) => set("resp_fio2", e.target.value)}
+              placeholder="e.g. 0.4 or 40% via HFNC"
+            />
+          </Field>
           <Field label="CVS">
             <Textarea rows={3} value={values.systems_cvs} onChange={(e) => set("systems_cvs", e.target.value)} />
           </Field>
