@@ -151,7 +151,7 @@ export async function captureHandoverSnapshot(
         captured_at: now.toISOString(),
         label,
         patient_count: rows.length,
-        snapshot: rows,
+        snapshot: rows as unknown as never,
         search_text: buildSearchText(rows),
       },
       { onConflict: "local_date,shift" },
