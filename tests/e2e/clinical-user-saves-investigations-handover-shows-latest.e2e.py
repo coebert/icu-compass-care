@@ -260,6 +260,15 @@ def main():
                 add_result(page, patient_id, category, findings, hours_ago)
                 time.sleep(0.05)  # distinct created_at, mirroring save order
 
+            # Reload so the board's patient query refetches with the newly
+            # saved investigations embedded (the preview renders from that data).
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
+            assert "/auth" not in page.url, f"bounced to /auth after reload: {page.url}"
+            expect(page.get_by_text(PATIENT_NAME, exact=False).first).to_be_visible(
+                timeout=15000
+            )
+
             # ---- Open the handover preview and export the PDF ----
             # Filter the board to just this patient by hospital number, so the
             # export validates/renders only our record (the shared board may
