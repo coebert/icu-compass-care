@@ -3,6 +3,15 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges } from "@/lib/patients.functions";
+import type {
+  Patient as DomainPatient,
+  Investigation as DomainInvestigation,
+  Microbiology as DomainMicrobiology,
+  PatientTask as DomainPatientTask,
+  PatientEvent as DomainPatientEvent,
+  PatientReview as DomainReview,
+  AuditRow as DomainAuditRow,
+} from "@/lib/domain-types";
 import {
   listInvestigations,
   addInvestigation,
@@ -78,8 +87,8 @@ export const Route = createFileRoute("/_authenticated/patients/$patientId")({
   component: PatientDetail,
 });
 
-type Patient = Record<string, any>;
-type Investigation = Record<string, any>;
+type Patient = DomainPatient & Record<string, any>;
+type Investigation = DomainInvestigation & Record<string, any>;
 
 function InfoBlock({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -776,7 +785,7 @@ function GastroNutritionStatus({
 }
 
 
-type PatientTask = Record<string, any>;
+type PatientTask = DomainPatientTask & Record<string, any>;
 
 const TASK_STATUS_STYLE: Record<TaskStatus, string> = {
   not_started: "text-muted-foreground",
@@ -1222,7 +1231,7 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
-type PatientEvent = Record<string, any>;
+type PatientEvent = DomainPatientEvent & Record<string, any>;
 
 function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
   const qc = useQueryClient();
@@ -1489,7 +1498,7 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
 
 }
 
-type Review = Record<string, any>;
+type Review = DomainReview & Record<string, any>;
 
 function ReviewsTab({ patientId }: { patientId: string }) {
   const qc = useQueryClient();
@@ -1970,7 +1979,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
   );
 }
 
-type Microbiology = Record<string, any>;
+type Microbiology = DomainMicrobiology & Record<string, any>;
 
 function MicrobiologyTab({ patientId }: { patientId: string }) {
   const qc = useQueryClient();
@@ -2133,7 +2142,7 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
 }
 
 
-type AuditRow = Record<string, any>;
+type AuditRow = DomainAuditRow & Record<string, any>;
 
 const ACTION_LABEL: Record<string, string> = {
   insert: "Created",
