@@ -20,6 +20,7 @@ import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
+import { Route as AuthenticatedPatientsSharingRouteImport } from './routes/_authenticated/patients.sharing'
 import { Route as AuthenticatedPatientsHistoryRouteImport } from './routes/_authenticated/patients.history'
 import { Route as AuthenticatedPatientsHandoverPreviewRouteImport } from './routes/_authenticated/patients.handover-preview'
 import { Route as AuthenticatedPatientsCompareRouteImport } from './routes/_authenticated/patients.compare'
@@ -91,6 +92,12 @@ const AuthenticatedPatientsIndexRoute =
   AuthenticatedPatientsIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => AuthenticatedPatientsRoute,
+  } as any)
+const AuthenticatedPatientsSharingRoute =
+  AuthenticatedPatientsSharingRouteImport.update({
+    id: '/sharing',
+    path: '/sharing',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
 const AuthenticatedPatientsHistoryRoute =
@@ -204,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/patients/compare': typeof AuthenticatedPatientsCompareRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/patients/history': typeof AuthenticatedPatientsHistoryRoute
+  '/patients/sharing': typeof AuthenticatedPatientsSharingRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/beds': typeof ApiPublicBridgeBedsRoute
@@ -232,6 +240,7 @@ export interface FileRoutesByTo {
   '/patients/compare': typeof AuthenticatedPatientsCompareRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/patients/history': typeof AuthenticatedPatientsHistoryRoute
+  '/patients/sharing': typeof AuthenticatedPatientsSharingRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/beds': typeof ApiPublicBridgeBedsRoute
@@ -263,6 +272,7 @@ export interface FileRoutesById {
   '/_authenticated/patients/compare': typeof AuthenticatedPatientsCompareRoute
   '/_authenticated/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/_authenticated/patients/history': typeof AuthenticatedPatientsHistoryRoute
+  '/_authenticated/patients/sharing': typeof AuthenticatedPatientsSharingRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
   '/api/public/bridge/audit': typeof ApiPublicBridgeAuditRoute
   '/api/public/bridge/beds': typeof ApiPublicBridgeBedsRoute
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
     | '/patients/compare'
     | '/patients/handover-preview'
     | '/patients/history'
+    | '/patients/sharing'
     | '/patients/'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/beds'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/patients/compare'
     | '/patients/handover-preview'
     | '/patients/history'
+    | '/patients/sharing'
     | '/patients'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/beds'
@@ -352,6 +364,7 @@ export interface FileRouteTypes {
     | '/_authenticated/patients/compare'
     | '/_authenticated/patients/handover-preview'
     | '/_authenticated/patients/history'
+    | '/_authenticated/patients/sharing'
     | '/_authenticated/patients/'
     | '/api/public/bridge/audit'
     | '/api/public/bridge/beds'
@@ -465,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/patients/'
       preLoaderRoute: typeof AuthenticatedPatientsIndexRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
+    }
+    '/_authenticated/patients/sharing': {
+      id: '/_authenticated/patients/sharing'
+      path: '/sharing'
+      fullPath: '/patients/sharing'
+      preLoaderRoute: typeof AuthenticatedPatientsSharingRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
     '/_authenticated/patients/history': {
@@ -594,6 +614,7 @@ interface AuthenticatedPatientsRouteChildren {
   AuthenticatedPatientsCompareRoute: typeof AuthenticatedPatientsCompareRoute
   AuthenticatedPatientsHandoverPreviewRoute: typeof AuthenticatedPatientsHandoverPreviewRoute
   AuthenticatedPatientsHistoryRoute: typeof AuthenticatedPatientsHistoryRoute
+  AuthenticatedPatientsSharingRoute: typeof AuthenticatedPatientsSharingRoute
   AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
 }
 
@@ -603,6 +624,7 @@ const AuthenticatedPatientsRouteChildren: AuthenticatedPatientsRouteChildren = {
   AuthenticatedPatientsHandoverPreviewRoute:
     AuthenticatedPatientsHandoverPreviewRoute,
   AuthenticatedPatientsHistoryRoute: AuthenticatedPatientsHistoryRoute,
+  AuthenticatedPatientsSharingRoute: AuthenticatedPatientsSharingRoute,
   AuthenticatedPatientsIndexRoute: AuthenticatedPatientsIndexRoute,
 }
 
