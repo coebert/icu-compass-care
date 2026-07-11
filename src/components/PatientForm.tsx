@@ -117,8 +117,12 @@ export function toFormValues(p: Record<string, unknown>): PatientFormValues {
   for (const key of Object.keys(base) as (keyof PatientFormValues)[]) {
     const v = p[key];
     if (v === null || v === undefined) continue;
-    // datetime-local expects yyyy-MM-ddThh:mm
-    if (key === "nok_last_updated" && typeof v === "string") {
+    if (key === "allergies") {
+      out.allergies = parseAllergies(v);
+    } else if (key === "daily_goals") {
+      out.daily_goals = parseDailyGoals(v);
+    } else if (key === "nok_last_updated" && typeof v === "string") {
+      // datetime-local expects yyyy-MM-ddThh:mm
       out[key] = v.slice(0, 16) as never;
     } else {
       (out as Record<string, unknown>)[key] = typeof v === "boolean" ? v : String(v);
