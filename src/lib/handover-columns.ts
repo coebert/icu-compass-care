@@ -6,6 +6,11 @@ import type {
   HandoverMicrobiology,
   HandoverPatient,
 } from "@/lib/handover-types";
+import {
+  RECENT_INVESTIGATION_CATEGORIES,
+  latestMicrobiologyPerSpecimen,
+  mostRecentInvestigation,
+} from "@/lib/handover-recency";
 import { summariseAllergies } from "@/lib/patient-safety";
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
