@@ -152,7 +152,20 @@ function HandoverHistoryPage() {
             </p>
           </div>
         </div>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={capturing}
+            onClick={handleCaptureNow}
+          >
+            <Camera className="h-4 w-4" />
+            {capturing ? "Saving…" : "Save version now"}
+          </Button>
+        )}
       </div>
+
 
       {/* Filters */}
       <Card>
