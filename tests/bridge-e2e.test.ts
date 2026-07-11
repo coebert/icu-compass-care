@@ -333,23 +333,19 @@ describe("bridge patient sync (e2e)", () => {
   it("transitions a patient from admitted to discharged, keeps the historical record visible, and stays editable after discharge", async () => {
     const marker = `H-E2E-DISCHARGE-${Date.now()}`;
 
-    // 1. Admit the patient (status = admitted).
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "M.R.",
-        age: 66,
-        hospital_number: marker,
-        location_type: "icu",
-        ward: "Critical Care",
-        bed: "7",
-        status: "admitted",
-        admission_date: new Date().toISOString(),
-        current_management: "Ventilated, sedation weaning in progress",
-        outstanding_tasks: "Repeat ABG in the morning",
-      }),
-    );
+    // 1. Admit the patient (status = admitted), seeded as shared with partner.
+    const create = await seedSharedPatient({
+      full_name: "M.R.",
+      age: 66,
+      hospital_number: marker,
+      location_type: "icu",
+      ward: "Critical Care",
+      bed: "7",
+      status: "admitted",
+      admission_date: new Date().toISOString(),
+      current_management: "Ventilated, sedation weaning in progress",
+      outstanding_tasks: "Repeat ABG in the morning",
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
