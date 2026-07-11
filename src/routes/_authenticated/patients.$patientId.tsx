@@ -1699,6 +1699,11 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
     queryKey: ["patient-events", patientId],
     queryFn: () => listEvents({ data: { patientId } }) as Promise<PatientEvent[]>,
   });
+  const listStatusChanges = useServerFn(getPatientStatusChanges);
+  const { data: statusChanges = [] } = useQuery({
+    queryKey: ["patient-status-changes", patientId],
+    queryFn: () => listStatusChanges({ data: { id: patientId } }),
+  });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["patient-events", patientId] });
 
