@@ -352,6 +352,14 @@ function MicroStatus({
     mut.mutate(agents.filter((_, i) => i !== idx));
   };
 
+  const setEnd = (idx: number, value: string) => {
+    mut.mutate(
+      agents.map((a, i) =>
+        i === idx ? { ...a, ended_on: value || null } : a,
+      ),
+    );
+  };
+
   return (
     <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
       <div>
