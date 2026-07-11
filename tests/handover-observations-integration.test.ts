@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildHandoverPdf, type HandoverPatient } from "@/lib/handover-pdf";
-import type { Observation } from "@/lib/observations";
+import { latestObservation, type Observation } from "@/lib/observations";
+import { fmtDateTime } from "@/lib/icu";
 
 /**
  * Integration test: the "Latest observations" cell that a clinician sees in the
