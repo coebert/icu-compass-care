@@ -458,6 +458,16 @@ function PatientsBoard() {
           >
             <FileDown className="h-4 w-4" /> Preview PDF
           </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
+            disabled={filtered.length === 0}
+          >
+            <Link to="/patients/handover-preview" search={{ archived: showArchived }}>
+              <Maximize2 className="h-4 w-4" /> Full preview
+            </Link>
+          </Button>
           <Button onClick={() => setOpen(true)} className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none">
             <Plus className="h-4 w-4" /> Add patient
           </Button>
