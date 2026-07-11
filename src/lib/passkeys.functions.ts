@@ -9,6 +9,7 @@ import {
 } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { safeDbError } from "@/lib/db-error";
 
 // Derive the Relying Party origin + ID from the incoming request. WebAuthn
 // binds credentials to the exact host, so this must reflect the live domain.
