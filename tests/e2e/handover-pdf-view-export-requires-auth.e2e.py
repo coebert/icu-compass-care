@@ -60,6 +60,7 @@ SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 PATIENTS_MODULE = "/src/lib/patients.functions.ts"
 OBS_MODULE = "/src/lib/observations.functions.ts"
 MICRO_MODULE = "/src/lib/microbiology.functions.ts"
+INV_MODULE = "/src/lib/investigations.functions.ts"
 
 MARKER = f"E2E-PDF-VIEW-GUARD-{int(time.time())}"
 PASSWORD = "Test-Passw0rd-123!"
@@ -206,7 +207,7 @@ def main():
             # ---- 3. All feeding server functions are rejected for an auth reason ----
             assert_auth_rejected(page, PATIENTS_MODULE, "getPatient", {"patientId": patient_id})
             assert_auth_rejected(page, OBS_MODULE, "listObservations", {"patientId": patient_id})
-            assert_auth_rejected(page, PATIENTS_MODULE, "listInvestigations", {"patientId": patient_id})
+            assert_auth_rejected(page, INV_MODULE, "listInvestigations", {"patientId": patient_id})
             assert_auth_rejected(page, MICRO_MODULE, "listMicrobiology", {"patientId": patient_id})
 
             # ============ AFTER AUTHENTICATION ============
