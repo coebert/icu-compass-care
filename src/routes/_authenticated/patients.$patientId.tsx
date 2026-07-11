@@ -257,9 +257,10 @@ function PatientDetail() {
               <InfoBlock label="Past medical history" value={patient.past_medical_history} />
               <InfoBlock label="Current admission" value={patient.current_admission} />
               <InfoBlock label="Current management" value={patient.current_management} />
-              <InfoBlock label="Outstanding tasks" value={patient.outstanding_tasks} />
             </CardContent>
           </Card>
+          <OutstandingTasks patientId={patientId} freeText={patient.outstanding_tasks} />
+
           <Card>
             <CardContent className="p-6">
               <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
