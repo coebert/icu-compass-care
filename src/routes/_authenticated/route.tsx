@@ -58,13 +58,47 @@ function AuthenticatedLayout() {
       .catch(() => {});
   }, [claim, queryClient]);
 
-  async function signOut() {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    lockSession();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  }
+  const signOut = useCallback(
+    async (reason?: string) => {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      lockSession();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", replace: true });
+      if (reason) toast.info(reason);
+    },
+    [queryClient, navigate],
+  );
+
+  // 1) Idle auto sign-out: after INACTIVITY_TIMEOUT_MS with no interaction,
+  //    end the session and bounce to /auth so no further patient editing is
+  //    possible until re-authentication. A warning fires one minute earlier.
+  useInactivityTimeout({
+    timeoutMs: INACTIVITY_TIMEOUT_MS,
+    warnMs: INACTIVITY_WARN_MS,
+    enabled: hydrated,
+    onWarn: () =>
+      toast.warning("You'll be signed out soon", {
+        description: "Move the mouse or press a key to stay signed in.",
+      }),
+    onTimeout: () =>
+      void signOut("Signed out after inactivity. Please sign in again."),
+  });
+
+  // 2) Session-expiry guard: if the Supabase session lapses (e.g. the device
+  //    slept past the refresh window), redirect to /auth on the next tick.
+  useEffect(() => {
+    if (!hydrated) return;
+    const check = async () => {
+      const { data } = await supabase.auth.getSession();
+      const expiresAt = data.session?.expires_at;
+      if (!data.session || (expiresAt && expiresAt * 1000 <= Date.now())) {
+        void signOut("Your session expired. Please sign in again.");
+      }
+    };
+    const id = window.setInterval(check, 30_000);
+    return () => window.clearInterval(id);
+  }, [hydrated, signOut]);
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
 
@@ -75,6 +109,7 @@ function AuthenticatedLayout() {
     lockSession();
     setUnlocked(false);
   }
+
 
 
   const navItems = [
