@@ -513,6 +513,7 @@ export type Database = {
           tep_in_place: boolean
           updated_at: string
           updated_by: string | null
+          vasoactive_agents: string[]
           ward: string | null
         }
         Insert: {
@@ -556,6 +557,7 @@ export type Database = {
           tep_in_place?: boolean
           updated_at?: string
           updated_by?: string | null
+          vasoactive_agents?: string[]
           ward?: string | null
         }
         Update: {
@@ -599,6 +601,7 @@ export type Database = {
           tep_in_place?: boolean
           updated_at?: string
           updated_by?: string | null
+          vasoactive_agents?: string[]
           ward?: string | null
         }
         Relationships: []
