@@ -154,10 +154,10 @@ def add_bloods(page, panel, time_str, findings):
 
 
 def recent_bloods_card(page):
-    """The 'Most recent Bloods' card on the Investigations tab."""
-    return page.locator("div").filter(
-        has=page.get_by_text("Most recent Bloods", exact=False)
-    ).last
+    """The 'Most recent Bloods' card on the Investigations tab (nearest card ancestor)."""
+    return page.get_by_text("Most recent Bloods", exact=False).locator(
+        "xpath=ancestor::div[contains(@class,'rounded-xl')][1]"
+    )
 
 
 def main():
