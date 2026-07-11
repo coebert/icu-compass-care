@@ -162,6 +162,11 @@ const SCENARIOS: { name: string; patient: HandoverPatient; expectFragment: strin
 
 // ---- Tests ------------------------------------------------------------------
 
+// pdfjs may emit narrow cells one glyph at a time; compare ignoring whitespace
+// so a substring check is not defeated by inter-glyph spacing. This does not
+// weaken the core preview===download equality, which is compared verbatim.
+const noSpace = (s: string) => s.replace(/\s+/g, "");
+
 describe("Latest observations: preview iframe vs downloaded PDF", () => {
   for (const scenario of SCENARIOS) {
     it(`renders identical cell text — ${scenario.name}`, async () => {
@@ -176,7 +181,7 @@ describe("Latest observations: preview iframe vs downloaded PDF", () => {
 
       if (scenario.expectFragment) {
         // And it reflects the deterministically-selected observation.
-        expect(previewCell).toContain(scenario.expectFragment);
+        expect(noSpace(previewCell)).toContain(noSpace(scenario.expectFragment));
       } else {
         // No observations → placeholder, never a stray id.
         expect(previewCell).toContain("—");
@@ -197,7 +202,7 @@ describe("Latest observations: preview iframe vs downloaded PDF", () => {
     );
 
     expect(forward).toBe(reversed);
-    expect(forward).toContain("obs-bbbb");
-    expect(forward).toContain("HR 120");
+    expect(noSpace(forward)).toContain(noSpace("obs-bbbb"));
+    expect(noSpace(forward)).toContain(noSpace("HR 120"));
   });
 });
