@@ -175,6 +175,9 @@ function AdminPage() {
         </div>
       )}
 
+      <BridgeSecurityPanel />
+
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Create staff account</DialogTitle></DialogHeader>
