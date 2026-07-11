@@ -229,6 +229,24 @@ function UnitDashboard() {
     queryKey: ["open-tasks"],
     queryFn: () => openTasksFn() as Promise<OpenTask[]>,
   });
+  const latestObsFn = useServerFn(listLatestObservations);
+  const { data: latestObs = [] } = useQuery({
+    queryKey: ["latest-observations"],
+    queryFn: () => latestObsFn() as Promise<Observation[]>,
+  });
+
+  const obsByPatient = useMemo(() => {
+    const m = new Map<string, Observation>();
+    for (const o of latestObs) m.set(o.patient_id, o);
+    return m;
+  }, [latestObs]);
+
+  const patientSupport = (p: Patient) => ({
+    ventilated:
+      p.airway_type === "ett" || p.airway_type === "tracheostomy" || has(p.resp_support),
+    rrt: p.renal_rrt === true,
+    vasoactive: has(p.vasoactive_agents),
+  });
 
   const active = useMemo(
     () => patients.filter((p) => p.status === "admitted" || p.status === "referred"),
