@@ -233,10 +233,63 @@ export async function logSecurityEvent(
   }
 }
 
+// Per-window request ceilings, keyed by client IP + method + endpoint. Reads
+// are polled frequently by the partner bed board so they get a generous ceiling;
+// writes are far rarer and get a tighter one to blunt automated abuse. Tune here.
+const RATE_WINDOW_SECONDS = 60;
+const RATE_LIMIT_READ = 120;
+const RATE_LIMIT_WRITE = 30;
+
+export type RateLimitResult = { ok: true } | { ok: false; response: Response };
+
 /**
- * `authorize()` plus automatic security-event logging on failure. Routes should
- * call this instead of `authorize()` so every rejected bridge request is
- * captured for review and feeds the repeated-failure alerting.
+ * Server-side fixed-window rate limit for a bridge request. Applied BEFORE auth
+ * so an unauthenticated flood (bad signatures, probing) is throttled too. Uses a
+ * service-role-only counter table via an atomic RPC. Fails OPEN on any limiter
+ * error so a limiter outage can never take the clinical bridge down; sustained
+ * limiting is logged and feeds the review-alert threshold.
+ */
+export async function enforceBridgeRateLimit(
+  request: Request,
+  endpoint: string,
+  write: boolean,
+): Promise<RateLimitResult> {
+  try {
+    const ip = clientIp(request) ?? "unknown";
+    const limit = write ? RATE_LIMIT_WRITE : RATE_LIMIT_READ;
+    const bucketKey = `${ip}|${request.method}|${endpoint}`;
+    const { getAdmin } = await import("@/lib/admin-db.server");
+    const admin = await getAdmin();
+    const { data, error } = await admin.rpc("check_bridge_rate_limit", {
+      _bucket_key: bucketKey,
+      _limit: limit,
+      _window_seconds: RATE_WINDOW_SECONDS,
+    });
+    if (error) return { ok: true }; // fail open — never let the limiter cause an outage
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row && row.allowed === false) {
+      const retryAfter = Number(row.retry_after) || RATE_WINDOW_SECONDS;
+      await logSecurityEvent(admin, {
+        event_type: "rate_limited",
+        endpoint,
+        method: request.method,
+        ip,
+        detail: `count=${row.current_count} limit=${limit}`,
+      });
+      const response = json({ error: "Rate limit exceeded" }, 429);
+      response.headers.set("Retry-After", String(retryAfter));
+      return { ok: false, response };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: true }; // fail open
+  }
+}
+
+/**
+ * `authorize()` plus automatic rate limiting and security-event logging on
+ * failure. Routes call this instead of `authorize()` so every bridge request is
+ * throttled and every rejection is captured for review and threshold alerting.
  */
 export async function authorizeBridge(
   request: Request,
@@ -244,6 +297,10 @@ export async function authorizeBridge(
   opts: { write: boolean; roles?: readonly string[] },
   endpoint: string,
 ): Promise<AuthResult> {
+  // Throttle first — this protects the unauthenticated attack surface too.
+  const limited = await enforceBridgeRateLimit(request, endpoint, opts.write);
+  if (!limited.ok) return { ok: false, response: limited.response, reason: "rate_limited" };
+
   const result = authorize(request, rawBody, opts);
   if (!result.ok && result.reason !== "not_configured") {
     try {
