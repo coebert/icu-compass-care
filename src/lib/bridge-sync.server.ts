@@ -8,6 +8,7 @@
 import { fetchPartnerPatients, fetchPartnerInvestigations, fetchPartnerReferrals, fetchPartnerMicrobiology, bridgeSystemActor, type PatientRow, type InvestigationRow, type ReferralRow, type MicrobiologyRow } from "@/lib/bridge-client.server";
 import { logSync, logSyncError, type BridgeEntity } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
+import { getAdmin } from "@/lib/admin-db.server";
 
 export type EntitySyncResult = {
   entity: BridgeEntity;
@@ -232,7 +233,7 @@ async function syncMicrobiology(admin: any): Promise<EntitySyncResult> {
 // Patients sync first so dependent records (investigations/referrals/micro) resolve.
 export async function runBridgeSync(): Promise<SyncRunResult> {
   const startedAt = new Date().toISOString();
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = await getAdmin();
   const results = [
     await syncPatients(supabaseAdmin),
     await syncInvestigations(supabaseAdmin),

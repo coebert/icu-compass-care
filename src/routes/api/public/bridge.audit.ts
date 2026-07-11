@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { getAdmin } from "@/lib/admin-db.server";
 
 // Read-only bridge endpoint exposing this backend's audit log so the partner
 // project can review and reconcile the synced audit trail. Append-only.
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/api/public/bridge/audit")({
         const auth = authorize(request, "", { write: false });
         if (!auth.ok) return auth.response;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         const { data, error } = await supabaseAdmin
           .from("audit_log")
           .select("*")

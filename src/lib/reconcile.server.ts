@@ -14,6 +14,7 @@ import {
 } from "@/lib/bridge-client.server";
 import { safeDbError } from "@/lib/db-error";
 import type { ReconEntity, EntityRecon, ReconRow, ReconcileResult } from "@/lib/reconcile.functions";
+import { getAdmin } from "@/lib/admin-db.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = any;
@@ -114,7 +115,7 @@ async function compareEntity(admin: Admin, spec: Spec): Promise<EntityRecon> {
 }
 
 export async function buildReconciliation(): Promise<EntityRecon[]> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = await getAdmin();
   const out: EntityRecon[] = [];
   for (const spec of SPECS) {
     try {
@@ -141,7 +142,7 @@ export async function reconcilePull(
   const spec = SPECS.find((s) => s.entity === entity);
   if (!spec) return { applied: 0, failed: 0, errors: ["Unknown entity"] };
 
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = await getAdmin();
   const admin: Admin = supabaseAdmin;
   const remote = await spec.fetchRemote();
 

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
+import { getAdmin } from "@/lib/admin-db.server";
 
 const investigationInsert = z.object({
   patient_id: z.string().uuid(),
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         const auth = authorize(request, "", { write: false });
         if (!auth.ok) return auth.response;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         const url = new URL(request.url);
         const patientId = url.searchParams.get("patient_id");
         const category = url.searchParams.get("category");
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
           return json({ error: "Invalid investigation payload" }, 400);
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         const record = { ...parsed, result_at: parsed.result_at || new Date().toISOString() };
 
         const { data, error } = await supabaseAdmin

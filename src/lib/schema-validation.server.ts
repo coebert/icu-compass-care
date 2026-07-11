@@ -6,6 +6,7 @@
 // head-only query (no rows returned). PostgREST reports a missing table or a
 // missing column as a query error, which we translate into a clear message.
 import { REQUIRED_SCHEMA } from "@/lib/schema-manifest";
+import { getAdmin } from "@/lib/admin-db.server";
 
 export type SchemaProblem = {
   table: string;
@@ -35,7 +36,7 @@ function classify(table: string, error: { code?: string; message?: string }): Sc
 }
 
 async function runValidation(): Promise<SchemaValidationResult> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = await getAdmin();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = supabaseAdmin as any;
   const problems: SchemaProblem[] = [];

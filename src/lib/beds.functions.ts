@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
 import { DEFAULT_BEDS, type BedSlot } from "@/lib/icu-beds";
 import { assertAdmin } from "@/lib/roles.server";
+import { getAdmin } from "@/lib/admin-db.server";
 
 
 export type Bed = { id: string; label: string; position: number; is_side_room: boolean };
@@ -54,7 +55,7 @@ export const saveBeds = createServerFn({ method: "POST" })
       seen.add(key);
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
 
     // Full replace keeps positions contiguous and honours reordering.
     const { error: delErr } = await supabaseAdmin

@@ -41,6 +41,7 @@ import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation } from "@/lib/handover-pdf";
+import { courseDays, type Antimicrobial } from "@/lib/antimicrobials";
 import { SpecimenTypeCombobox } from "@/components/SpecimenTypeCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -339,27 +340,8 @@ function RenalStatus({
   );
 }
 
-type Antimicrobial = {
-  name: string;
-  started_on: string;
-  ended_on?: string | null;
-};
 
-function courseDays(startedOn: string, endedOn?: string | null): number | null {
-  if (!startedOn) return null;
-  const start = new Date(startedOn + "T00:00:00");
-  if (isNaN(start.getTime())) return null;
-  let end: Date;
-  if (endedOn) {
-    end = new Date(endedOn + "T00:00:00");
-    if (isNaN(end.getTime())) return null;
-  } else {
-    end = new Date();
-    end.setHours(0, 0, 0, 0);
-  }
-  const diff = Math.floor((end.getTime() - start.getTime()) / 86400000);
-  return diff < 0 ? null : diff + 1;
-}
+
 
 function MicroStatus({
   patientId,

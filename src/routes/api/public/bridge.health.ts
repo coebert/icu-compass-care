@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CORS_HEADERS, json } from "@/lib/api-bridge.server";
+import { getAdmin } from "@/lib/admin-db.server";
 
 // The exact column list GET /api/public/bridge/patients serializes via
 // `select("*")`, kept in sync with the patients table. Used as a fallback
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/api/public/bridge/health")({
         // list when the table is empty.
         let patientFieldKeys: string[] = [...PATIENT_FIELD_KEYS];
         try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const supabaseAdmin = await getAdmin();
           const { data, error } = await supabaseAdmin
             .from("patients")
             .select("*")

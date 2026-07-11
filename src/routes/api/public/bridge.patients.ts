@@ -2,7 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
+import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
+import { getAdmin } from "@/lib/admin-db.server";
 
+// The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
+// the partner system is trusted, may send longer names, treats every field as
+// optional, and is not subject to the app's status-transition rules. The structured
+// fields are spread in from PATIENT_ARRAY_FIELDS so this stays in step with the app
+// model whenever new structured fields are added.
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
   // Optimistic concurrency: the updated_at the caller last saw. When present on
@@ -41,13 +48,10 @@ const patientUpsert = z.object({
   nok_contact: z.string().trim().max(200).optional().nullable(),
   nok_last_updated: z.string().optional().nullable(),
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
+  // Structured clinical fields, kept in sync with the app model.
+  ...PATIENT_ARRAY_FIELDS,
 });
 
-function cleanEmpty<T extends Record<string, unknown>>(data: T): T {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(data)) out[k] = v === "" ? null : v;
-  return out as T;
-}
 
 export const Route = createFileRoute("/api/public/bridge/patients")({
   server: {
@@ -59,7 +63,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         const auth = authorize(request, "", { write: false });
         if (!auth.ok) return auth.response;
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         const url = new URL(request.url);
         const status = url.searchParams.get("status");
 
@@ -88,10 +92,10 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           return json({ error: "Invalid patient payload" }, 400);
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = await getAdmin();
         // Strip control fields that are not table columns.
         const { expected_updated_at, ...columns } = parsed;
-        const record = cleanEmpty(columns);
+        const record = clean(columns);
 
         if (record.id) {
           // Load the current row for conflict detection + audit "before" snapshot.

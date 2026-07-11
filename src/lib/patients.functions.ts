@@ -1,154 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
-import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
+import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
+import {
+  patientInput,
+  clean,
+  validatePatientState,
+  type PatientStatus,
+} from "@/lib/patient-schema";
+import { getAdmin } from "@/lib/admin-db.server";
 
-// Age must be a real number within a plausible clinical range; empty/null is rejected.
-const ageSchema = z
-  .union([z.number(), z.string().trim().min(1)], {
-    errorMap: () => ({ message: "Age is required" }),
-  })
-  .pipe(
-    z.coerce
-      .number({ invalid_type_error: "Age must be a valid number" })
-      .int("Age must be a whole number")
-      .min(0, "Age must be 0 or greater")
-      .max(130, "Age must be 130 or less"),
-  );
-
-const patientInput = z.object({
-  full_name: z.string().trim().min(1).max(10),
-  hospital_number: z.string().trim().max(50).optional().nullable(),
-  age: ageSchema,
-  location_type: z.enum(["icu", "outlier"]),
-  ward: z.string().trim().max(100).optional().nullable(),
-  bed: z.string().trim().max(50).optional().nullable(),
-  status: z.enum(["referred", "admitted", "discharged", "died"]),
-  admission_date: z.string().optional().nullable(),
-  discharge_date: z.string().optional().nullable(),
-  discharge_destination: z.string().trim().max(300).optional().nullable(),
-  date_of_death: z.string().optional().nullable(),
-  past_medical_history: z.string().max(10000).optional().nullable(),
-  current_admission: z.string().max(10000).optional().nullable(),
-  current_management: z.string().max(10000).optional().nullable(),
-  outstanding_tasks: z.string().max(10000).optional().nullable(),
-  systems_resp: z.string().max(10000).optional().nullable(),
-  airway_type: z.string().max(20).optional().nullable(),
-  resp_support: z.array(z.string().max(20)).max(10).optional(),
-  systems_cvs: z.string().max(10000).optional().nullable(),
-  vasoactive_agents: z.array(z.string().max(20)).max(10).optional(),
-  systems_neuro: z.string().max(10000).optional().nullable(),
-  sedative_agents: z.array(z.string().max(20)).max(20).optional(),
-  pca_agents: z.array(z.string().max(20)).max(10).optional(),
-  regional_analgesia: z.array(z.string().max(20)).max(10).optional(),
-  systems_renal: z.string().max(10000).optional().nullable(),
-  renal_diuretics: z.boolean().optional(),
-  renal_rrt: z.boolean().optional(),
-  systems_gastro: z.string().max(10000).optional().nullable(),
-  nutrition_route: z.array(z.string().max(20)).max(10).optional(),
-  systems_haem: z.string().max(10000).optional().nullable(),
-  anticoagulation: z.array(z.string().max(20)).max(10).optional(),
-  systems_micro: z.string().max(10000).optional().nullable(),
-  antimicrobials: z
-    .array(
-      z.object({
-        name: z.string().max(100),
-        started_on: z.string().max(20),
-        ended_on: z.string().max(20).optional().nullable(),
-      }),
-    )
-    .max(30)
-    .optional(),
-  systems_other: z.string().max(10000).optional().nullable(),
-  isolation_required: z.boolean(),
-  tep_in_place: z.boolean(),
-  tep_details: z.string().max(10000).optional().nullable(),
-  dnacpr_decision: z.boolean(),
-  dnacpr_details: z.string().max(10000).optional().nullable(),
-  dnacpr_date: z.string().optional().nullable(),
-  nok_name: z.string().trim().max(200).optional().nullable(),
-  nok_relationship: z.string().trim().max(100).optional().nullable(),
-  nok_contact: z.string().trim().max(200).optional().nullable(),
-  nok_last_updated: z.string().optional().nullable(),
-  nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
-});
-
-// Normalise empty strings to null for date/optional fields
-function clean(data: Record<string, unknown>) {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(data)) {
-    out[k] = v === "" ? null : v;
-  }
-  return out;
-}
-
-type PatientStatus = "referred" | "admitted" | "discharged" | "died";
-
-// Allowed forward transitions between clinical statuses. Staying on the same
-// status is always allowed (it lets staff edit other fields without changing
-// the lifecycle). "discharged" and "died" are terminal — records are retained
-// and stay editable, but the status cannot move to a different value.
-const ALLOWED_TRANSITIONS: Record<PatientStatus, PatientStatus[]> = {
-  referred: ["admitted", "discharged", "died"],
-  admitted: ["discharged", "died"],
-  discharged: [],
-  died: [],
-};
-
-const STATUS_LABEL: Record<PatientStatus, string> = {
-  referred: "Referred",
-  admitted: "Admitted",
-  discharged: "Discharged",
-  died: "Died",
-};
-
-function isBlank(v: unknown): boolean {
-  return v === undefined || v === null || (typeof v === "string" && v.trim() === "");
-}
-
-// Server-side guard for status lifecycle + per-status required fields.
-// `merged` is the full effective row after the write (current row overlaid with
-// the incoming changes for updates, or the incoming payload for creates).
-// `previousStatus` is the status before this write (undefined on create).
-function validatePatientState(
-  merged: Record<string, unknown>,
-  previousStatus?: PatientStatus,
-) {
-  const next = merged.status as PatientStatus | undefined;
-  if (!next || !(next in ALLOWED_TRANSITIONS)) {
-    throw new Error("A valid patient status is required.");
-  }
-
-  // Transition legality (only checked when the status actually changes).
-  if (previousStatus && previousStatus !== next) {
-    const allowed = ALLOWED_TRANSITIONS[previousStatus] ?? [];
-    if (!allowed.includes(next)) {
-      const options =
-        allowed.length > 0
-          ? allowed.map((s) => STATUS_LABEL[s]).join(" or ")
-          : "no further status changes";
-      throw new Error(
-        `Invalid status change: a ${STATUS_LABEL[previousStatus]} patient cannot become ${STATUS_LABEL[next]} (allowed: ${options}).`,
-      );
-    }
-  }
-
-  // Per-status required fields.
-  if (next === "discharged") {
-    if (isBlank(merged.discharge_destination)) {
-      throw new Error("A discharge destination is required to mark a patient as discharged.");
-    }
-    if (isBlank(merged.discharge_date)) {
-      throw new Error("A discharge date is required to mark a patient as discharged.");
-    }
-  }
-  if (next === "died") {
-    if (isBlank(merged.date_of_death)) {
-      throw new Error("A date of death is required to mark a patient as died.");
-    }
-  }
-}
 
 
 export const listPatients = createServerFn({ method: "GET" })
@@ -186,7 +48,7 @@ export const createPatient = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw safeDbError(error);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: row.id,
@@ -241,7 +103,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .single();
     if (error) throw safeDbError(error);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
     await writeAudit(supabaseAdmin, {
       entity: "patients",
@@ -272,7 +134,7 @@ export const deletePatient = createServerFn({ method: "POST" })
       .maybeSingle();
     const { error } = await context.supabase.from("patients").delete().eq("id", data.id);
     if (error) throw safeDbError(error);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await getAdmin();
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: data.id,
