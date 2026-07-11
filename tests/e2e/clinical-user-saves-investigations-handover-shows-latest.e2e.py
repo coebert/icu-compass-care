@@ -67,6 +67,7 @@ SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 MARKER = f"E2ESVLAT{int(time.time()) % 100000}"
 PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = f"SVL.{str(int(time.time()))[-4:]}"
+HOSPITAL_NUMBER = f"MRN{str(int(time.time()))[-6:]}"
 
 CAT_BLOODS = "Bloods"
 CAT_CXR = "CXR"
