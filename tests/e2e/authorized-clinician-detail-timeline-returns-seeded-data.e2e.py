@@ -242,6 +242,10 @@ def main():
                 "([k, v]) => window.localStorage.setItem(k, v)",
                 [STORAGE_KEY, json.dumps(session)],
             )
+            # Reload so the supabase client hydrates the session from
+            # localStorage and the bearer attacher can sign RPC calls.
+            page.goto(f"{BASE_URL}/patients/{patient_id}", wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
 
             # ---- DETAIL: getPatient returns status + key notes --------------
             detail = call(page, PATIENTS_MODULE, "getPatient", {"id": patient_id})
