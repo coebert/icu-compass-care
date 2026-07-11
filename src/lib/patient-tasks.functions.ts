@@ -45,6 +45,21 @@ export const listPatientTasks = createServerFn({ method: "GET" })
     return rows;
   });
 
+// All open (not-completed) tasks across every patient, for the unit dashboard.
+export const listOpenTasks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("patient_tasks")
+      .select("id, patient_id, description, priority, category, owner, due_at, status")
+      .neq("status", "completed")
+      .order("due_at", { ascending: true, nullsFirst: false });
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+
+
 export const addPatientTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
