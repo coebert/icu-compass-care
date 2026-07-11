@@ -1241,6 +1241,40 @@ function PatientDetail() {
     onError: (e: Error) => toast.error("Delete failed", { description: e.message }),
   });
 
+  // Handover PDF export for this single patient. All the clinical detail the
+  // sheet needs (investigations, microbiology, observations) is fetched fresh
+  // and in parallel BEFORE the PDF is built, so a failed or in-flight fetch can
+  // never produce a blank or partial sheet — the button stays in a loading
+  // state until every source resolves, and surfaces an error toast otherwise.
+  const listInvFn = useServerFn(listInvestigations);
+  const listMicroFn = useServerFn(listMicrobiology);
+  const listObsFn = useServerFn(listObservations);
+
+  const exportMut = useMutation({
+    mutationFn: async () => {
+      if (!patient) throw new Error("Patient record is still loading");
+      const [investigations, microbiology_results, patient_observations] = await Promise.all([
+        listInvFn({ data: { patientId } }),
+        listMicroFn({ data: { patientId } }),
+        listObsFn({ data: { patientId } }),
+      ]);
+      const handoverPatient = {
+        ...patient,
+        investigations,
+        microbiology_results,
+        patient_observations,
+      } as HandoverPatient;
+      downloadHandover([handoverPatient], {
+        title: `ICU Handover — ${patient.full_name ?? "Patient"}`,
+        orientation: "portrait",
+      });
+    },
+    onSuccess: () => toast.success("Handover PDF downloaded"),
+    onError: (e: Error) =>
+      toast.error("Could not generate handover PDF", { description: e.message }),
+  });
+
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!patient)
     return (
