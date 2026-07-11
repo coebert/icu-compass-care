@@ -152,19 +152,27 @@ function HandoverHistoryPage() {
             </p>
           </div>
         </div>
-        {isAdmin && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={capturing}
-            onClick={handleCaptureNow}
-          >
-            <Camera className="h-4 w-4" />
-            {capturing ? "Saving…" : "Save version now"}
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link to="/patients/compare">
+              <GitCompareArrows className="h-4 w-4" /> Compare versions
+            </Link>
           </Button>
-        )}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={capturing}
+              onClick={handleCaptureNow}
+            >
+              <Camera className="h-4 w-4" />
+              {capturing ? "Saving…" : "Save version now"}
+            </Button>
+          )}
+        </div>
       </div>
+
 
 
       {/* Filters */}
