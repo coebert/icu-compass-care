@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
       // List patients (optionally filter by status via ?status=admitted)
       GET: async ({ request }) => {
-        const auth = authorize(request, "", { write: false });
+        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/patients");
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
