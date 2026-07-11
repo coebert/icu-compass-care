@@ -24,10 +24,6 @@ function textField(v: unknown): string {
 }
 
 
-function textField(v: unknown): string {
-  return typeof v === "string" ? v : v == null ? "" : String(v);
-}
-
 // Concatenate the fields a clinician might search old handovers by (patient
 // identifiers plus the free-text clinical summary columns).
 function buildSearchText(patients: Array<Record<string, unknown>>): string {
