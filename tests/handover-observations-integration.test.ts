@@ -280,8 +280,9 @@ const SCENARIOS: {
     expectContains: [
       "HR 118",
       "BP 95/55",
-      "SpO₂ 89%",
-      "FiO₂ 0.8",
+      "GCS 6",
+      "Lac 4.2",
+      "UO 15mL/h",
       "VentPressure-controlledSIMVwithrecruitmentandpronepositioning",
     ],
   },
