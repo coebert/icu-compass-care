@@ -80,6 +80,42 @@ export type Database = {
         }
         Relationships: []
       }
+      handover_versions: {
+        Row: {
+          captured_at: string
+          created_at: string
+          id: string
+          label: string
+          local_date: string
+          patient_count: number
+          search_text: string
+          shift: string
+          snapshot: Json
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          label: string
+          local_date: string
+          patient_count?: number
+          search_text?: string
+          shift: string
+          snapshot: Json
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          label?: string
+          local_date?: string
+          patient_count?: number
+          search_text?: string
+          shift?: string
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       icnarc_targets: {
         Row: {
           decision_to_arrival_target_min: number
