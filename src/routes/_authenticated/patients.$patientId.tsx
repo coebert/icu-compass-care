@@ -96,7 +96,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound, Pill } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound, Pill, Share2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { setPatientsShared } from "@/lib/sharing.functions";
 import { listReferralCandidates, prefillPatientFromReferral, previewReferralPrefill } from "@/lib/referral-prefill.functions";
 import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
