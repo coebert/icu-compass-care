@@ -254,12 +254,20 @@ def main():
             pdf_dlg = page.get_by_role("dialog")
             download_btn = pdf_dlg.get_by_role("button", name="Download PDF")
             expect(download_btn).to_be_visible(timeout=10000)
-            page.wait_for_timeout(1500)
-            page.screenshot(path=str(SCREENSHOTS / "ddn_debug_pdf.png"))
-            with page.expect_download(timeout=30000) as dl_info:
-                download_btn.click()
+            # The client-side PDF preview can take a while to render the whole
+            # archived board; give it time before triggering the download.
+            page.wait_for_timeout(6000)
             pdf_path = SCREENSHOTS / f"handover_{MARKER}.pdf"
-            dl_info.value.save_as(str(pdf_path))
+            for attempt in range(3):
+                try:
+                    with page.expect_download(timeout=30000) as dl_info:
+                        download_btn.click()
+                    dl_info.value.save_as(str(pdf_path))
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
+                    page.wait_for_timeout(4000)
 
             browser.close()
 
