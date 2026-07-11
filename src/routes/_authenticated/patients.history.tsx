@@ -51,6 +51,8 @@ function HandoverHistoryPage() {
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
   const isAdmin = profile?.isAdmin ?? false;
+  const roles = profile?.roles ?? [];
+  const hasClinicalAccess = roles.includes("admin") || roles.includes("clinician");
 
   async function handleCaptureNow() {
     setCapturing(true);
