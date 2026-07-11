@@ -82,10 +82,12 @@ describe("handover PDF export", () => {
       const table = (doc as any).lastAutoTable;
       expect(table).toBeTruthy();
       const contentWidth = pageWidthMm(doc) - marginX * 2;
+      const tableWidth: number = table.settings.tableWidth;
       // Table must not overflow the printable content area (allow rounding).
-      expect(table.width).toBeLessThanOrEqual(contentWidth + 0.5);
-      // Right edge of the table must stay inside the right margin.
-      const rightEdge = table.settings.margin.left + table.width;
+      expect(tableWidth).toBeLessThanOrEqual(contentWidth + 0.5);
+      // Right edge of the widest cell must stay inside the right margin.
+      const cells = Object.values(table.body[0].cells) as any[];
+      const rightEdge = Math.max(...cells.map((c) => c.x + c.width));
       expect(rightEdge).toBeLessThanOrEqual(pageWidthMm(doc) - marginX + 0.5);
     },
   );
@@ -106,15 +108,19 @@ describe("handover PDF export", () => {
     expect(dense).toBeLessThanOrEqual(normal);
   });
 
-  it("keeps every row's content starting within the printable page height", () => {
+  it("keeps every cell positioned within the printable page height", () => {
     const patients = Array.from({ length: 12 }, (_, i) => makePatient(i));
     const marginBottom = 12;
+    const marginTop = 22;
     const doc = buildHandoverPdf(patients);
     const table = (doc as any).lastAutoTable;
     const usableBottom = pageHeightMm(doc) - marginBottom;
     for (const row of table.body) {
-      // Each row begins on the page at a y within the printable area.
-      expect(row.y).toBeLessThanOrEqual(usableBottom + 0.5);
+      for (const cell of Object.values(row.cells) as any[]) {
+        // Each cell begins on its page within the printable area.
+        expect(cell.y).toBeGreaterThanOrEqual(marginTop - 6);
+        expect(cell.y).toBeLessThanOrEqual(usableBottom + 0.5);
+      }
     }
   });
 
