@@ -14,9 +14,14 @@ export const Route = createFileRoute("/api/public/bridge/microbiology")({
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
+        // Only expose microbiology for patients an admin has shared.
+        const allowedIds = await sharedPatientIds(supabaseAdmin);
+        if (allowedIds.length === 0) return json({ microbiology: [] });
+
         const { data, error } = await supabaseAdmin
           .from("microbiology_results")
           .select("*")
+          .in("patient_id", allowedIds)
           .order("updated_at", { ascending: false })
           .limit(5000);
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
