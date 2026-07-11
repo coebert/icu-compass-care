@@ -213,24 +213,8 @@ export function antimicrobialsSummary(p: HandoverPatient): string {
     .join("; ");
 }
 
-type Antimicrobial = { name?: string; started_on?: string; ended_on?: string | null };
 
-/** Whole-day inclusive course length between a start and (end|today). */
-function courseDays(startedOn: string, endedOn?: string | null): number | null {
-  if (!startedOn) return null;
-  const start = new Date(startedOn + "T00:00:00");
-  if (isNaN(start.getTime())) return null;
-  let end: Date;
-  if (endedOn) {
-    end = new Date(endedOn + "T00:00:00");
-    if (isNaN(end.getTime())) return null;
-  } else {
-    end = new Date();
-    end.setHours(0, 0, 0, 0);
-  }
-  const diff = Math.floor((end.getTime() - start.getTime()) / 86400000);
-  return diff < 0 ? null : diff + 1;
-}
+
 
 /** Renal support flags (diuretics / RRT) as a short suffix, or "". */
 export function renalSupportSummary(p: HandoverPatient): string {
