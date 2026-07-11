@@ -25,6 +25,7 @@ import {
   HeartPulse,
   ShieldAlert,
   Wind,
+  Cable,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/unit")({
