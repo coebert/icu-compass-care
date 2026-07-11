@@ -370,6 +370,11 @@ export async function authorizeBridge(
         actor_email: result.actor?.email ?? null,
         detail: result.detail ?? null,
       });
+      // A bad HMAC signature is the classic brute-force / probing signature.
+      // Count it as an abuse strike so repeated bad signatures lock the IP out.
+      if (result.reason === "signature_failure") {
+        await registerBridgeStrike(admin, clientIp(request) ?? "unknown", "signature_failure");
+      }
     } catch {
       // swallow — never let auditing block the auth response
     }
