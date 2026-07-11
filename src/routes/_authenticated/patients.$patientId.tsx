@@ -62,6 +62,7 @@ import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation, downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
+import { missingCriticalFields } from "@/lib/handover-validation";
 import { listObservations } from "@/lib/observations.functions";
 import { courseDays, type Antimicrobial } from "@/lib/antimicrobials";
 import { SpecimenTypeCombobox } from "@/components/SpecimenTypeCombobox";
