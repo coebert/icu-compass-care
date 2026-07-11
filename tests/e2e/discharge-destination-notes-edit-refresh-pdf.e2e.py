@@ -261,7 +261,7 @@ def main():
         raw_text, packed_text = extract_pdf_text(pdf_path)
 
         assert packed(PATIENT_NAME) in packed_text, "patient missing from PDF"
-        assert "Discharged" in raw_text, "'Discharged' status not rendered in PDF"
+        assert "Discharged" in packed_text, "'Discharged' status not rendered in PDF"
         assert packed(f"To {NEW_DEST}") in packed_text, (
             f"updated destination not rendered as 'To {NEW_DEST}' in PDF"
         )
