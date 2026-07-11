@@ -20,6 +20,7 @@ import {
 } from "@/components/patient/systems-widgets";
 import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summary";
 import { ObservationsCard } from "@/components/patient/observations-card";
+import { LinesCard } from "@/components/patient/lines-card";
 import {
   listInvestigations,
   addInvestigation,
@@ -1559,6 +1560,7 @@ function PatientDetail() {
         <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="observations">Observations</TabsTrigger>
+          <TabsTrigger value="lines">Lines & devices</TabsTrigger>
           <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
           <TabsTrigger value="nok">Next of kin</TabsTrigger>
           <TabsTrigger value="investigations">Investigations</TabsTrigger>
@@ -1584,6 +1586,11 @@ function PatientDetail() {
             }}
           />
         </TabsContent>
+
+        <TabsContent value="lines" className="mt-4 space-y-4">
+          <LinesCard patientId={patientId} />
+        </TabsContent>
+
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />
