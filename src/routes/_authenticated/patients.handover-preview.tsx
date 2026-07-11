@@ -37,7 +37,8 @@ export const Route = createFileRoute("/_authenticated/patients/handover-preview"
   component: HandoverPreviewPage,
 });
 
-type Patient = Record<string, any>;
+import type { Patient as DomainPatient } from "@/lib/domain-types";
+type Patient = DomainPatient & Record<string, any>;
 
 /**
  * Full-page printable preview of the ICU handover sheet. Renders the exact PDF

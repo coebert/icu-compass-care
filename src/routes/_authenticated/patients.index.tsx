@@ -23,7 +23,8 @@ export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
 });
 
-type Patient = Record<string, any>;
+import type { Patient as DomainPatient } from "@/lib/domain-types";
+type Patient = DomainPatient & Record<string, any>;
 
 const DRAG_MIME = "application/x-patient";
 
