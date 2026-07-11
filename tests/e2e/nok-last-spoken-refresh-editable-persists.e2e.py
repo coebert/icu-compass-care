@@ -92,7 +92,7 @@ def create_patient():
         f"{SUPABASE_URL}/rest/v1/patients",
         headers={**admin_headers(), "Prefer": "return=representation"},
         json={
-            "full_name": "E2E NOK Refresh",
+            "full_name": "E2E NOK",
             "age": 61,
             "location_type": "icu",
             "status": "admitted",
