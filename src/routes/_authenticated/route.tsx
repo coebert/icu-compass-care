@@ -61,8 +61,13 @@ function AuthenticatedLayout() {
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
 
-  const locked =
-    !!profile?.userId && deviceHasPasskey(profile.userId) && !unlocked;
+  const deviceEnrolled = !!profile?.userId && deviceHasPasskey(profile.userId);
+  const locked = deviceEnrolled && !unlocked;
+
+  function lockNow() {
+    lockSession();
+    setUnlocked(false);
+  }
 
 
   const navItems = [
