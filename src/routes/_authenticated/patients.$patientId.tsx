@@ -1889,6 +1889,12 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
                   {ev.detail?.trim() && (
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
                   )}
+                  {ev.changedBy && (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <UserRound className="h-3 w-3" />
+                      Changed by {ev.changedBy}
+                    </p>
+                  )}
                   {ev.kind === "event" && ev.eventId && (
                     <div className="flex gap-1 pt-1">
                       <Button
