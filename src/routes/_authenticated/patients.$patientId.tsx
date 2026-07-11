@@ -44,6 +44,7 @@ import { RECENT_INVESTIGATION_CATEGORIES, mostRecentInvestigation } from "@/lib/
 import { SpecimenTypeCombobox } from "@/components/SpecimenTypeCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
