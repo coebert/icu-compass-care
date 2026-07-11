@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { validateHandoverExport } from "@/lib/handover.functions";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,31 @@ export function HandoverPreviewModal({
   title?: string;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const validateExport = useServerFn(validateHandoverExport);
+
+  // Server-side guard before generating the PDF: the backend re-checks every
+  // patient's critical fields, so an incomplete record blocks the export even
+  // if the UI is bypassed.
+  const handleDownload = async () => {
+    const ids = patients.map((p) => p.id).filter(Boolean) as string[];
+    if (ids.length === 0) {
+      toast.error("No patients to export");
+      return;
+    }
+    setExporting(true);
+    try {
+      await validateExport({ data: { patientIds: ids } });
+      downloadHandover(patients, options);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Handover export was blocked",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   // Configurable header/footer state.
   const [headerTitle, setHeaderTitle] = useState(title ?? "ICU Handover Sheet");
@@ -380,11 +407,11 @@ export function HandoverPreviewModal({
             <X className="h-4 w-4" /> Close
           </Button>
           <Button
-            disabled={!url}
+            disabled={!url || exporting}
             className="h-11 gap-1.5 sm:h-10"
-            onClick={() => downloadHandover(patients, options)}
+            onClick={handleDownload}
           >
-            <FileDown className="h-4 w-4" /> Download PDF
+            <FileDown className="h-4 w-4" /> {exporting ? "Validating…" : "Download PDF"}
           </Button>
         </DialogFooter>
 
