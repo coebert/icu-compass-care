@@ -282,6 +282,8 @@ export type HandoverPdfOptions = {
   showPageNumbers?: boolean;
   /** Page size. Default "a4". */
   pageSize?: HandoverPageSize;
+  /** Page orientation. Default "landscape". */
+  orientation?: HandoverOrientation;
   /** Left/right page margin in mm. Default 8. */
   marginX?: number;
   /** Font scale multiplier for the table body. Default 1 (7pt). */
