@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble } from "lucide-react";
+import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble, Lock } from "lucide-react";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
@@ -61,8 +61,13 @@ function AuthenticatedLayout() {
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
 
-  const locked =
-    !!profile?.userId && deviceHasPasskey(profile.userId) && !unlocked;
+  const deviceEnrolled = !!profile?.userId && deviceHasPasskey(profile.userId);
+  const locked = deviceEnrolled && !unlocked;
+
+  function lockNow() {
+    lockSession();
+    setUnlocked(false);
+  }
 
 
   const navItems = [
@@ -123,6 +128,12 @@ function AuthenticatedLayout() {
             <span className="hidden text-sm text-muted-foreground md:inline">
               {profile?.profile?.display_name ?? profile?.email}
             </span>
+            {deviceEnrolled && (
+              <Button variant="outline" size="sm" onClick={lockNow} className="gap-1.5">
+                <Lock className="h-4 w-4" />
+                <span className="hidden sm:inline">Lock now</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sign out</span>
