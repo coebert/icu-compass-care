@@ -169,7 +169,7 @@ def main():
             # ---- PHASE 1: LOGGED OUT — access blocked ----
             page.goto(detail_url, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            expect(page).to_have_url(lambda u: "/auth" in u, timeout=15000)
+            page.wait_for_url("**/auth**", timeout=15000)
             body = page.inner_text("body")
             assert PATIENT_NAME not in body, (
                 f"patient name leaked while logged out:\n{body[:500]!r}"
