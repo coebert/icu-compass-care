@@ -277,8 +277,13 @@ def main():
             download_btn = pdf_dialog.get_by_role("button", name="Download PDF")
             expect(download_btn).to_be_visible(timeout=10000)
 
-            with page.expect_download(timeout=15000) as dl_info:
-                download_btn.click()
+            try:
+                with page.expect_download(timeout=30000) as dl_info:
+                    download_btn.click()
+            except Exception:
+                page.screenshot(path=str(SCREENSHOTS / f"handover_{MARKER}_nodl.png"))
+                print("PAGE TEXT:", page.inner_text("body")[:2000], file=sys.stderr)
+                raise
             download = dl_info.value
             pdf_path = SCREENSHOTS / f"handover_{MARKER}.pdf"
             download.save_as(str(pdf_path))
