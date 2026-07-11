@@ -40,6 +40,12 @@ export const Route = createFileRoute("/_authenticated/patients/handover-preview"
 import type { Patient as DomainPatient } from "@/lib/domain-types";
 type Patient = DomainPatient & Record<string, any>;
 
+// Stable empty reference so that, while the query is loading, `patients` keeps
+// the same identity across renders. A fresh `[]` default here would change the
+// `handoverPatients` memo identity every render and re-run the preview effect
+// endlessly ("Maximum update depth exceeded").
+const EMPTY_PATIENTS: Patient[] = [];
+
 /**
  * Full-page printable preview of the ICU handover sheet. Renders the exact PDF
  * that will be exported inside a large embedded viewer so scaling and
@@ -50,10 +56,12 @@ function HandoverPreviewPage() {
   const { archived } = Route.useSearch();
   const list = useServerFn(listPatients);
 
-  const { data: patients = [] } = useQuery({
+  const { data } = useQuery({
     queryKey: ["patients"],
     queryFn: () => list() as Promise<Patient[]>,
   });
+  const patients = data ?? EMPTY_PATIENTS;
+
 
   const handoverPatients = useMemo<HandoverPatient[]>(() => {
     return patients.filter((p) => {
