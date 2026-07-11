@@ -507,7 +507,8 @@ function PatientDetail() {
                 Systems review
               </h3>
               <div className="grid gap-6 sm:grid-cols-2">
-                <InfoBlock label="Resp" value={patient.systems_resp} />
+                <RespiratoryStatus patientId={patientId} patient={patient} />
+                <InfoBlock label="CNS / Neuro" value={patient.systems_neuro} />
                 <InfoBlock label="CVS" value={patient.systems_cvs} />
                 <InfoBlock label="CNS / Neuro" value={patient.systems_neuro} />
                 <InfoBlock label="Renal" value={patient.systems_renal} />
