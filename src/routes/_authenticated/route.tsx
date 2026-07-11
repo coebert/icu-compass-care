@@ -128,6 +128,12 @@ function AuthenticatedLayout() {
             <span className="hidden text-sm text-muted-foreground md:inline">
               {profile?.profile?.display_name ?? profile?.email}
             </span>
+            {deviceEnrolled && (
+              <Button variant="outline" size="sm" onClick={lockNow} className="gap-1.5">
+                <Lock className="h-4 w-4" />
+                <span className="hidden sm:inline">Lock now</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sign out</span>
