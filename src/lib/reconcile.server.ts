@@ -12,6 +12,7 @@ import {
   fetchPartnerAuditLog,
   bridgeSystemActor,
 } from "@/lib/bridge-client.server";
+import { safeDbError } from "@/lib/db-error";
 import type { ReconEntity, EntityRecon, ReconRow, ReconcileResult } from "@/lib/reconcile.functions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,7 +66,7 @@ async function compareEntity(admin: Admin, spec: Spec): Promise<EntityRecon> {
     spec.fetchRemote(),
     admin.from(spec.table).select("*").limit(5000),
   ]);
-  if (localRes.error) throw new Error(localRes.error.message);
+  if (localRes.error) throw safeDbError(localRes.error, "read local records for reconciliation");
   const local: Record0[] = localRes.data ?? [];
 
   const localById = new Map(local.map((r) => [String(r.id), r]));
@@ -158,7 +159,10 @@ export async function reconcilePull(
     const { error } = await admin.from(spec.table).upsert(row, { onConflict: "id" });
     if (error) {
       failed++;
-      if (errors.length < 10) errors.push(`${String(row.id).slice(0, 8)}: ${error.message}`);
+      // Log full detail server-side; surface only the row id to the admin report
+      // so raw DB error text (schema/constraint names) is never leaked.
+      console.error(`[reconcile] upsert failed for ${spec.table} row ${String(row.id)}:`, error);
+      if (errors.length < 10) errors.push(`${String(row.id).slice(0, 8)}: upsert failed`);
     } else {
       applied++;
     }

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertAdmin } from "@/lib/roles.server";
 
 export type ReconEntity = "notifications" | "referrals" | "audit_log";
 
@@ -30,17 +31,7 @@ export type ReconcileResult = {
   errors: string[];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data, error } = await context.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", context.userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (error) throw new Error("Failed to verify permissions");
-  if (!data) throw new Error("Forbidden: admin only");
-}
+// assertAdmin is imported from roles.server (see import at top).
 
 // Review synced state across both projects (admin only).
 export const getReconciliation = createServerFn({ method: "GET" })

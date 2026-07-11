@@ -1,62 +1,78 @@
-## ICU Handover App — Salisbury District Hospital
+# App Review & Improvement Plan
 
-A secure, login-only clinical handover tool for tracking ICU patients (and outlying referrals), their history, management, investigations, and outstanding tasks — with full audit-friendly history retained after discharge.
+An expert review of the ICU handover app covering security (highest priority — sensitive patient-identifiable clinical data), code quality, and elegance. Findings are backed by the security scanner, the database linter, direct RLS inspection, and a full code read.
 
-### Access & security model
-- **Login required for everything.** No data is reachable without an authenticated session. All patient routes sit behind an authenticated layout.
-- **Admin creates all accounts.** No public signup. First admin is seeded; admins create staff accounts and assign roles (`admin`, `clinician`). Roles stored in a separate `user_roles` table (never on the profile) to prevent privilege escalation.
-- **Encrypted at rest + strict access control.** Data stored in Lovable Cloud (Postgres) — encrypted at rest, HTTPS in transit — with Row-Level Security so only authenticated staff can read/write. This keeps records fully searchable and editable (the standard, safe model for clinical web apps). Leaked-password protection enabled.
-- **Full audit trail.** Every create/edit is stamped with author + timestamp; nothing is hard-deleted.
+## What's already good
 
-### Core data model (tables)
-- `profiles` — staff display name, linked to auth user.
-- `user_roles` — role per user (admin/clinician).
-- `patients` — core record: name/identifier (NHS/hospital number), DOB, location type (`icu` | `outlier`), ward/bed, **status** (`referred`, `admitted`, `discharged`, `died`), discharge destination, date of death, admission date.
-- `patient_details` — narrative fields, all editable: past medical history, current admission summary, current management, outstanding tasks.
-- `escalation_plans` — treatment escalation plan in place? (yes/no) + details.
-- `resuscitation` — DNACPR decision made? (yes/no) + details/date.
-- `next_of_kin` — name, relationship, contact, **last updated/spoken to** timestamp + who updated them.
-- `investigations` — every entry saved with `category` (Bloods, CXR, CTAP, CT chest, CT head — extensible), result/findings text, result datetime, author. "Most recent per category" is derived by query, so nothing is overwritten.
-- All tables get GRANTs + RLS policies scoped to authenticated users.
+- Server functions consistently gate on `requireSupabaseAuth`; admin ops verify the caller's role.
+- The cross-project bridge uses timing-safe HMAC verification, timestamp skew limits, a signed actor envelope, RBAC, and a secret-rotation window.
+- Patient input is validated with tight Zod schemas; most DB errors route through `safeDbError`.
+- `setup`/`claimFirstAdmin` bootstrap paths are correctly self-disabling.
 
-### Screens
-1. **Login** — username/password only; no signup link.
-2. **Patient board (home)** — list of current ICU patients + separate section for outlying/referred patients. Filter by status. Quick view of status, escalation/DNACPR flags, outstanding tasks.
-3. **Patient detail** — tabbed:
-   - Overview (history, admission, management, tasks)
-   - Escalation & Resuscitation (TEP + DNACPR)
-   - Next of Kin (with last-contacted)
-   - **Investigations** — "Most recent" cards (Most recent bloods, CXR, CTAP, CT chest, etc.) plus a full chronological log; add new results.
-   - Status control — change status, record discharge destination or death.
-4. **Admin** — create/manage staff accounts and roles (admin only).
-5. **Discharged/archive view** — retained records remain viewable and editable after discharge/death.
+---
 
-### Shared backend / interfacing with the other app
-You chose a **shared backend/database**. To make both apps read/write the same records, both Lovable projects must connect to the **same** Lovable Cloud / Supabase backend. This app will enable Lovable Cloud and build the schema above; connecting your other project (a8eeeba1…) to this same backend is a project-linking step done via the Supabase integration.
+## Priority 1 — Security
 
-> Note: I can't reach the other project's backend from here. In the technical section I outline the two viable paths so you can pick when we build.
+### 1.1 Inconsistent RLS on three clinical tables (highest risk)
+`patient_events`, `patient_reviews`, and `patient_tasks` use `USING (true)` / `WITH CHECK (true)` for all operations. Every comparable clinical table (`patients`, `investigations`, `referrals`) requires `private.has_clinical_access(auth.uid())`. Result: any authenticated account — even one with no clinical role — can read and modify patient event history, specialty review notes, and task lists. This is the source of the 3 scanner findings and most of the 9 linter warnings.
 
-### Technical notes
-- **Stack:** TanStack Start + Lovable Cloud (Postgres, Auth, RLS). Auth via `_authenticated` route layout; bearer-token middleware for server functions.
-- **"Username" login:** Supabase Auth is email-based; we implement usernames by mapping each username to an email under the hood (or use email addresses directly if you prefer). Confirm which at build start.
-- **Investigations "most recent":** stored append-only; latest-per-category via `DISTINCT ON (category) ORDER BY result_at DESC` in a server function — full history preserved.
-- **Shared-DB options for the other app:**
-  1. Connect both projects to one Supabase project (true shared tables) — needs the Supabase integration linked to the same instance in both apps.
-  2. If they must stay separate backends, expose secured `/api/public/*` endpoints (signature-verified) for data exchange instead.
-- **Encryption clarification:** at-rest + TLS + RLS (not zero-knowledge), per your choice — keeps search/edit/sync working.
+**Fix:** a migration that drops the 12 permissive policies and recreates them scoped to `private.has_clinical_access(auth.uid())`, exactly matching the `patients` table pattern (SELECT/INSERT/UPDATE/DELETE). Verify afterwards with the linter and by re-reading `pg_policies`.
 
-### Build order
-1. Enable Lovable Cloud; set up auth + admin-only account creation + roles.
-2. Schema + RLS + GRANTs for all tables; seed first admin.
-3. Login and authenticated app shell.
-4. Patient board (ICU + outliers) with status.
-5. Patient detail tabs (overview, escalation/DNACPR, NOK, status).
-6. Investigations tab with "most recent" views + full log.
-7. Admin account management.
-8. Discharge/archive views; ensure everything editable.
-9. Document the shared-backend link path for the other project.
+### 1.2 Raw database errors leaked to clients
+Five handlers throw `error.message` from Postgres directly instead of using `safeDbError` (which logs server-side and returns a generic message): `me.functions.ts` (updateMyProfile), `passkeys.functions.ts` (two sites), `sync.functions.ts`, and `reconcile.server.ts` (two sites). These can expose column/constraint names.
 
-### Open items to confirm at build start
-- Username-based login vs. email login.
-- Patient identifier field(s) to use (NHS number, hospital number, or both).
-- Which shared-backend path (same Supabase project vs. API exchange) for the other app.
+**Fix:** route all five through `safeDbError(error, "<action>")`.
+
+### 1.3 Duplicated admin role-check
+`assertAdmin` is copy-pasted verbatim in four files (`admin`, `beds`, `bridge-health`, `reconcile` functions). A future change to role logic risks reopening a privilege-escalation gap if a copy is missed.
+
+**Fix:** extract one shared `assertAdmin(context)` (e.g. `src/lib/roles.server.ts`) and import it everywhere.
+
+### 1.4 Bridge data-integrity / PII scope (governance flags)
+- `bridge.patients.ts` selects `*`, exporting full PII (NOK contact, DNACPR/TEP details) to any caller holding the shared secret. Confirm this is an accepted, documented data-sharing agreement; if not, project to a safe column allow-list.
+- The bridge `POST` handler bypasses the app's status-transition validator (`validatePatientState`), so a partner can push a patient to "died"/"discharged" without `date_of_death`/`discharge_destination`. Share and apply the same validator on the bridge write path.
+
+These are decisions to confirm with you before changing behaviour.
+
+---
+
+## Priority 2 — Code quality
+
+### 2.1 Shared patient schema & helpers between app and bridge
+The ~50-field patient Zod schema exists twice (`patients.functions.ts` and `bridge.patients.ts`) and has already drifted — structured fields (`antimicrobials`, `vasoactive_agents`, `airway_type`, etc.) exist in the app but not the bridge, so they can never sync. Also duplicated: `clean()`/`cleanEmpty` and status-transition logic.
+
+**Fix:** extract a single shared schema + helpers module imported by both paths, closing the sync gap.
+
+### 2.2 Duplicated antimicrobial/course logic
+`courseDays` and antimicrobial summarisation exist in both `handover-pdf.ts` and `patients.$patientId.tsx`.
+
+**Fix:** move to one shared module (e.g. `src/lib/antimicrobials.ts`) and import in both.
+
+### 2.3 Stronger types
+`Record<string, any>` is used pervasively for patient/investigation data. Adopt the generated Supabase `Database` row types so field typos are caught at compile time.
+
+---
+
+## Priority 3 — Elegance / maintainability
+
+### 3.1 Refactor `patients.$patientId.tsx` (2249 lines)
+Ten near-identical systems-status widgets repeat the same mutation/toggle boilerplate. Extract a generic `useSystemFieldMutation` hook and a declarative field config (mirroring the clean `HANDOVER_COLUMNS` pattern), then split widgets into their own files.
+
+### 3.2 Split `handover-pdf.ts` (641 lines)
+Separate the three concerns into modules: column renderers, data-selection/sorting, and jsPDF layout — improving testability.
+
+### 3.3 `getAdmin()` helper
+Replace the ~12 repeated inline `await import(".../client.server")` lines with one small lazy helper that preserves the client-bundle exclusion.
+
+---
+
+## Suggested execution order
+
+1. **Migration** for 1.1 (RLS) — biggest risk, self-contained; verify with linter.
+2. **1.2 + 1.3** — small, safe server-function edits; add/confirm tests.
+3. **Confirm 1.4 decisions** with you, then implement agreed bridge changes.
+4. **2.1 + 2.2** — shared modules; run the existing test suite.
+5. **2.3** typing pass.
+6. **3.1 / 3.2 / 3.3** incremental refactors, each behind existing tests, no behaviour change.
+
+Priorities 1–2 are behaviour-preserving except the intended RLS tightening and bridge validation; Priority 3 is pure refactor. I can start with the Priority 1 migration on approval.

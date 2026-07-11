@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { safeDbError } from "@/lib/db-error";
 
 // Returns the signed-in user's profile and roles.
 export const getMe = createServerFn({ method: "GET" })
@@ -29,6 +30,6 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       .from("profiles")
       .update({ display_name: data.display_name })
       .eq("id", context.userId);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "update your profile");
     return { ok: true };
   });

@@ -9,6 +9,7 @@ import {
 } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { safeDbError } from "@/lib/db-error";
 
 // Derive the Relying Party origin + ID from the incoming request. WebAuthn
 // binds credentials to the exact host, so this must reflect the live domain.
@@ -111,7 +112,7 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
       transports: credential.transports ?? [],
       device_label: data.deviceLabel || null,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "register your passkey");
 
     await db.from("webauthn_challenges").delete().eq("user_id", context.userId);
 
@@ -239,6 +240,6 @@ export const deletePasskey = createServerFn({ method: "POST" })
       .delete()
       .eq("id", data.id)
       .eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "remove your passkey");
     return { ok: true };
   });

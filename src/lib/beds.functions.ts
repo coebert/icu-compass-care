@@ -3,17 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
 import { DEFAULT_BEDS, type BedSlot } from "@/lib/icu-beds";
+import { assertAdmin } from "@/lib/roles.server";
 
-async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data, error } = await context.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", context.userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (error) throw safeDbError(error, "verify permissions");
-  if (!data) throw new Error("Forbidden: admin only");
-}
 
 export type Bed = { id: string; label: string; position: number; is_side_room: boolean };
 

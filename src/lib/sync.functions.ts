@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { safeDbError } from "@/lib/db-error";
 import type { SyncRunResult } from "@/lib/bridge-sync.server";
 
 export type SyncEvent = {
@@ -50,7 +51,7 @@ export const getSyncStatus = createServerFn({ method: "GET" })
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "load sync status");
 
     const events = (data ?? []) as SyncEvent[];
     const intervalMinutes = Number(process.env.BRIDGE_SYNC_INTERVAL_MINUTES);
