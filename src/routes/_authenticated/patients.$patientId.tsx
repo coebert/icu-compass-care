@@ -174,6 +174,67 @@ function RespiratoryStatus({
   );
 }
 
+const VASOACTIVE_OPTIONS: { value: string; label: string }[] = [
+  { value: "na", label: "Noradrenaline (NA)" },
+  { value: "adrenaline", label: "Adrenaline" },
+  { value: "metaraminol", label: "Metaraminol" },
+  { value: "dobutamine", label: "Dobutamine" },
+  { value: "milrinone", label: "Milrinone" },
+  { value: "vasopressin", label: "Vasopressin" },
+];
+
+function CardiovascularStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+
+  const agents: string[] = patient.vasoactive_agents ?? [];
+
+  const mut = useMutation({
+    mutationFn: (next: string[]) =>
+      update({ data: { id: patientId, vasoactive_agents: next } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  const toggle = (value: string) => {
+    const next = agents.includes(value)
+      ? agents.filter((a) => a !== value)
+      : [...agents, value];
+    mut.mutate(next);
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Vasoactive agents
+        </p>
+        <div className="flex flex-wrap gap-4">
+          {VASOACTIVE_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={agents.includes(opt.value)}
+                disabled={mut.isPending}
+                onCheckedChange={() => toggle(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <InfoBlock label="CVS notes" value={patient.systems_cvs} />
+    </div>
+  );
+}
+
+
+
 
 type PatientTask = Record<string, any>;
 
@@ -508,7 +569,7 @@ function PatientDetail() {
               </h3>
               <div className="grid gap-6 sm:grid-cols-2">
                 <RespiratoryStatus patientId={patientId} patient={patient} />
-                <InfoBlock label="CVS" value={patient.systems_cvs} />
+                <CardiovascularStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="CNS / Neuro" value={patient.systems_neuro} />
                 <InfoBlock label="Renal" value={patient.systems_renal} />
                 <InfoBlock label="Gastro / Nutri" value={patient.systems_gastro} />
