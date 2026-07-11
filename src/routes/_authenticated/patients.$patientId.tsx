@@ -28,6 +28,15 @@ import {
   deletePatientReview,
   REVIEW_SPECIALTIES,
 } from "@/lib/patient-reviews.functions";
+import {
+  listPatientTasks,
+  addPatientTask,
+  updatePatientTask,
+  deletePatientTask,
+  TASK_STATUSES,
+  TASK_STATUS_LABEL,
+  type TaskStatus,
+} from "@/lib/patient-tasks.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
