@@ -119,9 +119,21 @@ function has(arr: unknown): boolean {
   return Array.isArray(arr) && arr.length > 0;
 }
 
+type OpenTask = {
+  id: string;
+  patient_id: string;
+  description: string;
+  priority: string;
+  category: string;
+  owner: string | null;
+  due_at: string | null;
+  status: string;
+};
+
 function UnitDashboard() {
   const list = useServerFn(listPatients);
   const beds = useServerFn(listBeds);
+  const openTasksFn = useServerFn(listOpenTasks);
 
   const { data: patients = [] } = useQuery({
     queryKey: ["patients"],
@@ -130,6 +142,10 @@ function UnitDashboard() {
   const { data: bedRoster = [] } = useQuery({
     queryKey: ["beds"],
     queryFn: () => beds() as Promise<Bed[]>,
+  });
+  const { data: openTasks = [] } = useQuery({
+    queryKey: ["open-tasks"],
+    queryFn: () => openTasksFn() as Promise<OpenTask[]>,
   });
 
   const active = useMemo(
