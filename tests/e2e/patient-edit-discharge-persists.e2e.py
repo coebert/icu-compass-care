@@ -236,10 +236,8 @@ def main():
 
             # A discharge date is required to mark a patient as discharged.
             panel.get_by_role("button", name="DD/MM/YYYY").click()
-            today_day = str(int(time.strftime("%d")))
-            page.get_by_role("dialog").get_by_role("gridcell").filter(
-                has_text=re.compile(rf"^{today_day}$")
-            ).first.click()
+            today_label = time.strftime("%A, %-d %B %Y")  # e.g. "Saturday, 11 July 2026"
+            page.get_by_role("button", name=today_label).click()
             panel.get_by_role("button", name="Update status").click()
             expect(page.get_by_text("Status updated", exact=False).first).to_be_visible(timeout=15000)
 
