@@ -58,6 +58,7 @@ PASSWORD = "Test-Passw0rd-123!"
 PATIENT_NAME = "E.S.C."
 
 SUFFIX = str(int(time.time()))[-6:]
+HOSPITAL_NUMBER = f"HN{SUFFIX}"
 DNACPR_OLD = f"DNRold{SUFFIX}"
 DNACPR_NEW = f"DNRnew{SUFFIX}"
 TEP_OLD = f"TEPold{SUFFIX}"
