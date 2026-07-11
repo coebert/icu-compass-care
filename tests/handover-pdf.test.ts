@@ -473,6 +473,19 @@ describe("handover PDF latest-observations block", () => {
     expect(second).toBe(first);
   });
 
+  it("is deterministic across many repeated runs (no wall-clock drift)", () => {
+    const canonical = obsCellText(buildHandoverPdf([observedPatient()]));
+    const runs: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      // Rebuild from a fresh patient object each iteration so nothing is
+      // memoised between runs; the section must stay byte-identical even as
+      // real time advances between builds.
+      runs.push(obsCellText(buildHandoverPdf([observedPatient()])));
+    }
+    expect(new Set(runs).size).toBe(1);
+    expect(runs[0]).toBe(canonical);
+  });
+
   it("is order-independent: shuffled observation arrays produce identical output", () => {
     const canonical = obsCellText(buildHandoverPdf([observedPatient()]));
     const shuffled = observedPatient();
