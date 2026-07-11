@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
