@@ -475,6 +475,7 @@ export type Database = {
         Row: {
           admission_date: string | null
           age: number | null
+          airway_type: string | null
           bed: string | null
           created_at: string
           created_by: string | null
@@ -498,6 +499,7 @@ export type Database = {
           nok_relationship: string | null
           outstanding_tasks: string | null
           past_medical_history: string | null
+          resp_support: string[]
           status: Database["public"]["Enums"]["patient_status"]
           systems_cvs: string | null
           systems_gastro: string | null
@@ -516,6 +518,7 @@ export type Database = {
         Insert: {
           admission_date?: string | null
           age?: number | null
+          airway_type?: string | null
           bed?: string | null
           created_at?: string
           created_by?: string | null
@@ -539,6 +542,7 @@ export type Database = {
           nok_relationship?: string | null
           outstanding_tasks?: string | null
           past_medical_history?: string | null
+          resp_support?: string[]
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
@@ -557,6 +561,7 @@ export type Database = {
         Update: {
           admission_date?: string | null
           age?: number | null
+          airway_type?: string | null
           bed?: string | null
           created_at?: string
           created_by?: string | null
@@ -580,6 +585,7 @@ export type Database = {
           nok_relationship?: string | null
           outstanding_tasks?: string | null
           past_medical_history?: string | null
+          resp_support?: string[]
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null

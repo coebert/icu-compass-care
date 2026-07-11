@@ -34,6 +34,8 @@ const patientInput = z.object({
   current_management: z.string().max(10000).optional().nullable(),
   outstanding_tasks: z.string().max(10000).optional().nullable(),
   systems_resp: z.string().max(10000).optional().nullable(),
+  airway_type: z.string().max(20).optional().nullable(),
+  resp_support: z.array(z.string().max(20)).max(10).optional(),
   systems_cvs: z.string().max(10000).optional().nullable(),
   systems_neuro: z.string().max(10000).optional().nullable(),
   systems_renal: z.string().max(10000).optional().nullable(),
