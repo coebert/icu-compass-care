@@ -15,6 +15,8 @@ import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble } from "lucide-react";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
+import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
+import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
