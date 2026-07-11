@@ -86,7 +86,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus } from "lucide-react";
-import { listReferralCandidates, prefillPatientFromReferral } from "@/lib/referral-prefill.functions";
+import { listReferralCandidates, prefillPatientFromReferral, previewReferralPrefill } from "@/lib/referral-prefill.functions";
 import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
 
