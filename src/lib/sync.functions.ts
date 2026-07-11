@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { safeDbError } from "@/lib/db-error";
 import type { SyncRunResult } from "@/lib/bridge-sync.server";
 
 export type SyncEvent = {
