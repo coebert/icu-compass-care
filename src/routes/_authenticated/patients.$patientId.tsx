@@ -88,6 +88,90 @@ function InfoBlock({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+const AIRWAY_OPTIONS: { value: string; label: string }[] = [
+  { value: "own", label: "Own airway" },
+  { value: "ett", label: "ETT" },
+  { value: "tt", label: "Tracheostomy (TT)" },
+];
+
+const RESP_SUPPORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "nc", label: "Nasal cannula (NC)" },
+  { value: "fm", label: "Face mask (FM)" },
+  { value: "hfno", label: "HFNO" },
+  { value: "niv", label: "NIV" },
+  { value: "ippv", label: "IPPV" },
+];
+
+function RespiratoryStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+
+  const airway: string | null = patient.airway_type ?? null;
+  const support: string[] = patient.resp_support ?? [];
+
+  const mut = useMutation({
+    mutationFn: (payload: { airway_type?: string | null; resp_support?: string[] }) =>
+      update({ data: { id: patientId, ...payload } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  const setAirway = (value: string) =>
+    mut.mutate({ airway_type: airway === value ? null : value });
+
+  const toggleSupport = (value: string) => {
+    const next = support.includes(value)
+      ? support.filter((s) => s !== value)
+      : [...support, value];
+    mut.mutate({ resp_support: next });
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Airway
+        </p>
+        <div className="flex flex-wrap gap-4">
+          {AIRWAY_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={airway === opt.value}
+                disabled={mut.isPending}
+                onCheckedChange={() => setAirway(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Respiratory support
+        </p>
+        <div className="flex flex-wrap gap-4">
+          {RESP_SUPPORT_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={support.includes(opt.value)}
+                disabled={mut.isPending}
+                onCheckedChange={() => toggleSupport(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <InfoBlock label="Resp notes" value={patient.systems_resp} />
+    </div>
+  );
+
 type PatientTask = Record<string, any>;
 
 const TASK_STATUS_STYLE: Record<TaskStatus, string> = {
