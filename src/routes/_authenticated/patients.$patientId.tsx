@@ -28,6 +28,15 @@ import {
   deletePatientReview,
   REVIEW_SPECIALTIES,
 } from "@/lib/patient-reviews.functions";
+import {
+  listPatientTasks,
+  addPatientTask,
+  updatePatientTask,
+  deletePatientTask,
+  TASK_STATUSES,
+  TASK_STATUS_LABEL,
+  type TaskStatus,
+} from "@/lib/patient-tasks.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
@@ -60,7 +69,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
@@ -78,6 +87,150 @@ function InfoBlock({ label, value }: { label: string; value?: string | null }) {
     </div>
   );
 }
+
+type PatientTask = Record<string, any>;
+
+const TASK_STATUS_STYLE: Record<TaskStatus, string> = {
+  not_started: "text-muted-foreground",
+  in_progress: "text-amber-600 dark:text-amber-400",
+  completed: "text-emerald-600 dark:text-emerald-400",
+};
+
+const TASK_STATUS_ICON: Record<TaskStatus, React.ReactNode> = {
+  not_started: <Circle className="h-5 w-5" />,
+  in_progress: <CircleDashed className="h-5 w-5" />,
+  completed: <CheckCircle2 className="h-5 w-5" />,
+};
+
+// Clicking cycles through the three states in order.
+const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
+  not_started: "in_progress",
+  in_progress: "completed",
+  completed: "not_started",
+};
+
+function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText?: string | null }) {
+  const qc = useQueryClient();
+  const listTasks = useServerFn(listPatientTasks);
+  const addTask = useServerFn(addPatientTask);
+  const editTask = useServerFn(updatePatientTask);
+  const removeTask = useServerFn(deletePatientTask);
+
+  const [newTask, setNewTask] = useState("");
+
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ["patient-tasks", patientId],
+    queryFn: () => listTasks({ data: { patientId } }) as Promise<PatientTask[]>,
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["patient-tasks", patientId] });
+
+  const addMut = useMutation({
+    mutationFn: (description: string) =>
+      addTask({ data: { patient_id: patientId, description, position: tasks.length } as never }),
+    onSuccess: () => {
+      invalidate();
+      setNewTask("");
+    },
+    onError: (e: Error) => toast.error("Could not add task", { description: e.message }),
+  });
+
+  const statusMut = useMutation({
+    mutationFn: (v: { id: string; status: TaskStatus }) =>
+      editTask({ data: { id: v.id, status: v.status } as never }),
+    onSuccess: () => invalidate(),
+    onError: (e: Error) => toast.error("Could not update task", { description: e.message }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => removeTask({ data: { id } }),
+    onSuccess: () => invalidate(),
+    onError: (e: Error) => toast.error("Could not remove task", { description: e.message }),
+  });
+
+  const submit = () => {
+    const v = newTask.trim();
+    if (v) addMut.mutate(v);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ListTodo className="h-4 w-4" /> Outstanding tasks
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <Input
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder="Add a task…"
+          />
+          <Button className="gap-1.5" onClick={submit} disabled={addMut.isPending || !newTask.trim()}>
+            <Plus className="h-4 w-4" /> Add
+          </Button>
+        </div>
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : tasks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No tasks yet.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {tasks.map((t) => {
+              const status = (t.status ?? "not_started") as TaskStatus;
+              return (
+                <li key={t.id} className="flex items-center gap-2 rounded-md border border-border p-2">
+                  <button
+                    type="button"
+                    title={`${TASK_STATUS_LABEL[status]} — click to change`}
+                    className={`shrink-0 transition-colors ${TASK_STATUS_STYLE[status]}`}
+                    onClick={() => statusMut.mutate({ id: t.id, status: NEXT_STATUS[status] })}
+                  >
+                    {TASK_STATUS_ICON[status]}
+                  </button>
+                  <span
+                    className={`flex-1 text-sm ${status === "completed" ? "text-muted-foreground line-through" : ""}`}
+                  >
+                    {t.description}
+                  </span>
+                  <Badge variant="outline" className={`shrink-0 ${TASK_STATUS_STYLE[status]}`}>
+                    {TASK_STATUS_LABEL[status]}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-destructive"
+                    onClick={() => deleteMut.mutate(t.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {freeText?.trim() && (
+          <div className="rounded-md bg-muted/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Notes
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm">{freeText}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function RecentInvestigations({ patientId }: { patientId: string }) {
   const listInv = useServerFn(listInvestigations);
@@ -257,9 +410,10 @@ function PatientDetail() {
               <InfoBlock label="Past medical history" value={patient.past_medical_history} />
               <InfoBlock label="Current admission" value={patient.current_admission} />
               <InfoBlock label="Current management" value={patient.current_management} />
-              <InfoBlock label="Outstanding tasks" value={patient.outstanding_tasks} />
             </CardContent>
           </Card>
+          <OutstandingTasks patientId={patientId} freeText={patient.outstanding_tasks} />
+
           <Card>
             <CardContent className="p-6">
               <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

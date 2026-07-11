@@ -430,6 +430,47 @@ export type Database = {
           },
         ]
       }
+      patient_tasks: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          patient_id: string
+          position: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          patient_id: string
+          position?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          patient_id?: string
+          position?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_tasks_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           admission_date: string | null
