@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.record_bridge_security_event(text,text,text,text,text,text,text,integer,integer) FROM anon, authenticated;
