@@ -292,6 +292,53 @@ function HaemStatus({
   );
 }
 
+function RenalStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+
+  const mut = useMutation({
+    mutationFn: (patch: Record<string, boolean>) =>
+      update({ data: { id: patientId, ...patch } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Renal
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={!!patient.renal_diuretics}
+              disabled={mut.isPending}
+              onCheckedChange={(v) => mut.mutate({ renal_diuretics: !!v })}
+            />
+            Diuretics
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={!!patient.renal_rrt}
+              disabled={mut.isPending}
+              onCheckedChange={(v) => mut.mutate({ renal_rrt: !!v })}
+            />
+            RRT
+          </label>
+        </div>
+      </div>
+      <InfoBlock label="Renal notes" value={patient.systems_renal} />
+    </div>
+  );
+}
+
 type Antimicrobial = {
   name: string;
   started_on: string;
