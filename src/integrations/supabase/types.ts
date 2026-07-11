@@ -386,6 +386,98 @@ export type Database = {
           },
         ]
       }
+      patient_observations: {
+        Row: {
+          created_at: string
+          dbp: number | null
+          fio2: number | null
+          fluid_in_ml: number | null
+          fluid_out_ml: number | null
+          gcs: number | null
+          hr: number | null
+          id: string
+          lactate: number | null
+          map: number | null
+          notes: string | null
+          patient_id: string
+          peep: number | null
+          recorded_at: string
+          recorded_by: string | null
+          rr: number | null
+          sbp: number | null
+          spo2: number | null
+          temp: number | null
+          updated_at: string
+          urine_ml: number | null
+          vasopressor: string | null
+          vasopressor_dose: number | null
+          vent_mode: string | null
+          vt: number | null
+        }
+        Insert: {
+          created_at?: string
+          dbp?: number | null
+          fio2?: number | null
+          fluid_in_ml?: number | null
+          fluid_out_ml?: number | null
+          gcs?: number | null
+          hr?: number | null
+          id?: string
+          lactate?: number | null
+          map?: number | null
+          notes?: string | null
+          patient_id: string
+          peep?: number | null
+          recorded_at?: string
+          recorded_by?: string | null
+          rr?: number | null
+          sbp?: number | null
+          spo2?: number | null
+          temp?: number | null
+          updated_at?: string
+          urine_ml?: number | null
+          vasopressor?: string | null
+          vasopressor_dose?: number | null
+          vent_mode?: string | null
+          vt?: number | null
+        }
+        Update: {
+          created_at?: string
+          dbp?: number | null
+          fio2?: number | null
+          fluid_in_ml?: number | null
+          fluid_out_ml?: number | null
+          gcs?: number | null
+          hr?: number | null
+          id?: string
+          lactate?: number | null
+          map?: number | null
+          notes?: string | null
+          patient_id?: string
+          peep?: number | null
+          recorded_at?: string
+          recorded_by?: string | null
+          rr?: number | null
+          sbp?: number | null
+          spo2?: number | null
+          temp?: number | null
+          updated_at?: string
+          urine_ml?: number | null
+          vasopressor?: string | null
+          vasopressor_dose?: number | null
+          vent_mode?: string | null
+          vt?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_observations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_reviews: {
         Row: {
           created_at: string
