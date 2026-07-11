@@ -243,12 +243,39 @@ const SCENARIOS: {
 
 // ---- Tests ------------------------------------------------------------------
 
-// pdfjs may emit narrow cells one glyph at a time; compare ignoring whitespace
-// so a substring check is not defeated by inter-glyph spacing. This does not
-// weaken the core preview===download equality, which is compared verbatim.
-// Also drop the "|" line-separator this helper inserts, so a substring that
-// wraps across visual lines in a narrow cell is still matched.
-const noSpace = (s: string) => s.replace(/[\s|]+/g, "");
+/**
+ * Normalize rendered PDF text for whitespace-insensitive substring matching.
+ *
+ * pdfjs is a hostile source for naive string comparison:
+ *   - Narrow table cells are emitted one glyph (or glyph-cluster) at a time, so
+ *     "HR 120" can arrive as "H","R"," ","1","2","0" with arbitrary spacing.
+ *   - Line wrapping inside a cell surfaces as separate text items, and our
+ *     extractor joins visual lines with " | ".
+ *   - Fonts can inject non-breaking spaces, narrow no-break spaces, thin
+ *     spaces, zero-width joiners, soft hyphens, and BOMs between glyphs.
+ *
+ * This helper collapses every one of those artifacts so a substring check tests
+ * the *content* of the cell, not pdfjs's per-glyph layout. It deliberately does
+ * NOT touch the core preview===download equality assertion, which stays verbatim.
+ */
+function normalizePdfText(s: string): string {
+  return (
+    s
+      // Drop the "|" visual-line separator our extractor inserts.
+      .replace(/\|/g, "")
+      // Strip zero-width / formatting characters pdfjs can interleave:
+      // ZWSP, ZWNJ, ZWJ, BOM/ZWNBSP, and soft hyphen.
+      .replace(/[\u200B\u200C\u200D\uFEFF\u00AD]/g, "")
+      // Fold every unicode whitespace variant (NBSP, thin/narrow spaces,
+      // newlines, tabs) away entirely so inter-glyph spacing can't defeat a
+      // substring match.
+      .replace(/\s/g, "")
+  );
+}
+
+// Back-compat alias for the assertions below.
+const noSpace = normalizePdfText;
+
 
 describe("Latest observations: preview iframe vs downloaded PDF", () => {
   for (const scenario of SCENARIOS) {
