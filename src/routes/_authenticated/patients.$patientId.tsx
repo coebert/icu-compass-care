@@ -1672,7 +1672,7 @@ function ReviewsTab({ patientId }: { patientId: string }) {
 function StatusTab({ patient }: { patient: Patient }) {
   const qc = useQueryClient();
   const update = useServerFn(updatePatient);
-  const [status, setStatus] = useState(patient.status);
+  const [status, setStatus] = useState<string>(patient.status);
   const [dischargeDate, setDischargeDate] = useState(patient.discharge_date ?? "");
   const [destination, setDestination] = useState(patient.discharge_destination ?? "");
   const [dod, setDod] = useState(patient.date_of_death ?? "");
