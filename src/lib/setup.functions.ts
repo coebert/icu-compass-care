@@ -18,7 +18,17 @@ export const bootstrapAdmin = createServerFn({ method: "POST" })
     z
       .object({
         email: z.string().trim().email().max(255),
-        password: z.string().min(8).max(200),
+        // Strong admin password policy: min 12 chars with upper, lower,
+        // number, and symbol. The admin account is the highest-privilege
+        // credential in a PHI system, so enforce complexity at creation.
+        password: z
+          .string()
+          .min(12, "Password must be at least 12 characters")
+          .max(200)
+          .regex(/[a-z]/, "Password must include a lowercase letter")
+          .regex(/[A-Z]/, "Password must include an uppercase letter")
+          .regex(/[0-9]/, "Password must include a number")
+          .regex(/[^A-Za-z0-9]/, "Password must include a symbol"),
         display_name: z.string().trim().min(1).max(200),
       })
       .parse(input),
