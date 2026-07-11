@@ -159,11 +159,11 @@ function HandoverPreviewPage() {
           </div>
         </div>
         <Button
-          disabled={!url}
+          disabled={!url || exporting}
           className="gap-1.5"
-          onClick={() => downloadHandover(handoverPatients, options)}
+          onClick={handleDownload}
         >
-          <FileDown className="h-4 w-4" /> Download PDF
+          <FileDown className="h-4 w-4" /> {exporting ? "Validating…" : "Download PDF"}
         </Button>
       </div>
 
