@@ -567,6 +567,7 @@ function PatientsBoard() {
 }
 
 function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
+  const flags = deriveSafetyFlags(p);
   return (
     <CardContent className="space-y-2 p-4">
       <div className="flex items-start justify-between gap-2">
