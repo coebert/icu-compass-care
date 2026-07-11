@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/public/bridge/notifications")({
           .order("created_at", { ascending: false })
           .limit(2000);
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        await logSync(supabaseAdmin, { direction: "pull", entity: "notifications", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ notifications: data });
       },
     },
