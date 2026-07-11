@@ -292,15 +292,25 @@ function HaemStatus({
   );
 }
 
-type Antimicrobial = { name: string; started_on: string };
+type Antimicrobial = {
+  name: string;
+  started_on: string;
+  ended_on?: string | null;
+};
 
-function courseDays(startedOn: string): number | null {
+function courseDays(startedOn: string, endedOn?: string | null): number | null {
   if (!startedOn) return null;
   const start = new Date(startedOn + "T00:00:00");
   if (isNaN(start.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  let end: Date;
+  if (endedOn) {
+    end = new Date(endedOn + "T00:00:00");
+    if (isNaN(end.getTime())) return null;
+  } else {
+    end = new Date();
+    end.setHours(0, 0, 0, 0);
+  }
+  const diff = Math.floor((end.getTime() - start.getTime()) / 86400000);
   return diff < 0 ? null : diff + 1;
 }
 
@@ -342,6 +352,14 @@ function MicroStatus({
     mut.mutate(agents.filter((_, i) => i !== idx));
   };
 
+  const setEnd = (idx: number, value: string) => {
+    mut.mutate(
+      agents.map((a, i) =>
+        i === idx ? { ...a, ended_on: value || null } : a,
+      ),
+    );
+  };
+
   return (
     <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
       <div>
@@ -355,31 +373,52 @@ function MicroStatus({
         ) : (
           <ul className="space-y-2">
             {agents.map((a, i) => {
-              const days = courseDays(a.started_on);
+              const days = courseDays(a.started_on, a.ended_on);
+              const completed = !!a.ended_on;
               return (
                 <li
                   key={i}
-                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
                 >
                   <div>
                     <span className="font-medium">{a.name}</span>
                     <span className="ml-2 text-muted-foreground">
-                      started {a.started_on}
+                      {a.started_on}
+                      {completed ? <> → {a.ended_on}</> : <> → ongoing</>}
                       {days != null && (
-                        <> · day {days} of course</>
+                        <>
+                          {" "}
+                          · {completed
+                            ? `total course ${days} day${days === 1 ? "" : "s"}`
+                            : `day ${days} of course`}
+                        </>
                       )}
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    disabled={mut.isPending}
-                    onClick={() => remove(i)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      End
+                      <Input
+                        type="date"
+                        className="h-8 w-[9.5rem]"
+                        value={a.ended_on ?? ""}
+                        min={a.started_on}
+                        max={new Date().toISOString().slice(0, 10)}
+                        disabled={mut.isPending}
+                        onChange={(e) => setEnd(i, e.target.value)}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      disabled={mut.isPending}
+                      onClick={() => remove(i)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </li>
               );
             })}
@@ -432,7 +471,8 @@ function MicroStatus({
             </p>
             <ol className="relative space-y-3 border-l pl-5">
               {sorted.map((a, i) => {
-                const days = courseDays(a.started_on);
+                const days = courseDays(a.started_on, a.ended_on);
+                const completed = !!a.ended_on;
                 const isLatest = a.started_on === latest;
                 return (
                   <li key={i} className="relative">
@@ -455,10 +495,23 @@ function MicroStatus({
                             Newest
                           </span>
                         )}
+                        {completed && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                            Completed
+                          </span>
+                        )}
                       </div>
                       <span className="text-muted-foreground">
-                        started {a.started_on}
-                        {days != null && <> · day {days} of course</>}
+                        {a.started_on}
+                        {completed ? <> → {a.ended_on}</> : <> → ongoing</>}
+                        {days != null && (
+                          <>
+                            {" "}
+                            · {completed
+                              ? `total course ${days} day${days === 1 ? "" : "s"}`
+                              : `day ${days} of course`}
+                          </>
+                        )}
                       </span>
                     </div>
                   </li>
