@@ -1249,6 +1249,20 @@ function PatientDetail() {
         : toast.error("Update failed", { description: e.message }),
   });
 
+  // Admin-only: mark this single patient as shared / not shared with the partner
+  // app. The backend enforces admin-only; this is the per-patient control.
+  const shareFn = useServerFn(setPatientsShared);
+  const shareMut = useMutation({
+    mutationFn: (shared: boolean) => shareFn({ data: { ids: [patientId], shared } }),
+    onSuccess: (_res, shared) => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-sharing"] });
+      toast.success(shared ? "Shared with partner app" : "Sharing stopped");
+    },
+    onError: (e: Error) => toast.error("Could not update sharing", { description: e.message }),
+  });
+
   const deleteMut = useMutation({
     mutationFn: () => del({ data: { id: patientId } }),
     onSuccess: () => {
