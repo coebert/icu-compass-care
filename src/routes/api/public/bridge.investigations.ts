@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
 
       // List investigations, filter by ?patient_id= and optional ?category=
       GET: async ({ request }) => {
-        const auth = authorize(request, "", { write: false });
+        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/investigations");
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
