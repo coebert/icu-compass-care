@@ -588,24 +588,20 @@ describe("bridge patient sync (e2e)", () => {
     const marker = `H-E2E-NOK-${Date.now()}`;
     const firstStamp = "2026-07-10T09:00:00.000Z";
 
-    // 1. Admit a patient with an initial set of next-of-kin details.
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "N.K.",
-        age: 69,
-        hospital_number: marker,
-        location_type: "icu",
-        ward: "Critical Care",
-        status: "admitted",
-        nok_name: "Jane Kirby",
-        nok_relationship: "Daughter",
-        nok_contact: "07700 900111",
-        nok_last_updated: firstStamp,
-        nok_last_updated_by: "Dr A. Smith",
-      }),
-    );
+    // 1. Admit a patient with an initial set of next-of-kin details, seeded as shared.
+    const create = await seedSharedPatient({
+      full_name: "N.K.",
+      age: 69,
+      hospital_number: marker,
+      location_type: "icu",
+      ward: "Critical Care",
+      status: "admitted",
+      nok_name: "Jane Kirby",
+      nok_relationship: "Daughter",
+      nok_contact: "07700 900111",
+      nok_last_updated: firstStamp,
+      nok_last_updated_by: "Dr A. Smith",
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
