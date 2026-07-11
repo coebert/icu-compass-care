@@ -23,7 +23,8 @@ export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
 });
 
-type Patient = Record<string, any>;
+import type { Patient as DomainPatient } from "@/lib/domain-types";
+type Patient = DomainPatient & Record<string, any>;
 
 const DRAG_MIME = "application/x-patient";
 
@@ -411,14 +412,14 @@ function PatientsBoard() {
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
       if (draggedHadBed) {
         // The displaced occupant must also be eligible for the bed they'd take.
-        const swapEligibility = checkBedEligibility(occupant, dragged.bed, bedRoster);
+        const swapEligibility = checkBedEligibility(occupant, dragged.bed!, bedRoster);
         if (!swapEligibility.ok) {
           toast.error(`Can't swap with ${occupant.full_name ?? "patient"}`, {
             description: swapEligibility.reason,
           });
           return;
         }
-        moves.push({ id: occupant.id, bed: dragged.bed, expected_updated_at: occupant.updated_at });
+        moves.push({ id: occupant.id, bed: dragged.bed!, expected_updated_at: occupant.updated_at });
         previous.push({ id: occupant.id, bed: occupant.bed ?? null, location_type: occupant.location_type });
         const fromLabel = isSideRoom(dragged.bed, bedRoster) ? dragged.bed : `Bed ${dragged.bed}`;
         summary = `${dragged.full_name ?? "Patient"} and ${occupant.full_name ?? "patient"} swapped between ${fromLabel} and ${targetLabel}.`;

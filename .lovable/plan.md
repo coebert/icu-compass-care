@@ -76,3 +76,14 @@ Replace the ~12 repeated inline `await import(".../client.server")` lines with o
 6. **3.1 / 3.2 / 3.3** incremental refactors, each behind existing tests, no behaviour change.
 
 Priorities 1–2 are behaviour-preserving except the intended RLS tightening and bridge validation; Priority 3 is pure refactor. I can start with the Priority 1 migration on approval.
+
+---
+
+## Status — all priorities complete
+
+- **1.1–1.3, 2.1–2.2, 3.3** — done previously.
+- **2.3 Stronger types** — done. Added `src/lib/domain-types.ts` (generated row-type aliases) and applied `Patient`/`Investigation`/`Microbiology`/`PatientTask`/`PatientEvent`/`PatientReview` types across the patient detail, list, preview, and handover modules. `AuditRow` kept loose (heterogeneous audit sources).
+- **3.2 Split `handover-pdf.ts`** — done. Extracted `handover-types.ts`, `handover-recency.ts`, `handover-columns.ts`, `handover-filename.ts`; `handover-pdf.ts` now holds only jsPDF layout/orchestration and re-exports the public API (all importers unchanged).
+- **3.1 Refactor systems widgets** — done. Added `src/components/patient/systems-widgets.tsx` with `usePatientFieldMutation`, `CheckboxOptionGroup`, and `SystemMultiSelectCard`; the repeated widget boilerplate in `patients.$patientId.tsx` now delegates to these.
+
+Typecheck clean, all 33 tests pass.

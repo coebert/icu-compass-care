@@ -3,6 +3,19 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges } from "@/lib/patients.functions";
+import type {
+  Patient as DomainPatient,
+  Investigation as DomainInvestigation,
+  Microbiology as DomainMicrobiology,
+  PatientTask as DomainPatientTask,
+  PatientEvent as DomainPatientEvent,
+  PatientReview as DomainReview,
+} from "@/lib/domain-types";
+import {
+  CheckboxOptionGroup,
+  SystemMultiSelectCard,
+  usePatientFieldMutation,
+} from "@/components/patient/systems-widgets";
 import {
   listInvestigations,
   addInvestigation,
@@ -78,8 +91,8 @@ export const Route = createFileRoute("/_authenticated/patients/$patientId")({
   component: PatientDetail,
 });
 
-type Patient = Record<string, any>;
-type Investigation = Record<string, any>;
+type Patient = DomainPatient & Record<string, any>;
+type Investigation = DomainInvestigation & Record<string, any>;
 
 function InfoBlock({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -111,65 +124,32 @@ function RespiratoryStatus({
   patientId: string;
   patient: Record<string, any>;
 }) {
-  const qc = useQueryClient();
-  const update = useServerFn(updatePatient);
-
+  const mut = usePatientFieldMutation(patientId);
   const airway: string | null = patient.airway_type ?? null;
   const support: string[] = patient.resp_support ?? [];
 
-  const mut = useMutation({
-    mutationFn: (payload: { airway_type?: string | null; resp_support?: string[] }) =>
-      update({ data: { id: patientId, ...payload } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
-  });
-
-  const setAirway = (value: string) =>
-    mut.mutate({ airway_type: airway === value ? null : value });
-
-  const toggleSupport = (value: string) => {
-    const next = support.includes(value)
-      ? support.filter((s) => s !== value)
-      : [...support, value];
-    mut.mutate({ resp_support: next });
-  };
-
   return (
     <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Airway
-        </p>
-        <div className="flex flex-wrap gap-4">
-          {AIRWAY_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={airway === opt.value}
-                disabled={mut.isPending}
-                onCheckedChange={() => setAirway(opt.value)}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Respiratory support
-        </p>
-        <div className="flex flex-wrap gap-4">
-          {RESP_SUPPORT_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={support.includes(opt.value)}
-                disabled={mut.isPending}
-                onCheckedChange={() => toggleSupport(opt.value)}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
+      <CheckboxOptionGroup
+        label="Airway"
+        options={AIRWAY_OPTIONS}
+        isChecked={(v) => airway === v}
+        onToggle={(v) => mut.mutate({ airway_type: airway === v ? null : v })}
+        disabled={mut.isPending}
+      />
+      <CheckboxOptionGroup
+        label="Respiratory support"
+        options={RESP_SUPPORT_OPTIONS}
+        isChecked={(v) => support.includes(v)}
+        onToggle={(v) =>
+          mut.mutate({
+            resp_support: support.includes(v)
+              ? support.filter((s) => s !== v)
+              : [...support, v],
+          })
+        }
+        disabled={mut.isPending}
+      />
       <InfoBlock label="Resp notes" value={patient.systems_resp} />
     </div>
   );
@@ -191,46 +171,16 @@ function CardiovascularStatus({
   patientId: string;
   patient: Record<string, any>;
 }) {
-  const qc = useQueryClient();
-  const update = useServerFn(updatePatient);
-
-  const agents: string[] = patient.vasoactive_agents ?? [];
-
-  const mut = useMutation({
-    mutationFn: (next: string[]) =>
-      update({ data: { id: patientId, vasoactive_agents: next } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
-  });
-
-  const toggle = (value: string) => {
-    const next = agents.includes(value)
-      ? agents.filter((a) => a !== value)
-      : [...agents, value];
-    mut.mutate(next);
-  };
-
   return (
-    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Vasoactive agents
-        </p>
-        <div className="flex flex-wrap gap-4">
-          {VASOACTIVE_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={agents.includes(opt.value)}
-                disabled={mut.isPending}
-                onCheckedChange={() => toggle(opt.value)}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
-      <InfoBlock label="CVS notes" value={patient.systems_cvs} />
-    </div>
+    <SystemMultiSelectCard
+      patientId={patientId}
+      selected={patient.vasoactive_agents ?? []}
+      arrayField="vasoactive_agents"
+      groupLabel="Vasoactive agents"
+      options={VASOACTIVE_OPTIONS}
+      notesLabel="CVS notes"
+      notes={patient.systems_cvs}
+    />
   );
 }
 
@@ -250,46 +200,16 @@ function HaemStatus({
   patientId: string;
   patient: Record<string, any>;
 }) {
-  const qc = useQueryClient();
-  const update = useServerFn(updatePatient);
-
-  const selected: string[] = patient.anticoagulation ?? [];
-
-  const mut = useMutation({
-    mutationFn: (next: string[]) =>
-      update({ data: { id: patientId, anticoagulation: next } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
-  });
-
-  const toggle = (value: string) => {
-    const next = selected.includes(value)
-      ? selected.filter((s) => s !== value)
-      : [...selected, value];
-    mut.mutate(next);
-  };
-
   return (
-    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Anticoagulation
-        </p>
-        <div className="flex flex-wrap gap-4">
-          {ANTICOAGULATION_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={selected.includes(opt.value)}
-                disabled={mut.isPending}
-                onCheckedChange={() => toggle(opt.value)}
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-      </div>
-      <InfoBlock label="Haem notes" value={patient.systems_haem} />
-    </div>
+    <SystemMultiSelectCard
+      patientId={patientId}
+      selected={patient.anticoagulation ?? []}
+      arrayField="anticoagulation"
+      groupLabel="Anticoagulation"
+      options={ANTICOAGULATION_OPTIONS}
+      notesLabel="Haem notes"
+      notes={patient.systems_haem}
+    />
   );
 }
 
@@ -300,15 +220,7 @@ function RenalStatus({
   patientId: string;
   patient: Record<string, any>;
 }) {
-  const qc = useQueryClient();
-  const update = useServerFn(updatePatient);
-
-  const mut = useMutation({
-    mutationFn: (patch: Record<string, boolean>) =>
-      update({ data: { id: patientId, ...patch } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
-  });
+  const mut = usePatientFieldMutation(patientId);
 
   return (
     <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
@@ -776,7 +688,7 @@ function GastroNutritionStatus({
 }
 
 
-type PatientTask = Record<string, any>;
+type PatientTask = DomainPatientTask & Record<string, any>;
 
 const TASK_STATUS_STYLE: Record<TaskStatus, string> = {
   not_started: "text-muted-foreground",
@@ -1222,7 +1134,7 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
-type PatientEvent = Record<string, any>;
+type PatientEvent = DomainPatientEvent & Record<string, any>;
 
 function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
   const qc = useQueryClient();
@@ -1489,7 +1401,7 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
 
 }
 
-type Review = Record<string, any>;
+type Review = DomainReview & Record<string, any>;
 
 function ReviewsTab({ patientId }: { patientId: string }) {
   const qc = useQueryClient();
@@ -1663,7 +1575,7 @@ function ReviewsTab({ patientId }: { patientId: string }) {
 function StatusTab({ patient }: { patient: Patient }) {
   const qc = useQueryClient();
   const update = useServerFn(updatePatient);
-  const [status, setStatus] = useState(patient.status);
+  const [status, setStatus] = useState<string>(patient.status);
   const [dischargeDate, setDischargeDate] = useState(patient.discharge_date ?? "");
   const [destination, setDestination] = useState(patient.discharge_destination ?? "");
   const [dod, setDod] = useState(patient.date_of_death ?? "");
@@ -1970,7 +1882,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
   );
 }
 
-type Microbiology = Record<string, any>;
+type Microbiology = DomainMicrobiology & Record<string, any>;
 
 function MicrobiologyTab({ patientId }: { patientId: string }) {
   const qc = useQueryClient();
