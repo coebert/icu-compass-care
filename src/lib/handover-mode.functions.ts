@@ -113,7 +113,7 @@ export const clearHandoverAck = createServerFn({ method: "POST" })
 export type RecentChange = {
   id: string;
   patient_id: string;
-  field: string | null;
+  field_name: string | null;
   changed_at: string | null;
 };
 
