@@ -2,7 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
+import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 
+// The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
+// the partner system is trusted, may send longer names, treats every field as
+// optional, and is not subject to the app's status-transition rules. The structured
+// fields are spread in from PATIENT_ARRAY_FIELDS so this stays in step with the app
+// model whenever new structured fields are added.
 const patientUpsert = z.object({
   id: z.string().uuid().optional(),
   // Optimistic concurrency: the updated_at the caller last saw. When present on
@@ -41,13 +47,10 @@ const patientUpsert = z.object({
   nok_contact: z.string().trim().max(200).optional().nullable(),
   nok_last_updated: z.string().optional().nullable(),
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
+  // Structured clinical fields, kept in sync with the app model.
+  ...PATIENT_ARRAY_FIELDS,
 });
 
-function cleanEmpty<T extends Record<string, unknown>>(data: T): T {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(data)) out[k] = v === "" ? null : v;
-  return out as T;
-}
 
 export const Route = createFileRoute("/api/public/bridge/patients")({
   server: {
