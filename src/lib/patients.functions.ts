@@ -18,7 +18,7 @@ export const listPatients = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("patients")
-      .select("*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at)")
+      .select("*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)")
       .order("updated_at", { ascending: false });
     if (error) throw safeDbError(error);
     return data;
