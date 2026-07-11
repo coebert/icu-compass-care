@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Camera, FileDown, History, Search, Sunrise, Sunset } from "lucide-react";
+import { ArrowLeft, Camera, FileDown, GitCompareArrows, History, Search, Sunrise, Sunset } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/patients/history")({
   component: HandoverHistoryPage,
@@ -152,19 +152,27 @@ function HandoverHistoryPage() {
             </p>
           </div>
         </div>
-        {isAdmin && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={capturing}
-            onClick={handleCaptureNow}
-          >
-            <Camera className="h-4 w-4" />
-            {capturing ? "Saving…" : "Save version now"}
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link to="/patients/compare">
+              <GitCompareArrows className="h-4 w-4" /> Compare versions
+            </Link>
           </Button>
-        )}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={capturing}
+              onClick={handleCaptureNow}
+            >
+              <Camera className="h-4 w-4" />
+              {capturing ? "Saving…" : "Save version now"}
+            </Button>
+          )}
+        </div>
       </div>
+
 
 
       {/* Filters */}

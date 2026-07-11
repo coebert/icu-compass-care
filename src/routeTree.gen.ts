@@ -22,6 +22,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
 import { Route as AuthenticatedPatientsHistoryRouteImport } from './routes/_authenticated/patients.history'
 import { Route as AuthenticatedPatientsHandoverPreviewRouteImport } from './routes/_authenticated/patients.handover-preview'
+import { Route as AuthenticatedPatientsCompareRouteImport } from './routes/_authenticated/patients.compare'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
 import { Route as ApiPublicHooksHandoverSnapshotRouteImport } from './routes/api/public/hooks/handover-snapshot'
 import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
@@ -102,6 +103,12 @@ const AuthenticatedPatientsHandoverPreviewRoute =
   AuthenticatedPatientsHandoverPreviewRouteImport.update({
     id: '/handover-preview',
     path: '/handover-preview',
+    getParentRoute: () => AuthenticatedPatientsRoute,
+  } as any)
+const AuthenticatedPatientsCompareRoute =
+  AuthenticatedPatientsCompareRouteImport.update({
+    id: '/compare',
+    path: '/compare',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
 const AuthenticatedPatientsPatientIdRoute =
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/patients/compare': typeof AuthenticatedPatientsCompareRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/patients/history': typeof AuthenticatedPatientsHistoryRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
@@ -221,6 +229,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/patients/compare': typeof AuthenticatedPatientsCompareRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/patients/history': typeof AuthenticatedPatientsHistoryRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
@@ -251,6 +260,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/unit': typeof AuthenticatedUnitRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/_authenticated/patients/compare': typeof AuthenticatedPatientsCompareRoute
   '/_authenticated/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/_authenticated/patients/history': typeof AuthenticatedPatientsHistoryRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/unit'
     | '/patients/$patientId'
+    | '/patients/compare'
     | '/patients/handover-preview'
     | '/patients/history'
     | '/patients/'
@@ -308,6 +319,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/unit'
     | '/patients/$patientId'
+    | '/patients/compare'
     | '/patients/handover-preview'
     | '/patients/history'
     | '/patients'
@@ -337,6 +349,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/unit'
     | '/_authenticated/patients/$patientId'
+    | '/_authenticated/patients/compare'
     | '/_authenticated/patients/handover-preview'
     | '/_authenticated/patients/history'
     | '/_authenticated/patients/'
@@ -468,6 +481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsHandoverPreviewRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
+    '/_authenticated/patients/compare': {
+      id: '/_authenticated/patients/compare'
+      path: '/compare'
+      fullPath: '/patients/compare'
+      preLoaderRoute: typeof AuthenticatedPatientsCompareRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
+    }
     '/_authenticated/patients/$patientId': {
       id: '/_authenticated/patients/$patientId'
       path: '/$patientId'
@@ -571,6 +591,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedPatientsRouteChildren {
   AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute
+  AuthenticatedPatientsCompareRoute: typeof AuthenticatedPatientsCompareRoute
   AuthenticatedPatientsHandoverPreviewRoute: typeof AuthenticatedPatientsHandoverPreviewRoute
   AuthenticatedPatientsHistoryRoute: typeof AuthenticatedPatientsHistoryRoute
   AuthenticatedPatientsIndexRoute: typeof AuthenticatedPatientsIndexRoute
@@ -578,6 +599,7 @@ interface AuthenticatedPatientsRouteChildren {
 
 const AuthenticatedPatientsRouteChildren: AuthenticatedPatientsRouteChildren = {
   AuthenticatedPatientsPatientIdRoute: AuthenticatedPatientsPatientIdRoute,
+  AuthenticatedPatientsCompareRoute: AuthenticatedPatientsCompareRoute,
   AuthenticatedPatientsHandoverPreviewRoute:
     AuthenticatedPatientsHandoverPreviewRoute,
   AuthenticatedPatientsHistoryRoute: AuthenticatedPatientsHistoryRoute,
