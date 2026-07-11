@@ -473,7 +473,7 @@ export function PatientForm({
 
       <div className="flex justify-end gap-2 border-t pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? "Saving…" : submitLabel}</Button>
+        <Button type="submit" disabled={submitting || tepDetailsMissing}>{submitting ? "Saving…" : submitLabel}</Button>
       </div>
     </form>
   );
