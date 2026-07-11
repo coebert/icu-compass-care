@@ -30,6 +30,6 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       .from("profiles")
       .update({ display_name: data.display_name })
       .eq("id", context.userId);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "update your profile");
     return { ok: true };
   });
