@@ -581,6 +581,68 @@ export type Database = {
           },
         ]
       }
+      patient_lines: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          device_type: string
+          id: string
+          indication: string | null
+          inserted_in_unit: boolean
+          inserted_on: string | null
+          laterality: string | null
+          notes: string | null
+          patient_id: string
+          removed_on: string | null
+          site: string | null
+          size: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          device_type: string
+          id?: string
+          indication?: string | null
+          inserted_in_unit?: boolean
+          inserted_on?: string | null
+          laterality?: string | null
+          notes?: string | null
+          patient_id: string
+          removed_on?: string | null
+          site?: string | null
+          size?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          device_type?: string
+          id?: string
+          indication?: string | null
+          inserted_in_unit?: boolean
+          inserted_on?: string | null
+          laterality?: string | null
+          notes?: string | null
+          patient_id?: string
+          removed_on?: string | null
+          site?: string | null
+          size?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_lines_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_observations: {
         Row: {
           created_at: string
