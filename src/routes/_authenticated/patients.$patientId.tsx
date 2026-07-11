@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges } from "@/lib/patients.functions";
+import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges, getPatientStatusChanges } from "@/lib/patients.functions";
 import type {
   Patient as DomainPatient,
   Investigation as DomainInvestigation,
@@ -94,7 +94,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound } from "lucide-react";
 import { listReferralCandidates, prefillPatientFromReferral, previewReferralPrefill } from "@/lib/referral-prefill.functions";
 import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
@@ -1660,6 +1660,7 @@ type TimelineEvent = {
   kind: "admission" | "discharge" | "investigation" | "microbiology" | "event";
   eventId?: string;
   eventType?: string;
+  changedBy?: string | null;
 };
 
 const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
@@ -1698,6 +1699,11 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
   const { data: keyEvents = [] } = useQuery({
     queryKey: ["patient-events", patientId],
     queryFn: () => listEvents({ data: { patientId } }) as Promise<PatientEvent[]>,
+  });
+  const listStatusChanges = useServerFn(getPatientStatusChanges);
+  const { data: statusChanges = [] } = useQuery({
+    queryKey: ["patient-status-changes", patientId],
+    queryFn: () => listStatusChanges({ data: { id: patientId } }),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["patient-events", patientId] });
@@ -1816,12 +1822,31 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
       });
     }
 
+    for (const sc of statusChanges) {
+      const toStatus = sc.to as keyof typeof STATUS_LABELS | null;
+      const label = toStatus && STATUS_LABELS[toStatus] ? STATUS_LABELS[toStatus] : sc.to ?? "Unknown";
+      evs.push({
+        key: `status-${sc.id}`,
+        at: sc.at,
+        icon: <UserRound className="h-4 w-4" />,
+        title: `Status changed to ${label}`,
+        detail: null,
+        kind:
+          toStatus === "discharged" || toStatus === "died"
+            ? "discharge"
+            : toStatus === "admitted"
+              ? "admission"
+              : "event",
+        changedBy: sc.changedBy,
+      });
+    }
+
     return evs.sort((a, b) => {
       const ta = a.at ? new Date(a.at).getTime() : 0;
       const tb = b.at ? new Date(b.at).getTime() : 0;
       return tb - ta;
     });
-  }, [patient, investigations, micro, keyEvents]);
+  }, [patient, investigations, micro, keyEvents, statusChanges]);
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
@@ -1863,6 +1888,12 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
                   </div>
                   {ev.detail?.trim() && (
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
+                  )}
+                  {ev.changedBy && (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <UserRound className="h-3 w-3" />
+                      Changed by {ev.changedBy}
+                    </p>
                   )}
                   {ev.kind === "event" && ev.eventId && (
                     <div className="flex gap-1 pt-1">
