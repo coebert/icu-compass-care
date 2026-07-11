@@ -36,7 +36,8 @@ STAMP = str(int(time.time()))
 SUFFIX = STAMP[-6:]
 PASSWORD = "Test-Passw0rd-123!"
 
-PATIENT_ID = str(uuid.uuid4())
+PATIENT_ID = None  # set after the patient is seeded (FK target)
+PATIENT_NAME = f"C.U.{SUFFIX}"
 VERSION_LABEL = f"Clinical read {SUFFIX}"
 FIELD_NEW_VALUE = f"true-{SUFFIX}"
 
