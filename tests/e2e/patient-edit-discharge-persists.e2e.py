@@ -250,15 +250,27 @@ def main():
 
             # ---- 4 & 5. After a hard refresh, discharged data still renders ----
             reload_patient(page, patient_id)
-            dom_text = page.evaluate("() => document.body.innerText")
-            assert TEP_DETAILS in dom_text, "escalation (TEP) details missing after discharge + refresh"
-            assert NOK_NAME in dom_text, "next-of-kin name missing after discharge + refresh"
-            assert DESTINATION in dom_text, "discharge destination missing after discharge + refresh"
-            # Status tab still reflects the discharge.
+            # Discharged patient header still shows the discharged status.
+            expect(page.get_by_text("Discharged", exact=False).first).to_be_visible(timeout=15000)
+
+            # Escalation plan (TEP details) still renders on its tab.
+            page.get_by_role("tab", name="Escalation & Resus").click()
+            expect(page.get_by_text(TEP_DETAILS, exact=False).first).to_be_visible(timeout=15000)
+
+            # Next-of-kin name still renders on its tab.
+            page.get_by_role("tab", name="Next of kin").click()
+            expect(page.get_by_text(NOK_NAME, exact=False).first).to_be_visible(timeout=15000)
+
+            # Status tab still reflects the discharge + destination.
             page.get_by_role("tab", name="Status").click()
             panel = page.get_by_role("tabpanel")
             expect(panel.get_by_text("Discharge destination", exact=True)).to_be_visible(timeout=15000)
+            dest_input = panel.get_by_text("Discharge destination", exact=True).locator(
+                "xpath=following-sibling::input"
+            )
+            expect(dest_input).to_have_value(DESTINATION, timeout=10000)
             page.screenshot(path=str(SCREENSHOTS / "edit_discharge_3_after_refresh.png"))
+
 
             # ---- 6. Database reflects the final state ----
             final = read_patient(patient_id)
