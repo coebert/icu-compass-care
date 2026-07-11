@@ -171,6 +171,8 @@ function RespiratoryStatus({
       <InfoBlock label="Resp notes" value={patient.systems_resp} />
     </div>
   );
+}
+
 
 type PatientTask = Record<string, any>;
 
