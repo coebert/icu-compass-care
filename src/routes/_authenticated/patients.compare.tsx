@@ -120,16 +120,14 @@ function CompareVersionsPage() {
 
   if (profile && !hasClinicalAccess) {
     return (
-      <div className="space-y-4">
-        <Button asChild variant="outline" size="sm" className="gap-1.5">
-          <Link to="/patients/history">
-            <ArrowLeft className="h-4 w-4" /> History
-          </Link>
-        </Button>
-        <ClinicalAccessRequired description="You need clinical access (clinician or admin) to compare saved handover snapshots." />
-      </div>
+      <ClinicalAccessRequired
+        backTo="/patients/history"
+        backLabel="History"
+        description="You need clinical access (clinician or admin) to compare saved handover snapshots."
+      />
     );
   }
+
 
   return (
     <div className="space-y-4">
