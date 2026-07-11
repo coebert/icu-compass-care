@@ -76,6 +76,8 @@ function HandoverHistoryPage() {
   const [to, setTo] = useState("");
   const [shift, setShift] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
 
   // Debounce the free-text box so we don't hit the server on every keystroke.
   useEffect(() => {
@@ -83,8 +85,13 @@ function HandoverHistoryPage() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const { data: versions = [], isLoading } = useQuery({
-    queryKey: ["handover-versions", debouncedQ, from, to, shift],
+  // Reset to the first page whenever the filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ, from, to, shift]);
+
+  const { data: pageData, isLoading, isFetching } = useQuery({
+    queryKey: ["handover-versions", debouncedQ, from, to, shift, page],
     queryFn: () =>
       list({
         data: {
@@ -92,11 +99,20 @@ function HandoverHistoryPage() {
           from: from || undefined,
           to: to || undefined,
           shift: shift === "all" ? undefined : shift,
+          page,
+          pageSize,
         },
-      }) as Promise<HandoverVersionSummary[]>,
+      }),
+    placeholderData: (prev) => prev,
   });
 
+  const versions = pageData?.rows ?? [];
+  const total = pageData?.total ?? 0;
+  const pageCount = pageData?.pageCount ?? 1;
+
   const selected = versions.find((v) => v.id === selectedId) ?? null;
+
+
 
   const { data: fullVersion } = useQuery({
     queryKey: ["handover-version", selectedId],
