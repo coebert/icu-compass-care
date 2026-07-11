@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
+import { CORS_HEADERS, json, authorize, logSync, sharedPatientIds } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 
