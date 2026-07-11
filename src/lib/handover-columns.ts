@@ -41,7 +41,6 @@ function location(p: HandoverPatient): string {
     p.status ? STATUS_LABELS[p.status] ?? p.status : null,
     discharged && p.discharge_destination ? `To ${p.discharge_destination}` : null,
     `Adm ${fmtDate(p.admission_date)}`,
-    discharged && p.discharge_date ? `Disch ${fmtDate(p.discharge_date)}` : null,
   ]);
 }
 
