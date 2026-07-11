@@ -747,7 +747,7 @@ function OutstandingTasks({ patientId, freeText }: { patientId: string; freeText
   const [newPriority, setNewPriority] = useState<TaskPriority>("routine");
   const [newCategory, setNewCategory] = useState<TaskCategory>("job");
   const [newOwner, setNewOwner] = useState("");
-  const [newDue, setNewDue] = useState<Date | undefined>(undefined);
+  const [newDue, setNewDue] = useState("");
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["patient-tasks", patientId],
