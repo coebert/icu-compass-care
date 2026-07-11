@@ -1325,6 +1325,13 @@ function PatientDetail() {
   });
 
 
+  if (profile && !hasClinicalAccess)
+    return (
+      <div className="space-y-3">
+        <Link to="/patients"><Button variant="outline">Back to board</Button></Link>
+        <ClinicalAccessRequired description="You need clinical access (clinician or admin) to view this patient record and its history." />
+      </div>
+    );
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!patient)
     return (
@@ -1333,6 +1340,7 @@ function PatientDetail() {
         <Link to="/patients"><Button variant="outline">Back to board</Button></Link>
       </div>
     );
+
 
   const missingForHandover = missingCriticalFields(patient);
 
