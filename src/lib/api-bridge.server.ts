@@ -181,3 +181,18 @@ export async function logSyncError(
     // swallow — sync logging is best-effort
   }
 }
+
+// Returns the set of patient ids an administrator has marked as shared with the
+// partner app. Child clinical entities (investigations, microbiology) must be
+// gated to this set so PHI for non-shared patients never leaves this backend.
+export async function sharedPatientIds(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from("patients")
+    .select("id")
+    .eq("shared_with_partner", true);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r: { id: string }) => r.id);
+}
