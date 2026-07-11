@@ -203,6 +203,96 @@ function OpenTasksCard({
   );
 }
 
+type InSituLine = {
+  id: string;
+  patient_id: string;
+  device_type: string;
+  site: string | null;
+  laterality: string | null;
+  inserted_on: string | null;
+  inserted_in_unit: boolean;
+};
+
+function LinesSurveillanceCard({
+  patientById,
+}: {
+  patientById: Map<string, Record<string, any>>;
+}) {
+  const linesFn = useServerFn(listInSituLines);
+  const { data: lines = [] } = useQuery({
+    queryKey: ["in-situ-lines"],
+    queryFn: () => linesFn() as Promise<InSituLine[]>,
+  });
+
+  const rows = useMemo(() => {
+    return lines
+      .map((l) => {
+        const days = daysInSitu({ inserted_on: l.inserted_on, removed_on: null, status: "in_situ" });
+        const limit = LINE_REVIEW_DAYS[l.device_type as LineType];
+        const overdue = limit != null && days != null && days >= limit;
+        return { ...l, days, limit, overdue };
+      })
+      .sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
+  }, [lines]);
+
+  const overdueCount = rows.filter((r) => r.overdue).length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Cable className="h-4 w-4" /> Lines &amp; devices in situ
+          {overdueCount > 0 && (
+            <Badge variant="outline" className="border-rose-500/40 text-rose-600 dark:text-rose-400">
+              {overdueCount} due review
+            </Badge>
+          )}
+          <Badge variant="secondary" className="ml-auto">{rows.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {rows.length === 0 ? (
+          <p className="px-2 py-1 text-sm text-muted-foreground">No invasive lines or devices recorded.</p>
+        ) : (
+          <div className="space-y-0.5">
+            {rows.map((l) => {
+              const p = patientById.get(l.patient_id);
+              return (
+                <Link
+                  key={l.id}
+                  to="/patients/$patientId"
+                  params={{ patientId: l.patient_id }}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {LINE_TYPE_LABEL[l.device_type as LineType] ?? l.device_type}
+                    {l.site ? ` · ${l.site}` : ""}
+                    {!l.inserted_in_unit ? " (elsewhere)" : ""}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {p ? <PatientName patient={p} /> : "—"}
+                  </span>
+                  {l.days != null && (
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 ${l.overdue ? "border-rose-500/40 text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+                    >
+                      Day {l.days}
+                      {l.limit != null ? ` / ${l.limit}` : ""}
+                    </Badge>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
 
 type OpenTask = {
   id: string;
