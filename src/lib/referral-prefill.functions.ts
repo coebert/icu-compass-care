@@ -26,6 +26,65 @@ export const listReferralCandidates = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Dry-run: compute exactly which fields a referral would populate on a patient,
+// including the proposed values, without mutating anything.
+export const previewReferralPrefill = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({ patient_id: z.string().uuid(), referral_id: z.string().uuid() })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: patient, error: pErr } = await context.supabase
+      .from("patients")
+      .select(
+        "current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
+      )
+      .eq("id", data.patient_id)
+      .maybeSingle();
+    if (pErr) throw safeDbError(pErr);
+    if (!patient) throw new Error("Patient not found");
+
+    const { data: ref, error: rErr } = await context.supabase
+      .from("referrals")
+      .select(
+        "id, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency",
+      )
+      .eq("id", data.referral_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (rErr) throw safeDbError(rErr);
+    if (!ref) throw new Error("Referral not found");
+
+    const source: ReferralPrefillSource = {
+      reason_category: ref.reason_category ?? null,
+      ceiling_of_care: ref.ceiling_of_care ?? null,
+      resus_status: ref.resus_status ?? null,
+      dnacpr_respect: ref.dnacpr_respect ?? null,
+      anticipated_interventions:
+        (ref.anticipated_interventions as string[] | null) ?? null,
+      allergies: ref.allergies ?? null,
+      weight_kg: ref.weight_kg ?? null,
+      admission_urgency: ref.admission_urgency ?? null,
+    };
+
+    const plan = computeReferralPrefill(source, {
+      current_admission: patient.current_admission,
+      current_management: patient.current_management,
+      tep_in_place: patient.tep_in_place,
+      tep_details: patient.tep_details,
+      dnacpr_decision: patient.dnacpr_decision,
+      dnacpr_details: patient.dnacpr_details,
+    });
+
+    return {
+      applied_fields: plan.applied_fields,
+      skipped_fields: plan.skipped_fields,
+      patch: plan.patch,
+    };
+  });
+
 // Fill-blanks-only prefill of a patient record from a chosen referral.
 export const prefillPatientFromReferral = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
