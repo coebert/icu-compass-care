@@ -146,6 +146,8 @@ def create_patient():
             "location_type": "icu",
             "ward": "Critical Care",
             "status": "admitted",
+            "hospital_number": f"H-{MARKER}",
+            "current_admission": f"Adm {MARKER}",
             "current_management": f"Mgmt {MARKER}",
         },
         timeout=30,
