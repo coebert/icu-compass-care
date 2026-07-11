@@ -101,6 +101,17 @@ function PatientsBoard() {
     queryFn: () => beds() as Promise<Bed[]>,
   });
 
+  const latestObsFn = useServerFn(listLatestObservations);
+  const { data: latestObs = [] } = useQuery({
+    queryKey: ["latest-observations"],
+    queryFn: () => latestObsFn() as Promise<Observation[]>,
+  });
+  const obsByPatient = useMemo(() => {
+    const m = new Map<string, Observation>();
+    for (const o of latestObs) m.set(o.patient_id, o);
+    return m;
+  }, [latestObs]);
+
   const createMut = useMutation({
     mutationFn: (v: PatientFormValues) => create({ data: v as never }),
     onSuccess: () => {
