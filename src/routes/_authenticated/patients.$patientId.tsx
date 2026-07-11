@@ -1250,13 +1250,38 @@ function PatientDetail() {
   const listMicroFn = useServerFn(listMicrobiology);
   const listObsFn = useServerFn(listObservations);
 
+  // Per-section fetch status so the user can see exactly which clinical source
+  // is still loading (or failed) while the handover PDF is being prepared.
+  type SectionState = "idle" | "loading" | "done" | "error";
+  const [sectionStatus, setSectionStatus] = useState<{
+    investigations: SectionState;
+    microbiology: SectionState;
+    observations: SectionState;
+  }>({ investigations: "idle", microbiology: "idle", observations: "idle" });
+
   const exportMut = useMutation({
     mutationFn: async () => {
       if (!patient) throw new Error("Patient record is still loading");
+      setSectionStatus({
+        investigations: "loading",
+        microbiology: "loading",
+        observations: "loading",
+      });
+      const track = <T,>(key: keyof typeof sectionStatus, p: Promise<T>) =>
+        p.then(
+          (v) => {
+            setSectionStatus((s) => ({ ...s, [key]: "done" }));
+            return v;
+          },
+          (err) => {
+            setSectionStatus((s) => ({ ...s, [key]: "error" }));
+            throw err;
+          },
+        );
       const [investigations, microbiology_results, patient_observations] = await Promise.all([
-        listInvFn({ data: { patientId } }),
-        listMicroFn({ data: { patientId } }),
-        listObsFn({ data: { patientId } }),
+        track("investigations", listInvFn({ data: { patientId } })),
+        track("microbiology", listMicroFn({ data: { patientId } })),
+        track("observations", listObsFn({ data: { patientId } })),
       ]);
       const handoverPatient = {
         ...patient,
