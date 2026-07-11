@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { CORS_HEADERS, json, authorize, sharedPatientIds } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // Read-only bridge endpoint exposing this backend's microbiology results so the
