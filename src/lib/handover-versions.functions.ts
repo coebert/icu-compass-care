@@ -13,27 +13,54 @@ export type HandoverVersionSummary = {
   patient_count: number;
 };
 
-// Browse saved handover versions, newest first. Supports free-text / patient
-// search over the stored search_text plus date-range and shift filters.
+export type HandoverVersionPage = {
+  rows: HandoverVersionSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
+// Browse saved handover versions, newest first, with server-side pagination.
+// Supports free-text / patient search over the stored search_text plus
+// date-range and shift filters. Returns the total match count so the UI can
+// paginate large histories without loading everything at once.
 export const listHandoverVersions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { q?: string; from?: string; to?: string; shift?: string }) =>
-    z
-      .object({
-        q: z.string().optional(),
-        from: z.string().optional(),
-        to: z.string().optional(),
-        shift: z.string().optional(),
-      })
-      .parse(input ?? {}),
+  .inputValidator(
+    (input: {
+      q?: string;
+      from?: string;
+      to?: string;
+      shift?: string;
+      page?: number;
+      pageSize?: number;
+    }) =>
+      z
+        .object({
+          q: z.string().optional(),
+          from: z.string().optional(),
+          to: z.string().optional(),
+          shift: z.string().optional(),
+          page: z.number().int().min(1).optional(),
+          pageSize: z.number().int().min(1).max(100).optional(),
+        })
+        .parse(input ?? {}),
   )
-  .handler(async ({ context, data }) => {
+  .handler(async ({ context, data }): Promise<HandoverVersionPage> => {
+    const page = data.page ?? 1;
+    const pageSize = data.pageSize ?? 25;
+    const fromIdx = (page - 1) * pageSize;
+    const toIdx = fromIdx + pageSize - 1;
+
     let query = context.supabase
       .from("handover_versions")
-      .select("id, local_date, shift, captured_at, label, patient_count")
+      .select("id, local_date, shift, captured_at, label, patient_count", {
+        count: "exact",
+      })
       .order("local_date", { ascending: false })
       .order("shift", { ascending: false })
-      .limit(500);
+      .range(fromIdx, toIdx);
 
     const q = data.q?.trim();
     if (q) {
@@ -47,9 +74,16 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
       query = query.eq("shift", data.shift);
     }
 
-    const { data: rows, error } = await query;
+    const { data: rows, error, count } = await query;
     if (error) throw safeDbError(error, "load saved handover versions");
-    return (rows ?? []) as HandoverVersionSummary[];
+    const total = count ?? 0;
+    return {
+      rows: (rows ?? []) as HandoverVersionSummary[],
+      total,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    };
   });
 
 // Load a single saved version including its full patient snapshot so the exact
