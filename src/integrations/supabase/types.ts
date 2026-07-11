@@ -614,6 +614,7 @@ export type Database = {
           regional_analgesia: string[]
           renal_diuretics: boolean
           renal_rrt: boolean
+          resp_fio2: string | null
           resp_support: string[]
           sedative_agents: string[]
           source_referral_id: string | null
@@ -672,6 +673,7 @@ export type Database = {
           regional_analgesia?: string[]
           renal_diuretics?: boolean
           renal_rrt?: boolean
+          resp_fio2?: string | null
           resp_support?: string[]
           sedative_agents?: string[]
           source_referral_id?: string | null
@@ -730,6 +732,7 @@ export type Database = {
           regional_analgesia?: string[]
           renal_diuretics?: boolean
           renal_rrt?: boolean
+          resp_fio2?: string | null
           resp_support?: string[]
           sedative_agents?: string[]
           source_referral_id?: string | null
