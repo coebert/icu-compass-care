@@ -12,6 +12,11 @@ import {
   mostRecentInvestigation,
 } from "@/lib/handover-recency";
 import { summariseAllergies } from "@/lib/patient-safety";
+import {
+  latestObservation,
+  meanArterialPressure,
+  type Observation,
+} from "@/lib/observations";
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
   return parts.filter(Boolean).join(sep);
