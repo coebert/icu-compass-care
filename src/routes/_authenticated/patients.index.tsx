@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { type Observation } from "@/lib/observations";
@@ -486,6 +486,15 @@ function PatientsBoard() {
           >
             <Link to="/patients/handover-preview" search={{ archived: showArchived }}>
               <Maximize2 className="h-4 w-4" /> Full preview
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
+          >
+            <Link to="/patients/handover-mode">
+              <ClipboardCheck className="h-4 w-4" /> Handover mode
             </Link>
           </Button>
           <Button onClick={() => setOpen(true)} className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none">
