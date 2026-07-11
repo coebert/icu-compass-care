@@ -72,10 +72,12 @@ function PresenceBadge({ presence }: { presence: PatientDiff["presence"] }) {
 function CompareVersionsPage() {
   const list = useServerFn(listHandoverVersions);
   const getOne = useServerFn(getHandoverVersion);
+  const { hasClinicalAccess, profile } = useClinicalAccess();
 
   const { data: versions = [], isLoading } = useQuery({
     queryKey: ["handover-versions", "compare-all"],
     queryFn: async () => (await list({ data: { pageSize: 100 } })).rows,
+    enabled: hasClinicalAccess,
   });
 
   const [aId, setAId] = useState<string | null>(null);
