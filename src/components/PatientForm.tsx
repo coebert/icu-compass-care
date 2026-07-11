@@ -103,6 +103,11 @@ export function emptyPatient(): PatientFormValues {
     nok_contact: "",
     nok_last_updated: "",
     nok_last_updated_by: "",
+    weight_kg: "",
+    allergies: [],
+    daily_goals: {},
+    daily_goals_reviewed_by: "",
+    daily_goals_reviewed_at: "",
   };
 }
 
