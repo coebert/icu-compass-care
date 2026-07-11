@@ -10,7 +10,6 @@ import type {
   PatientTask as DomainPatientTask,
   PatientEvent as DomainPatientEvent,
   PatientReview as DomainReview,
-  AuditRow as DomainAuditRow,
 } from "@/lib/domain-types";
 import {
   listInvestigations,
@@ -2142,7 +2141,7 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
 }
 
 
-type AuditRow = DomainAuditRow & Record<string, any>;
+type AuditRow = Record<string, any>;
 
 const ACTION_LABEL: Record<string, string> = {
   insert: "Created",
