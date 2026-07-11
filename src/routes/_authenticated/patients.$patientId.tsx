@@ -690,7 +690,7 @@ function PatientDetail() {
               <div className="grid gap-6 sm:grid-cols-2">
                 <RespiratoryStatus patientId={patientId} patient={patient} />
                 <CardiovascularStatus patientId={patientId} patient={patient} />
-                <InfoBlock label="CNS / Neuro" value={patient.systems_neuro} />
+                <NeuroStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="Renal" value={patient.systems_renal} />
                 <InfoBlock label="Gastro / Nutri" value={patient.systems_gastro} />
                 <InfoBlock label="Haem" value={patient.systems_haem} />
