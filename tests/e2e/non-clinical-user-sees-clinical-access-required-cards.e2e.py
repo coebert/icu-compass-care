@@ -198,6 +198,7 @@ def main():
             # ---- 1. /patients/history ----
             goto(page, "/patients/history")
             assert "/auth" not in page.url, f"redirected to /auth: {page.url}"
+            wait_for_card(page)
             body = page.evaluate("() => document.body.innerText")
             page.screenshot(path=str(SCREENSHOTS / "nc_cards_history.png"))
             assert CARD_TEXT in body, f"history page missing the card: {body[:400]}"
@@ -205,6 +206,7 @@ def main():
 
             # ---- 2. /patients/compare ----
             goto(page, "/patients/compare")
+            wait_for_card(page)
             body = page.evaluate("() => document.body.innerText")
             page.screenshot(path=str(SCREENSHOTS / "nc_cards_compare.png"))
             assert CARD_TEXT in body, f"compare page missing the card: {body[:400]}"
@@ -212,6 +214,7 @@ def main():
 
             # ---- 3. /patients/<id> (the record + its History tab) ----
             goto(page, f"/patients/{patient_id}")
+            wait_for_card(page)
             body = page.evaluate("() => document.body.innerText")
             page.screenshot(path=str(SCREENSHOTS / "nc_cards_patient.png"))
             assert CARD_TEXT in body, f"patient record missing the card: {body[:400]}"
