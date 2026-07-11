@@ -83,19 +83,28 @@ export const patientInput = z.object({
     .pipe(z.coerce.number().min(0).max(600))
     .optional()
     .nullable(),
-  allergies: z
-    .array(
-      z.object({
-        substance: z.string().trim().min(1).max(200),
-        reaction: z.string().trim().max(500).optional().nullable(),
-        severity: z
-          .enum(["unknown", "mild", "moderate", "severe", "anaphylaxis"])
-          .optional()
-          .nullable(),
-      }),
-    )
-    .max(50)
-    .optional(),
+  allergies: z.preprocess(
+    (v) =>
+      Array.isArray(v)
+        ? v.filter(
+            (a) =>
+              a && typeof a === "object" && String((a as Record<string, unknown>).substance ?? "").trim() !== "",
+          )
+        : v,
+    z
+      .array(
+        z.object({
+          substance: z.string().trim().min(1).max(200),
+          reaction: z.string().trim().max(500).optional().nullable(),
+          severity: z
+            .enum(["unknown", "mild", "moderate", "severe", "anaphylaxis"])
+            .optional()
+            .nullable(),
+        }),
+      )
+      .max(50)
+      .optional(),
+  ),
   daily_goals: z.record(z.string(), z.boolean()).optional(),
   daily_goals_reviewed_at: z.string().optional().nullable(),
   daily_goals_reviewed_by: z.string().trim().max(200).optional().nullable(),
