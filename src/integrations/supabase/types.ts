@@ -476,6 +476,7 @@ export type Database = {
           admission_date: string | null
           age: number | null
           airway_type: string | null
+          anticoagulation: string[]
           bed: string | null
           created_at: string
           created_by: string | null
@@ -524,6 +525,7 @@ export type Database = {
           admission_date?: string | null
           age?: number | null
           airway_type?: string | null
+          anticoagulation?: string[]
           bed?: string | null
           created_at?: string
           created_by?: string | null
@@ -572,6 +574,7 @@ export type Database = {
           admission_date?: string | null
           age?: number | null
           airway_type?: string | null
+          anticoagulation?: string[]
           bed?: string | null
           created_at?: string
           created_by?: string | null
