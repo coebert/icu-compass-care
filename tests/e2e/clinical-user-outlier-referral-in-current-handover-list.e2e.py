@@ -243,11 +243,10 @@ def main():
             expect(
                 page.get_by_role("button", name="Show current")
             ).to_be_visible(timeout=10000)
-            page.wait_for_load_state("networkidle")
             page.get_by_placeholder("Search initials or hospital no.…").fill(
                 HOSPITAL_NUMBER
             )
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(800)
             assert page.get_by_text(PATIENT_NAME, exact=False).count() == 0, (
                 "active referred outlier wrongly appears in the archived handover list"
             )
