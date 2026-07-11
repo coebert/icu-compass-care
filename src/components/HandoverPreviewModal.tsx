@@ -99,6 +99,11 @@ export function HandoverPreviewModal({
     setPageSize(o.pageSize ?? "a4");
     setMarginX(o.marginX ?? 8);
     setFontScale(o.fontScale ?? 1);
+    setColumns(
+      o.columns && o.columns.length > 0
+        ? o.columns
+        : ALL_HANDOVER_COLUMN_KEYS,
+    );
   }
 
   function handleSavePreset() {
