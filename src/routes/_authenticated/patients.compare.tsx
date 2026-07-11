@@ -8,6 +8,8 @@ import {
   type HandoverVersionSummary,
 } from "@/lib/handover-versions.functions";
 import { diffSnapshots, type PatientDiff } from "@/lib/handover-diff";
+import { useClinicalAccess } from "@/hooks/use-clinical-access";
+import { ClinicalAccessRequired } from "@/components/ClinicalAccessRequired";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
