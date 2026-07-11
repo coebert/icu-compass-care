@@ -355,7 +355,9 @@ type TimelineEvent = {
   icon: React.ReactNode;
   title: string;
   detail?: string | null;
-  kind: "admission" | "discharge" | "investigation" | "microbiology";
+  kind: "admission" | "discharge" | "investigation" | "microbiology" | "event";
+  eventId?: string;
+  eventType?: string;
 };
 
 const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
@@ -363,6 +365,7 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   discharge: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
   investigation: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
   microbiology: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
 function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
