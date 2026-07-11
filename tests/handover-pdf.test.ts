@@ -330,5 +330,52 @@ describe("handover PDF antimicrobial & renal fields", () => {
       }
     }
   });
+
+  it("wraps very long antimicrobial and renal notes within portrait margins", () => {
+    const marginX = 8;
+    const antimicrobials = Array.from({ length: 8 }, (_, i) => ({
+      name:
+        `Broad-spectrum-antimicrobial-agent-number-${i}-with-an-exceptionally-long-name ` +
+        "escalated for resistant organism ".repeat(6),
+      started_on: "2026-06-20",
+    }));
+    const p: HandoverPatient = {
+      id: "1",
+      status: "admitted",
+      admission_date: "2026-06-01",
+      renal_diuretics: true,
+      renal_rrt: true,
+      systems_renal:
+        "Renal: oliguric AKI, on CVVHDF via right IJ vascath, net negative target 100ml/hr. " +
+        "Furosemide infusion weaned. ".repeat(10),
+      systems_micro:
+        "Micro: MRSA bacteraemia, source control ongoing. " +
+        "Awaiting sensitivities. ".repeat(10),
+      antimicrobials,
+    };
+    const doc = buildHandoverPdf([p], { marginX, orientation: "portrait" });
+    const table = (doc as any).lastAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    // Confirm portrait (taller than wide) and that the long content is present.
+    expect(pageHeight).toBeGreaterThan(pageWidth);
+    const systemsIdx = Object.entries(table.head[0].cells as Record<string, any>).find(
+      ([, c]) => c.text.join(" ") === "Systems review",
+    )?.[0];
+    expect(systemsIdx).toBeTruthy();
+    const systemsText = (table.body[0].cells[systemsIdx!].text as string[]).join(" ");
+    expect(systemsText).toContain("Abx:");
+    expect(systemsText).toContain("escalated for resistant organism");
+    expect(systemsText).toContain("CVVHDF");
+    // Every cell (including the long wrapped content) stays within the margins.
+    for (const row of table.body) {
+      for (const cell of Object.values(row.cells) as any[]) {
+        expect(cell.x + cell.width).toBeLessThanOrEqual(pageWidth - marginX + 0.5);
+        expect(cell.x).toBeGreaterThanOrEqual(marginX - 0.5);
+        expect(cell.y).toBeLessThanOrEqual(pageHeight - 12 + 0.5);
+      }
+    }
+  });
 });
+
 
