@@ -373,31 +373,52 @@ function MicroStatus({
         ) : (
           <ul className="space-y-2">
             {agents.map((a, i) => {
-              const days = courseDays(a.started_on);
+              const days = courseDays(a.started_on, a.ended_on);
+              const completed = !!a.ended_on;
               return (
                 <li
                   key={i}
-                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
                 >
                   <div>
                     <span className="font-medium">{a.name}</span>
                     <span className="ml-2 text-muted-foreground">
-                      started {a.started_on}
+                      {a.started_on}
+                      {completed ? <> → {a.ended_on}</> : <> → ongoing</>}
                       {days != null && (
-                        <> · day {days} of course</>
+                        <>
+                          {" "}
+                          · {completed
+                            ? `total course ${days} day${days === 1 ? "" : "s"}`
+                            : `day ${days} of course`}
+                        </>
                       )}
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    disabled={mut.isPending}
-                    onClick={() => remove(i)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                      End
+                      <Input
+                        type="date"
+                        className="h-8 w-[9.5rem]"
+                        value={a.ended_on ?? ""}
+                        min={a.started_on}
+                        max={new Date().toISOString().slice(0, 10)}
+                        disabled={mut.isPending}
+                        onChange={(e) => setEnd(i, e.target.value)}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      disabled={mut.isPending}
+                      onClick={() => remove(i)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </li>
               );
             })}
