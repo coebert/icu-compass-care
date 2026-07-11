@@ -260,6 +260,36 @@ function HandoverHistoryPage() {
               </button>
             ))
           )}
+
+          {total > 0 && (
+            <div className="flex items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
+              <span>
+                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+                {isFetching ? " · updating…" : ""}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1 || isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Prev
+                </Button>
+                <span className="px-1">
+                  {page}/{pageCount}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= pageCount || isFetching}
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Selected version preview */}
