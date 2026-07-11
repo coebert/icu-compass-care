@@ -304,6 +304,47 @@ export type Database = {
           },
         ]
       }
+      patient_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_at: string
+          event_type: string
+          id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_at?: string
+          event_type: string
+          id?: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_at?: string
+          event_type?: string
+          id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_field_changes: {
         Row: {
           changed_at: string

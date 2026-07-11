@@ -14,6 +14,13 @@ import {
   addMicrobiology,
   deleteMicrobiology,
 } from "@/lib/microbiology.functions";
+import {
+  listPatientEvents,
+  addPatientEvent,
+  updatePatientEvent,
+  deletePatientEvent,
+  PATIENT_EVENT_TYPES,
+} from "@/lib/patient-events.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
@@ -46,7 +53,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
@@ -348,7 +355,9 @@ type TimelineEvent = {
   icon: React.ReactNode;
   title: string;
   detail?: string | null;
-  kind: "admission" | "discharge" | "investigation" | "microbiology";
+  kind: "admission" | "discharge" | "investigation" | "microbiology" | "event";
+  eventId?: string;
+  eventType?: string;
 };
 
 const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
@@ -356,11 +365,25 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   discharge: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
   investigation: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
   microbiology: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
+type PatientEvent = Record<string, any>;
+
 function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
+  const qc = useQueryClient();
   const listInv = useServerFn(listInvestigations);
   const listMicro = useServerFn(listMicrobiology);
+  const listEvents = useServerFn(listPatientEvents);
+  const addEvent = useServerFn(addPatientEvent);
+  const editEvent = useServerFn(updatePatientEvent);
+  const removeEvent = useServerFn(deletePatientEvent);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [type, setType] = useState<string>(PATIENT_EVENT_TYPES[0]);
+  const [description, setDescription] = useState("");
+  const [eventAt, setEventAt] = useState<string>("");
 
   const { data: investigations = [] } = useQuery({
     queryKey: ["investigations", patientId],
@@ -369,6 +392,50 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
   const { data: micro = [] } = useQuery({
     queryKey: ["microbiology", patientId],
     queryFn: () => listMicro({ data: { patientId } }) as Promise<Microbiology[]>,
+  });
+  const { data: keyEvents = [] } = useQuery({
+    queryKey: ["patient-events", patientId],
+    queryFn: () => listEvents({ data: { patientId } }) as Promise<PatientEvent[]>,
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["patient-events", patientId] });
+
+  const openAdd = () => {
+    setEditId(null);
+    setType(PATIENT_EVENT_TYPES[0]);
+    setDescription("");
+    setEventAt(new Date().toISOString());
+    setDialogOpen(true);
+  };
+
+  const openEdit = (ev: PatientEvent) => {
+    setEditId(ev.id);
+    setType(ev.event_type);
+    setDescription(ev.description ?? "");
+    setEventAt(ev.event_at ?? new Date().toISOString());
+    setDialogOpen(true);
+  };
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      editId
+        ? editEvent({ data: { id: editId, event_type: type, description, event_at: eventAt } as never })
+        : addEvent({ data: { patient_id: patientId, event_type: type, description, event_at: eventAt } as never }),
+    onSuccess: () => {
+      invalidate();
+      setDialogOpen(false);
+      toast.success(editId ? "Event updated" : "Event added");
+    },
+    onError: (e: Error) => toast.error("Could not save event", { description: e.message }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => removeEvent({ data: { id } }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Event removed");
+    },
+    onError: (e: Error) => toast.error("Could not remove event", { description: e.message }),
   });
 
   const events = useMemo<TimelineEvent[]>(() => {
@@ -412,6 +479,19 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
       });
     }
 
+    for (const ev of keyEvents) {
+      evs.push({
+        key: `event-${ev.id}`,
+        at: ev.event_at,
+        icon: <Stethoscope className="h-4 w-4" />,
+        title: ev.event_type,
+        detail: ev.description,
+        kind: "event",
+        eventId: ev.id,
+        eventType: ev.event_type,
+      });
+    }
+
     for (const it of investigations) {
       evs.push({
         key: `inv-${it.id}`,
@@ -439,15 +519,20 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
       const tb = b.at ? new Date(b.at).getTime() : 0;
       return tb - ta;
     });
-  }, [patient, investigations, micro]);
+  }, [patient, investigations, micro, keyEvents]);
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Activity className="h-4 w-4" />
-        Admission, discharge and key investigation snapshots — retained after discharge.
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Activity className="h-4 w-4" />
+          Key clinical events, admission, discharge and investigation snapshots — retained after discharge.
+        </div>
+        <Button size="sm" className="ml-auto gap-1.5" onClick={openAdd}>
+          <Plus className="h-4 w-4" /> Add event
+        </Button>
       </div>
 
       {events.length === 0 ? (
@@ -477,14 +562,77 @@ function TimelineTab({ patient, patientId }: { patient: Patient; patientId: stri
                   {ev.detail?.trim() && (
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
                   )}
+                  {ev.kind === "event" && ev.eventId && (
+                    <div className="flex gap-1 pt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs"
+                        onClick={() =>
+                          openEdit(keyEvents.find((k) => k.id === ev.eventId) as PatientEvent)
+                        }
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs text-destructive"
+                        onClick={() => deleteMut.mutate(ev.eventId as string)}
+                      >
+                        <Trash2 className="h-3 w-3" /> Remove
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </li>
           ))}
         </ol>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editId ? "Edit event" : "Add key event"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Event type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PATIENT_EVENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date &amp; time</Label>
+              <DateTimePicker value={eventAt} onChange={(v) => setEventAt(v ?? "")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Details (optional)</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g. Emergency laparotomy for perforated viscus"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !eventAt}>
+                {saveMut.isPending ? "Saving…" : editId ? "Save changes" : "Add event"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
 }
 
 
