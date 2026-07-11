@@ -360,6 +360,86 @@ function MicroStatus({
     );
   };
 
+  const toggleStatus = (idx: number) => {
+    const today = new Date().toISOString().slice(0, 10);
+    mut.mutate(
+      agents.map((a, i) =>
+        i === idx
+          ? { ...a, ended_on: a.ended_on ? null : today }
+          : a,
+      ),
+    );
+  };
+
+  const indexed = agents.map((a, i) => ({ a, i }));
+  const current = indexed.filter(({ a }) => !a.ended_on);
+  const completed = indexed.filter(({ a }) => !!a.ended_on);
+
+  const renderItem = ({ a, i }: { a: Antimicrobial; i: number }) => {
+    const days = courseDays(a.started_on, a.ended_on);
+    const isCompleted = !!a.ended_on;
+    return (
+      <li
+        key={i}
+        className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${
+          isCompleted ? "opacity-70" : "border-primary/30 bg-primary/5"
+        }`}
+      >
+        <div>
+          <span className="font-medium">{a.name}</span>
+          <span className="ml-2 text-muted-foreground">
+            {a.started_on}
+            {isCompleted ? <> → {a.ended_on}</> : <> → ongoing</>}
+            {days != null && (
+              <>
+                {" "}
+                · {isCompleted
+                  ? `total course ${days} day${days === 1 ? "" : "s"}`
+                  : `day ${days} of course`}
+              </>
+            )}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isCompleted && (
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              End
+              <Input
+                type="date"
+                className="h-8 w-[9.5rem]"
+                value={a.ended_on ?? ""}
+                min={a.started_on}
+                max={new Date().toISOString().slice(0, 10)}
+                disabled={mut.isPending}
+                onChange={(e) => setEnd(i, e.target.value)}
+              />
+            </label>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8"
+            disabled={mut.isPending}
+            onClick={() => toggleStatus(i)}
+          >
+            {isCompleted ? "Mark current" : "Mark completed"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            disabled={mut.isPending}
+            onClick={() => remove(i)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </li>
+    );
+  };
+
   return (
     <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
       <div>
@@ -371,58 +451,31 @@ function MicroStatus({
             No antimicrobials recorded.
           </p>
         ) : (
-          <ul className="space-y-2">
-            {agents.map((a, i) => {
-              const days = courseDays(a.started_on, a.ended_on);
-              const completed = !!a.ended_on;
-              return (
-                <li
-                  key={i}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-                >
-                  <div>
-                    <span className="font-medium">{a.name}</span>
-                    <span className="ml-2 text-muted-foreground">
-                      {a.started_on}
-                      {completed ? <> → {a.ended_on}</> : <> → ongoing</>}
-                      {days != null && (
-                        <>
-                          {" "}
-                          · {completed
-                            ? `total course ${days} day${days === 1 ? "" : "s"}`
-                            : `day ${days} of course`}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                      End
-                      <Input
-                        type="date"
-                        className="h-8 w-[9.5rem]"
-                        value={a.ended_on ?? ""}
-                        min={a.started_on}
-                        max={new Date().toISOString().slice(0, 10)}
-                        disabled={mut.isPending}
-                        onChange={(e) => setEnd(i, e.target.value)}
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0"
-                      disabled={mut.isPending}
-                      onClick={() => remove(i)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-primary">
+                Currently receiving
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  {current.length}
+                </span>
+              </p>
+              {current.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No active antimicrobials.
+                </p>
+              ) : (
+                <ul className="space-y-2">{current.map(renderItem)}</ul>
+              )}
+            </div>
+            {completed.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Completed
+                </p>
+                <ul className="space-y-2">{completed.map(renderItem)}</ul>
+              </div>
+            )}
+          </div>
         )}
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="flex-1 min-w-[140px]">
