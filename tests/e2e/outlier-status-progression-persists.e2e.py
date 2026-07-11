@@ -226,8 +226,17 @@ def main():
             )
             # Ward renders on the page header.
             expect(page.get_by_text(WARD, exact=False).first).to_be_visible(timeout=10000)
-            # Discharge destination renders (timeline / overview).
-            expect(page.get_by_text(DESTINATION, exact=False).first).to_be_visible(
+
+            # Discharge destination renders on the Timeline tab (Discharged event).
+            timeline_tab = page.get_by_role("tab", name="Timeline")
+            timeline_tab.scroll_into_view_if_needed()
+            timeline_tab.click()
+            expect(timeline_tab).to_have_attribute("data-state", "active", timeout=10000)
+            timeline_panel = page.get_by_role("tabpanel")
+            expect(timeline_panel.get_by_text("Discharged", exact=False).first).to_be_visible(
+                timeout=10000
+            )
+            expect(timeline_panel.get_by_text(DESTINATION, exact=False).first).to_be_visible(
                 timeout=10000
             )
 
