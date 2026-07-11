@@ -100,7 +100,7 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
 
         await logSync(supabaseAdmin, {
           direction: "pull",
-          entity: "patients",
+          entity: "beds",
           record_count: occupiedCount + unassigned.length,
           actor: auth.actor,
         });

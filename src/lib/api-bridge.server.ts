@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 
 /**
  * Shared HMAC auth + RBAC for the cross-project data bridge.
@@ -73,21 +73,30 @@ const WRITE_ROLES = ["admin", "clinician"] as const;
 
 export type BridgeActor = { id: string; email?: string; role: string };
 
-// Clinical entities reconciled across the bridge.
-export type BridgeEntity = "patients" | "investigations" | "referrals" | "microbiology";
+// Entities exchanged across the bridge (clinical data plus occupancy/audit/
+// notification read feeds).
+export type BridgeEntity =
+  | "patients"
+  | "investigations"
+  | "referrals"
+  | "microbiology"
+  | "beds"
+  | "audit"
+  | "notifications";
 
 export type AuthResult =
-  | { ok: true; actor: BridgeActor }
+  | { ok: true; actor: BridgeActor; signature: string }
   | { ok: false; response: Response };
 
 /**
  * Verify the HMAC signature AND authorize the forwarded actor.
  * Pass `write: true` for state-changing requests to enforce write roles.
+ * Pass `roles` to override the default allow-list for a specific endpoint.
  */
 export function authorize(
   request: Request,
   rawBody: string,
-  opts: { write: boolean },
+  opts: { write: boolean; roles?: readonly string[] },
 ): AuthResult {
   // Accept the current secret and, during a rotation window, an optional
   // previous secret. This lets both projects roll over to a new value one at a
@@ -134,12 +143,50 @@ export function authorize(
     return { ok: false, response: json({ error: "Missing or invalid user context" }, 401) };
   }
 
-  const allowed = opts.write ? WRITE_ROLES : READ_ROLES;
+  const allowed = opts.roles ?? (opts.write ? WRITE_ROLES : READ_ROLES);
   if (!(allowed as readonly string[]).includes(actor.role)) {
     return { ok: false, response: json({ error: "Insufficient role for this action" }, 403) };
   }
 
-  return { ok: true, actor };
+  return { ok: true, actor, signature };
+}
+
+/**
+ * Replay guard for state-changing bridge requests. Records a one-time
+ * fingerprint of the request's HMAC signature; a duplicate means the exact
+ * same signed request is being replayed (only possible with a captured, still
+ * in-window signature, since a fresh signature cannot be forged without the
+ * secret). Returns true when the request is fresh, false when it is a replay.
+ *
+ * The signature already covers timestamp + actor + body, so its hash uniquely
+ * identifies one signed request without needing a separate signed nonce field
+ * (i.e. no change to the cross-project signing contract).
+ */
+export async function consumeWriteNonce(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  signature: string,
+): Promise<boolean> {
+  const signatureHash = createHash("sha256").update(signature).digest("hex");
+  const { error } = await admin
+    .from("bridge_write_nonces")
+    .insert({ signature_hash: signatureHash });
+
+  // Best-effort prune of fingerprints older than the replay window. A row older
+  // than MAX_SKEW_SECONDS can never match a valid (in-window) timestamp again,
+  // so it is safe to drop and keeps the table bounded.
+  void admin
+    .from("bridge_write_nonces")
+    .delete()
+    .lt("seen_at", new Date(Date.now() - (MAX_SKEW_SECONDS + 60) * 1000).toISOString())
+    .then(() => undefined, () => undefined);
+
+  if (!error) return true;
+  // 23505 = unique_violation => this signature was already seen => replay.
+  if ((error as { code?: string }).code === "23505") return false;
+  // On any other storage error, fail closed: treat as not-fresh so a broken
+  // replay store cannot silently disable replay protection for writes.
+  throw new Error(`replay guard unavailable: ${(error as { message?: string }).message ?? "unknown"}`);
 }
 
 /**

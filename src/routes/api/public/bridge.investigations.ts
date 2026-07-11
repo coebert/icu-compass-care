@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { corsHeaders, json, authorize, logSync, sharedPatientIds } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorize, logSync, sharedPatientIds, consumeWriteNonce } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 
@@ -55,8 +55,17 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const auth = authorize(request, rawBody, { write: true });
+        const auth = authorize(request, rawBody, { write: true, roles: ["admin", "clinician"] });
         if (!auth.ok) return auth.response;
+
+        const replayAdmin = await getAdmin();
+        let fresh: boolean;
+        try {
+          fresh = await consumeWriteNonce(replayAdmin, auth.signature);
+        } catch (e) {
+          return (console.error("[bridge]", e), json({ error: "Internal server error" }, 500));
+        }
+        if (!fresh) return json({ error: "Replay detected" }, 409);
 
         let parsed;
         try {

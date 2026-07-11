@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { corsHeaders, json, authorize, sharedPatientIds } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorize, sharedPatientIds, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // Read-only bridge endpoint exposing this backend's microbiology results so the
@@ -16,7 +16,10 @@ export const Route = createFileRoute("/api/public/bridge/microbiology")({
         const supabaseAdmin = await getAdmin();
         // Only expose microbiology for patients an admin has shared.
         const allowedIds = await sharedPatientIds(supabaseAdmin);
-        if (allowedIds.length === 0) return json({ microbiology: [] });
+        if (allowedIds.length === 0) {
+          await logSync(supabaseAdmin, { direction: "pull", entity: "microbiology", record_count: 0, actor: auth.actor });
+          return json({ microbiology: [] });
+        }
 
         const { data, error } = await supabaseAdmin
           .from("microbiology_results")
@@ -25,6 +28,7 @@ export const Route = createFileRoute("/api/public/bridge/microbiology")({
           .order("updated_at", { ascending: false })
           .limit(5000);
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        await logSync(supabaseAdmin, { direction: "pull", entity: "microbiology", record_count: data?.length ?? 0, actor: auth.actor });
         return json({ microbiology: data });
       },
     },
