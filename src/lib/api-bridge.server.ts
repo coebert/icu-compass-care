@@ -22,12 +22,30 @@ import { createHmac, timingSafeEqual } from "crypto";
  *   x-signature: <hex signature>
  */
 
-export const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-timestamp, x-actor, x-signature",
-  "Access-Control-Max-Age": "86400",
-} as const;
+// Restrict browser CORS to the partner app's origin instead of "*". The
+// bridge is HMAC-gated so CORS is defence-in-depth, but scoping the origin
+// removes cross-origin browser probing surface. Derived from PARTNER_BRIDGE_URL
+// at call time (env is injected per-request on the worker runtime); falls back
+// to "*" only when the partner origin is not configured.
+function partnerOrigin(): string {
+  const raw = process.env.PARTNER_BRIDGE_URL;
+  if (!raw) return "*";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return "*";
+  }
+}
+
+export function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": partnerOrigin(),
+    "Vary": "Origin",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, x-timestamp, x-actor, x-signature",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -41,13 +59,13 @@ export function json(body: unknown, status = 200): Response {
       "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
       Pragma: "no-cache",
       Expires: "0",
-      ...CORS_HEADERS,
+      ...corsHeaders(),
     },
   });
 }
 
 
-const MAX_SKEW_SECONDS = 300;
+const MAX_SKEW_SECONDS = 60;
 
 // Roles recognised by the bridge.
 const READ_ROLES = ["admin", "clinician"] as const;

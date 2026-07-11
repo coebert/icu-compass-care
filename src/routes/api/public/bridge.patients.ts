@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { CORS_HEADERS, json, authorize, logSync } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorize, logSync } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
@@ -57,7 +57,7 @@ const patientUpsert = z.object({
 export const Route = createFileRoute("/api/public/bridge/patients")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       // List patients (optionally filter by status via ?status=admitted)
       GET: async ({ request }) => {
