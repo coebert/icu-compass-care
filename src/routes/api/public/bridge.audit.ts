@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorize } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // Read-only bridge endpoint exposing this backend's audit log so the partner
@@ -7,7 +7,7 @@ import { getAdmin } from "@/lib/admin-db.server";
 export const Route = createFileRoute("/api/public/bridge/audit")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       GET: async ({ request }) => {
         const auth = authorize(request, "", { write: false });

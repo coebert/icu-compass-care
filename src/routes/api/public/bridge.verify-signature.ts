@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac } from "crypto";
-import { CORS_HEADERS, json, authorize } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorize } from "@/lib/api-bridge.server";
 
 /**
  * Self-test endpoint for cross-project HMAC signatures.
@@ -28,7 +28,7 @@ function sign(secret: string, timestamp: string, actor: string, rawBody: string)
 export const Route = createFileRoute("/api/public/bridge/verify-signature")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       // Self-signed round trip: sign a synthetic envelope with the current
       // secret, then verify it through the real authorize() path.

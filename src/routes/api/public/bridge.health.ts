@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CORS_HEADERS, json } from "@/lib/api-bridge.server";
+import { corsHeaders, json } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // The exact column list GET /api/public/bridge/patients serializes via
@@ -50,7 +50,7 @@ const PATIENT_FIELD_KEYS = [
 export const Route = createFileRoute("/api/public/bridge/health")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
+      OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       // Unauthenticated health/config check. Reports only whether the shared
       // secret is configured (never its value) and the exact serialized field
