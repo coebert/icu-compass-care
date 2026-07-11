@@ -78,6 +78,36 @@ export const patientInput = z.object({
   nok_contact: z.string().trim().max(200).optional().nullable(),
   nok_last_updated: z.string().optional().nullable(),
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
+  weight_kg: z
+    .union([z.number(), z.string().trim().min(1)])
+    .pipe(z.coerce.number().min(0).max(600))
+    .optional()
+    .nullable(),
+  allergies: z.preprocess(
+    (v) =>
+      Array.isArray(v)
+        ? v.filter(
+            (a) =>
+              a && typeof a === "object" && String((a as Record<string, unknown>).substance ?? "").trim() !== "",
+          )
+        : v,
+    z
+      .array(
+        z.object({
+          substance: z.string().trim().min(1).max(200),
+          reaction: z.string().trim().max(500).optional().nullable(),
+          severity: z
+            .enum(["unknown", "mild", "moderate", "severe", "anaphylaxis"])
+            .optional()
+            .nullable(),
+        }),
+      )
+      .max(50)
+      .optional(),
+  ),
+  daily_goals: z.record(z.string(), z.boolean()).optional(),
+  daily_goals_reviewed_at: z.string().optional().nullable(),
+  daily_goals_reviewed_by: z.string().trim().max(200).optional().nullable(),
 });
 
 // Structured (array/boolean) patient fields. The bridge schema uses this list so

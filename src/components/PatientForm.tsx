@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,6 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ALLERGY_SEVERITIES,
+  ALLERGY_SEVERITY_LABEL,
+  DAILY_GOAL_ITEMS,
+  parseAllergies,
+  parseDailyGoals,
+  type AllergyEntry,
+  type AllergySeverity,
+  type DailyGoals,
+} from "@/lib/patient-safety";
 
 export type PatientFormValues = {
   full_name: string;
@@ -48,6 +60,11 @@ export type PatientFormValues = {
   nok_contact: string;
   nok_last_updated: string;
   nok_last_updated_by: string;
+  weight_kg: string;
+  allergies: AllergyEntry[];
+  daily_goals: DailyGoals;
+  daily_goals_reviewed_by: string;
+  daily_goals_reviewed_at: string;
 };
 
 export function emptyPatient(): PatientFormValues {
@@ -86,6 +103,11 @@ export function emptyPatient(): PatientFormValues {
     nok_contact: "",
     nok_last_updated: "",
     nok_last_updated_by: "",
+    weight_kg: "",
+    allergies: [],
+    daily_goals: {},
+    daily_goals_reviewed_by: "",
+    daily_goals_reviewed_at: "",
   };
 }
 
@@ -95,8 +117,12 @@ export function toFormValues(p: Record<string, unknown>): PatientFormValues {
   for (const key of Object.keys(base) as (keyof PatientFormValues)[]) {
     const v = p[key];
     if (v === null || v === undefined) continue;
-    // datetime-local expects yyyy-MM-ddThh:mm
-    if (key === "nok_last_updated" && typeof v === "string") {
+    if (key === "allergies") {
+      out.allergies = parseAllergies(v);
+    } else if (key === "daily_goals") {
+      out.daily_goals = parseDailyGoals(v);
+    } else if (key === "nok_last_updated" && typeof v === "string") {
+      // datetime-local expects yyyy-MM-ddThh:mm
       out[key] = v.slice(0, 16) as never;
     } else {
       (out as Record<string, unknown>)[key] = typeof v === "boolean" ? v : String(v);
@@ -160,6 +186,9 @@ export function PatientForm({
           <Field label="Hospital number">
             <Input value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
           </Field>
+          <Field label="Weight (kg)">
+            <Input type="number" min={0} max={600} step="0.1" value={values.weight_kg} onChange={(e) => set("weight_kg", e.target.value)} placeholder="e.g. 78" />
+          </Field>
           <Field label="Location">
             <Select value={values.location_type} onValueChange={(v) => set("location_type", v as PatientFormValues["location_type"])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -218,6 +247,105 @@ export function PatientForm({
           <Textarea rows={3} value={values.outstanding_tasks} onChange={(e) => set("outstanding_tasks", e.target.value)} />
         </Field>
       </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Allergies</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() =>
+              set("allergies", [...values.allergies, { substance: "", reaction: "", severity: "unknown" }])
+            }
+          >
+            <Plus className="h-4 w-4" /> Add allergy
+          </Button>
+        </div>
+        {values.allergies.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No known allergies recorded.</p>
+        ) : (
+          <div className="space-y-3">
+            {values.allergies.map((a, i) => (
+              <div key={i} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_9rem_auto]">
+                <Input
+                  placeholder="Substance *"
+                  value={a.substance}
+                  onChange={(e) => {
+                    const next = [...values.allergies];
+                    next[i] = { ...a, substance: e.target.value };
+                    set("allergies", next);
+                  }}
+                />
+                <Input
+                  placeholder="Reaction"
+                  value={a.reaction ?? ""}
+                  onChange={(e) => {
+                    const next = [...values.allergies];
+                    next[i] = { ...a, reaction: e.target.value };
+                    set("allergies", next);
+                  }}
+                />
+                <Select
+                  value={a.severity ?? "unknown"}
+                  onValueChange={(v) => {
+                    const next = [...values.allergies];
+                    next[i] = { ...a, severity: v as AllergySeverity };
+                    set("allergies", next);
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALLERGY_SEVERITIES.map((s) => (
+                      <SelectItem key={s} value={s}>{ALLERGY_SEVERITY_LABEL[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  aria-label="Remove allergy"
+                  onClick={() => set("allergies", values.allergies.filter((_, j) => j !== i))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Daily goals</h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {DAILY_GOAL_ITEMS.map((item) => (
+            <label key={item.key} className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+              <Checkbox
+                checked={!!values.daily_goals[item.key]}
+                onCheckedChange={(v) =>
+                  onChange({
+                    ...values,
+                    daily_goals: { ...values.daily_goals, [item.key]: v === true },
+                    daily_goals_reviewed_at: new Date().toISOString(),
+                  })
+                }
+                className="mt-0.5"
+              />
+              <span>
+                <span className="block text-sm font-medium">{item.label}</span>
+                <span className="block text-xs text-muted-foreground">{item.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <Field label="Daily goals reviewed by (staff name)">
+          <Input value={values.daily_goals_reviewed_by} onChange={(e) => set("daily_goals_reviewed_by", e.target.value)} />
+        </Field>
+      </section>
+
 
       <section className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">

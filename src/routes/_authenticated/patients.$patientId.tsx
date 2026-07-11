@@ -16,6 +16,7 @@ import {
   SystemMultiSelectCard,
   usePatientFieldMutation,
 } from "@/components/patient/systems-widgets";
+import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summary";
 import {
   listInvestigations,
   addInvestigation,
@@ -1125,6 +1126,7 @@ function PatientDetail() {
 
 
         <TabsContent value="overview" className="mt-4 space-y-4">
+          <SafetySummary patient={patient} />
           <RecentInvestigations patientId={patientId} />
           <Card>
             <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
@@ -1133,7 +1135,9 @@ function PatientDetail() {
               <InfoBlock label="Current management" value={patient.current_management} />
             </CardContent>
           </Card>
+          <DailyGoalsCard patient={patient} />
           <OutstandingTasks patientId={patientId} freeText={patient.outstanding_tasks} />
+
 
           <Card>
             <CardContent className="p-6">

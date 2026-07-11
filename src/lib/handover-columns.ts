@@ -11,18 +11,23 @@ import {
   latestMicrobiologyPerSpecimen,
   mostRecentInvestigation,
 } from "@/lib/handover-recency";
+import { summariseAllergies } from "@/lib/patient-safety";
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
   return parts.filter(Boolean).join(sep);
 }
 
 function identity(p: HandoverPatient): string {
+  const allergies = summariseAllergies((p as Record<string, unknown>).allergies);
   return joinNonEmpty([
     p.full_name?.trim() || "—",
     p.age != null ? `Age ${p.age}` : null,
+    (p as Record<string, unknown>).weight_kg != null ? `Wt ${(p as Record<string, unknown>).weight_kg}kg` : null,
     p.hospital_number ? `MRN ${p.hospital_number}` : null,
+    allergies ? `Allergies: ${allergies}` : "Allergies: NKDA",
   ]);
 }
+
 
 function location(p: HandoverPatient): string {
   const discharged = p.status === "discharged";

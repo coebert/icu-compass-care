@@ -13,6 +13,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUnitRouteImport } from './routes/_authenticated/unit'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUnitRoute = AuthenticatedUnitRouteImport.update({
+  id: '/unit',
+  path: '/unit',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/beds': typeof AuthenticatedBedsRoute
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/reconcile': typeof AuthenticatedReconcileRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/unit': typeof AuthenticatedUnitRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
   '/_authenticated/patients/handover-preview': typeof AuthenticatedPatientsHandoverPreviewRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/patients'
     | '/reconcile'
     | '/settings'
+    | '/unit'
     | '/patients/$patientId'
     | '/patients/handover-preview'
     | '/patients/'
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/beds'
     | '/reconcile'
     | '/settings'
+    | '/unit'
     | '/patients/$patientId'
     | '/patients/handover-preview'
     | '/patients'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/_authenticated/patients'
     | '/_authenticated/reconcile'
     | '/_authenticated/settings'
+    | '/_authenticated/unit'
     | '/_authenticated/patients/$patientId'
     | '/_authenticated/patients/handover-preview'
     | '/_authenticated/patients/'
@@ -365,6 +377,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/unit': {
+      id: '/_authenticated/unit'
+      path: '/unit'
+      fullPath: '/unit'
+      preLoaderRoute: typeof AuthenticatedUnitRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
@@ -533,6 +552,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPatientsRoute: typeof AuthenticatedPatientsRouteWithChildren
   AuthenticatedReconcileRoute: typeof AuthenticatedReconcileRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedUnitRoute: typeof AuthenticatedUnitRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -541,6 +561,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPatientsRoute: AuthenticatedPatientsRouteWithChildren,
   AuthenticatedReconcileRoute: AuthenticatedReconcileRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedUnitRoute: AuthenticatedUnitRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

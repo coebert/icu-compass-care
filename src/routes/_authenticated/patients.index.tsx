@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2 } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock } from "lucide-react";
+import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { toast } from "sonner";
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
@@ -567,6 +568,7 @@ function PatientsBoard() {
 }
 
 function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
+  const flags = deriveSafetyFlags(p);
   return (
     <CardContent className="space-y-2 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -582,15 +584,26 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {p.dnacpr_decision && (
+        {flags.hasAllergies && (
+          <Badge variant="outline" className="max-w-[12rem] gap-1 border-rose-400 text-rose-700 dark:text-rose-300">
+            <AlertTriangle className="h-3 w-3 shrink-0" />
+            <span className="truncate">Allergy: {flags.allergies}</span>
+          </Badge>
+        )}
+        {flags.dnacpr && (
           <Badge variant="outline" className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300">
             <AlertTriangle className="h-3 w-3" /> DNACPR
           </Badge>
         )}
-        {p.tep_in_place && <Badge variant="outline">TEP</Badge>}
-        {p.isolation_required && (
+        {flags.tep && <Badge variant="outline">TEP</Badge>}
+        {flags.isolation && (
           <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300">
             <BedDouble className="h-3 w-3" /> Isolation
+          </Badge>
+        )}
+        {flags.stale && (
+          <Badge variant="outline" className="gap-1 border-muted-foreground/40 text-muted-foreground">
+            <Clock className="h-3 w-3" /> {flags.staleHours != null ? `${Math.floor(flags.staleHours)}h` : "Stale"}
           </Badge>
         )}
       </div>

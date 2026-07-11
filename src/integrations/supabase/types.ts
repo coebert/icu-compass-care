@@ -476,6 +476,7 @@ export type Database = {
           admission_date: string | null
           age: number | null
           airway_type: string | null
+          allergies: Json
           anticoagulation: string[]
           antimicrobials: Json
           bed: string | null
@@ -483,6 +484,9 @@ export type Database = {
           created_by: string | null
           current_admission: string | null
           current_management: string | null
+          daily_goals: Json
+          daily_goals_reviewed_at: string | null
+          daily_goals_reviewed_by: string | null
           date_of_death: string | null
           discharge_date: string | null
           discharge_destination: string | null
@@ -524,11 +528,13 @@ export type Database = {
           updated_by: string | null
           vasoactive_agents: string[]
           ward: string | null
+          weight_kg: number | null
         }
         Insert: {
           admission_date?: string | null
           age?: number | null
           airway_type?: string | null
+          allergies?: Json
           anticoagulation?: string[]
           antimicrobials?: Json
           bed?: string | null
@@ -536,6 +542,9 @@ export type Database = {
           created_by?: string | null
           current_admission?: string | null
           current_management?: string | null
+          daily_goals?: Json
+          daily_goals_reviewed_at?: string | null
+          daily_goals_reviewed_by?: string | null
           date_of_death?: string | null
           discharge_date?: string | null
           discharge_destination?: string | null
@@ -577,11 +586,13 @@ export type Database = {
           updated_by?: string | null
           vasoactive_agents?: string[]
           ward?: string | null
+          weight_kg?: number | null
         }
         Update: {
           admission_date?: string | null
           age?: number | null
           airway_type?: string | null
+          allergies?: Json
           anticoagulation?: string[]
           antimicrobials?: Json
           bed?: string | null
@@ -589,6 +600,9 @@ export type Database = {
           created_by?: string | null
           current_admission?: string | null
           current_management?: string | null
+          daily_goals?: Json
+          daily_goals_reviewed_at?: string | null
+          daily_goals_reviewed_by?: string | null
           date_of_death?: string | null
           discharge_date?: string | null
           discharge_destination?: string | null
@@ -630,6 +644,7 @@ export type Database = {
           updated_by?: string | null
           vasoactive_agents?: string[]
           ward?: string | null
+          weight_kg?: number | null
         }
         Relationships: []
       }
