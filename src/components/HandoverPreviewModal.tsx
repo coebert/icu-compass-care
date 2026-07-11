@@ -143,9 +143,17 @@ export function HandoverPreviewModal({
       pageSize,
       marginX,
       fontScale,
+      columns,
     }),
-    [headerTitle, subtitle, footerText, filenameFormat, showTimestamp, showPageNumbers, pageSize, marginX, fontScale],
+    [headerTitle, subtitle, footerText, filenameFormat, showTimestamp, showPageNumbers, pageSize, marginX, fontScale, columns],
   );
+
+  const toggleColumn = (key: HandoverColumnKey) => {
+    setColumns((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  };
+
 
   useEffect(() => {
 
