@@ -111,7 +111,16 @@ function AuthenticatedLayout() {
           </Link>
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
-              const active = pathname.startsWith(item.to);
+              // Pick the most specific matching nav item so e.g. /patients/history
+              // highlights "History" rather than also lighting up "Patients".
+              const matches = navItems.filter(
+                (n) => pathname === n.to || pathname.startsWith(n.to + "/"),
+              );
+              const best = matches.reduce(
+                (a, b) => (b.to.length > a.to.length ? b : a),
+                { to: "" } as { to: string },
+              );
+              const active = best.to === item.to;
               return (
                 <Link key={item.to} to={item.to}>
                   <Button variant={active ? "secondary" : "ghost"} size="sm" className="gap-1.5">
@@ -122,6 +131,7 @@ function AuthenticatedLayout() {
               );
             })}
           </nav>
+
           <div className="ml-auto flex items-center gap-3">
             <SyncStatusPanel
               className="hidden sm:inline-flex"
