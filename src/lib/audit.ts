@@ -72,7 +72,27 @@ const TRACKED_PATIENT_FIELDS: { column: string; label: string }[] = [
   { column: "full_name", label: "initials" },
   { column: "age", label: "age" },
   { column: "hospital_number", label: "hospital_number" },
+  // Clinical fields — surfaced in the "what changed" ribbon for the incoming team.
+  { column: "current_admission", label: "current_admission" },
+  { column: "current_management", label: "current_management" },
+  { column: "past_medical_history", label: "past_medical_history" },
+  { column: "dnacpr_decision", label: "dnacpr_decision" },
+  { column: "dnacpr_details", label: "dnacpr_details" },
+  { column: "tep_in_place", label: "tep_in_place" },
+  { column: "tep_details", label: "tep_details" },
+  { column: "isolation_required", label: "isolation_required" },
+  { column: "airway_type", label: "airway_type" },
+  { column: "nutrition_route", label: "nutrition_route" },
+  { column: "systems_resp", label: "systems_resp" },
+  { column: "systems_cvs", label: "systems_cvs" },
+  { column: "systems_neuro", label: "systems_neuro" },
+  { column: "systems_renal", label: "systems_renal" },
+  { column: "systems_gastro", label: "systems_gastro" },
+  { column: "systems_micro", label: "systems_micro" },
+  { column: "systems_haem", label: "systems_haem" },
+  { column: "systems_other", label: "systems_other" },
 ];
+
 
 function toStr(v: unknown): string | null {
   if (v === null || v === undefined || v === "") return null;
