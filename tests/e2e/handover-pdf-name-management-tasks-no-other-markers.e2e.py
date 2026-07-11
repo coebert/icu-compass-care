@@ -107,6 +107,7 @@ def create_patient(name, hn, mgmt, tasks):
             "ward": "Critical Care",
             "bed": "5",
             "status": "admitted",
+            "current_admission": f"Admission {name}",
             "current_management": mgmt,
             "outstanding_tasks": tasks,
         },
