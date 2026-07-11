@@ -2502,6 +2502,64 @@ function MicrobiologyTab({ patientId, patient }: { patientId: string; patient: R
     return Array.from(map.values());
   }, [items]);
 
+  // Combined timeline: key micro results (point events) + antimicrobial
+  // courses (start, and stop when ended), interleaved most-recent-first.
+  const agents: Antimicrobial[] = Array.isArray(patient.antimicrobials)
+    ? patient.antimicrobials
+    : [];
+  const timeline = useMemo(() => {
+    type TL = {
+      key: string;
+      at: string;
+      sort: number;
+      kind: "result" | "abx-start" | "abx-stop";
+      title: string;
+      detail?: string;
+    };
+    const events: TL[] = [];
+    for (const it of items) {
+      const t = new Date(it.result_at).getTime();
+      events.push({
+        key: `micro-${it.id}`,
+        at: it.result_at,
+        sort: isNaN(t) ? 0 : t,
+        kind: "result",
+        title: it.specimen_type,
+        detail: it.findings,
+      });
+    }
+    agents.forEach((a, i) => {
+      if (a.started_on) {
+        const t = new Date(a.started_on + "T00:00:00").getTime();
+        const days = courseDays(a.started_on, a.ended_on);
+        events.push({
+          key: `abx-start-${i}`,
+          at: a.started_on,
+          sort: isNaN(t) ? 0 : t,
+          kind: "abx-start",
+          title: `Started ${a.name ?? "antimicrobial"}`,
+          detail:
+            days != null
+              ? `Day ${days}${a.ended_on ? "" : " (ongoing)"}`
+              : undefined,
+        });
+      }
+      if (a.ended_on) {
+        const t = new Date(a.ended_on + "T00:00:00").getTime();
+        const days = courseDays(a.started_on, a.ended_on);
+        events.push({
+          key: `abx-stop-${i}`,
+          at: a.ended_on,
+          sort: isNaN(t) ? 0 : t,
+          kind: "abx-stop",
+          title: `Stopped ${a.name ?? "antimicrobial"}`,
+          detail: days != null ? `${days}-day course` : undefined,
+        });
+      }
+    });
+    return events.sort((x, y) => y.sort - x.sort);
+  }, [items, agents]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
