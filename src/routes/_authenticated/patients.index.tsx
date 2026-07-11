@@ -582,6 +582,7 @@ function PatientsBoard() {
         </DialogContent>
       </Dialog>
     </div>
+    </AcuityContext.Provider>
   );
 }
 
