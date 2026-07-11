@@ -6,62 +6,23 @@
 // the admin client. Import it inside a handler with `await import(...)`.
 
 import { getAdmin } from "@/lib/admin-db.server";
+import {
+  decideShiftGate,
+  labelFor,
+  type ShiftKey,
+} from "@/lib/handover-shift";
+
+export type { ShiftKey } from "@/lib/handover-shift";
 
 // Mirrors the select used by listPatients so a saved version can be re-rendered
 // into the exact same handover PDF later.
 const PATIENT_SELECT =
   "*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)";
 
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-// Break a moment down into Europe/London wall-clock parts so the 8am / 8pm
-// shift boundaries follow British local time across BST/GMT changes.
-function londonParts(d: Date): {
-  year: number;
-  month: number; // 1-12
-  day: number;
-  hour: number; // 0-23
-  isoDate: string; // YYYY-MM-DD
-} {
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(
-    fmt.formatToParts(d).map((p) => [p.type, p.value]),
-  );
-  const year = Number(parts.year);
-  const month = Number(parts.month);
-  const day = Number(parts.day);
-  // Intl can emit "24" for midnight in some engines; normalise to 0.
-  const hour = Number(parts.hour) % 24;
-  const isoDate = `${parts.year}-${parts.month}-${parts.day}`;
-  return { year, month, day, hour, isoDate };
-}
-
-export type ShiftKey = "am" | "pm";
-
-// Decide which shift a moment belongs to. Mornings (00:00–13:59) map to the
-// 8am handover, afternoons/evenings to the 8pm handover.
-function shiftForHour(hour: number): ShiftKey {
-  return hour < 14 ? "am" : "pm";
-}
-
-function labelFor(parts: ReturnType<typeof londonParts>, shift: ShiftKey): string {
-  const time = shift === "am" ? "08:00" : "20:00";
-  return `${time} · ${parts.day} ${MONTHS[parts.month - 1]} ${parts.year}`;
-}
-
 function textField(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
+
 
 // Concatenate the fields a clinician might search old handovers by (patient
 // identifiers plus the free-text clinical summary columns).
@@ -113,22 +74,14 @@ export async function captureHandoverSnapshot(
   opts: { force?: boolean; now?: Date } = {},
 ): Promise<CaptureResult> {
   const now = opts.now ?? new Date();
-  const parts = londonParts(now);
 
-  let shift: ShiftKey;
-  if (opts.force) {
-    shift = shiftForHour(parts.hour);
-  } else {
-    if (parts.hour === 8) shift = "am";
-    else if (parts.hour === 20) shift = "pm";
-    else {
-      return {
-        ok: true,
-        captured: false,
-        skipped: `Not a handover hour (London ${String(parts.hour).padStart(2, "0")}:00)`,
-      };
-    }
+  const decision = decideShiftGate(now, opts.force);
+  const parts = decision.parts;
+  if (!decision.capture) {
+    return { ok: true, captured: false, skipped: decision.reason };
   }
+  const shift: ShiftKey = decision.shift;
+
 
   const admin = await getAdmin();
 
