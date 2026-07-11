@@ -427,7 +427,8 @@ export function PatientForm({
               value={values.tep_details}
               onChange={(e) => set("tep_details", e.target.value)}
               aria-invalid={tepDetailsMissing}
-　          />
+            />
+
             {tepDetailsMissing && (
               <p role="alert" className="text-sm text-destructive">
                 TEP details are required when a treatment escalation plan is in place.
