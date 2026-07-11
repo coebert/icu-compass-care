@@ -8,7 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
@@ -17,6 +18,12 @@ import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble, Lock, La
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
+import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
+
+// Automatically end a session after this much inactivity, warning shortly
+// before. Clinical data must not stay editable on an unattended workstation.
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+const INACTIVITY_WARN_MS = 60 * 1000;
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -51,13 +58,47 @@ function AuthenticatedLayout() {
       .catch(() => {});
   }, [claim, queryClient]);
 
-  async function signOut() {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    lockSession();
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  }
+  const signOut = useCallback(
+    async (reason?: string) => {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      lockSession();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", replace: true });
+      if (reason) toast.info(reason);
+    },
+    [queryClient, navigate],
+  );
+
+  // 1) Idle auto sign-out: after INACTIVITY_TIMEOUT_MS with no interaction,
+  //    end the session and bounce to /auth so no further patient editing is
+  //    possible until re-authentication. A warning fires one minute earlier.
+  useInactivityTimeout({
+    timeoutMs: INACTIVITY_TIMEOUT_MS,
+    warnMs: INACTIVITY_WARN_MS,
+    enabled: hydrated,
+    onWarn: () =>
+      toast.warning("You'll be signed out soon", {
+        description: "Move the mouse or press a key to stay signed in.",
+      }),
+    onTimeout: () =>
+      void signOut("Signed out after inactivity. Please sign in again."),
+  });
+
+  // 2) Session-expiry guard: if the Supabase session lapses (e.g. the device
+  //    slept past the refresh window), redirect to /auth on the next tick.
+  useEffect(() => {
+    if (!hydrated) return;
+    const check = async () => {
+      const { data } = await supabase.auth.getSession();
+      const expiresAt = data.session?.expires_at;
+      if (!data.session || (expiresAt && expiresAt * 1000 <= Date.now())) {
+        void signOut("Your session expired. Please sign in again.");
+      }
+    };
+    const id = window.setInterval(check, 30_000);
+    return () => window.clearInterval(id);
+  }, [hydrated, signOut]);
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
 
@@ -68,6 +109,7 @@ function AuthenticatedLayout() {
     lockSession();
     setUnlocked(false);
   }
+
 
 
   const navItems = [
@@ -94,7 +136,7 @@ function AuthenticatedLayout() {
           markSessionUnlocked();
           setUnlocked(true);
         }}
-        onSignOut={signOut}
+        onSignOut={() => void signOut()}
       />
     );
   }
@@ -146,7 +188,7 @@ function AuthenticatedLayout() {
                 <span className="hidden sm:inline">Lock now</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={signOut} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => void signOut()} className="gap-1.5">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sign out</span>
             </Button>
