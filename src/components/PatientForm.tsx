@@ -166,14 +166,22 @@ export function PatientForm({
   const set = <K extends keyof PatientFormValues>(k: K, v: PatientFormValues[K]) =>
     onChange({ ...values, [k]: v });
 
+  // Escalation-plan completeness: if a TEP is switched on, ceiling-of-care /
+  // escalation details are mandatory. An incomplete escalation plan is a
+  // clinical-safety risk, so the form blocks submission until it is filled in.
+  const tepDetailsMissing =
+    values.tep_in_place && values.tep_details.trim() === "";
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (tepDetailsMissing) return;
         onSubmit();
       }}
       className="space-y-6"
     >
+
       <section className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Identity & location
