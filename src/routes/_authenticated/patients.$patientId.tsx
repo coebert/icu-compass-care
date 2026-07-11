@@ -1586,6 +1586,11 @@ function PatientDetail() {
           />
         </TabsContent>
 
+        <TabsContent value="lines" className="mt-4 space-y-4">
+          <LinesCard patientId={patientId} />
+        </TabsContent>
+
+
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />
           <RecentChangesRibbon patientId={patientId} />
