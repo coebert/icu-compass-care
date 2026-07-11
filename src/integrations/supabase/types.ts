@@ -504,6 +504,8 @@ export type Database = {
           past_medical_history: string | null
           pca_agents: string[]
           regional_analgesia: string[]
+          renal_diuretics: boolean
+          renal_rrt: boolean
           resp_support: string[]
           sedative_agents: string[]
           status: Database["public"]["Enums"]["patient_status"]
@@ -554,6 +556,8 @@ export type Database = {
           past_medical_history?: string | null
           pca_agents?: string[]
           regional_analgesia?: string[]
+          renal_diuretics?: boolean
+          renal_rrt?: boolean
           resp_support?: string[]
           sedative_agents?: string[]
           status?: Database["public"]["Enums"]["patient_status"]
@@ -604,6 +608,8 @@ export type Database = {
           past_medical_history?: string | null
           pca_agents?: string[]
           regional_analgesia?: string[]
+          renal_diuretics?: boolean
+          renal_rrt?: boolean
           resp_support?: string[]
           sedative_agents?: string[]
           status?: Database["public"]["Enums"]["patient_status"]
