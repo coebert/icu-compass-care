@@ -312,6 +312,16 @@ function UnitDashboard() {
         <StatCard icon={Clock} label="Overdue tasks" value={taskStats.overdue.length} tone={taskStats.overdue.length ? "danger" : "default"} />
         <StatCard icon={Activity} label="Total active patients" value={active.length} />
         <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
+        <StatCard icon={HeartPulse} label="High acuity" value={highAcuity.length} tone={highAcuity.length ? "danger" : "default"} />
+      </div>
+
+      <ListCard
+        icon={Activity}
+        title="ICU acuity"
+        patients={icu}
+        empty="No ICU patients."
+        right={(p) => <AcuityBadge latest={obsByPatient.get(p.id)} support={patientSupport(p)} />}
+      />
       </div>
 
       <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
