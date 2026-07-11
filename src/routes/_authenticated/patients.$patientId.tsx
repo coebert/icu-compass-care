@@ -738,7 +738,7 @@ function PatientDetail() {
                 <NeuroStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="Renal" value={patient.systems_renal} />
                 <GastroNutritionStatus patientId={patientId} patient={patient} />
-                <InfoBlock label="Haem" value={patient.systems_haem} />
+                <HaemStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="Micro" value={patient.systems_micro} />
                 <InfoBlock label="Other" value={patient.systems_other} />
               </div>
