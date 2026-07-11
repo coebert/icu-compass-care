@@ -378,4 +378,119 @@ describe("handover PDF antimicrobial & renal fields", () => {
   });
 });
 
+describe("handover PDF latest-observations block", () => {
+  // Three observations recorded at different times, deliberately supplied out of
+  // chronological order so the test proves the renderer picks the newest one
+  // (by recorded_at) rather than trusting array order.
+  const observationRows = [
+    {
+      id: "obs-old",
+      patient_id: "p-obs",
+      recorded_at: "2026-07-10T06:00:00Z",
+      hr: 70,
+      sbp: 130,
+      dbp: 70,
+      spo2: 99,
+      lactate: 1.0,
+    },
+    {
+      id: "obs-new",
+      patient_id: "p-obs",
+      recorded_at: "2026-07-10T18:00:00Z",
+      hr: 112,
+      sbp: 88,
+      dbp: 44,
+      spo2: 91,
+      fio2: 0.6,
+      rr: 28,
+      temp: 38.4,
+      gcs: 11,
+      lactate: 4.2,
+      urine_ml: 15,
+      vent_mode: "SIMV",
+      peep: 10,
+      vasopressor: "Nor-adr",
+      vasopressor_dose: 0.25,
+    },
+    {
+      id: "obs-mid",
+      patient_id: "p-obs",
+      recorded_at: "2026-07-10T12:00:00Z",
+      hr: 95,
+      sbp: 105,
+      dbp: 60,
+      spo2: 95,
+      lactate: 2.1,
+    },
+  ];
+
+  function observedPatient(): HandoverPatient {
+    return {
+      id: "p-obs",
+      full_name: "Obs Test Patient",
+      status: "admitted",
+      admission_date: "2026-07-01",
+      patient_observations: observationRows,
+    };
+  }
+
+  function obsCellText(doc: ReturnType<typeof buildHandoverPdf>): string {
+    const table = (doc as any).lastAutoTable;
+    const headerCells = table.head[0].cells as Record<string, any>;
+    const idx = Object.entries(headerCells).find(
+      ([, c]) => c.text.join(" ") === "Latest observations",
+    )?.[0];
+    expect(idx).toBeTruthy();
+    return (table.body[0].cells[idx!].text as string[]).join(" ");
+  }
+
+  it("includes the Latest observations column by default", () => {
+    const doc = buildHandoverPdf([observedPatient()]);
+    const headers = Object.values(
+      (doc as any).lastAutoTable.head[0].cells as Record<string, any>,
+    ).map((c: any) => c.text.join(" "));
+    expect(headers).toContain("Latest observations");
+  });
+
+  it("renders the newest observation's vitals regardless of input order", () => {
+    const text = obsCellText(buildHandoverPdf([observedPatient()]));
+    // Values from the newest (18:00) observation must be present…
+    expect(text).toContain("HR 112");
+    expect(text).toContain("BP 88/44");
+    expect(text).toContain("SpO₂ 91%");
+    expect(text).toContain("Lac 4.2");
+    expect(text).toContain("Vent SIMV");
+    expect(text).toContain("Pressor Nor-adr");
+    // …and the older readings must NOT leak in.
+    expect(text).not.toContain("HR 70");
+    expect(text).not.toContain("HR 95");
+    expect(text).not.toContain("Lac 2.1");
+  });
+
+  it("is deterministic: identical inputs produce identical output", () => {
+    const first = obsCellText(buildHandoverPdf([observedPatient()]));
+    const second = obsCellText(buildHandoverPdf([observedPatient()]));
+    expect(second).toBe(first);
+  });
+
+  it("is order-independent: shuffled observation arrays produce identical output", () => {
+    const canonical = obsCellText(buildHandoverPdf([observedPatient()]));
+    const shuffled = observedPatient();
+    shuffled.patient_observations = [
+      observationRows[1],
+      observationRows[2],
+      observationRows[0],
+    ];
+    const shuffledText = obsCellText(buildHandoverPdf([shuffled]));
+    expect(shuffledText).toBe(canonical);
+  });
+
+  it("shows a placeholder when no observations are recorded", () => {
+    const p = observedPatient();
+    p.patient_observations = [];
+    expect(obsCellText(buildHandoverPdf([p]))).toBe("—");
+  });
+});
+
+
 
