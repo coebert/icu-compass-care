@@ -246,7 +246,9 @@ const SCENARIOS: {
 // pdfjs may emit narrow cells one glyph at a time; compare ignoring whitespace
 // so a substring check is not defeated by inter-glyph spacing. This does not
 // weaken the core preview===download equality, which is compared verbatim.
-const noSpace = (s: string) => s.replace(/\s+/g, "");
+// Also drop the "|" line-separator this helper inserts, so a substring that
+// wraps across visual lines in a narrow cell is still matched.
+const noSpace = (s: string) => s.replace(/[\s|]+/g, "");
 
 describe("Latest observations: preview iframe vs downloaded PDF", () => {
   for (const scenario of SCENARIOS) {
