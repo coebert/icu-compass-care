@@ -156,7 +156,7 @@ def main():
             headers={**user_headers(token), "Prefer": "return=representation"},
             json={
                 "patient_id": PATIENT_ID,
-                "field_name": "dnacpr_decision",
+                "field_name": "age",
                 "old_value": "false",
                 "new_value": FIELD_NEW_VALUE,
                 "changed_by": user_id,
