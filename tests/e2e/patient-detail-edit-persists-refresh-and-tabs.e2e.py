@@ -86,6 +86,7 @@ def create_patient():
             "location_type": "icu",
             "ward": "Critical Care",
             "status": "admitted",
+            "weight_kg": "80",
             "current_management": INITIAL_MGMT,
         },
         timeout=30,
