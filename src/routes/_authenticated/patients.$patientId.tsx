@@ -94,7 +94,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus, FileDown, Loader2, UserRound, Pill } from "lucide-react";
 import { listReferralCandidates, prefillPatientFromReferral, previewReferralPrefill } from "@/lib/referral-prefill.functions";
 import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
@@ -1610,7 +1610,7 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="microbiology" className="mt-4">
-          <MicrobiologyTab patientId={patientId} />
+          <MicrobiologyTab patientId={patientId} patient={patient} />
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-4">
@@ -2451,7 +2451,7 @@ function InvestigationsTab({ patientId }: { patientId: string }) {
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
 
-function MicrobiologyTab({ patientId }: { patientId: string }) {
+function MicrobiologyTab({ patientId, patient }: { patientId: string; patient: Record<string, any> }) {
   const qc = useQueryClient();
   const list = useServerFn(listMicrobiology);
   const add = useServerFn(addMicrobiology);
@@ -2502,6 +2502,64 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
     return Array.from(map.values());
   }, [items]);
 
+  // Combined timeline: key micro results (point events) + antimicrobial
+  // courses (start, and stop when ended), interleaved most-recent-first.
+  const agents: Antimicrobial[] = Array.isArray(patient.antimicrobials)
+    ? patient.antimicrobials
+    : [];
+  const timeline = useMemo(() => {
+    type TL = {
+      key: string;
+      at: string;
+      sort: number;
+      kind: "result" | "abx-start" | "abx-stop";
+      title: string;
+      detail?: string;
+    };
+    const events: TL[] = [];
+    for (const it of items) {
+      const t = new Date(it.result_at).getTime();
+      events.push({
+        key: `micro-${it.id}`,
+        at: it.result_at,
+        sort: isNaN(t) ? 0 : t,
+        kind: "result",
+        title: it.specimen_type,
+        detail: it.findings,
+      });
+    }
+    agents.forEach((a, i) => {
+      if (a.started_on) {
+        const t = new Date(a.started_on + "T00:00:00").getTime();
+        const days = courseDays(a.started_on, a.ended_on);
+        events.push({
+          key: `abx-start-${i}`,
+          at: a.started_on,
+          sort: isNaN(t) ? 0 : t,
+          kind: "abx-start",
+          title: `Started ${a.name ?? "antimicrobial"}`,
+          detail:
+            days != null
+              ? `Day ${days}${a.ended_on ? "" : " (ongoing)"}`
+              : undefined,
+        });
+      }
+      if (a.ended_on) {
+        const t = new Date(a.ended_on + "T00:00:00").getTime();
+        const days = courseDays(a.started_on, a.ended_on);
+        events.push({
+          key: `abx-stop-${i}`,
+          at: a.ended_on,
+          sort: isNaN(t) ? 0 : t,
+          kind: "abx-stop",
+          title: `Stopped ${a.name ?? "antimicrobial"}`,
+          detail: days != null ? `${days}-day course` : undefined,
+        });
+      }
+    });
+    return events.sort((x, y) => y.sort - x.sort);
+  }, [items, agents]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -2537,6 +2595,67 @@ function MicrobiologyTab({ patientId }: { patientId: string }) {
           ))}
         </div>
       )}
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Combined timeline
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Key micro results and antimicrobial courses, most recent first.
+          </p>
+        </div>
+        {timeline.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No micro results or antimicrobial courses recorded yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <ol className="relative space-y-4 border-l pl-6">
+            {timeline.map((ev) => {
+              const isResult = ev.kind === "result";
+              const isStart = ev.kind === "abx-start";
+              return (
+                <li key={ev.key} className="relative">
+                  <span
+                    className={
+                      "absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-background " +
+                      (isResult
+                        ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                        : isStart
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-muted text-muted-foreground")
+                    }
+                  >
+                    {isResult ? (
+                      <Microscope className="h-3 w-3" />
+                    ) : (
+                      <Pill className="h-3 w-3" />
+                    )}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{ev.title}</span>
+                    {ev.detail && !isResult && (
+                      <Badge variant="secondary" className="text-xs">
+                        {ev.detail}
+                      </Badge>
+                    )}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {isResult ? fmtDateTime(ev.at) : fmtDate(ev.at)}
+                    </span>
+                  </div>
+                  {ev.detail && isResult && (
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                      {ev.detail}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
