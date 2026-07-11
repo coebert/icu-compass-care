@@ -192,6 +192,9 @@ def main():
 
             # Timeline shows the auto-derived admission event AND the seeded event.
             timeline = open_tab(page, "Timeline")
+            expect(timeline.get_by_text(EVENT_DETAIL, exact=False)).to_be_visible(
+                timeout=15000
+            )
             tl_text = timeline.inner_text()
             assert "Admitted to critical care" in tl_text, (
                 f"Timeline missing admission event:\n{tl_text!r}"
