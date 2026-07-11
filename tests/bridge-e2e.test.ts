@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createHmac } from "crypto";
 
 /**
@@ -19,6 +19,13 @@ import { createHmac } from "crypto";
 
 const BASE_URL = process.env.BRIDGE_BASE_URL ?? "http://localhost:8080";
 const SECRET = process.env.HANDOVER_API_SECRET ?? "";
+// The partner bridge only ever exposes patients an administrator has explicitly
+// marked as shared (patients.shared_with_partner = true). Bridge writes cannot
+// flip that governance flag (the admin-only guard trigger blocks it, and the
+// flag is not part of the bridge upsert schema), so e2e fixtures must be seeded
+// as shared directly via the admin Data API — the flag may only be set on INSERT.
+const SUPABASE_URL = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 // The only demographic/identity fields that may describe a patient.
 const ALLOWED_IDENTITY_FIELDS = ["full_name", "age", "hospital_number"] as const;
@@ -60,6 +67,53 @@ async function bridge(method: "GET" | "POST", path: string, body = "") {
   return { status: res.status, json: jsonBody, text };
 }
 
+/**
+ * Seed a patient fixture directly via the admin Data API, marked as shared with
+ * the partner so it is visible to the bridge GET pull. INSERTing the
+ * shared_with_partner flag is permitted (the admin-only guard trigger only
+ * fires on UPDATE of the flag), whereas the bridge upsert endpoint can never
+ * set it. The return shape mirrors `bridge(...)` so callers can treat a seeded
+ * create exactly like a bridge create.
+ */
+async function seedSharedPatient(fields: Record<string, unknown>) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/patients`, {
+    method: "POST",
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({ ...fields, shared_with_partner: true }),
+  });
+  const text = await res.text();
+  let rows: unknown = null;
+  try {
+    rows = JSON.parse(text);
+  } catch {
+    /* non-JSON error body — leave as null */
+  }
+  const patient = Array.isArray(rows) ? rows[0] : rows;
+  const id = (patient as Record<string, unknown> | null)?.id;
+  if (typeof id === "string") seededIds.push(id);
+  // Normalise the 201 Created from PostgREST to the 200 the bridge returns.
+  return { status: res.status === 201 ? 200 : res.status, json: { patient }, text };
+}
+
+// Seeded fixtures are shared-with-partner clinical rows; hard-delete them after
+// the run via the admin Data API so no test data lingers in the shared dataset.
+const seededIds: string[] = [];
+async function deleteSeededPatients() {
+  await Promise.all(
+    seededIds.splice(0).map((id) =>
+      fetch(`${SUPABASE_URL}/rest/v1/patients?id=eq.${id}`, {
+        method: "DELETE",
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      }).catch(() => undefined),
+    ),
+  );
+}
+
 describe("bridge patient sync (e2e)", () => {
   beforeAll(() => {
     if (!SECRET) {
@@ -68,22 +122,31 @@ describe("bridge patient sync (e2e)", () => {
           "Set it in the environment before running vitest.",
       );
     }
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      throw new Error(
+        "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required to run the bridge " +
+          "e2e test: fixtures are seeded as shared-with-partner via the admin Data API.",
+      );
+    }
   });
+
+  afterAll(deleteSeededPatients);
+
 
   it("inserts an outlying-ward referral and exposes only agreed identity fields", async () => {
     const marker = `H-E2E-${Date.now()}`;
-    const payload = JSON.stringify({
+    const payload = {
       full_name: "Z.Q.",
       age: 72,
       hospital_number: marker,
       location_type: "outlier",
       ward: "Farley",
       status: "referred",
-    });
+    };
 
-    // 1. Insert the sample outlying-ward referral.
-    const post = await bridge("POST", "/api/public/bridge/patients", payload);
-    expect(post.status, `POST failed: ${post.text}`).toBe(200);
+    // 1. Seed the sample outlying-ward referral as shared with the partner.
+    const post = await seedSharedPatient(payload);
+    expect(post.status, `seed failed: ${post.text}`).toBe(200);
 
     const created = (post.json as { patient?: Record<string, unknown> })?.patient;
     expect(created, "POST response missing `patient`").toBeTruthy();
@@ -133,7 +196,7 @@ describe("bridge patient sync (e2e)", () => {
 
     for (const status of STATUSES) {
       const marker = `H-E2E-${status}-${Date.now()}`;
-      const payload = JSON.stringify({
+      const payload = {
         full_name: "Y.X.",
         age: 65,
         hospital_number: marker,
@@ -145,11 +208,11 @@ describe("bridge patient sync (e2e)", () => {
           ? { discharge_date: new Date().toISOString(), discharge_destination: "Ward 5" }
           : {}),
         ...(status === "died" ? { date_of_death: new Date().toISOString() } : {}),
-      });
+      };
 
-      // Insert via the live bridge endpoint.
-      const post = await bridge("POST", "/api/public/bridge/patients", payload);
-      expect(post.status, `POST (${status}) failed: ${post.text}`).toBe(200);
+      // Seed as shared with the partner via the admin Data API.
+      const post = await seedSharedPatient(payload);
+      expect(post.status, `seed (${status}) failed: ${post.text}`).toBe(200);
       const patient = (post.json as { patient?: Record<string, unknown> })?.patient;
       expect(patient, `POST (${status}) missing patient`).toBeTruthy();
       const created = patient as Record<string, unknown>;
@@ -193,23 +256,19 @@ describe("bridge patient sync (e2e)", () => {
   it("edits a discharged patient record and confirms changes persist and stay editable", async () => {
     const marker = `H-E2E-EDIT-${Date.now()}`;
 
-    // 1. Create the patient and immediately discharge it.
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "D.C.",
-        age: 80,
-        hospital_number: marker,
-        location_type: "outlier",
-        ward: "Farley",
-        status: "discharged",
-        discharge_date: new Date().toISOString(),
-        discharge_destination: "Ward 3",
-        current_management: "Initial management note",
-        outstanding_tasks: "Follow up bloods",
-      }),
-    );
+    // 1. Seed the patient (shared with partner) and immediately discharge it.
+    const create = await seedSharedPatient({
+      full_name: "D.C.",
+      age: 80,
+      hospital_number: marker,
+      location_type: "outlier",
+      ward: "Farley",
+      status: "discharged",
+      discharge_date: new Date().toISOString(),
+      discharge_destination: "Ward 3",
+      current_management: "Initial management note",
+      outstanding_tasks: "Follow up bloods",
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
@@ -293,23 +352,19 @@ describe("bridge patient sync (e2e)", () => {
   it("transitions a patient from admitted to discharged, keeps the historical record visible, and stays editable after discharge", async () => {
     const marker = `H-E2E-DISCHARGE-${Date.now()}`;
 
-    // 1. Admit the patient (status = admitted).
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "M.R.",
-        age: 66,
-        hospital_number: marker,
-        location_type: "icu",
-        ward: "Critical Care",
-        bed: "7",
-        status: "admitted",
-        admission_date: new Date().toISOString(),
-        current_management: "Ventilated, sedation weaning in progress",
-        outstanding_tasks: "Repeat ABG in the morning",
-      }),
-    );
+    // 1. Admit the patient (status = admitted), seeded as shared with partner.
+    const create = await seedSharedPatient({
+      full_name: "M.R.",
+      age: 66,
+      hospital_number: marker,
+      location_type: "icu",
+      ward: "Critical Care",
+      bed: "7",
+      status: "admitted",
+      admission_date: new Date().toISOString(),
+      current_management: "Ventilated, sedation weaning in progress",
+      outstanding_tasks: "Repeat ABG in the morning",
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
@@ -423,24 +478,20 @@ describe("bridge patient sync (e2e)", () => {
     const dnacprDate = "2026-07-10";
 
     // 1. Admit a patient with an active treatment escalation plan (TEP) and a
-    //    decision not to attempt CPR (DNACPR) fully documented.
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "T.E.",
-        age: 78,
-        hospital_number: marker,
-        location_type: "icu",
-        ward: "Critical Care",
-        status: "admitted",
-        tep_in_place: true,
-        tep_details: "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
-        dnacpr_decision: true,
-        dnacpr_details: "DNACPR agreed with patient and family. Not for chest compressions.",
-        dnacpr_date: dnacprDate,
-      }),
-    );
+    //    decision not to attempt CPR (DNACPR) fully documented, seeded as shared.
+    const create = await seedSharedPatient({
+      full_name: "T.E.",
+      age: 78,
+      hospital_number: marker,
+      location_type: "icu",
+      ward: "Critical Care",
+      status: "admitted",
+      tep_in_place: true,
+      tep_details: "Ward-based care only. Not for intubation or filtration. For ward-level NIV.",
+      dnacpr_decision: true,
+      dnacpr_details: "DNACPR agreed with patient and family. Not for chest compressions.",
+      dnacpr_date: dnacprDate,
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
@@ -537,24 +588,20 @@ describe("bridge patient sync (e2e)", () => {
     const marker = `H-E2E-NOK-${Date.now()}`;
     const firstStamp = "2026-07-10T09:00:00.000Z";
 
-    // 1. Admit a patient with an initial set of next-of-kin details.
-    const create = await bridge(
-      "POST",
-      "/api/public/bridge/patients",
-      JSON.stringify({
-        full_name: "N.K.",
-        age: 69,
-        hospital_number: marker,
-        location_type: "icu",
-        ward: "Critical Care",
-        status: "admitted",
-        nok_name: "Jane Kirby",
-        nok_relationship: "Daughter",
-        nok_contact: "07700 900111",
-        nok_last_updated: firstStamp,
-        nok_last_updated_by: "Dr A. Smith",
-      }),
-    );
+    // 1. Admit a patient with an initial set of next-of-kin details, seeded as shared.
+    const create = await seedSharedPatient({
+      full_name: "N.K.",
+      age: 69,
+      hospital_number: marker,
+      location_type: "icu",
+      ward: "Critical Care",
+      status: "admitted",
+      nok_name: "Jane Kirby",
+      nok_relationship: "Daughter",
+      nok_contact: "07700 900111",
+      nok_last_updated: firstStamp,
+      nok_last_updated_by: "Dr A. Smith",
+    });
     expect(create.status, `create failed: ${create.text}`).toBe(200);
     const createdPatient = (create.json as { patient?: Record<string, unknown> })?.patient;
     expect(createdPatient, "create response missing `patient`").toBeTruthy();
