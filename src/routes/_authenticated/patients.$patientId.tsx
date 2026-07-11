@@ -351,9 +351,54 @@ function NeuroStatus({
   );
 }
 
+const NUTRITION_ROUTE_OPTIONS: { value: string; label: string }[] = [
+  { value: "oral", label: "Oral" },
+  { value: "ngt", label: "NGT" },
+  { value: "njt", label: "NJT" },
+  { value: "peg", label: "PEG" },
+  { value: "pej", label: "PEJ" },
+  { value: "tpn", label: "TPN" },
+];
 
+function GastroNutritionStatus({
+  patientId,
+  patient,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
 
+  const routes: string[] = patient.nutrition_route ?? [];
 
+  const mut = useMutation({
+    mutationFn: (next: string[]) =>
+      update({ data: { id: patientId, nutrition_route: next } as never }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
+  });
+
+  const toggle = (value: string) => {
+    const next = routes.includes(value)
+      ? routes.filter((r) => r !== value)
+      : [...routes, value];
+    mut.mutate(next);
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
+      <CheckboxRow
+        label="Nutrition route"
+        options={NUTRITION_ROUTE_OPTIONS}
+        selected={routes}
+        disabled={mut.isPending}
+        onToggle={toggle}
+      />
+      <InfoBlock label="Gastro / Nutri notes" value={patient.systems_gastro} />
+    </div>
+  );
+}
 
 
 type PatientTask = Record<string, any>;
@@ -692,7 +737,7 @@ function PatientDetail() {
                 <CardiovascularStatus patientId={patientId} patient={patient} />
                 <NeuroStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="Renal" value={patient.systems_renal} />
-                <InfoBlock label="Gastro / Nutri" value={patient.systems_gastro} />
+                <GastroNutritionStatus patientId={patientId} patient={patient} />
                 <InfoBlock label="Haem" value={patient.systems_haem} />
                 <InfoBlock label="Micro" value={patient.systems_micro} />
                 <InfoBlock label="Other" value={patient.systems_other} />
