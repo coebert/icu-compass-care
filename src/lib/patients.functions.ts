@@ -43,6 +43,8 @@ const patientInput = z.object({
   pca_agents: z.array(z.string().max(20)).max(10).optional(),
   regional_analgesia: z.array(z.string().max(20)).max(10).optional(),
   systems_renal: z.string().max(10000).optional().nullable(),
+  renal_diuretics: z.boolean().optional(),
+  renal_rrt: z.boolean().optional(),
   systems_gastro: z.string().max(10000).optional().nullable(),
   nutrition_route: z.array(z.string().max(20)).max(10).optional(),
   systems_haem: z.string().max(10000).optional().nullable(),
