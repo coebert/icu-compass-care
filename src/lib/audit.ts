@@ -84,6 +84,7 @@ const TRACKED_PATIENT_FIELDS: { column: string; label: string }[] = [
   { column: "airway_type", label: "airway_type" },
   { column: "nutrition_route", label: "nutrition_route" },
   { column: "systems_resp", label: "systems_resp" },
+  { column: "resp_fio2", label: "resp_fio2" },
   { column: "systems_cvs", label: "systems_cvs" },
   { column: "systems_neuro", label: "systems_neuro" },
   { column: "systems_renal", label: "systems_renal" },

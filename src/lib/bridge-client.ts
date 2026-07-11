@@ -55,6 +55,7 @@ export interface Patient {
   current_management: string | null;
   outstanding_tasks: string | null;
   systems_resp: string | null;
+  resp_fio2: string | null;
   systems_cvs: string | null;
   systems_neuro: string | null;
   systems_renal: string | null;
@@ -98,6 +99,7 @@ export interface PatientUpsert {
   current_management?: string | null;
   outstanding_tasks?: string | null;
   systems_resp?: string | null;
+  resp_fio2?: string | null;
   systems_cvs?: string | null;
   systems_neuro?: string | null;
   systems_renal?: string | null;

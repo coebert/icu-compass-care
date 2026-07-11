@@ -161,6 +161,7 @@ function RespiratoryStatus({
         }
         disabled={mut.isPending}
       />
+      <InfoBlock label="Current FiO2" value={patient.resp_fio2} />
       <InfoBlock label="Resp notes" value={patient.systems_resp} />
     </div>
   );

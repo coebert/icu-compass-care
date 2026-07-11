@@ -42,6 +42,7 @@ export type PatientFormValues = {
   current_management: string;
   outstanding_tasks: string;
   systems_resp: string;
+  resp_fio2: string;
   systems_cvs: string;
   systems_neuro: string;
   systems_renal: string;
@@ -85,6 +86,7 @@ export function emptyPatient(): PatientFormValues {
     current_management: "",
     outstanding_tasks: "",
     systems_resp: "",
+    resp_fio2: "",
     systems_cvs: "",
     systems_neuro: "",
     systems_renal: "",
@@ -354,6 +356,13 @@ export function PatientForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Resp">
             <Textarea rows={3} value={values.systems_resp} onChange={(e) => set("systems_resp", e.target.value)} />
+          </Field>
+          <Field label="Current FiO2">
+            <Input
+              value={values.resp_fio2}
+              onChange={(e) => set("resp_fio2", e.target.value)}
+              placeholder="e.g. 0.4 or 40% via HFNC"
+            />
           </Field>
           <Field label="CVS">
             <Textarea rows={3} value={values.systems_cvs} onChange={(e) => set("systems_cvs", e.target.value)} />

@@ -31,6 +31,7 @@ const patientUpsert = z.object({
   current_management: z.string().max(10000).optional().nullable(),
   outstanding_tasks: z.string().max(10000).optional().nullable(),
   systems_resp: z.string().max(10000).optional().nullable(),
+  resp_fio2: z.string().max(50).optional().nullable(),
   systems_cvs: z.string().max(10000).optional().nullable(),
   systems_neuro: z.string().max(10000).optional().nullable(),
   systems_renal: z.string().max(10000).optional().nullable(),
