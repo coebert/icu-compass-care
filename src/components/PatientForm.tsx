@@ -86,6 +86,7 @@ export function emptyPatient(): PatientFormValues {
     current_management: "",
     outstanding_tasks: "",
     systems_resp: "",
+    resp_fio2: "",
     systems_cvs: "",
     systems_neuro: "",
     systems_renal: "",
