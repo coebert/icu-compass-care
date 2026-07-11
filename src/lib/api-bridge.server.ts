@@ -92,7 +92,8 @@ export type AuthFailureReason =
   | "stale_timestamp"
   | "signature_failure"
   | "invalid_actor"
-  | "role_denied";
+  | "role_denied"
+  | "rate_limited";
 
 export type AuthResult =
   | { ok: true; actor: BridgeActor; signature: string }
