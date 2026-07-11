@@ -120,6 +120,28 @@ function HandoverPreviewPage() {
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
 
+  // Server-side guard: re-validate the patients on the backend before building
+  // the PDF, so a missing critical field blocks the export even if the UI is
+  // bypassed. Only download once the server confirms the records are complete.
+  const handleDownload = async () => {
+    const ids = handoverPatients.map((p) => p.id).filter(Boolean) as string[];
+    if (ids.length === 0) {
+      toast.error("No patients to export");
+      return;
+    }
+    setExporting(true);
+    try {
+      await validateExport({ data: { patientIds: ids } });
+      downloadHandover(handoverPatients, options);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Handover export was blocked",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100dvh-4rem)] flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
