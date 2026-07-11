@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker, DateTimePicker } from "@/components/ui/date-picker";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,6 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ALLERGY_SEVERITIES,
+  ALLERGY_SEVERITY_LABEL,
+  DAILY_GOAL_ITEMS,
+  parseAllergies,
+  parseDailyGoals,
+  type AllergyEntry,
+  type AllergySeverity,
+  type DailyGoals,
+} from "@/lib/patient-safety";
 
 export type PatientFormValues = {
   full_name: string;
