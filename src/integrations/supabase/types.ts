@@ -44,6 +44,27 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_rate_limits: {
+        Row: {
+          bucket_key: string
+          count: number
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          bucket_key: string
+          count?: number
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          bucket_key?: string
+          count?: number
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       bridge_security_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -1408,6 +1429,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_bridge_rate_limit: {
+        Args: { _bucket_key: string; _limit: number; _window_seconds?: number }
+        Returns: {
+          allowed: boolean
+          current_count: number
+          retry_after: number
+        }[]
+      }
       record_bridge_security_event: {
         Args: {
           _actor_email?: string
