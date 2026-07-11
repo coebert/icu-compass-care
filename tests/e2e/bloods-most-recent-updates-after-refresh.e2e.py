@@ -149,7 +149,7 @@ def add_bloods(page, panel, time_str, findings):
     dialog.get_by_label("Time").fill(time_str)
     dialog.get_by_role("textbox").last.fill(findings)
     dialog.get_by_role("button", name="Save", exact=True).click()
-    expect(page.get_by_text("Investigation saved")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Investigation saved").first).to_be_visible(timeout=10000)
     expect(page.get_by_role("dialog")).to_have_count(0, timeout=10000)
 
 
