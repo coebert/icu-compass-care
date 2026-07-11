@@ -95,7 +95,7 @@ def create_version(patient_row):
         headers={**admin_headers(), "Prefer": "return=representation"},
         json={
             "local_date": today,
-            "shift": "day",
+            "shift": "am",
             "captured_at": datetime.now(timezone.utc).isoformat(),
             "label": f"Seed version {MARKER}",
             "patient_count": 1,
