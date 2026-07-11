@@ -285,6 +285,12 @@ def main():
                 page.get_by_text(PATIENT_NAME, exact=False).first
             ).to_be_visible(timeout=15000)
 
+            # Narrow the board to just this patient so the export guard only
+            # validates our (complete) record, not other rows in the shared DB.
+            search = page.get_by_placeholder("Search initials or hospital no.…")
+            search.fill(HOSPITAL_NUMBER)
+            page.wait_for_timeout(600)
+
             preview_btn = page.get_by_role("button", name="Preview PDF")
             expect(preview_btn).to_be_enabled(timeout=15000)
             preview_btn.click()
