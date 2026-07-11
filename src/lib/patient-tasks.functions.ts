@@ -53,6 +53,10 @@ export const addPatientTask = createServerFn({ method: "POST" })
         patient_id: z.string().uuid(),
         description: z.string().trim().min(1).max(2000),
         position: z.number().int().optional(),
+        priority: z.enum(TASK_PRIORITIES).optional(),
+        category: z.enum(TASK_CATEGORIES).optional(),
+        owner: z.string().trim().max(120).nullish(),
+        due_at: z.string().datetime().nullish(),
       })
       .parse(input),
   )
@@ -63,6 +67,10 @@ export const addPatientTask = createServerFn({ method: "POST" })
         patient_id: data.patient_id,
         description: data.description,
         position: data.position ?? 0,
+        priority: data.priority ?? "routine",
+        category: data.category ?? "job",
+        owner: data.owner ?? null,
+        due_at: data.due_at ?? null,
         created_by: context.userId,
       } as never)
       .select()
@@ -79,6 +87,10 @@ export const updatePatientTask = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         description: z.string().trim().min(1).max(2000).optional(),
         status: z.enum(TASK_STATUSES).optional(),
+        priority: z.enum(TASK_PRIORITIES).optional(),
+        category: z.enum(TASK_CATEGORIES).optional(),
+        owner: z.string().trim().max(120).nullish(),
+        due_at: z.string().datetime().nullish(),
       })
       .parse(input),
   )
