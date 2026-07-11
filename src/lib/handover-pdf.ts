@@ -186,13 +186,78 @@ const SYSTEMS_FIELDS: [keyof HandoverPatient, string][] = [
   ["systems_other", "Other"],
 ];
 
+/**
+ * Summarise a patient's antimicrobial agents for the handover sheet. Each agent
+ * shows its name, start date, and either the running course day (ongoing) or the
+ * total completed course length. Returns "" when none are recorded.
+ */
+export function antimicrobialsSummary(p: HandoverPatient): string {
+  const list: Antimicrobial[] = Array.isArray(p.antimicrobials)
+    ? p.antimicrobials
+    : [];
+  if (!list.length) return "";
+  return list
+    .map((a) => {
+      const name = (a?.name ?? "").trim() || "Agent";
+      const started = a?.started_on || "";
+      const days = courseDays(started, a?.ended_on);
+      if (!started) return name;
+      if (a?.ended_on) {
+        const total = days != null ? `, ${days}d total` : "";
+        return `${name} (${started}→${a.ended_on}${total})`;
+      }
+      const dayStr = days != null ? `, day ${days}` : "";
+      return `${name} (from ${started}${dayStr})`;
+    })
+    .join("; ");
+}
+
+type Antimicrobial = { name?: string; started_on?: string; ended_on?: string | null };
+
+/** Whole-day inclusive course length between a start and (end|today). */
+function courseDays(startedOn: string, endedOn?: string | null): number | null {
+  if (!startedOn) return null;
+  const start = new Date(startedOn + "T00:00:00");
+  if (isNaN(start.getTime())) return null;
+  let end: Date;
+  if (endedOn) {
+    end = new Date(endedOn + "T00:00:00");
+    if (isNaN(end.getTime())) return null;
+  } else {
+    end = new Date();
+    end.setHours(0, 0, 0, 0);
+  }
+  const diff = Math.floor((end.getTime() - start.getTime()) / 86400000);
+  return diff < 0 ? null : diff + 1;
+}
+
+/** Renal support flags (diuretics / RRT) as a short suffix, or "". */
+export function renalSupportSummary(p: HandoverPatient): string {
+  const flags: string[] = [];
+  if (p.renal_diuretics) flags.push("Diuretics");
+  if (p.renal_rrt) flags.push("RRT");
+  return flags.join(", ");
+}
+
 function systemsReview(p: HandoverPatient): string {
+  const antimicrobials = antimicrobialsSummary(p);
+  const renalSupport = renalSupportSummary(p);
   const lines = SYSTEMS_FIELDS.map(([key, label]) => {
-    const val = typeof p[key] === "string" ? (p[key] as string).trim() : "";
+    let val = typeof p[key] === "string" ? (p[key] as string).trim() : "";
+    // Fold the structured renal support and antimicrobial fields into their
+    // matching systems lines so they print on the handover sheet.
+    if (key === "systems_renal" && renalSupport) {
+      val = val ? `${val} · ${renalSupport}` : renalSupport;
+    }
+    if (key === "systems_micro" && antimicrobials) {
+      const abx = `Abx: ${antimicrobials}`;
+      val = val ? `${val}\n${abx}` : abx;
+    }
     return val ? `${label}: ${val}` : "";
   }).filter(Boolean);
   return lines.length ? lines.join("\n") : "—";
 }
+
 
 
 
