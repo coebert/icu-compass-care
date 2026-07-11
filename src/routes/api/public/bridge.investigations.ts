@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const auth = authorize(request, rawBody, { write: true, roles: ["admin", "clinician"] });
+        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "clinician"] }, "/bridge/investigations");
         if (!auth.ok) return auth.response;
 
         const replayAdmin = await getAdmin();
@@ -65,7 +65,17 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         } catch (e) {
           return (console.error("[bridge]", e), json({ error: "Internal server error" }, 500));
         }
-        if (!fresh) return json({ error: "Replay detected" }, 409);
+        if (!fresh) {
+          await logSecurityEvent(replayAdmin, {
+            event_type: "replay_detected",
+            endpoint: "/bridge/investigations",
+            method: "POST",
+            ip: clientIp(request),
+            actor_role: auth.actor.role,
+            actor_email: auth.actor.email ?? null,
+          });
+          return json({ error: "Replay detected" }, 409);
+        }
 
         let parsed;
         try {
