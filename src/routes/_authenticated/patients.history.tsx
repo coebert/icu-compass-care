@@ -10,6 +10,7 @@ import {
   
 } from "@/lib/handover-versions.functions";
 import { getMe } from "@/lib/me.functions";
+import { ClinicalAccessRequired } from "@/components/ClinicalAccessRequired";
 import { handoverPdfPreviewUrl, downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
