@@ -2862,11 +2862,19 @@ function RecentChangesRibbon({ patientId }: { patientId: string }) {
 
 
 function FieldChangeHistory({ patientId }: { patientId: string }) {
+  const { hasClinicalAccess, profile } = useClinicalAccess();
   const fetchChanges = useServerFn(getPatientFieldChanges);
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["patient-field-changes", patientId],
     queryFn: () => fetchChanges({ data: { id: patientId } }) as Promise<AuditRow[]>,
+    enabled: hasClinicalAccess,
   });
+
+  if (profile && !hasClinicalAccess) {
+    return (
+      <ClinicalAccessRequired description="You need clinical access (clinician or admin) to view this patient's field change history." />
+    );
+  }
 
   if (isLoading || rows.length === 0) return null;
 
