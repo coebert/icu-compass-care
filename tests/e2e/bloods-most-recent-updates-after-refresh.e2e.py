@@ -220,9 +220,9 @@ def main():
 
             # ---- 5. After refresh: Overview summary Bloods cell = SET_B ----
             overview = open_tab(page, "Overview")
-            summary = page.locator("div").filter(
-                has=page.get_by_text("Most recent investigations")
-            ).last
+            summary = page.get_by_text("Most recent investigations").locator(
+                "xpath=ancestor::div[contains(@class,'rounded-xl')][1]"
+            )
             expect(summary).to_contain_text(SET_B, timeout=10000)
             assert SET_A not in summary.inner_text(), (
                 f"Overview summary shows the OLDER blood set:\n{summary.inner_text()!r}"
