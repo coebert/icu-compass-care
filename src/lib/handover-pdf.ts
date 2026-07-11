@@ -267,6 +267,8 @@ function systemsReview(p: HandoverPatient): string {
 
 export type HandoverPageSize = "a4" | "letter";
 
+export type HandoverOrientation = "landscape" | "portrait";
+
 export type HandoverPdfOptions = {
   /** Header title text (left of the header). Defaults to "ICU Handover Sheet". */
   title?: string;
