@@ -205,10 +205,14 @@ def main():
             dialog = page.get_by_role("dialog")
             expect(dialog).to_be_visible(timeout=10000)
 
-            # Escalation & resuscitation: switch 0 = TEP, switch 1 = DNACPR.
-            switches = dialog.get_by_role("switch")
-            expect(switches.first).to_be_visible(timeout=10000)
-            dnacpr_switch = switches.nth(1)
+            # Target the DNACPR switch by its row text (robust to other
+            # switches like "Isolation required" / "TEP in place" in the form).
+            dnacpr_row = dialog.locator(
+                "div.flex.items-center.justify-between:"
+                "has(p:text-is('DNACPR — decision not to attempt CPR'))"
+            )
+            dnacpr_switch = dnacpr_row.get_by_role("switch")
+            expect(dnacpr_switch).to_be_visible(timeout=10000)
             if dnacpr_switch.get_attribute("aria-checked") != "true":
                 dnacpr_switch.click()
 
