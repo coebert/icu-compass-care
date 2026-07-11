@@ -1223,9 +1223,12 @@ function PatientDetail() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PatientFormValues | null>(null);
 
+  const { hasClinicalAccess, profile } = useClinicalAccess();
+
   const { data: patient, isLoading } = useQuery({
     queryKey: ["patient", patientId],
     queryFn: () => get({ data: { id: patientId } }) as Promise<Patient>,
+    enabled: hasClinicalAccess,
   });
 
   const updateMut = useMutation({
