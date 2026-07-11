@@ -84,7 +84,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users, Circle, CircleDashed, CheckCircle2, ListTodo, ClipboardPlus } from "lucide-react";
+import { listReferralCandidates, prefillPatientFromReferral } from "@/lib/referral-prefill.functions";
+import { referralCandidateSummary, PREFILL_FIELD_LABEL } from "@/lib/referral-prefill";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
@@ -877,6 +879,111 @@ function RecentInvestigations({ patientId }: { patientId: string }) {
   );
 }
 
+type ReferralCandidate = {
+  id: string;
+  age: number | null;
+  sex: string | null;
+  current_ward: string | null;
+  current_bed: string | null;
+  referring_specialty: string | null;
+  referral_received_at: string | null;
+  status: string | null;
+  reason_category: string | null;
+};
+
+function PrefillFromReferral({
+  patientId,
+  linked,
+  onDone,
+}: {
+  patientId: string;
+  linked: boolean;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const listFn = useServerFn(listReferralCandidates);
+  const prefillFn = useServerFn(prefillPatientFromReferral);
+
+  const { data: candidates, isLoading } = useQuery({
+    queryKey: ["referral-candidates"],
+    queryFn: () => listFn() as Promise<ReferralCandidate[]>,
+    enabled: open,
+  });
+
+  const prefillMut = useMutation({
+    mutationFn: (referral_id: string) =>
+      prefillFn({ data: { patient_id: patientId, referral_id } }),
+    onSuccess: (res: { applied_fields: string[]; skipped_fields: string[] }) => {
+      const applied = res.applied_fields.map((f) => PREFILL_FIELD_LABEL[f] ?? f);
+      if (applied.length) {
+        toast.success("Prefilled from referral", { description: applied.join(", ") });
+      } else {
+        toast.info("Linked to referral", {
+          description: "No blank fields to fill — existing entries were kept.",
+        });
+      }
+      setOpen(false);
+      setSelected(null);
+      onDone();
+    },
+    onError: (e: Error) => toast.error("Prefill failed", { description: e.message }),
+  });
+
+  return (
+    <>
+      <Button variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
+        <ClipboardPlus className="h-4 w-4" /> {linked ? "Referral" : "From referral"}
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Prefill from critical care referral</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Select the referral that matches this patient. Only blank fields are filled —
+            existing entries are never overwritten. Free-text history from the referral is
+            populated separately by the referring app.
+          </p>
+          {isLoading && <p className="text-sm text-muted-foreground">Loading referrals…</p>}
+          {candidates && candidates.length === 0 && (
+            <p className="text-sm text-muted-foreground">No synced referrals available.</p>
+          )}
+          <div className="space-y-2">
+            {(candidates ?? []).map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setSelected(r.id)}
+                className={`w-full rounded-lg border p-3 text-left text-sm transition ${
+                  selected === r.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                }`}
+              >
+                <div className="font-medium">{referralCandidateSummary(r)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {r.status ?? "referral"}
+                  {r.referral_received_at ? ` · received ${fmtDate(r.referral_received_at)}` : ""}
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!selected || prefillMut.isPending}
+              onClick={() => selected && prefillMut.mutate(selected)}
+            >
+              {prefillMut.isPending ? "Prefilling…" : "Prefill patient"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function PatientDetail() {
   const { patientId } = Route.useParams();
   const navigate = useNavigate();
@@ -948,6 +1055,11 @@ function PatientDetail() {
                 <AlertTriangle className="h-3 w-3" /> DNACPR
               </Badge>
             )}
+            {patient.source_referral_id && (
+              <Badge variant="outline" className="gap-1">
+                <ClipboardPlus className="h-3 w-3" /> From referral
+              </Badge>
+            )}
           </div>
           <PatientMetaLine
             patient={patient}
@@ -955,6 +1067,15 @@ function PatientDetail() {
           />
         </div>
         <div className="ml-auto flex gap-2">
+          <PrefillFromReferral
+            patientId={patientId}
+            linked={Boolean(patient.source_referral_id)}
+            onDone={() => {
+              qc.invalidateQueries({ queryKey: ["patient", patientId] });
+              qc.invalidateQueries({ queryKey: ["patients"] });
+              qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
+            }}
+          />
           <Button
             variant="outline"
             className="gap-1.5"
