@@ -88,11 +88,13 @@ function HandoverCard({
   const invalidate = () => qc.invalidateQueries({ queryKey: ["handover-acks", shiftKey] });
 
   const toggle = useMutation({
-    mutationFn: (action: "given" | "received") => {
+    mutationFn: async (action: "given" | "received") => {
       const done = action === "given" ? ack.given : ack.received;
-      return done
-        ? clearFn({ data: { patient_id: p.id, shift_key: shiftKey, action } })
-        : setFn({ data: { patient_id: p.id, shift_key: shiftKey, action } });
+      if (done) {
+        await clearFn({ data: { patient_id: p.id, shift_key: shiftKey, action } });
+      } else {
+        await setFn({ data: { patient_id: p.id, shift_key: shiftKey, action } });
+      }
     },
     onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
