@@ -97,8 +97,17 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const auth = authorize(request, rawBody, { write: true });
+        const auth = authorize(request, rawBody, { write: true, roles: ["admin", "clinician"] });
         if (!auth.ok) return auth.response;
+
+        const supabaseAdminReplay = await getAdmin();
+        let fresh: boolean;
+        try {
+          fresh = await consumeWriteNonce(supabaseAdminReplay, auth.signature);
+        } catch (e) {
+          return (console.error("[bridge]", e), json({ error: "Internal server error" }, 500));
+        }
+        if (!fresh) return json({ error: "Replay detected" }, 409);
 
         let parsed;
         try {
