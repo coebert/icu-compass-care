@@ -15,6 +15,8 @@ import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble } from "lucide-react";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
+import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
+import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -33,9 +35,11 @@ function AuthenticatedLayout() {
   const claim = useServerFn(claimFirstAdmin);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [hydrated, setHydrated] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
+    setUnlocked(isSessionUnlocked());
   }, []);
 
   // Bootstrap: if there is no admin yet, promote the first signed-in user.
@@ -50,11 +54,16 @@ function AuthenticatedLayout() {
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
+    lockSession();
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
+
+  const locked =
+    !!profile?.userId && deviceHasPasskey(profile.userId) && !unlocked;
+
 
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
@@ -69,6 +78,21 @@ function AuthenticatedLayout() {
   ];
 
   if (!hydrated) return null;
+
+  if (locked) {
+    return (
+      <PasskeyLockScreen
+        displayName={profile?.profile?.display_name ?? profile?.email}
+        onUnlocked={() => {
+          markSessionUnlocked();
+          setUnlocked(true);
+        }}
+        onSignOut={signOut}
+      />
+    );
+  }
+
+
 
   return (
     <div className="min-h-screen bg-muted/30">
