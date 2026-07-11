@@ -270,6 +270,15 @@ function UnitDashboard() {
     return { ventilated, vasoactive, rrt, isolation, allergy, noResus, stale, jobs, occupied, totalBeds };
   }, [icu, active, bedRoster]);
 
+  const highAcuity = useMemo(
+    () =>
+      icu.filter(
+        (p) => computeAcuity(obsByPatient.get(p.id), patientSupport(p)).band === "high",
+      ),
+    [icu, obsByPatient],
+  );
+
+
   const patientById = useMemo(() => {
     const m = new Map<string, Patient>();
     for (const p of patients) m.set(p.id, p);
