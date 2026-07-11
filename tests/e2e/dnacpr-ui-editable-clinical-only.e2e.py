@@ -52,7 +52,9 @@ STAMP = str(int(time.time()))
 SUFFIX = STAMP[-6:]
 PASSWORD = "Test-Passw0rd-123!"
 
-PATIENT_NAME = f"D.U.I.{SUFFIX}"
+# full_name is validated to <= 10 characters by the UI edit form, so keep the
+# seeded name short (SUFFIX is 6 digits => "DU" + 6 = 8 chars).
+PATIENT_NAME = f"DU{SUFFIX}"
 DNACPR_DETAILS = f"Ward-based ceiling of care, not for CPR — {SUFFIX}"
 
 
