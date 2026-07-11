@@ -325,10 +325,13 @@ export function PatientForm({
             <label key={item.key} className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
               <Checkbox
                 checked={!!values.daily_goals[item.key]}
-                onCheckedChange={(v) => {
-                  set("daily_goals", { ...values.daily_goals, [item.key]: v === true });
-                  set("daily_goals_reviewed_at", new Date().toISOString());
-                }}
+                onCheckedChange={(v) =>
+                  onChange({
+                    ...values,
+                    daily_goals: { ...values.daily_goals, [item.key]: v === true },
+                    daily_goals_reviewed_at: new Date().toISOString(),
+                  })
+                }
                 className="mt-0.5"
               />
               <span>
