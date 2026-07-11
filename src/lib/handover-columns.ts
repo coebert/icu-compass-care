@@ -214,6 +214,7 @@ export const HANDOVER_COLUMNS: {
   { key: "admission", header: "Current admission", weight: 36, render: (p) => p.current_admission || "—" },
   { key: "management", header: "Management", weight: 36, render: (p) => p.current_management || "—" },
   { key: "systems", header: "Systems review", weight: 42, render: systemsReview },
+  { key: "observations", header: "Latest observations", weight: 38, render: observations },
   { key: "investigations", header: "Most recent investigations", weight: 44, render: investigations },
   { key: "microbiology", header: "Key microbiology", weight: 36, render: microbiology },
   { key: "tasks", header: "Outstanding tasks", weight: 36, render: (p) => p.outstanding_tasks || "—" },
