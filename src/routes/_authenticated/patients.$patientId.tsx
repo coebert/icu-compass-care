@@ -20,6 +20,7 @@ import {
 } from "@/components/patient/systems-widgets";
 import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summary";
 import { ObservationsCard } from "@/components/patient/observations-card";
+import { LinesCard } from "@/components/patient/lines-card";
 import {
   listInvestigations,
   addInvestigation,
