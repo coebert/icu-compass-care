@@ -13,20 +13,28 @@ export const Route = createFileRoute("/api/public/hooks/handover-snapshot")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const cronSecret = process.env.BRIDGE_SYNC_CRON_SECRET;
-        if (!cronSecret) {
+        // Accept either configured cron/bridge secret via x-bridge-secret,
+        // matching the bridge-sync hook so the same pg_cron credential works.
+        const accepted = [
+          process.env.BRIDGE_SYNC_CRON_SECRET,
+          process.env.HANDOVER_API_SECRET,
+        ].filter((v): v is string => typeof v === "string" && v.length > 0);
+        if (accepted.length === 0) {
           return Response.json(
             { error: "Snapshot not configured" },
             { status: 503 },
           );
         }
 
-        const provided = request.headers.get("x-cron-secret") ?? "";
+        const provided = request.headers.get("x-bridge-secret") ?? "";
         const providedBuf = Buffer.from(provided);
-        const secretBuf = Buffer.from(cronSecret);
-        const authorized =
-          providedBuf.length === secretBuf.length &&
-          timingSafeEqual(providedBuf, secretBuf);
+        const authorized = accepted.some((secret) => {
+          const secretBuf = Buffer.from(secret);
+          return (
+            providedBuf.length === secretBuf.length &&
+            timingSafeEqual(providedBuf, secretBuf)
+          );
+        });
         if (!authorized) {
           return Response.json({ error: "Unauthorized" }, { status: 401 });
         }
