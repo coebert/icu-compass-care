@@ -1350,23 +1350,60 @@ function PatientDetail() {
               qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
             }}
           />
-          <Button
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => exportMut.mutate()}
-            disabled={exportMut.isPending}
-            aria-busy={exportMut.isPending}
-          >
-            {exportMut.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Preparing…
-              </>
-            ) : (
-              <>
-                <FileDown className="h-4 w-4" /> Handover PDF
-              </>
+          <div className="flex flex-col items-start gap-1.5">
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => exportMut.mutate()}
+              disabled={exportMut.isPending}
+              aria-busy={exportMut.isPending}
+            >
+              {exportMut.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Preparing…
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4" /> Handover PDF
+                </>
+              )}
+            </Button>
+            {exportMut.isPending && (
+              <ul className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs" aria-live="polite">
+                {([
+                  ["investigations", "Investigations"],
+                  ["microbiology", "Microbiology"],
+                  ["observations", "Observations"],
+                ] as const).map(([key, label]) => {
+                  const st = sectionStatus[key];
+                  return (
+                    <li key={key} className="flex items-center gap-1.5 py-0.5">
+                      {st === "done" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : st === "error" ? (
+                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                      ) : st === "loading" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      )}
+                      <span
+                        className={
+                          st === "error"
+                            ? "text-rose-600"
+                            : st === "done"
+                              ? "text-foreground"
+                              : "text-muted-foreground"
+                        }
+                      >
+                        {label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
-          </Button>
+          </div>
           <Button
             variant="outline"
             className="gap-1.5"
