@@ -16,6 +16,7 @@ import {
   SystemMultiSelectCard,
   usePatientFieldMutation,
 } from "@/components/patient/systems-widgets";
+import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summary";
 import {
   listInvestigations,
   addInvestigation,
