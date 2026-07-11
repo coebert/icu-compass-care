@@ -54,10 +54,10 @@ Reviewed as a Salisbury Critical Care consultant/senior-nurse group. The app is 
 11. **Fluid balance:** ✅ 24h in/out/net capture and display in the Observations tab.
 
 
-### Phase 4 — Handover workflow & devices
-12. **Lines & devices tracker** (type, site, insertion date, days in-situ, remove-by prompt) with an infection-surveillance view.
-13. **Shift-handover mode:** ordered read-out (by bed), per-patient "handover given/received" acknowledgement, and an auto "changes since last handover" section; extend the existing PDF.
-14. **Refactor patients.$patientId.tsx** into per-tab components alongside the above (reduce the monolith; no behaviour change).
+### Phase 4 — Handover workflow & devices — DONE
+12. **Lines & devices tracker** — ✅ `patient_lines` table + `lines.functions.ts` + `lines-card.tsx` (new patient tab): type/site/laterality/size, insertion date, day-in-situ counter with per-device review-overdue flags, remove/delete. Unit-dashboard infection-surveillance card (`LinesSurveillanceCard`) lists all in-situ lines with overdue-review flags.
+13. **Shift-handover mode:** ✅ `/patients/handover-mode` route — patients ordered by bed, per-patient given/received acknowledgement (`handover_acknowledgements` table + `handover-mode.functions.ts`, keyed by date+am/pm shift), "changed since handover" ribbon from `patient_field_changes`, progress counter, PDF export link.
+14. **Refactor patients.$patientId.tsx** into per-tab components — DEFERRED (pure refactor, no behaviour change; tackle separately).
 
 ---
 
