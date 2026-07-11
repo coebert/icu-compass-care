@@ -471,7 +471,8 @@ function MicroStatus({
             </p>
             <ol className="relative space-y-3 border-l pl-5">
               {sorted.map((a, i) => {
-                const days = courseDays(a.started_on);
+                const days = courseDays(a.started_on, a.ended_on);
+                const completed = !!a.ended_on;
                 const isLatest = a.started_on === latest;
                 return (
                   <li key={i} className="relative">
@@ -494,10 +495,23 @@ function MicroStatus({
                             Newest
                           </span>
                         )}
+                        {completed && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                            Completed
+                          </span>
+                        )}
                       </div>
                       <span className="text-muted-foreground">
-                        started {a.started_on}
-                        {days != null && <> · day {days} of course</>}
+                        {a.started_on}
+                        {completed ? <> → {a.ended_on}</> : <> → ongoing</>}
+                        {days != null && (
+                          <>
+                            {" "}
+                            · {completed
+                              ? `total course ${days} day${days === 1 ? "" : "s"}`
+                              : `day ${days} of course`}
+                          </>
+                        )}
                       </span>
                     </div>
                   </li>
