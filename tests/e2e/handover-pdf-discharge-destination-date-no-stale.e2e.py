@@ -275,10 +275,16 @@ def main():
             f"discharge date not rendered as 'Disch {disch_date_gb}' in PDF"
         )
 
-        # ---- No stale status: this patient's cell (around the unique DEST marker)
-        #      must read Discharged, never Admitted/Died. ----
-        idx = packed_text.find(dest_token)
-        window = packed_text[max(0, idx - 60): idx + len(dest_token) + 80]
+        # ---- No stale status: this patient's LOCATION cell (bounded from just
+        #      before the unique DEST marker up to and including the Disch token,
+        #      which is the last line of that cell) must read Discharged, never
+        #      Admitted/Died. Bounding here excludes the adjacent
+        #      current-admission column, whose free text may legitimately mention
+        #      admission. ----
+        dest_idx = packed_text.find(dest_token)
+        disch_idx = packed_text.find(disch_token, dest_idx)
+        assert disch_idx != -1, "Disch token not found after the destination in PDF"
+        window = packed_text[max(0, dest_idx - 60): disch_idx + len(disch_token)]
         assert "Discharged" in window, (
             f"'Discharged' not adjacent to this patient's cell; window: {window!r}"
         )
@@ -287,9 +293,6 @@ def main():
         )
         assert "Died" not in window, (
             f"stale 'Died' status found in discharged patient's cell: {window!r}"
-        )
-        assert disch_token in window, (
-            f"'Disch {disch_date_gb}' not within this patient's cell: {window!r}"
         )
 
         try:
