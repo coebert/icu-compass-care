@@ -80,6 +80,21 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_write_nonces: {
+        Row: {
+          seen_at: string
+          signature_hash: string
+        }
+        Insert: {
+          seen_at?: string
+          signature_hash: string
+        }
+        Update: {
+          seen_at?: string
+          signature_hash?: string
+        }
+        Relationships: []
+      }
       handover_versions: {
         Row: {
           captured_at: string
