@@ -2520,7 +2520,7 @@ function FieldChangeHistory({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardContent className="space-y-2 p-3">
-        <p className="text-sm font-semibold">Field changes (initials, age, hospital number)</p>
+        <p className="text-sm font-semibold">Field change history</p>
         <div className="space-y-1.5">
           {rows.map((r) => (
             <div key={r.id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
