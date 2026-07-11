@@ -21,6 +21,13 @@ import {
   deletePatientEvent,
   PATIENT_EVENT_TYPES,
 } from "@/lib/patient-events.functions";
+import {
+  listPatientReviews,
+  addPatientReview,
+  updatePatientReview,
+  deletePatientReview,
+  REVIEW_SPECIALTIES,
+} from "@/lib/patient-reviews.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
 import { STATUS_BADGE, STATUS_LABELS, INVESTIGATION_CATEGORIES, MICROBIOLOGY_SPECIMENS, fmtDate, fmtDateTime } from "@/lib/icu";
@@ -53,7 +60,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Plus, AlertTriangle, FlaskConical, Microscope, LogIn, LogOut, Clock, Activity, Stethoscope, Users } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
