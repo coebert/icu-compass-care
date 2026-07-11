@@ -170,6 +170,23 @@ function UnitDashboard() {
     return { ventilated, vasoactive, rrt, isolation, allergy, noResus, stale, jobs, occupied, totalBeds };
   }, [icu, active, bedRoster]);
 
+  const patientById = useMemo(() => {
+    const m = new Map<string, Patient>();
+    for (const p of patients) m.set(p.id, p);
+    return m;
+  }, [patients]);
+
+  const taskStats = useMemo(() => {
+    const now = Date.now();
+    const overdue = openTasks.filter((t) => t.due_at && new Date(t.due_at).getTime() < now);
+    const critical = openTasks.filter((t) => t.priority === "critical");
+    // Show highest-signal tasks first: critical, then overdue, then rest.
+    const rank = (t: OpenTask) =>
+      t.priority === "critical" ? 0 : t.due_at && new Date(t.due_at).getTime() < now ? 1 : 2;
+    const sorted = [...openTasks].sort((a, b) => rank(a) - rank(b));
+    return { overdue, critical, sorted };
+  }, [openTasks]);
+
   return (
     <div className="space-y-6">
       <div>
