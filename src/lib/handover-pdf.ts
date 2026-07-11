@@ -163,17 +163,14 @@ function microbiology(p: HandoverPatient): string {
       ? p.microbiology
       : [];
   const latest = latestMicrobiologyPerSpecimen(list);
-  const lines = latest.map((r) => {
-    const specimen = (r.specimen_type ?? "").trim() || "Other";
-    const when = r.result_at ? ` (${fmtDateTime(r.result_at)})` : "";
-    return `${specimen}: ${r.findings || "—"}${when}`;
-  });
-  // Surface the structured antimicrobial data (current course days / completed
-  // total length) in the Micro column so it prints even when the free-text
-  // Systems review column is not included.
-  const antimicrobials = antimicrobialsSummary(p);
-  if (antimicrobials) lines.push(`Abx: ${antimicrobials}`);
-  return lines.length ? lines.join("\n") : "—";
+  if (!latest.length) return "—";
+  return latest
+    .map((r) => {
+      const specimen = (r.specimen_type ?? "").trim() || "Other";
+      const when = r.result_at ? ` (${fmtDateTime(r.result_at)})` : "";
+      return `${specimen}: ${r.findings || "—"}${when}`;
+    })
+    .join("\n");
 }
 
 
@@ -245,13 +242,18 @@ export function renalSupportSummary(p: HandoverPatient): string {
 
 function systemsReview(p: HandoverPatient): string {
   const renalSupport = renalSupportSummary(p);
+  const antimicrobials = antimicrobialsSummary(p);
   const lines = SYSTEMS_FIELDS.map(([key, label]) => {
     let val = typeof p[key] === "string" ? (p[key] as string).trim() : "";
-    // Fold the structured renal support flags (diuretics / RRT) into the Renal
-    // line so they print on the handover sheet. Antimicrobial course data is
-    // rendered in the dedicated Micro column instead (see `microbiology`).
+    // Both the structured renal support flags (diuretics / RRT) and the
+    // antimicrobial course data are folded into the Systems review column so
+    // they only print when this column is included in the selected preset.
     if (key === "systems_renal" && renalSupport) {
       val = val ? `${val} · ${renalSupport}` : renalSupport;
+    }
+    if (key === "systems_micro" && antimicrobials) {
+      const abx = `Abx: ${antimicrobials}`;
+      val = val ? `${val}\n${abx}` : abx;
     }
     return val ? `${label}: ${val}` : "";
   }).filter(Boolean);

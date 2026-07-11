@@ -205,7 +205,7 @@ describe("handover PDF antimicrobial & renal fields", () => {
     ).toBe("Diuretics, RRT");
   });
 
-  it("renders renal support in the systems column and antimicrobials in the micro column", () => {
+  it("renders both renal and antimicrobial summaries in the systems column", () => {
     const p: HandoverPatient = {
       id: "1",
       status: "admitted",
@@ -223,20 +223,50 @@ describe("handover PDF antimicrobial & renal fields", () => {
     const colIdx = (header: string) =>
       Object.entries(headerCells).find(([, c]) => c.text.join(" ") === header)?.[0];
 
-    // Renal support flags render in the Systems review column.
+    // Both the renal support flags and antimicrobial course data render in the
+    // Systems review column.
     const systemsIdx = colIdx("Systems review");
     expect(systemsIdx).toBeTruthy();
     const systemsText = (table.body[0].cells[systemsIdx!].text as string[]).join(" ");
     expect(systemsText).toContain("Diuretics");
     expect(systemsText).toContain("RRT");
+    expect(systemsText).toContain("Meropenem");
+    expect(systemsText).toContain("Vancomycin");
 
-    // Antimicrobial course data renders in the Key microbiology (Micro) column.
+    // They do NOT leak into the Key microbiology column.
     const microIdx = colIdx("Key microbiology");
     expect(microIdx).toBeTruthy();
     const microText = (table.body[0].cells[microIdx!].text as string[]).join(" ");
-    expect(microText).toContain("Meropenem");
-    expect(microText).toContain("Vancomycin");
+    expect(microText).not.toContain("Meropenem");
+    expect(microText).not.toContain("Vancomycin");
   });
+
+  it("omits antimicrobial and renal summaries when the systems column is not selected", () => {
+    const p: HandoverPatient = {
+      id: "1",
+      status: "admitted",
+      admission_date: "2026-07-01",
+      renal_diuretics: true,
+      renal_rrt: true,
+      antimicrobials: [{ name: "Meropenem", started_on: "2026-07-06" }],
+    };
+    const doc = buildHandoverPdf([p], { columns: ["patient", "microbiology"] });
+    const table = (doc as any).lastAutoTable;
+    const headers = Object.values(table.head[0].cells as Record<string, any>).map(
+      (c: any) => c.text.join(" "),
+    );
+    expect(headers).not.toContain("Systems review");
+    for (const row of table.body) {
+      const rowText = Object.values(row.cells as Record<string, any>)
+        .map((c: any) => (c.text as string[]).join(" "))
+        .join(" ");
+      expect(rowText).not.toContain("Meropenem");
+      expect(rowText).not.toContain("Diuretics");
+      expect(rowText).not.toContain("RRT");
+    }
+  });
+
+
 
 
   it("wraps long antimicrobial/renal content without overflowing the margins", () => {
