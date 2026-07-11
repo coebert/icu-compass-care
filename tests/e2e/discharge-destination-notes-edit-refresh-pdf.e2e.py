@@ -254,7 +254,9 @@ def main():
             pdf_dlg = page.get_by_role("dialog")
             download_btn = pdf_dlg.get_by_role("button", name="Download PDF")
             expect(download_btn).to_be_visible(timeout=10000)
-            with page.expect_download(timeout=15000) as dl_info:
+            page.wait_for_timeout(1500)
+            page.screenshot(path=str(SCREENSHOTS / "ddn_debug_pdf.png"))
+            with page.expect_download(timeout=30000) as dl_info:
                 download_btn.click()
             pdf_path = SCREENSHOTS / f"handover_{MARKER}.pdf"
             dl_info.value.save_as(str(pdf_path))
