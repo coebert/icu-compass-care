@@ -1660,6 +1660,7 @@ type TimelineEvent = {
   kind: "admission" | "discharge" | "investigation" | "microbiology" | "event";
   eventId?: string;
   eventType?: string;
+  changedBy?: string | null;
 };
 
 const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
