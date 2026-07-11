@@ -1129,7 +1129,7 @@ function PatientDetail() {
                 <RespiratoryStatus patientId={patientId} patient={patient} />
                 <CardiovascularStatus patientId={patientId} patient={patient} />
                 <NeuroStatus patientId={patientId} patient={patient} />
-                <InfoBlock label="Renal" value={patient.systems_renal} />
+                <RenalStatus patientId={patientId} patient={patient} />
                 <GastroNutritionStatus patientId={patientId} patient={patient} />
                 <HaemStatus patientId={patientId} patient={patient} />
                 <MicroStatus patientId={patientId} patient={patient} />
