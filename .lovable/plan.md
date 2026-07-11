@@ -47,11 +47,12 @@ Reviewed as a Salisbury Critical Care consultant/senior-nurse group. The app is 
 6. **Unit dashboard route** (`/unit`): occupancy grid, acuity/organ-support counts, isolation list, outstanding jobs across all patients, patients with no DNACPR/TEP decision, overdue specialty reviews.
 7. **"What changed since" ribbon** on the patient page and dashboard, driven by existing `patient_field_changes`.
 
-### Phase 3 — Structured physiology (largest, highest utility)
-8. **Observations model:** new `patient_observations` table (timestamped HR, BP, MAP, SpO2, FiO2, RR, temp, GCS, lactate, ventilator mode/settings, vasopressor dose, urine output). Migration + GRANT + RLS + server fns.
-9. **Compact trend view:** sparkline/mini-charts on the systems tabs and a numeric "latest obs" block on Overview and the PDF.
-10. **Organ-support / SOFA-lite score** derived from obs + support fields, shown as an acuity badge on the board and dashboard.
-11. **Fluid balance:** simple 24h in/out/balance capture and display.
+### Phase 3 — Structured physiology (largest, highest utility) — DONE
+8. **Observations model:** ✅ `patient_observations` table (timestamped HR, BP, MAP, SpO2, FiO2, RR, temp, GCS, lactate, vent mode/PEEP/Vt, vasopressor + dose, urine, fluid in/out) + GRANT + RLS + server fns (`observations.functions.ts`).
+9. **Compact trend view:** ✅ sparkline mini-charts + numeric "latest obs" block in the new Observations tab (`observations-card.tsx`). (PDF integration deferred.)
+10. **Organ-support / SOFA-lite score:** ✅ `computeAcuity` in `observations.ts`, shown as an acuity badge on the board cards and unit dashboard.
+11. **Fluid balance:** ✅ 24h in/out/net capture and display in the Observations tab.
+
 
 ### Phase 4 — Handover workflow & devices
 12. **Lines & devices tracker** (type, site, insertion date, days in-situ, remove-by prompt) with an infection-surveillance view.
