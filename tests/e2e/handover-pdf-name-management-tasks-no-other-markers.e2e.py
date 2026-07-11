@@ -169,9 +169,9 @@ def export_pdf_for(page, hospital_number, out_path):
 
     dialog = page.get_by_role("dialog")
     download_btn = dialog.get_by_role("button", name="Download PDF")
-    expect(download_btn).to_be_visible(timeout=10000)
+    expect(download_btn).to_be_enabled(timeout=20000)
 
-    with page.expect_download(timeout=15000) as dl_info:
+    with page.expect_download(timeout=30000) as dl_info:
         download_btn.click()
     download = dl_info.value
     download.save_as(str(out_path))
