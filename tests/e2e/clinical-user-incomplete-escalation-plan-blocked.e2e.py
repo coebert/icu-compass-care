@@ -147,7 +147,7 @@ async def run(patient_id):
             has_text="Treatment escalation plan (TEP) in place"
         )
         await tep_row.get_by_role("switch").click()
-        await dialog.get_by_text("TEP details").wait_for(timeout=10000)
+        await dialog.get_by_text("TEP details", exact=True).wait_for(timeout=10000)
         await page.screenshot(path=str(SCREENSHOTS / "1_incomplete.png"))
 
         # Validation must block: error visible AND save disabled.
