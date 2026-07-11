@@ -148,7 +148,13 @@ export function trendSeries(
 
 export function latestObservation(observations: Observation[]): Observation | null {
   if (!observations.length) return null;
-  return [...observations].sort(
-    (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime(),
-  )[0];
+  return [...observations].sort((a, b) => {
+    const byTime = new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime();
+    if (byTime !== 0) return byTime;
+    // Deterministic tie-breaker when recorded_at values are identical: pick the
+    // observation with the greater id so selection is order-independent.
+    const aId = a.id ?? "";
+    const bId = b.id ?? "";
+    return bId < aId ? -1 : bId > aId ? 1 : 0;
+  })[0];
 }
