@@ -98,6 +98,26 @@ def create_version():
     return r.json()[0]["id"]
 
 
+def create_patient():
+    """Seed a real patient so the field-change FK target exists."""
+    admission = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/patients",
+        headers={**admin_headers(), "Prefer": "return=representation"},
+        json={
+            "full_name": PATIENT_NAME,
+            "age": 58,
+            "location_type": "icu",
+            "ward": "Critical Care",
+            "status": "admitted",
+            "admission_date": admission,
+        },
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()[0]["id"]
+
+
 def sign_in(email):
     r = requests.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
