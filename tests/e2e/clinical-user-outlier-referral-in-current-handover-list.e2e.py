@@ -284,6 +284,11 @@ def main():
         )
         return 0
     except Exception as exc:  # noqa: BLE001
+        import traceback; traceback.print_exc()
+        try:
+            page.screenshot(path=str(SCREENSHOTS / f"DEBUG_{MARKER}.png"))
+        except Exception:
+            pass
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
     finally:
