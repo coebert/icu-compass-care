@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPatient, updatePatient, deletePatient, getPatientAudit, getPatientFieldChanges, getPatientStatusChanges } from "@/lib/patients.functions";
+import { useClinicalAccess } from "@/hooks/use-clinical-access";
+import { ClinicalAccessRequired } from "@/components/ClinicalAccessRequired";
 import type {
   Patient as DomainPatient,
   Investigation as DomainInvestigation,
@@ -2822,14 +2824,16 @@ function truncate(v: string | null | undefined, n = 80): string {
 }
 
 function RecentChangesRibbon({ patientId }: { patientId: string }) {
+  const { hasClinicalAccess } = useClinicalAccess();
   const fetchChanges = useServerFn(getPatientFieldChanges);
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["patient-field-changes", patientId],
     queryFn: () => fetchChanges({ data: { id: patientId } }) as Promise<AuditRow[]>,
+    enabled: hasClinicalAccess,
   });
 
   const recent = useMemo(() => rows.slice(0, 6), [rows]);
-  if (isLoading || recent.length === 0) return null;
+  if (!hasClinicalAccess || isLoading || recent.length === 0) return null;
 
   return (
     <Card className="border-primary/30 bg-primary/5">
@@ -2858,11 +2862,19 @@ function RecentChangesRibbon({ patientId }: { patientId: string }) {
 
 
 function FieldChangeHistory({ patientId }: { patientId: string }) {
+  const { hasClinicalAccess, profile } = useClinicalAccess();
   const fetchChanges = useServerFn(getPatientFieldChanges);
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["patient-field-changes", patientId],
     queryFn: () => fetchChanges({ data: { id: patientId } }) as Promise<AuditRow[]>,
+    enabled: hasClinicalAccess,
   });
+
+  if (profile && !hasClinicalAccess) {
+    return (
+      <ClinicalAccessRequired description="You need clinical access (clinician or admin) to view this patient's field change history." />
+    );
+  }
 
   if (isLoading || rows.length === 0) return null;
 

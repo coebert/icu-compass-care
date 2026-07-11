@@ -8,6 +8,8 @@ import {
   type HandoverVersionSummary,
 } from "@/lib/handover-versions.functions";
 import { diffSnapshots, type PatientDiff } from "@/lib/handover-diff";
+import { useClinicalAccess } from "@/hooks/use-clinical-access";
+import { ClinicalAccessRequired } from "@/components/ClinicalAccessRequired";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,10 +74,12 @@ function PresenceBadge({ presence }: { presence: PatientDiff["presence"] }) {
 function CompareVersionsPage() {
   const list = useServerFn(listHandoverVersions);
   const getOne = useServerFn(getHandoverVersion);
+  const { hasClinicalAccess, profile } = useClinicalAccess();
 
   const { data: versions = [], isLoading } = useQuery({
     queryKey: ["handover-versions", "compare-all"],
     queryFn: async () => (await list({ data: { pageSize: 100 } })).rows,
+    enabled: hasClinicalAccess,
   });
 
   const [aId, setAId] = useState<string | null>(null);
@@ -113,6 +117,19 @@ function CompareVersionsPage() {
 
   const sameSelected = aId && bId && aId === bId;
   const bothLoaded = !!fullA && !!fullB && !loadingA && !loadingB;
+
+  if (profile && !hasClinicalAccess) {
+    return (
+      <div className="space-y-4">
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link to="/patients/history">
+            <ArrowLeft className="h-4 w-4" /> History
+          </Link>
+        </Button>
+        <ClinicalAccessRequired description="You need clinical access (clinician or admin) to compare saved handover snapshots." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

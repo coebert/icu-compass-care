@@ -10,6 +10,7 @@ import {
   
 } from "@/lib/handover-versions.functions";
 import { getMe } from "@/lib/me.functions";
+import { ClinicalAccessRequired } from "@/components/ClinicalAccessRequired";
 import { handoverPdfPreviewUrl, downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,8 @@ function HandoverHistoryPage() {
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
   const isAdmin = profile?.isAdmin ?? false;
+  const roles = profile?.roles ?? [];
+  const hasClinicalAccess = roles.includes("admin") || roles.includes("clinician");
 
   async function handleCaptureNow() {
     setCapturing(true);
@@ -149,6 +152,19 @@ function HandoverHistoryPage() {
     },
     [],
   );
+
+  if (profile && !hasClinicalAccess) {
+    return (
+      <div className="space-y-4">
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link to="/patients">
+            <ArrowLeft className="h-4 w-4" /> Patients
+          </Link>
+        </Button>
+        <ClinicalAccessRequired description="You need clinical access (clinician or admin) to view saved handover snapshot history." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
