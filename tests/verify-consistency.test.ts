@@ -28,8 +28,8 @@ describe("PDF vs preview observations consistency", () => {
       // build twice via both entry points; both call buildHandoverPdf
       const previewUrl = handoverPdfPreviewUrl([p]);
       expect(previewUrl.startsWith("blob:")).toBe(true);
-      const a = buildHandoverPdf([p]).output("datauristring");
-      const b = buildHandoverPdf([p]).output("datauristring");
+      const a = buildHandoverPdf([p], { showTimestamp: false }).output("datauristring");
+      const b = buildHandoverPdf([p], { showTimestamp: false }).output("datauristring");
       expect(a).toBe(b); // deterministic
       // rendered cell is stable
       expect(obsCol.render(p)).toBe(rendered);
