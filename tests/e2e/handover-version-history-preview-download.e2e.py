@@ -239,12 +239,19 @@ def main():
             )
 
             # Grab the captured version id from the server list (newest first).
-            listed = page.evaluate(
-                CALL_FN,
-                {"module": VERSIONS_MODULE, "name": "listHandoverVersions", "data": {}},
-            )
-            assert listed["ok"], f"authenticated list failed: {listed.get('error')!r}"
-            rows = listed["result"]["rows"]
+            # Poll briefly to absorb read-after-write propagation.
+            rows = []
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                listed = page.evaluate(
+                    CALL_FN,
+                    {"module": VERSIONS_MODULE, "name": "listHandoverVersions", "data": {}},
+                )
+                assert listed["ok"], f"authenticated list failed: {listed.get('error')!r}"
+                rows = listed["result"]["rows"]
+                if rows:
+                    break
+                time.sleep(0.5)
             assert rows, "no versions returned after capture"
             version_id = rows[0]["id"]
             assert rows[0]["patient_count"] >= 1, "captured version has no patients"
