@@ -486,6 +486,7 @@ function PatientsBoard() {
             <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
           </div>
         )
+      ) : showArchived ? (
         filtered.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
