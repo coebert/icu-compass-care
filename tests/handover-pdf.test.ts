@@ -145,7 +145,7 @@ describe("handover PDF column selection", () => {
   it("falls back to all columns when selection is empty", () => {
     const doc = buildHandoverPdf([makePatient(1)], { columns: [] });
     const table = (doc as any).lastAutoTable;
-    expect(Object.keys(table.head[0].cells).length).toBe(10);
+    expect(Object.keys(table.head[0].cells).length).toBe(11);
   });
 
   it("keeps selected columns fitted within the printable width", () => {

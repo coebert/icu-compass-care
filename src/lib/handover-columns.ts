@@ -12,6 +12,11 @@ import {
   mostRecentInvestigation,
 } from "@/lib/handover-recency";
 import { summariseAllergies } from "@/lib/patient-safety";
+import {
+  latestObservation,
+  meanArterialPressure,
+  type Observation,
+} from "@/lib/observations";
 
 function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"): string {
   return parts.filter(Boolean).join(sep);
@@ -86,6 +91,42 @@ function microbiology(p: HandoverPatient): string {
       return `${specimen}: ${r.findings || "—"}${when}`;
     })
     .join("\n");
+}
+
+/**
+ * Render the "latest observations" column: a single deterministic vitals block
+ * from the most recent observation (by recorded_at). Purely a function of the
+ * recorded data — no wall-clock dependency — so the same inputs always produce
+ * the same output.
+ */
+function observations(p: HandoverPatient): string {
+  const list: Observation[] = Array.isArray(p.patient_observations)
+    ? (p.patient_observations as Observation[])
+    : Array.isArray(p.observations)
+      ? (p.observations as Observation[])
+      : [];
+  const latest = latestObservation(list);
+  if (!latest) return "—";
+  const map = meanArterialPressure(latest);
+  const parts: (string | false | null)[] = [
+    latest.hr != null && `HR ${latest.hr}`,
+    latest.sbp != null && latest.dbp != null
+      ? `BP ${latest.sbp}/${latest.dbp}`
+      : map != null && `MAP ${map}`,
+    map != null && latest.sbp != null && latest.dbp != null && `MAP ${map}`,
+    latest.spo2 != null && `SpO₂ ${latest.spo2}%`,
+    latest.fio2 != null && `FiO₂ ${latest.fio2}`,
+    latest.rr != null && `RR ${latest.rr}`,
+    latest.temp != null && `T ${latest.temp}°C`,
+    latest.gcs != null && `GCS ${latest.gcs}`,
+    latest.lactate != null && `Lac ${latest.lactate}`,
+    latest.urine_ml != null && `UO ${latest.urine_ml}mL/h`,
+    latest.vent_mode && `Vent ${latest.vent_mode}${latest.peep != null ? ` PEEP ${latest.peep}` : ""}`,
+    latest.vasopressor &&
+      `Pressor ${latest.vasopressor}${latest.vasopressor_dose != null ? ` ${latest.vasopressor_dose}` : ""}`,
+  ];
+  const vitals = parts.filter(Boolean).join(" · ") || "—";
+  return `${vitals}\n(${fmtDateTime(latest.recorded_at)})`;
 }
 
 // Combine the systems-based review into a single labelled block for the PDF,
@@ -173,6 +214,7 @@ export const HANDOVER_COLUMNS: {
   { key: "admission", header: "Current admission", weight: 36, render: (p) => p.current_admission || "—" },
   { key: "management", header: "Management", weight: 36, render: (p) => p.current_management || "—" },
   { key: "systems", header: "Systems review", weight: 42, render: systemsReview },
+  { key: "observations", header: "Latest observations", weight: 38, render: observations },
   { key: "investigations", header: "Most recent investigations", weight: 44, render: investigations },
   { key: "microbiology", header: "Key microbiology", weight: 36, render: microbiology },
   { key: "tasks", header: "Outstanding tasks", weight: 36, render: (p) => p.outstanding_tasks || "—" },
