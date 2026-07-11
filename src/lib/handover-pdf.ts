@@ -267,6 +267,8 @@ function systemsReview(p: HandoverPatient): string {
 
 export type HandoverPageSize = "a4" | "letter";
 
+export type HandoverOrientation = "landscape" | "portrait";
+
 export type HandoverPdfOptions = {
   /** Header title text (left of the header). Defaults to "ICU Handover Sheet". */
   title?: string;
@@ -280,6 +282,8 @@ export type HandoverPdfOptions = {
   showPageNumbers?: boolean;
   /** Page size. Default "a4". */
   pageSize?: HandoverPageSize;
+  /** Page orientation. Default "landscape". */
+  orientation?: HandoverOrientation;
   /** Left/right page margin in mm. Default 8. */
   marginX?: number;
   /** Font scale multiplier for the table body. Default 1 (7pt). */
@@ -379,7 +383,8 @@ export function sanitizePdfMetadataText(input: string, fallback = ""): string {
 
 export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdfOptions): jsPDF {
   const pageSize: HandoverPageSize = opts?.pageSize ?? "a4";
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: pageSize });
+  const orientation: HandoverOrientation = opts?.orientation ?? "landscape";
+  const doc = new jsPDF({ orientation, unit: "mm", format: pageSize });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const generated = new Date().toLocaleString("en-GB");

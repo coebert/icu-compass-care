@@ -268,4 +268,37 @@ describe("handover PDF antimicrobial & renal fields", () => {
       }
     }
   });
+
+  it("wraps antimicrobial/renal content within margins on portrait pages", () => {
+    const marginX = 8;
+    const manyAgents = Array.from({ length: 10 }, (_, i) => ({
+      name: `Antimicrobial-agent-with-a-very-long-name-${i}`,
+      started_on: "2026-07-01",
+    }));
+    const p: HandoverPatient = {
+      id: "1",
+      status: "admitted",
+      admission_date: "2026-07-01",
+      renal_diuretics: true,
+      renal_rrt: true,
+      systems_renal: "Long renal note. ".repeat(20),
+      systems_micro: "Long micro note. ".repeat(20),
+      antimicrobials: manyAgents,
+    };
+    const doc = buildHandoverPdf([p], { marginX, orientation: "portrait" });
+    const table = (doc as any).lastAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    // Confirm the document really is portrait (taller than it is wide).
+    expect(pageHeight).toBeGreaterThan(pageWidth);
+    for (const row of table.body) {
+      for (const cell of Object.values(row.cells) as any[]) {
+        // Cells wrap within their column and never spill past either margin.
+        expect(cell.x + cell.width).toBeLessThanOrEqual(pageWidth - marginX + 0.5);
+        expect(cell.x).toBeGreaterThanOrEqual(marginX - 0.5);
+        expect(cell.y).toBeLessThanOrEqual(pageHeight - 12 + 0.5);
+      }
+    }
+  });
 });
+
