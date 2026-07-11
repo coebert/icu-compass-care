@@ -209,7 +209,7 @@ export async function logSecurityEvent(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: any,
   entry: {
-    event_type: AuthFailureReason | "replay_detected";
+    event_type: AuthFailureReason | "replay_detected" | "locked_out";
     endpoint: string;
     method: string;
     ip?: string | null;
