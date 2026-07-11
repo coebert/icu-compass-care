@@ -119,6 +119,85 @@ function has(arr: unknown): boolean {
   return Array.isArray(arr) && arr.length > 0;
 }
 
+const PRIORITY_BADGE: Record<string, string> = {
+  critical: "border-rose-500/40 text-rose-600 dark:text-rose-400",
+  urgent: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  routine: "border-border text-muted-foreground",
+};
+
+function fmtDue(due: string | null): { text: string; overdue: boolean } | null {
+  if (!due) return null;
+  const t = new Date(due).getTime();
+  if (Number.isNaN(t)) return null;
+  const overdue = t < Date.now();
+  const text = new Date(due).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return { text, overdue };
+}
+
+function OpenTasksCard({
+  tasks,
+  patientById,
+}: {
+  tasks: OpenTask[];
+  patientById: Map<string, Record<string, any>>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <ClipboardList className="h-4 w-4" /> Outstanding tasks (unit-wide)
+          <Badge variant="secondary" className="ml-auto">{tasks.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {tasks.length === 0 ? (
+          <p className="px-2 py-1 text-sm text-muted-foreground">No outstanding tasks.</p>
+        ) : (
+          <div className="space-y-1">
+            {tasks.map((t) => {
+              const p = patientById.get(t.patient_id);
+              const due = fmtDue(t.due_at);
+              return (
+                <Link
+                  key={t.id}
+                  to="/patients/$patientId"
+                  params={{ patientId: t.patient_id }}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                >
+                  {t.priority !== "routine" && (
+                    <Badge variant="outline" className={`shrink-0 ${PRIORITY_BADGE[t.priority] ?? ""}`}>
+                      {TASK_PRIORITY_LABEL[t.priority as TaskPriority] ?? t.priority}
+                    </Badge>
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{t.description}</span>
+                  {t.owner && <span className="shrink-0 text-xs text-muted-foreground">{t.owner}</span>}
+                  {due && (
+                    <span
+                      className={`shrink-0 text-xs ${due.overdue ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+                    >
+                      {due.overdue ? "Overdue · " : ""}
+                      {due.text}
+                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {p ? <PatientName patient={p} /> : "—"}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 type OpenTask = {
   id: string;
   patient_id: string;
