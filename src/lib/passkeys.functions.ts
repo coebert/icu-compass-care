@@ -240,6 +240,6 @@ export const deletePasskey = createServerFn({ method: "POST" })
       .delete()
       .eq("id", data.id)
       .eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
+    if (error) throw safeDbError(error, "remove your passkey");
     return { ok: true };
   });
