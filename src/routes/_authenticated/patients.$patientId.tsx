@@ -1610,7 +1610,7 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="microbiology" className="mt-4">
-          <MicrobiologyTab patientId={patientId} />
+          <MicrobiologyTab patientId={patientId} patient={patient} />
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-4">
