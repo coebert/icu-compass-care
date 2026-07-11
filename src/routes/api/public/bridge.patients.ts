@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { corsHeaders, json, authorize, logSync, consumeWriteNonce } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp, consumeWriteNonce } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
       // List patients (optionally filter by status via ?status=admitted)
       GET: async ({ request }) => {
-        const auth = authorize(request, "", { write: false });
+        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/patients");
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
@@ -97,7 +97,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const auth = authorize(request, rawBody, { write: true, roles: ["admin", "clinician"] });
+        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "clinician"] }, "/bridge/patients");
         if (!auth.ok) return auth.response;
 
         const supabaseAdminReplay = await getAdmin();
@@ -107,7 +107,17 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         } catch (e) {
           return (console.error("[bridge]", e), json({ error: "Internal server error" }, 500));
         }
-        if (!fresh) return json({ error: "Replay detected" }, 409);
+        if (!fresh) {
+          await logSecurityEvent(supabaseAdminReplay, {
+            event_type: "replay_detected",
+            endpoint: "/bridge/patients",
+            method: "POST",
+            ip: clientIp(request),
+            actor_role: auth.actor.role,
+            actor_email: auth.actor.email ?? null,
+          });
+          return json({ error: "Replay detected" }, 409);
+        }
 
         let parsed;
         try {

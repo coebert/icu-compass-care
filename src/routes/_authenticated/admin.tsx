@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import { BridgeSecurityPanel } from "@/components/BridgeSecurityPanel";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
@@ -174,6 +175,9 @@ function AdminPage() {
           })}
         </div>
       )}
+
+      <BridgeSecurityPanel />
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

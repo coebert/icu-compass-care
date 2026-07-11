@@ -84,9 +84,26 @@ export type BridgeEntity =
   | "audit"
   | "notifications";
 
+// Machine-readable classification of an authorization failure. Used for the
+// security-event feed and threshold alerting.
+export type AuthFailureReason =
+  | "not_configured"
+  | "missing_headers"
+  | "stale_timestamp"
+  | "signature_failure"
+  | "invalid_actor"
+  | "role_denied";
+
 export type AuthResult =
   | { ok: true; actor: BridgeActor; signature: string }
-  | { ok: false; response: Response };
+  | {
+      ok: false;
+      response: Response;
+      reason: AuthFailureReason;
+      // Present only once the signed actor envelope has been parsed (role_denied).
+      actor?: BridgeActor;
+      detail?: string;
+    };
 
 /**
  * Verify the HMAC signature AND authorize the forwarded actor.
@@ -106,18 +123,28 @@ export function authorize(
   const secrets = [process.env.HANDOVER_API_SECRET, process.env.HANDOVER_API_SECRET_PREVIOUS].filter(
     (s): s is string => Boolean(s),
   );
-  if (secrets.length === 0) return { ok: false, response: json({ error: "Bridge not configured" }, 503) };
+  if (secrets.length === 0)
+    return { ok: false, response: json({ error: "Bridge not configured" }, 503), reason: "not_configured" };
 
   const timestamp = request.headers.get("x-timestamp");
   const actorHeader = request.headers.get("x-actor");
   const signature = request.headers.get("x-signature");
   if (!timestamp || !actorHeader || !signature) {
-    return { ok: false, response: json({ error: "Missing authentication headers" }, 401) };
+    return {
+      ok: false,
+      response: json({ error: "Missing authentication headers" }, 401),
+      reason: "missing_headers",
+    };
   }
 
   const ts = Number(timestamp);
   if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > MAX_SKEW_SECONDS) {
-    return { ok: false, response: json({ error: "Stale or invalid timestamp" }, 401) };
+    return {
+      ok: false,
+      response: json({ error: "Stale or invalid timestamp" }, 401),
+      reason: "stale_timestamp",
+      detail: `timestamp=${timestamp}`,
+    };
   }
 
   // Verify the signature over the exact bytes (including the actor envelope)
@@ -130,7 +157,11 @@ export function authorize(
     return sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf);
   });
   if (!signatureValid) {
-    return { ok: false, response: json({ error: "Invalid signature" }, 401) };
+    return {
+      ok: false,
+      response: json({ error: "Invalid signature" }, 401),
+      reason: "signature_failure",
+    };
   }
 
   // Actor is authenticated only because it is inside the signed envelope.
@@ -140,15 +171,97 @@ export function authorize(
     if (!parsed.id || !parsed.role) throw new Error("incomplete");
     actor = { id: String(parsed.id), email: parsed.email ? String(parsed.email) : undefined, role: String(parsed.role) };
   } catch {
-    return { ok: false, response: json({ error: "Missing or invalid user context" }, 401) };
+    return {
+      ok: false,
+      response: json({ error: "Missing or invalid user context" }, 401),
+      reason: "invalid_actor",
+    };
   }
 
   const allowed = opts.roles ?? (opts.write ? WRITE_ROLES : READ_ROLES);
   if (!(allowed as readonly string[]).includes(actor.role)) {
-    return { ok: false, response: json({ error: "Insufficient role for this action" }, 403) };
+    return {
+      ok: false,
+      response: json({ error: "Insufficient role for this action" }, 403),
+      reason: "role_denied",
+      actor,
+      detail: `role=${actor.role}`,
+    };
   }
 
   return { ok: true, actor, signature };
+}
+
+/** Best-effort client IP from common proxy headers (for the security feed). */
+export function clientIp(request: Request): string | null {
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]!.trim();
+  return request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip") ?? null;
+}
+
+/**
+ * Record a suspicious/failed bridge access attempt and let the database raise a
+ * review alert when repeated signature failures or replay detections cross the
+ * threshold. Never throws — security logging must not break request handling.
+ */
+export async function logSecurityEvent(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  entry: {
+    event_type: AuthFailureReason | "replay_detected";
+    endpoint: string;
+    method: string;
+    ip?: string | null;
+    actor_role?: string | null;
+    actor_email?: string | null;
+    detail?: string | null;
+  },
+): Promise<void> {
+  try {
+    await admin.rpc("record_bridge_security_event", {
+      _event_type: entry.event_type,
+      _endpoint: entry.endpoint,
+      _method: entry.method,
+      _ip: entry.ip ?? null,
+      _actor_role: entry.actor_role ?? null,
+      _actor_email: entry.actor_email ?? null,
+      _detail: entry.detail ?? null,
+    });
+  } catch {
+    // swallow — security logging is best-effort
+  }
+}
+
+/**
+ * `authorize()` plus automatic security-event logging on failure. Routes should
+ * call this instead of `authorize()` so every rejected bridge request is
+ * captured for review and feeds the repeated-failure alerting.
+ */
+export async function authorizeBridge(
+  request: Request,
+  rawBody: string,
+  opts: { write: boolean; roles?: readonly string[] },
+  endpoint: string,
+): Promise<AuthResult> {
+  const result = authorize(request, rawBody, opts);
+  if (!result.ok && result.reason !== "not_configured") {
+    try {
+      const { getAdmin } = await import("@/lib/admin-db.server");
+      const admin = await getAdmin();
+      await logSecurityEvent(admin, {
+        event_type: result.reason,
+        endpoint,
+        method: request.method,
+        ip: clientIp(request),
+        actor_role: result.actor?.role ?? null,
+        actor_email: result.actor?.email ?? null,
+        detail: result.detail ?? null,
+      });
+    } catch {
+      // swallow — never let auditing block the auth response
+    }
+  }
+  return result;
 }
 
 /**
