@@ -155,16 +155,14 @@ function HandoverHistoryPage() {
 
   if (profile && !hasClinicalAccess) {
     return (
-      <div className="space-y-4">
-        <Button asChild variant="outline" size="sm" className="gap-1.5">
-          <Link to="/patients">
-            <ArrowLeft className="h-4 w-4" /> Patients
-          </Link>
-        </Button>
-        <ClinicalAccessRequired description="You need clinical access (clinician or admin) to view saved handover snapshot history." />
-      </div>
+      <ClinicalAccessRequired
+        backTo="/patients"
+        backLabel="Patients"
+        description="You need clinical access (clinician or admin) to view saved handover snapshot history."
+      />
     );
   }
+
 
   return (
     <div className="space-y-4">
