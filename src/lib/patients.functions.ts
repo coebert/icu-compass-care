@@ -176,3 +176,62 @@ export const getPatientFieldChanges = createServerFn({ method: "GET" })
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
+
+// Status-change history for the Timeline, showing who made each change.
+// record_audit is admin-only via RLS, so this reads through the service-role
+// client, but stays gated behind requireSupabaseAuth (any signed-in clinician
+// may view the shared patient record's status history).
+export type PatientStatusChange = {
+  id: string;
+  at: string | null;
+  from: string | null;
+  to: string | null;
+  changedBy: string | null;
+};
+
+export const getPatientStatusChanges = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }): Promise<PatientStatusChange[]> => {
+    const supabaseAdmin = await getAdmin();
+    const { data: rows, error } = await supabaseAdmin
+      .from("record_audit")
+      .select("id, created_at, before, after, changed_fields, actor_id, actor_email")
+      .eq("entity", "patients")
+      .eq("record_id", data.id)
+      .eq("action", "update")
+      .contains("changed_fields", ["status"])
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw safeDbError(error);
+
+    const list = rows ?? [];
+    const actorIds = Array.from(
+      new Set(list.map((r) => r.actor_id).filter((v): v is string => !!v)),
+    );
+    const names = new Map<string, string>();
+    if (actorIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, display_name, full_name")
+        .in("id", actorIds);
+      for (const p of profiles ?? []) {
+        const label = (p.full_name || p.display_name || "").trim();
+        if (label) names.set(p.id, label);
+      }
+    }
+
+    return list.map((r) => {
+      const before = (r.before ?? {}) as Record<string, unknown>;
+      const after = (r.after ?? {}) as Record<string, unknown>;
+      const changedBy =
+        (r.actor_id && names.get(r.actor_id)) || r.actor_email || null;
+      return {
+        id: r.id as string,
+        at: (r.created_at as string) ?? null,
+        from: (before.status as string) ?? null,
+        to: (after.status as string) ?? null,
+        changedBy,
+      };
+    });
+  });
