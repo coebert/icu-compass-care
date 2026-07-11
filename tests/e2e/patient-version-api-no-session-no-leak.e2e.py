@@ -200,8 +200,10 @@ def main():
             context = browser.new_context(viewport={"width": 1280, "height": 1800})
             page = context.new_page()
 
-            # Never authenticate. Land on the public app shell.
-            page.goto(BASE_URL, wait_until="domcontentloaded")
+            # Never authenticate. Land on the public /auth page and let it settle
+            # so no in-flight redirect destroys the evaluate execution context.
+            page.goto(f"{BASE_URL}/auth", wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
 
             def reject(module, name, data=None, label=""):
                 out = page.evaluate(
