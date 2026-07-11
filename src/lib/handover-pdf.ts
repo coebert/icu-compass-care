@@ -226,15 +226,60 @@ export type HandoverPdfOptions = {
    * Default: "{title} - {timestamp}.pdf"
    */
   filenameFormat?: string;
+  /**
+   * Which columns to include, in display order. Defaults to all columns.
+   * An empty selection also falls back to all columns so the sheet is never
+   * blank.
+   */
+  columns?: HandoverColumnKey[];
 };
 
 
 const DEFAULT_TITLE = "ICU Handover Sheet";
 const DEFAULT_FOOTER = "Confidential — patient identifiable information";
 
-// Proportional column weights (must fit within available content width).
-const COLUMN_WEIGHTS = [28, 26, 32, 36, 36, 42, 44, 36, 36, 30];
-const COLUMN_TOTAL = COLUMN_WEIGHTS.reduce((a, b) => a + b, 0);
+/** Stable identifiers for each selectable handover column. */
+export type HandoverColumnKey =
+  | "patient"
+  | "location"
+  | "pmh"
+  | "admission"
+  | "management"
+  | "systems"
+  | "investigations"
+  | "microbiology"
+  | "tasks"
+  | "flags";
+
+/**
+ * The full set of handover columns in display order, each with a header, a
+ * proportional width weight, and a renderer. The user can choose which of
+ * these appear in the exported PDF; unselected columns are dropped and the
+ * remaining widths re-distribute to fill the page.
+ */
+export const HANDOVER_COLUMNS: {
+  key: HandoverColumnKey;
+  header: string;
+  weight: number;
+  render: (p: HandoverPatient) => string;
+}[] = [
+  { key: "patient", header: "Patient", weight: 28, render: identity },
+  { key: "location", header: "Location / status", weight: 26, render: location },
+  { key: "pmh", header: "Past medical history", weight: 32, render: (p) => p.past_medical_history || "—" },
+  { key: "admission", header: "Current admission", weight: 36, render: (p) => p.current_admission || "—" },
+  { key: "management", header: "Management", weight: 36, render: (p) => p.current_management || "—" },
+  { key: "systems", header: "Systems review", weight: 42, render: systemsReview },
+  { key: "investigations", header: "Most recent investigations", weight: 44, render: investigations },
+  { key: "microbiology", header: "Key microbiology", weight: 36, render: microbiology },
+  { key: "tasks", header: "Outstanding tasks", weight: 36, render: (p) => p.outstanding_tasks || "—" },
+  { key: "flags", header: "TEP / DNACPR / NOK", weight: 30, render: flags },
+];
+
+/** All column keys, used as the default (everything shown). */
+export const ALL_HANDOVER_COLUMN_KEYS: HandoverColumnKey[] = HANDOVER_COLUMNS.map(
+  (c) => c.key,
+);
+
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -294,40 +339,29 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   const bodyFontSize = 7 * fontScale;
   const headFontSize = 7.5 * fontScale;
 
+  // Resolve which columns to render (default to all; empty selection falls
+  // back to all so the sheet is never blank), keeping display order.
+  const requested = opts?.columns;
+  const selectedCols =
+    requested && requested.length > 0
+      ? HANDOVER_COLUMNS.filter((c) => requested.includes(c.key))
+      : HANDOVER_COLUMNS;
+  const cols = selectedCols.length > 0 ? selectedCols : HANDOVER_COLUMNS;
+  const columnTotal = cols.reduce((a, c) => a + c.weight, 0);
+
   // Distribute the proportional weights across the available content width so
   // the columns always span the page exactly, whatever the size/margin.
   const contentWidth = pageWidth - marginX * 2;
   const columnStyles: Record<number, { cellWidth: number; fontStyle?: "bold" }> = {};
-  COLUMN_WEIGHTS.forEach((w, i) => {
-    columnStyles[i] = { cellWidth: (w / COLUMN_TOTAL) * contentWidth };
+  cols.forEach((c, i) => {
+    columnStyles[i] = { cellWidth: (c.weight / columnTotal) * contentWidth };
   });
-  columnStyles[0].fontStyle = "bold";
+  // Bold the leading column (patient identity) when it is present first.
+  if (cols[0]?.key === "patient") columnStyles[0].fontStyle = "bold";
 
   autoTable(doc, {
-    head: [[
-      "Patient",
-      "Location / status",
-      "Past medical history",
-      "Current admission",
-      "Management",
-      "Systems review",
-      "Most recent investigations",
-      "Key microbiology",
-      "Outstanding tasks",
-      "TEP / DNACPR / NOK",
-    ]],
-    body: patients.map((p) => [
-      identity(p),
-      location(p),
-      p.past_medical_history || "—",
-      p.current_admission || "—",
-      p.current_management || "—",
-      systemsReview(p),
-      investigations(p),
-      microbiology(p),
-      p.outstanding_tasks || "—",
-      flags(p),
-    ]),
+    head: [cols.map((c) => c.header)],
+    body: patients.map((p) => cols.map((c) => c.render(p))),
     startY: subtitle ? 22 : 20,
     margin: { top: subtitle ? 22 : 18, left: marginX, right: marginX, bottom: 12 },
     tableWidth: contentWidth,
