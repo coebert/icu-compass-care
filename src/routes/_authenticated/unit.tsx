@@ -195,16 +195,19 @@ function UnitDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <StatCard icon={BedDouble} label="ICU beds occupied" value={`${stats.occupied}${stats.totalBeds ? `/${stats.totalBeds}` : ""}`} />
+        <StatCard icon={Wind} label="Ventilated / resp support" value={stats.ventilated.length} />
+        <StatCard icon={HeartPulse} label="On vasoactives" value={stats.vasoactive.length} tone="warn" />
+        <StatCard icon={Droplets} label="On RRT" value={stats.rrt.length} tone="warn" />
         <StatCard icon={ClipboardList} label="Open tasks" value={openTasks.length} sub={`${taskStats.critical.length} critical`} tone={taskStats.critical.length ? "danger" : "default"} />
         <StatCard icon={Clock} label="Overdue tasks" value={taskStats.overdue.length} tone={taskStats.overdue.length ? "danger" : "default"} />
+        <StatCard icon={Activity} label="Total active patients" value={active.length} />
+        <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
       </div>
-      {/* removed duplicate grid below */}
 
       <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <StatCard icon={Activity} label="Total active patients" value={active.length} />
-        <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
         <ListCard
           icon={ShieldAlert}
           title="Awaiting resus / escalation decision"
