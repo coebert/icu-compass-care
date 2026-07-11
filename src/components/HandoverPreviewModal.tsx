@@ -72,6 +72,8 @@ export function HandoverPreviewModal({
   const [pageSize, setPageSize] = useState<HandoverPageSize>("a4");
   const [marginX, setMarginX] = useState(8);
   const [fontScale, setFontScale] = useState(1);
+  const [columns, setColumns] = useState<HandoverColumnKey[]>(ALL_HANDOVER_COLUMN_KEYS);
+
 
   // Saved header/footer presets (persisted in localStorage across sessions).
   const [presets, setPresets] = useState<HandoverPreset[]>([]);
