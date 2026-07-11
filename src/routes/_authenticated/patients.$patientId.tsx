@@ -1259,9 +1259,26 @@ function PatientDetail() {
     observations: SectionState;
   }>({ investigations: "idle", microbiology: "idle", observations: "idle" });
 
+  // Critical fields that must be present for a safe, unambiguous handover sheet.
+  // Location (ward/bed) is treated as a single requirement since either
+  // identifies where the patient is.
+  const missingCriticalFields = (p: typeof patient): string[] => {
+    if (!p) return ["Patient record"];
+    const missing: string[] = [];
+    if (!p.full_name?.trim()) missing.push("Patient name");
+    if (!p.hospital_number?.trim()) missing.push("Hospital number");
+    if (!p.ward?.trim() && !p.bed?.trim()) missing.push("Location (ward/bed)");
+    if (!p.current_admission?.trim()) missing.push("Current admission");
+    return missing;
+  };
+
   const exportMut = useMutation({
     mutationFn: async () => {
       if (!patient) throw new Error("Patient record is still loading");
+      const missing = missingCriticalFields(patient);
+      if (missing.length > 0) {
+        throw new Error(`Missing required data: ${missing.join(", ")}`);
+      }
       setSectionStatus({
         investigations: "loading",
         microbiology: "loading",
@@ -1309,6 +1326,8 @@ function PatientDetail() {
       </div>
     );
 
+  const missingForHandover = missingCriticalFields(patient);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -1354,7 +1373,15 @@ function PatientDetail() {
             <Button
               variant="outline"
               className="gap-1.5"
-              onClick={() => exportMut.mutate()}
+              onClick={() => {
+                if (missingForHandover.length > 0) {
+                  toast.warning("Cannot generate handover PDF", {
+                    description: `Missing required data: ${missingForHandover.join(", ")}`,
+                  });
+                  return;
+                }
+                exportMut.mutate();
+              }}
               disabled={exportMut.isPending}
               aria-busy={exportMut.isPending}
             >
@@ -1368,6 +1395,12 @@ function PatientDetail() {
                 </>
               )}
             </Button>
+            {missingForHandover.length > 0 && !exportMut.isPending && (
+              <p className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Missing: {missingForHandover.join(", ")}
+              </p>
+            )}
             {exportMut.isPending && (
               <ul className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs" aria-live="polite">
                 {([
