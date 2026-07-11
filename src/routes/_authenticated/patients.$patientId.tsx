@@ -1067,6 +1067,15 @@ function PatientDetail() {
           />
         </div>
         <div className="ml-auto flex gap-2">
+          <PrefillFromReferral
+            patientId={patientId}
+            linked={Boolean(patient.source_referral_id)}
+            onDone={() => {
+              qc.invalidateQueries({ queryKey: ["patient", patientId] });
+              qc.invalidateQueries({ queryKey: ["patients"] });
+              qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
+            }}
+          />
           <Button
             variant="outline"
             className="gap-1.5"
