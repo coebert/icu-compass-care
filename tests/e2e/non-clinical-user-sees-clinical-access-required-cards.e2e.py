@@ -160,6 +160,18 @@ def goto(page, path):
     page.wait_for_timeout(1500)
 
 
+def wait_for_card(page):
+    """The card renders once the ['me'] query resolves; poll for it so a slow
+    role fetch doesn't race the DOM read."""
+    try:
+        page.wait_for_function(
+            "() => document.body.innerText.includes('Clinical access required')",
+            timeout=10000,
+        )
+    except Exception:
+        pass
+
+
 def main():
     user_id = None
     version_id = None
