@@ -205,7 +205,7 @@ describe("handover PDF antimicrobial & renal fields", () => {
     ).toBe("Diuretics, RRT");
   });
 
-  it("renders antimicrobial and renal fields into the systems column text", () => {
+  it("renders renal support in the systems column and antimicrobials in the micro column", () => {
     const p: HandoverPatient = {
       id: "1",
       status: "admitted",
@@ -219,18 +219,25 @@ describe("handover PDF antimicrobial & renal fields", () => {
     };
     const doc = buildHandoverPdf([p]);
     const table = (doc as any).lastAutoTable;
-    // Find the Systems review column index from the header row.
     const headerCells = table.head[0].cells as Record<string, any>;
-    const systemsIdx = Object.entries(headerCells).find(
-      ([, c]) => c.text.join(" ") === "Systems review",
-    )?.[0];
+    const colIdx = (header: string) =>
+      Object.entries(headerCells).find(([, c]) => c.text.join(" ") === header)?.[0];
+
+    // Renal support flags render in the Systems review column.
+    const systemsIdx = colIdx("Systems review");
     expect(systemsIdx).toBeTruthy();
-    const cellText = (table.body[0].cells[systemsIdx!].text as string[]).join(" ");
-    expect(cellText).toContain("Diuretics");
-    expect(cellText).toContain("RRT");
-    expect(cellText).toContain("Meropenem");
-    expect(cellText).toContain("Vancomycin");
+    const systemsText = (table.body[0].cells[systemsIdx!].text as string[]).join(" ");
+    expect(systemsText).toContain("Diuretics");
+    expect(systemsText).toContain("RRT");
+
+    // Antimicrobial course data renders in the Key microbiology (Micro) column.
+    const microIdx = colIdx("Key microbiology");
+    expect(microIdx).toBeTruthy();
+    const microText = (table.body[0].cells[microIdx!].text as string[]).join(" ");
+    expect(microText).toContain("Meropenem");
+    expect(microText).toContain("Vancomycin");
   });
+
 
   it("wraps long antimicrobial/renal content without overflowing the margins", () => {
     const marginX = 8;
