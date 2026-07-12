@@ -82,6 +82,8 @@ export function emptyPatient(): PatientFormValues {
     location_type: "icu",
     ward: "",
     bed: "",
+    parent_specialty: "",
+    specialty_consultant: "",
     status: "admitted",
     admission_date: "",
     discharge_date: "",
