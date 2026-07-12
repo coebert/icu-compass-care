@@ -35,3 +35,25 @@ jobs:
 
       - name: Production build
         run: bun run build
+
+  security:
+    name: Security findings scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scan dependencies
+        run: pip install --no-cache-dir requests
+
+      - name: Run security findings scan (fails if any finding reappears)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: bash tests/security/run-security-scan.sh
