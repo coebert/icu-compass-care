@@ -8,6 +8,8 @@ import {
   deriveSafetyFlags,
   parseAllergies,
   parseDailyGoals,
+  parseTepExclusions,
+  TEP_INTERVENTION_LABEL,
   type AllergySeverity,
 } from "@/lib/patient-safety";
 
