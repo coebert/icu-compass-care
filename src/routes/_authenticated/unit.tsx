@@ -481,6 +481,9 @@ function UnitDashboard() {
 
       <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
 
+      <RecentChangesCard changes={recentChanges} patientById={patientById} />
+
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ListCard
           icon={ShieldAlert}
