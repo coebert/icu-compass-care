@@ -208,21 +208,41 @@ export function MicroStatus({
   });
 
   // Merge saved names with any already on this patient so freshly-entered
-  // agents are immediately available as suggestions.
-  const agentOptions = Array.from(
-    new Set([
+  // agents are immediately available as suggestions. De-duplicate
+  // case-insensitively so "Clarithromycin" and "clarithromycin" collapse to a
+  // single canonical suggestion (first spelling seen wins).
+  const agentOptions = (() => {
+    const byLower = new Map<string, string>();
+    for (const raw of [
       ...nameOptions,
       ...agents.map((a) => a.name?.trim()).filter((n): n is string => !!n),
-    ]),
-  ).sort((a, b) => a.localeCompare(b));
+    ]) {
+      const key = raw.toLowerCase();
+      if (!byLower.has(key)) byLower.set(key, raw);
+    }
+    return Array.from(byLower.values()).sort((a, b) => a.localeCompare(b));
+  })();
+
+  // Snap a typed name to an existing agent's spelling when it matches
+  // case-insensitively, so casing differences never create a duplicate.
+  const canonicalizeName = (input: string): string => {
+    const trimmed = input.trim();
+    const match = agentOptions.find((o) => o.toLowerCase() === trimmed.toLowerCase());
+    return match ?? trimmed;
+  };
 
   const add = () => {
-    const trimmed = name.trim();
+    const trimmed = canonicalizeName(name);
     if (!trimmed) return;
+    if (agents.some((a) => a.name?.trim().toLowerCase() === trimmed.toLowerCase())) {
+      toast.error(`${trimmed} is already listed for this patient`);
+      return;
+    }
     mut.mutate([...agents, { name: trimmed, started_on: startedOn }]);
     setName("");
     setStartedOn(new Date().toISOString().slice(0, 10));
   };
+
 
   const remove = (idx: number) => {
     mut.mutate(agents.filter((_, i) => i !== idx));
