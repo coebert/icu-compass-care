@@ -286,18 +286,13 @@ export function MicroStatus({
         {isEditing ? (
           <>
             <div className="flex flex-wrap items-end gap-2">
-              <div className="flex-1 min-w-[140px]">
+              <div className="flex-1 min-w-[180px]">
                 <label className="mb-1 block text-xs text-muted-foreground">Agent</label>
-                <Input
-                  autoFocus
-                  className="h-8"
+                <SpecimenTypeCombobox
                   value={editName}
-                  disabled={mut.isPending}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveEdit(i);
-                    if (e.key === "Escape") cancelEdit();
-                  }}
+                  onChange={setEditName}
+                  options={agentOptions}
+                  placeholder="Search or type agent…"
                 />
               </div>
               <div>
