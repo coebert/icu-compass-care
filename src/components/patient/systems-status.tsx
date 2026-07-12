@@ -289,7 +289,9 @@ export function MicroStatus({
     if (!trimmed || !editStart) return;
     if (
       agents.some(
-        (a, i) => i !== idx && a.name?.trim().toLowerCase() === trimmed.toLowerCase(),
+        (a, i) =>
+          i !== idx &&
+          normalizeAntimicrobialName(a.name ?? "").toLowerCase() === trimmed.toLowerCase(),
       )
     ) {
       toast.error(`${trimmed} is already listed for this patient`);
