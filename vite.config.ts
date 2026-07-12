@@ -5,7 +5,10 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
+
+const tslibEsmPath = fileURLToPath(new URL("./node_modules/tslib/tslib.es6.mjs", import.meta.url));
 
 /**
  * The bundled dev devtools plugin injects `data-tsd-source="file:line:col"`
@@ -45,5 +48,14 @@ export default defineConfig({
   },
   vite: {
     plugins: [stripTsdSourceAttr()],
+    resolve: {
+      alias: {
+        // @simplewebauthn/server pulls in @peculiar/* packages that import
+        // tslib helpers. In the Worker SSR bundle, resolving tslib through its
+        // CommonJS entry can produce `__toESM(...).default === undefined` and
+        // crash every route at startup. Force the ESM helper entry instead.
+        tslib: tslibEsmPath,
+      },
+    },
   },
 });
