@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { updatePatient } from "@/lib/patients.functions";
+import { updatePatient, listAntimicrobialNames } from "@/lib/patients.functions";
+import { SpecimenTypeCombobox } from "@/components/SpecimenTypeCombobox";
 import {
   CheckboxOptionGroup,
   SystemMultiSelectCard,
@@ -176,6 +177,12 @@ export function MicroStatus({
 }) {
   const qc = useQueryClient();
   const update = useServerFn(updatePatient);
+  const fetchNames = useServerFn(listAntimicrobialNames);
+  const { data: nameOptions = [] } = useQuery({
+    queryKey: ["antimicrobial-names"],
+    queryFn: () => fetchNames(),
+    staleTime: 60_000,
+  });
 
   const agents: Antimicrobial[] = Array.isArray(patient.antimicrobials)
     ? patient.antimicrobials
@@ -193,9 +200,21 @@ export function MicroStatus({
   const mut = useMutation({
     mutationFn: (next: Antimicrobial[]) =>
       update({ data: { id: patientId, antimicrobials: next } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["antimicrobial-names"] });
+    },
     onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
   });
+
+  // Merge saved names with any already on this patient so freshly-entered
+  // agents are immediately available as suggestions.
+  const agentOptions = Array.from(
+    new Set([
+      ...nameOptions,
+      ...agents.map((a) => a.name?.trim()).filter((n): n is string => !!n),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
 
   const add = () => {
     const trimmed = name.trim();
@@ -267,18 +286,13 @@ export function MicroStatus({
         {isEditing ? (
           <>
             <div className="flex flex-wrap items-end gap-2">
-              <div className="flex-1 min-w-[140px]">
+              <div className="flex-1 min-w-[180px]">
                 <label className="mb-1 block text-xs text-muted-foreground">Agent</label>
-                <Input
-                  autoFocus
-                  className="h-8"
+                <SpecimenTypeCombobox
                   value={editName}
-                  disabled={mut.isPending}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveEdit(i);
-                    if (e.key === "Escape") cancelEdit();
-                  }}
+                  onChange={setEditName}
+                  options={agentOptions}
+                  placeholder="Search or type agent…"
                 />
               </div>
               <div>
@@ -423,21 +437,15 @@ export function MicroStatus({
           </div>
         )}
         <div className="mt-3 flex flex-wrap items-end gap-2">
-          <div className="flex-1 min-w-[140px]">
+          <div className="flex-1 min-w-[180px]">
             <label className="mb-1 block text-xs text-muted-foreground">
               Agent
             </label>
-            <Input
+            <SpecimenTypeCombobox
               value={name}
-              placeholder="e.g. Piperacillin/tazobactam"
-              disabled={mut.isPending}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  add();
-                }
-              }}
+              onChange={setName}
+              options={agentOptions}
+              placeholder="Search or type agent…"
             />
           </div>
           <div>
