@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Pencil, Check, X } from "lucide-react";
 import { updatePatient } from "@/lib/patients.functions";
 
 export type SystemOption = { value: string; label: string };
@@ -75,6 +80,7 @@ export function SystemMultiSelectCard({
   groupLabel,
   options,
   notesLabel,
+  notesField,
   notes,
 }: {
   patientId: string;
@@ -83,6 +89,7 @@ export function SystemMultiSelectCard({
   groupLabel: string;
   options: SystemOption[];
   notesLabel: string;
+  notesField: string;
   notes?: string | null;
 }) {
   const mut = usePatientFieldMutation(patientId);
@@ -95,17 +102,113 @@ export function SystemMultiSelectCard({
         onToggle={(v) => mut.mutate({ [arrayField]: toggleValue(selected, v) })}
         disabled={mut.isPending}
       />
-      <SystemNotes label={notesLabel} value={notes} />
+      <EditableField
+        patientId={patientId}
+        field={notesField}
+        label={notesLabel}
+        value={notes}
+        multiline
+      />
     </div>
   );
 }
 
-/** Notes block used by every systems card. */
-export function SystemNotes({ label, value }: { label: string; value?: string | null }) {
+/**
+ * An inline-editable field bound to a single patient column. Shows the current
+ * value as read-only text with a small pencil; clicking it reveals an input
+ * (single-line) or textarea (multiline) with save/cancel, saved directly from
+ * this page without opening the full edit dialog.
+ */
+export function EditableField({
+  patientId,
+  field,
+  label,
+  value,
+  multiline,
+  placeholder,
+}: {
+  patientId: string;
+  field: string;
+  label: string;
+  value?: string | null;
+  multiline?: boolean;
+  placeholder?: string;
+}) {
+  const mut = usePatientFieldMutation(patientId);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const start = () => {
+    setDraft(value ?? "");
+    setEditing(true);
+  };
+
+  const save = () => {
+    const next = draft.trim();
+    if (next === (value?.trim() ?? "")) {
+      setEditing(false);
+      return;
+    }
+    mut.mutate(
+      { [field]: next || null },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
+
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap text-sm">{value?.trim() ? value : "—"}</p>
+      {editing ? (
+        <div className="mt-1 space-y-2">
+          {multiline ? (
+            <Textarea
+              autoFocus
+              value={draft}
+              placeholder={placeholder}
+              disabled={mut.isPending}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={3}
+            />
+          ) : (
+            <Input
+              autoFocus
+              value={draft}
+              placeholder={placeholder}
+              disabled={mut.isPending}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") save();
+                if (e.key === "Escape") setEditing(false);
+              }}
+            />
+          )}
+          <div className="flex gap-2">
+            <Button type="button" size="sm" className="h-8" disabled={mut.isPending} onClick={save}>
+              <Check className="mr-1 h-4 w-4" /> Save
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8"
+              disabled={mut.isPending}
+              onClick={() => setEditing(false)}
+            >
+              <X className="mr-1 h-4 w-4" /> Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={start}
+          className="group mt-1 flex w-full items-start gap-2 rounded-md text-left hover:bg-muted/50"
+        >
+          <span className="flex-1 whitespace-pre-wrap text-sm">{value?.trim() ? value : "—"}</span>
+          <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        </button>
+      )}
     </div>
   );
 }
+
