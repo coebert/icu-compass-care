@@ -863,6 +863,10 @@ const DraggablePatientLink = React.forwardRef<
     onDragEndPatient?: () => void;
     onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
     suppressClickRef?: React.MutableRefObject<boolean>;
+    onSummaryLongPress?: {
+      start: (e: React.PointerEvent) => void;
+      cancel: () => void;
+    };
   } & React.HTMLAttributes<HTMLAnchorElement>
 >(function DraggablePatientLink(
   {
@@ -872,6 +876,7 @@ const DraggablePatientLink = React.forwardRef<
     onDragEndPatient,
     onTouchDragStart,
     suppressClickRef,
+    onSummaryLongPress,
     // Handlers injected by HoverCardTrigger (asChild) that must be merged so
     // hover/focus still opens the summary panel while our drag/click logic runs.
     onPointerEnter,
@@ -882,6 +887,10 @@ const DraggablePatientLink = React.forwardRef<
   },
   ref,
 ) {
+  // Tracks a touch long-press so the trailing click doesn't navigate away.
+  const longPressFiredRef = useRef(false);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+
   return (
     <Link
       ref={ref}
@@ -890,19 +899,36 @@ const DraggablePatientLink = React.forwardRef<
       draggable={!!onDragStartPatient}
       onDragStart={(e) => onDragStartPatient?.(p, e)}
       onDragEnd={() => onDragEndPatient?.()}
-      onPointerDown={(e) => onTouchDragStart?.(p, e)}
+      onPointerDown={(e) => {
+        if (e.pointerType === "touch") {
+          longPressFiredRef.current = false;
+          startRef.current = { x: e.clientX, y: e.clientY };
+          onSummaryLongPress?.start(e);
+        }
+        onTouchDragStart?.(p, e);
+      }}
+      onPointerMove={(e) => {
+        // A real move means the user is scrolling/dragging, not long-pressing.
+        if (startRef.current) {
+          const dx = Math.abs(e.clientX - startRef.current.x);
+          const dy = Math.abs(e.clientY - startRef.current.y);
+          if (dx > 8 || dy > 8) onSummaryLongPress?.cancel();
+        }
+      }}
+      onPointerUp={() => onSummaryLongPress?.cancel()}
+      onPointerCancel={() => onSummaryLongPress?.cancel()}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onFocus={onFocus}
       onBlur={onBlur}
       onClick={(e) => {
-        // Swallow the click that trails a touch-drag so it doesn't navigate.
+        // Swallow the click that trails a touch-drag or long-press so it doesn't navigate.
         if (suppressClickRef?.current) {
           e.preventDefault();
           suppressClickRef.current = false;
         }
       }}
-      style={onTouchDragStart ? { touchAction: "pan-y" } : undefined}
+      style={{ touchAction: "pan-y", ...(rest.style ?? {}) }}
       className={onDragStartPatient ? "block cursor-grab active:cursor-grabbing" : "block cursor-pointer"}
       {...rest}
     >
