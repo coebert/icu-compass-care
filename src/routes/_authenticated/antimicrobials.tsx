@@ -154,22 +154,82 @@ function AntimicrobialLibrary() {
         </CardContent>
       </Card>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search names"
-          className="pl-9"
-        />
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search names"
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={letter === "all" ? "default" : "outline"}
+            className="h-7 px-2.5"
+            onClick={() => setLetter("all")}
+          >
+            All
+          </Button>
+          {ALPHABET.map((l) => {
+            const enabled = availableLetters.has(l);
+            return (
+              <Button
+                key={l}
+                type="button"
+                size="sm"
+                variant={letter === l ? "default" : "outline"}
+                className="h-7 w-7 p-0"
+                disabled={!enabled}
+                onClick={() => setLetter(l)}
+              >
+                {l}
+              </Button>
+            );
+          })}
+        </div>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {names.length === 0 ? "No names yet. Add your first antimicrobial above." : "No names match your search."}
-        </p>
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 p-8 text-center">
+            <Search className="h-8 w-8 text-muted-foreground" />
+            {names.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No names yet. Add your first antimicrobial above.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  No names match {search.trim() ? `"${search.trim()}"` : "this filter"}
+                  {letter !== "all" ? ` under "${letter}"` : ""}.
+                </p>
+                {hasActiveFilters && (
+                  <Button size="sm" variant="outline" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
       ) : (
         <div className="grid gap-2">
           {filtered.map((row) => (
