@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff, Share2 } from "lucide-react";
+import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff, Share2, Pill } from "lucide-react";
 import { toast } from "sonner";
 import { BridgeSecurityPanel } from "@/components/BridgeSecurityPanel";
 
@@ -107,6 +107,11 @@ function AdminPage() {
           <p className="text-sm text-muted-foreground">Create and manage who can access the handover.</p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
+            <Link to="/antimicrobials">
+              <Pill className="h-4 w-4" /> Antimicrobial library
+            </Link>
+          </Button>
           <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
             <Link to="/patients/sharing">
               <Share2 className="h-4 w-4" /> Partner sharing

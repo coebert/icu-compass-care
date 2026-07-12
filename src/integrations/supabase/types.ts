@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      antimicrobial_library: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: Database["public"]["Enums"]["audit_action"]
