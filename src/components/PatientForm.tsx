@@ -428,21 +428,59 @@ export function PatientForm({
           <Switch checked={values.tep_in_place} onCheckedChange={(v) => set("tep_in_place", v)} />
         </div>
         {values.tep_in_place && (
-          <Field label="TEP details">
-            <Textarea
-              rows={2}
-              value={values.tep_details}
-              onChange={(e) => set("tep_details", e.target.value)}
-              aria-invalid={tepDetailsMissing}
-            />
+          <>
+            <Field label="TEP details">
+              <Textarea
+                rows={2}
+                value={values.tep_details}
+                onChange={(e) => set("tep_details", e.target.value)}
+                aria-invalid={tepDetailsMissing}
+              />
 
-            {tepDetailsMissing && (
-              <p role="alert" className="text-sm text-destructive">
-                TEP details are required when a treatment escalation plan is in place.
+              {tepDetailsMissing && (
+                <p role="alert" className="text-sm text-destructive">
+                  TEP details are required when a treatment escalation plan is in place.
+                </p>
+              )}
+            </Field>
+
+            <Field label="Not for the following interventions">
+              <div className="flex flex-wrap gap-2">
+                {TEP_INTERVENTIONS.map((intv) => {
+                  const active = values.tep_exclusions.includes(intv.key);
+                  return (
+                    <button
+                      key={intv.key}
+                      type="button"
+                      aria-pressed={active}
+                      title={intv.full}
+                      onClick={() =>
+                        set(
+                          "tep_exclusions",
+                          active
+                            ? values.tep_exclusions.filter((k) => k !== intv.key)
+                            : [...values.tep_exclusions, intv.key],
+                        )
+                      }
+                      className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                        active
+                          ? "border-destructive bg-destructive/10 text-destructive font-medium"
+                          : "border-input text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {active ? "✕ " : ""}
+                      {intv.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select interventions this patient should <strong>not</strong> receive.
               </p>
-            )}
-          </Field>
+            </Field>
+          </>
         )}
+
 
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>
