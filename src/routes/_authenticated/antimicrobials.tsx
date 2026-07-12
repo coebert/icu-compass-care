@@ -37,6 +37,7 @@ function AntimicrobialLibrary() {
   const remove = useServerFn(deleteAntimicrobialName);
 
   const [search, setSearch] = useState("");
+  const [letter, setLetter] = useState<string>("all");
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
