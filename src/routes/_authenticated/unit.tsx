@@ -381,6 +381,10 @@ function UnitDashboard() {
     queryKey: ["open-tasks"],
     queryFn: () => openTasksFn() as Promise<OpenTask[]>,
   });
+  const { data: recentChanges = [] } = useQuery({
+    queryKey: ["recent-field-changes"],
+    queryFn: () => recentChangesFn() as Promise<FieldChange[]>,
+  });
   const latestObsFn = useServerFn(listLatestObservations);
   const { data: latestObs = [] } = useQuery({
     queryKey: ["latest-observations"],
