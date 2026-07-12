@@ -253,9 +253,13 @@ function PatientDetail() {
                 <ClipboardPlus className="h-3 w-3" /> From referral
               </Badge>
             )}
-            {patient.shared_with_partner && (
+            {patient.shared_with_partner ? (
               <Badge variant="outline" className="gap-1 border-sky-300 text-sky-700 dark:text-sky-300">
                 <Share2 className="h-3 w-3" /> Shared with partner
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <ShieldOff className="h-3 w-3" /> Not shared with partner
               </Badge>
             )}
 
