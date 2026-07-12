@@ -142,6 +142,7 @@ function fmtDue(due: string | null): { text: string; overdue: boolean } | null {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
   return { text, overdue };
 }
