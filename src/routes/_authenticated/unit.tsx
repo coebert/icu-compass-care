@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listPatients } from "@/lib/patients.functions";
+import { listPatients, listRecentFieldChanges } from "@/lib/patients.functions";
 import { listOpenTasks, TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/patient-tasks.functions";
 import { listInSituLines, LINE_TYPE_LABEL, LINE_REVIEW_DAYS, type LineType } from "@/lib/lines.functions";
 import { daysInSitu } from "@/lib/lines";
@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Wind,
   Cable,
+  History,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/unit")({
@@ -305,8 +306,66 @@ type OpenTask = {
   status: string;
 };
 
+type FieldChange = {
+  id: string;
+  patient_id: string;
+  field_name: string;
+  changed_at: string;
+  changed_by_email: string | null;
+};
+
+function RecentChangesCard({
+  changes,
+  patientById,
+}: {
+  changes: FieldChange[];
+  patientById: Map<string, Record<string, any>>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <History className="h-4 w-4" /> Recent changes (unit-wide)
+          <Badge variant="secondary" className="ml-auto">{changes.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {changes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No recent changes recorded.</p>
+        ) : (
+          <ul className="divide-y text-sm">
+            {changes.map((c) => {
+              const p = patientById.get(c.patient_id);
+              return (
+                <li key={c.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5">
+                  {p ? (
+                    <PatientName patient={p} className="font-medium" />
+                  ) : (
+                    <span className="font-medium text-muted-foreground">Unknown patient</span>
+                  )}
+                  <span className="text-muted-foreground">{c.field_name.replace(/_/g, " ")}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {new Date(c.changed_at).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {c.changed_by_email ? ` · ${c.changed_by_email}` : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function UnitDashboard() {
   const list = useServerFn(listPatients);
+  const recentChangesFn = useServerFn(listRecentFieldChanges);
   const beds = useServerFn(listBeds);
   const openTasksFn = useServerFn(listOpenTasks);
 
@@ -321,6 +380,10 @@ function UnitDashboard() {
   const { data: openTasks = [] } = useQuery({
     queryKey: ["open-tasks"],
     queryFn: () => openTasksFn() as Promise<OpenTask[]>,
+  });
+  const { data: recentChanges = [] } = useQuery({
+    queryKey: ["recent-field-changes"],
+    queryFn: () => recentChangesFn() as Promise<FieldChange[]>,
   });
   const latestObsFn = useServerFn(listLatestObservations);
   const { data: latestObs = [] } = useQuery({
@@ -417,6 +480,9 @@ function UnitDashboard() {
       />
 
       <OpenTasksCard tasks={taskStats.sorted} patientById={patientById} />
+
+      <RecentChangesCard changes={recentChanges} patientById={patientById} />
+
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ListCard
