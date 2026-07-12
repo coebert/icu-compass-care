@@ -101,6 +101,7 @@ export function emptyPatient(): PatientFormValues {
     isolation_required: false,
     tep_in_place: false,
     tep_details: "",
+    tep_exclusions: [],
     dnacpr_decision: false,
     dnacpr_details: "",
     dnacpr_date: "",
