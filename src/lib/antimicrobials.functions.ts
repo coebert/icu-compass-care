@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
+import { normalizeAntimicrobialName } from "@/lib/antimicrobials";
 
 // Central library of antimicrobial agent names that staff can manage in one
 // place. Names are stored once and reused as suggestions across the app. A
@@ -16,9 +17,8 @@ export type AntimicrobialLibraryRow = {
 
 const nameSchema = z
   .string()
-  .trim()
-  .min(1, "Name is required")
-  .max(120, "Name is too long");
+  .transform(normalizeAntimicrobialName)
+  .pipe(z.string().min(1, "Name is required").max(120, "Name is too long"));
 
 export const listAntimicrobialLibrary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

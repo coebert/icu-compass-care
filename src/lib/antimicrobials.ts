@@ -7,6 +7,16 @@ export type Antimicrobial = {
   ended_on?: string | null;
 };
 
+/**
+ * Normalize an antimicrobial name so trivial spacing/casing differences can't
+ * create duplicates. Trims the ends and collapses any run of internal
+ * whitespace to a single space. Casing is preserved for display; callers that
+ * compare for duplicates should lowercase the result.
+ */
+export function normalizeAntimicrobialName(name: string): string {
+  return name.replace(/\s+/g, " ").trim();
+}
+
 /** Whole-day inclusive course length between a start and (end|today), or null. */
 export function courseDays(startedOn?: string | null, endedOn?: string | null): number | null {
   if (!startedOn) return null;
