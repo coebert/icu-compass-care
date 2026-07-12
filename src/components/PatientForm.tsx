@@ -56,6 +56,7 @@ export type PatientFormValues = {
   isolation_required: boolean;
   tep_in_place: boolean;
   tep_details: string;
+  tep_exclusions: TepInterventionKey[];
   dnacpr_decision: boolean;
   dnacpr_details: string;
   dnacpr_date: string;
