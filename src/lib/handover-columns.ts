@@ -11,7 +11,7 @@ import {
   latestMicrobiologyPerSpecimen,
   mostRecentInvestigation,
 } from "@/lib/handover-recency";
-import { summariseAllergies } from "@/lib/patient-safety";
+import { summariseAllergies, summariseTepExclusions } from "@/lib/patient-safety";
 import {
   latestObservation,
   meanArterialPressure,
@@ -48,7 +48,12 @@ function location(p: HandoverPatient): string {
 function flags(p: HandoverPatient): string {
   const f: string[] = [];
   if (p.dnacpr_decision) f.push(`DNACPR${p.dnacpr_details ? `: ${p.dnacpr_details}` : ""}`);
-  if (p.tep_in_place) f.push(`TEP${p.tep_details ? `: ${p.tep_details}` : ""}`);
+  if (p.tep_in_place) {
+    const notFor = summariseTepExclusions(p.tep_exclusions);
+    f.push(
+      `TEP${p.tep_details ? `: ${p.tep_details}` : ""}${notFor ? ` (Not for: ${notFor})` : ""}`,
+    );
+  }
   if (p.nok_name) {
     const spoken = p.nok_last_updated
       ? ` [Spoken to ${fmtDateTime(p.nok_last_updated)}${p.nok_last_updated_by ? ` by ${p.nok_last_updated_by}` : ""}]`

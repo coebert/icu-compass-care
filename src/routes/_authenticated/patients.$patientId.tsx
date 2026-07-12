@@ -10,6 +10,7 @@ import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summa
 import { ObservationsCard } from "@/components/patient/observations-card";
 import { LinesCard } from "@/components/patient/lines-card";
 import { InfoBlock } from "@/components/patient/shared";
+import { parseTepExclusions, TEP_INTERVENTION_LABEL } from "@/lib/patient-safety";
 import {
   RespiratoryStatus,
   CardiovascularStatus,
@@ -480,7 +481,33 @@ function PatientDetail() {
                 <Badge variant={patient.tep_in_place ? "default" : "secondary"}>
                   {patient.tep_in_place ? "TEP in place" : "No TEP recorded"}
                 </Badge>
+                {(() => {
+                  const excl = parseTepExclusions(patient.tep_exclusions);
+                  return (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Not for
+                      </p>
+                      {excl.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No intervention limits recorded.</p>
+                      ) : (
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {excl.map((k) => (
+                            <Badge
+                              key={k}
+                              variant="outline"
+                              className="border-destructive text-destructive"
+                            >
+                              ✕ {TEP_INTERVENTION_LABEL[k]}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 <InfoBlock label="Details" value={patient.tep_details} />
+
               </CardContent>
             </Card>
             <Card>

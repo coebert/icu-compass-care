@@ -71,6 +71,7 @@ export const patientInput = z.object({
   isolation_required: z.boolean(),
   tep_in_place: z.boolean(),
   tep_details: z.string().max(10000).optional().nullable(),
+  tep_exclusions: z.array(z.enum(["hfno", "niv", "ivv", "cvvh", "vasopressors"])).optional(),
   dnacpr_decision: z.boolean(),
   dnacpr_details: z.string().max(10000).optional().nullable(),
   dnacpr_date: z.string().optional().nullable(),

@@ -28,6 +28,7 @@ const FIELD_LABEL: Record<string, string> = {
   dnacpr_details: "DNACPR details",
   tep_in_place: "TEP in place",
   tep_details: "TEP details",
+  tep_exclusions: "TEP — not for",
   isolation_required: "Isolation",
   airway_type: "Airway",
   nutrition_route: "Nutrition",

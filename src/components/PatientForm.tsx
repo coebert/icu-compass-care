@@ -18,11 +18,14 @@ import {
   ALLERGY_SEVERITIES,
   ALLERGY_SEVERITY_LABEL,
   DAILY_GOAL_ITEMS,
+  TEP_INTERVENTIONS,
   parseAllergies,
   parseDailyGoals,
+  parseTepExclusions,
   type AllergyEntry,
   type AllergySeverity,
   type DailyGoals,
+  type TepInterventionKey,
 } from "@/lib/patient-safety";
 
 export type PatientFormValues = {
@@ -53,6 +56,7 @@ export type PatientFormValues = {
   isolation_required: boolean;
   tep_in_place: boolean;
   tep_details: string;
+  tep_exclusions: TepInterventionKey[];
   dnacpr_decision: boolean;
   dnacpr_details: string;
   dnacpr_date: string;
@@ -97,6 +101,7 @@ export function emptyPatient(): PatientFormValues {
     isolation_required: false,
     tep_in_place: false,
     tep_details: "",
+    tep_exclusions: [],
     dnacpr_decision: false,
     dnacpr_details: "",
     dnacpr_date: "",
@@ -123,6 +128,8 @@ export function toFormValues(p: Record<string, unknown>): PatientFormValues {
       out.allergies = parseAllergies(v);
     } else if (key === "daily_goals") {
       out.daily_goals = parseDailyGoals(v);
+    } else if (key === "tep_exclusions") {
+      out.tep_exclusions = parseTepExclusions(v);
     } else if (key === "nok_last_updated" && typeof v === "string") {
       // datetime-local expects yyyy-MM-ddThh:mm
       out[key] = v.slice(0, 16) as never;
@@ -421,21 +428,59 @@ export function PatientForm({
           <Switch checked={values.tep_in_place} onCheckedChange={(v) => set("tep_in_place", v)} />
         </div>
         {values.tep_in_place && (
-          <Field label="TEP details">
-            <Textarea
-              rows={2}
-              value={values.tep_details}
-              onChange={(e) => set("tep_details", e.target.value)}
-              aria-invalid={tepDetailsMissing}
-            />
+          <>
+            <Field label="TEP details">
+              <Textarea
+                rows={2}
+                value={values.tep_details}
+                onChange={(e) => set("tep_details", e.target.value)}
+                aria-invalid={tepDetailsMissing}
+              />
 
-            {tepDetailsMissing && (
-              <p role="alert" className="text-sm text-destructive">
-                TEP details are required when a treatment escalation plan is in place.
+              {tepDetailsMissing && (
+                <p role="alert" className="text-sm text-destructive">
+                  TEP details are required when a treatment escalation plan is in place.
+                </p>
+              )}
+            </Field>
+
+            <Field label="Not for the following interventions">
+              <div className="flex flex-wrap gap-2">
+                {TEP_INTERVENTIONS.map((intv) => {
+                  const active = values.tep_exclusions.includes(intv.key);
+                  return (
+                    <button
+                      key={intv.key}
+                      type="button"
+                      aria-pressed={active}
+                      title={intv.full}
+                      onClick={() =>
+                        set(
+                          "tep_exclusions",
+                          active
+                            ? values.tep_exclusions.filter((k) => k !== intv.key)
+                            : [...values.tep_exclusions, intv.key],
+                        )
+                      }
+                      className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                        active
+                          ? "border-destructive bg-destructive/10 text-destructive font-medium"
+                          : "border-input text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {active ? "✕ " : ""}
+                      {intv.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select interventions this patient should <strong>not</strong> receive.
               </p>
-            )}
-          </Field>
+            </Field>
+          </>
         )}
+
 
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div>

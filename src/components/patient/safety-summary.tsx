@@ -8,6 +8,8 @@ import {
   deriveSafetyFlags,
   parseAllergies,
   parseDailyGoals,
+  parseTepExclusions,
+  TEP_INTERVENTION_LABEL,
   type AllergySeverity,
 } from "@/lib/patient-safety";
 
@@ -25,6 +27,7 @@ export function SafetySummary({ patient }: { patient: Record<string, unknown> })
   const flags = deriveSafetyFlags(patient);
   const allergies = parseAllergies(patient.allergies);
   const weight = patient.weight_kg != null ? `${patient.weight_kg} kg` : null;
+  const tepExclusions = parseTepExclusions(patient.tep_exclusions);
 
   return (
     <Card className={allergies.length > 0 ? "border-rose-300 dark:border-rose-900" : undefined}>
@@ -57,6 +60,20 @@ export function SafetySummary({ patient }: { patient: Record<string, unknown> })
             </Badge>
           )}
         </div>
+
+        {tepExclusions.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Not for</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {tepExclusions.map((k) => (
+                <Badge key={k} variant="outline" className="gap-1 border-destructive text-destructive">
+                  <AlertTriangle className="h-3 w-3" /> {TEP_INTERVENTION_LABEL[k]}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Allergies</p>

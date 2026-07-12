@@ -929,6 +929,7 @@ export type Database = {
           systems_renal: string | null
           systems_resp: string | null
           tep_details: string | null
+          tep_exclusions: string[]
           tep_in_place: boolean
           updated_at: string
           updated_by: string | null
@@ -991,6 +992,7 @@ export type Database = {
           systems_renal?: string | null
           systems_resp?: string | null
           tep_details?: string | null
+          tep_exclusions?: string[]
           tep_in_place?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1053,6 +1055,7 @@ export type Database = {
           systems_renal?: string | null
           systems_resp?: string | null
           tep_details?: string | null
+          tep_exclusions?: string[]
           tep_in_place?: boolean
           updated_at?: string
           updated_by?: string | null

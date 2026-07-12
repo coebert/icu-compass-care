@@ -9,7 +9,7 @@
 
 import type { HandoverPatient } from "@/lib/handover-types";
 import { STATUS_LABELS } from "@/lib/icu";
-import { DAILY_GOAL_ITEMS, parseDailyGoals } from "@/lib/patient-safety";
+import { DAILY_GOAL_ITEMS, parseDailyGoals, summariseTepExclusions } from "@/lib/patient-safety";
 
 /** A single comparable handover field with a human label and a renderer. */
 type CompareField = {
@@ -40,7 +40,12 @@ function renderLocation(p: HandoverPatient): string {
 
 function renderEscalation(p: HandoverPatient): string {
   const f: string[] = [];
-  if (p.tep_in_place) f.push(`TEP${p.tep_details ? `: ${p.tep_details}` : ""}`);
+  if (p.tep_in_place) {
+    const notFor = summariseTepExclusions(p.tep_exclusions);
+    f.push(
+      `TEP${p.tep_details ? `: ${p.tep_details}` : ""}${notFor ? ` (Not for: ${notFor})` : ""}`,
+    );
+  }
   else f.push("No TEP recorded");
   if (p.dnacpr_decision) {
     f.push(`DNACPR${p.dnacpr_details ? `: ${p.dnacpr_details}` : ""}`);
