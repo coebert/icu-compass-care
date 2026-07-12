@@ -446,6 +446,8 @@ function PatientDetail() {
           <RecentInvestigations patientId={patientId} />
           <Card>
             <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
+              <InfoBlock label="Parent specialty" value={patient.parent_specialty} />
+              <InfoBlock label="Specialty consultant" value={patient.specialty_consultant} />
               <InfoBlock label="Past medical history" value={patient.past_medical_history} />
               <InfoBlock label="Current admission" value={patient.current_admission} />
               <InfoBlock label="Current management" value={patient.current_management} />
