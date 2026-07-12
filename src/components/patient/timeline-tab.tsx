@@ -249,6 +249,65 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
+  // Horizontal timeline reads left (oldest) to right (newest).
+  const chronological = useMemo(
+    () =>
+      [...events].sort((a, b) => {
+        const ta = a.at ? new Date(a.at).getTime() : 0;
+        const tb = b.at ? new Date(b.at).getTime() : 0;
+        return ta - tb;
+      }),
+    [events],
+  );
+
+  const EventCard = ({ ev }: { ev: TimelineEvent }) => (
+    <Card className="w-full">
+      <CardContent className="space-y-1 p-3">
+        <div className="flex items-start gap-2">
+          <span
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${KIND_STYLE[ev.kind]}`}
+          >
+            {ev.icon}
+          </span>
+          <span className="text-sm font-medium leading-tight">{ev.title}</span>
+        </div>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
+        </span>
+        {ev.detail?.trim() && (
+          <p className="line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
+        )}
+        {ev.changedBy && (
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            <UserRound className="h-3 w-3" />
+            Changed by {ev.changedBy}
+          </p>
+        )}
+        {ev.kind === "event" && ev.eventId && (
+          <div className="flex gap-1 pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs"
+              onClick={() => openEdit(keyEvents.find((k) => k.id === ev.eventId) as PatientEvent)}
+            >
+              <Pencil className="h-3 w-3" /> Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs text-destructive"
+              onClick={() => deleteMut.mutate(ev.eventId as string)}
+            >
+              <Trash2 className="h-3 w-3" /> Remove
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -261,67 +320,57 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
         </Button>
       </div>
 
-      {events.length === 0 ? (
+      {chronological.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             No timeline events recorded yet.
           </CardContent>
         </Card>
       ) : (
-        <ol className="relative space-y-4 border-l border-border pl-6">
-          {events.map((ev) => (
-            <li key={ev.key} className="relative">
-              <span
-                className={`absolute -left-[35px] flex h-7 w-7 items-center justify-center rounded-full ${KIND_STYLE[ev.kind]}`}
-              >
-                {ev.icon}
-              </span>
-              <Card>
-                <CardContent className="space-y-1 p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{ev.title}</span>
-                    <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
+        <div className="overflow-x-auto pb-3">
+          <div className="relative flex min-w-max items-stretch gap-3 px-2 py-2">
+            {/* Central horizontal line running through every node */}
+            <div className="pointer-events-none absolute left-4 right-4 top-1/2 h-0.5 -translate-y-1/2 bg-border" />
+
+            {chronological.map((ev, i) => {
+              const above = i % 2 === 0;
+              return (
+                <div key={ev.key} className="relative flex w-56 shrink-0 flex-col">
+                  {/* Branch above the line */}
+                  <div className="flex min-h-[9rem] flex-1 flex-col items-center justify-end pb-1">
+                    {above && (
+                      <>
+                        <EventCard ev={ev} />
+                        <div className="h-4 w-px bg-border" />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Node sitting on the line */}
+                  <div className="relative z-10 flex items-center justify-center">
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-background ${KIND_STYLE[ev.kind]}`}
+                    >
+                      {ev.icon}
                     </span>
                   </div>
-                  {ev.detail?.trim() && (
-                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
-                  )}
-                  {ev.changedBy && (
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <UserRound className="h-3 w-3" />
-                      Changed by {ev.changedBy}
-                    </p>
-                  )}
-                  {ev.kind === "event" && ev.eventId && (
-                    <div className="flex gap-1 pt-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1 px-2 text-xs"
-                        onClick={() =>
-                          openEdit(keyEvents.find((k) => k.id === ev.eventId) as PatientEvent)
-                        }
-                      >
-                        <Pencil className="h-3 w-3" /> Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1 px-2 text-xs text-destructive"
-                        onClick={() => deleteMut.mutate(ev.eventId as string)}
-                      >
-                        <Trash2 className="h-3 w-3" /> Remove
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ol>
+
+                  {/* Branch below the line */}
+                  <div className="flex min-h-[9rem] flex-1 flex-col items-center justify-start pt-1">
+                    {!above && (
+                      <>
+                        <div className="h-4 w-px bg-border" />
+                        <EventCard ev={ev} />
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
+
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
