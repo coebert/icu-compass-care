@@ -25,6 +25,7 @@ import {
   type AllergyEntry,
   type AllergySeverity,
   type DailyGoals,
+  type TepInterventionKey,
 } from "@/lib/patient-safety";
 
 export type PatientFormValues = {
