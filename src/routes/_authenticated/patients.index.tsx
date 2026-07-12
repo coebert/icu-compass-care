@@ -895,22 +895,24 @@ function BedBoard({
                   </p>
                 )}
                 {occupants.map((p) => (
-                  <DraggablePatientLink
-                    key={p.id}
-                    p={p}
-                    onDragStartPatient={onDragStartPatient}
-                    onDragEndPatient={onDragEndPatient}
-                    onTouchDragStart={onTouchDragStart}
-                    suppressClickRef={suppressClickRef}
-                  >
-                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
-                      <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
-                        {label}
-                      </div>
-                      <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
-                    </Card>
-                  </DraggablePatientLink>
+                  <PatientHoverCard key={p.id} p={p}>
+                    <DraggablePatientLink
+                      p={p}
+                      onDragStartPatient={onDragStartPatient}
+                      onDragEndPatient={onDragEndPatient}
+                      onTouchDragStart={onTouchDragStart}
+                      suppressClickRef={suppressClickRef}
+                    >
+                      <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
+                        <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
+                          {label}
+                        </div>
+                        <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
+                      </Card>
+                    </DraggablePatientLink>
+                  </PatientHoverCard>
                 ))}
+
               </div>
             );
           }
