@@ -37,6 +37,7 @@ export function londonParts(d: Date): LondonParts {
     day: "2-digit",
     hour: "2-digit",
     hour12: false,
+    hourCycle: "h23",
   });
   const parts = Object.fromEntries(
     fmt.formatToParts(d).map((p) => [p.type, p.value]),
