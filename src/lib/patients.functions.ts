@@ -250,3 +250,25 @@ export const getPatientStatusChanges = createServerFn({ method: "GET" })
       };
     });
   });
+
+// Distinct antimicrobial agent names previously entered across all patients,
+// offered as suggestions when recording/editing an antimicrobial course.
+export const listAntimicrobialNames = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("patients")
+      .select("antimicrobials");
+    if (error) throw safeDbError(error);
+    const names = new Set<string>();
+    for (const row of data ?? []) {
+      const list = (row as { antimicrobials?: unknown }).antimicrobials;
+      if (!Array.isArray(list)) continue;
+      for (const a of list) {
+        const name = (a as { name?: unknown })?.name;
+        if (typeof name === "string" && name.trim()) names.add(name.trim());
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  });
+
