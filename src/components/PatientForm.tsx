@@ -35,6 +35,8 @@ export type PatientFormValues = {
   location_type: "icu" | "outlier";
   ward: string;
   bed: string;
+  parent_specialty: string;
+  specialty_consultant: string;
   status: "referred" | "admitted" | "discharged" | "died";
   admission_date: string;
   discharge_date: string;
