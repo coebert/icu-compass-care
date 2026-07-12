@@ -177,6 +177,12 @@ export function MicroStatus({
 }) {
   const qc = useQueryClient();
   const update = useServerFn(updatePatient);
+  const fetchNames = useServerFn(listAntimicrobialNames);
+  const { data: nameOptions = [] } = useQuery({
+    queryKey: ["antimicrobial-names"],
+    queryFn: () => fetchNames(),
+    staleTime: 60_000,
+  });
 
   const agents: Antimicrobial[] = Array.isArray(patient.antimicrobials)
     ? patient.antimicrobials
