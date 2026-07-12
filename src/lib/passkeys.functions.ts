@@ -40,6 +40,7 @@ export const startPasskeyRegistration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { rpID } = getRp();
+    const { generateRegistrationOptions } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: existing } = await db
@@ -87,6 +88,7 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { origin, rpID } = getRp();
+    const { verifyRegistrationResponse, isoBase64URL } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: ch } = await db
@@ -131,6 +133,7 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { rpID } = getRp();
+    const { generateAuthenticationOptions } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: creds } = await db
@@ -170,6 +173,7 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { origin, rpID } = getRp();
+    const { verifyAuthenticationResponse, isoBase64URL } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: ch } = await db
