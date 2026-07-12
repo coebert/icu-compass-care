@@ -232,6 +232,8 @@ export function PatientForm({
           </Field>
           <Field label="Ward"><Input id="pf-ward" value={values.ward} onChange={(e) => set("ward", e.target.value)} /></Field>
           <Field label="Bed"><Input value={values.bed} onChange={(e) => set("bed", e.target.value)} /></Field>
+          <Field label="Parent specialty"><Input id="pf-parent_specialty" value={values.parent_specialty} onChange={(e) => set("parent_specialty", e.target.value)} placeholder="e.g. General Surgery" /></Field>
+          <Field label="Specialty consultant"><Input id="pf-specialty_consultant" value={values.specialty_consultant} onChange={(e) => set("specialty_consultant", e.target.value)} placeholder="e.g. Mr Smith" /></Field>
           <Field label="Admission date">
             <DatePicker value={values.admission_date} onChange={(v) => set("admission_date", v)} />
           </Field>
