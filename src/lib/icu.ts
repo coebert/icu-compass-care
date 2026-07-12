@@ -17,6 +17,7 @@ export const INVESTIGATION_CATEGORIES = [
   "Bloods",
   "CXR",
   "CTAP",
+  "CTPA",
   "CT chest",
   "CT head",
   "Echo",
