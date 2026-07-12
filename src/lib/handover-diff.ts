@@ -9,7 +9,7 @@
 
 import type { HandoverPatient } from "@/lib/handover-types";
 import { STATUS_LABELS } from "@/lib/icu";
-import { DAILY_GOAL_ITEMS, parseDailyGoals } from "@/lib/patient-safety";
+import { DAILY_GOAL_ITEMS, parseDailyGoals, summariseTepExclusions } from "@/lib/patient-safety";
 
 /** A single comparable handover field with a human label and a renderer. */
 type CompareField = {
