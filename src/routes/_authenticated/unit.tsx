@@ -365,6 +365,7 @@ function RecentChangesCard({
 
 function UnitDashboard() {
   const list = useServerFn(listPatients);
+  const recentChangesFn = useServerFn(listRecentFieldChanges);
   const beds = useServerFn(listBeds);
   const openTasksFn = useServerFn(listOpenTasks);
 
