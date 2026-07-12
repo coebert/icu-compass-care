@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
+import { normalizeAntimicrobialName } from "@/lib/antimicrobials";
 
 // Central library of antimicrobial agent names that staff can manage in one
 // place. Names are stored once and reused as suggestions across the app. A
