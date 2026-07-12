@@ -119,6 +119,27 @@ function PatientsBoard() {
     return m;
   }, [latestObs]);
 
+  const latestKeyInvFn = useServerFn(listLatestKeyInvestigations);
+  const { data: latestKeyInv = [] } = useQuery({
+    queryKey: ["latest-key-investigations"],
+    queryFn: () =>
+      latestKeyInvFn() as Promise<
+        { patient_id: string; category: string; findings: string; result_at: string }[]
+      >,
+  });
+  const keyInvByPatient = useMemo(() => {
+    const m = new Map<string, KeyInvestigation>();
+    for (const r of latestKeyInv) {
+      m.set(`${r.patient_id}::${r.category}`, {
+        category: r.category,
+        findings: r.findings,
+        result_at: r.result_at,
+      });
+    }
+    return m;
+  }, [latestKeyInv]);
+
+
   const createMut = useMutation({
     mutationFn: (v: PatientFormValues) => create({ data: v as never }),
     onSuccess: () => {
