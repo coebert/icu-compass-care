@@ -36,11 +36,12 @@ Reviewed as a Salisbury Critical Care consultant/senior-nurse group. The app is 
 
 ## Implementation plan (phased)
 
-### Phase 1 — High-yield safety & glanceability (low risk, mostly frontend)
-1. **Structured allergies** field (array of {substance, reaction, severity}) surfaced prominently on the card header, board card, and handover PDF. Migration + schema + form + display.
-2. **Board safety flags:** add DNACPR/TEP-ceiling chip, allergy chip, isolation (existing), and a "stale > Xh" indicator to each bed/patient card.
-3. **Overview "one-look" summary:** restructure the Overview tab into a single dense, print-friendly panel (identity + acuity + safety flags + systems one-liners + active jobs) so a ward round needs no tab switching.
-4. **Daily goals / FAST-HUG checklist** (VTE, stress ulcer, glucose, sedation hold, head-up, catheter review, bowels, nutrition) as structured toggles with a "last reviewed" stamp.
+### Phase 1 — High-yield safety & glanceability — DONE
+1. **Structured allergies** — ✅ `patient-safety.ts` model (substance/reaction/severity), editable in `PatientForm.tsx`, surfaced in the overview `SafetySummary`, board cards (`patients.index.tsx`), unit dashboard, and handover PDF (`handover-columns.ts`, NKDA fallback).
+2. **Board safety flags** — ✅ `deriveSafetyFlags` drives DNACPR / TEP / isolation / allergy / stale-(>12h) chips on each board card and the bed board.
+3. **Overview "one-look" summary** — ✅ `SafetySummary` strip (identity + safety flags + weight + allergies) on the patient overview.
+4. **Daily goals / FAST-HUG checklist** — ✅ `DailyGoalsCard` + editable toggles in `PatientForm.tsx` with `daily_goals_reviewed_by/at` stamp and progress counter.
+
 
 ### Phase 2 — Tasks & unit dashboard (ergonomics)
 5. **Upgrade tasks:** add owner, priority, due time, and category (ward-round item vs job). Reuse existing patient_tasks (add columns).
