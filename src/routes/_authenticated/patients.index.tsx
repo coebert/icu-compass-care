@@ -477,6 +477,7 @@ function PatientsBoard() {
 
   return (
     <AcuityContext.Provider value={obsByPatient}>
+    <KeyInvestigationsContext.Provider value={keyInvByPatient}>
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
