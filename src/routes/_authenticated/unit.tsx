@@ -351,6 +351,7 @@ function RecentChangesCard({
                       month: "short",
                       hour: "2-digit",
                       minute: "2-digit",
+                      hour12: false,
                     })}
                     {c.changed_by_email ? ` · ${c.changed_by_email}` : ""}
                   </span>
