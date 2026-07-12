@@ -54,7 +54,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
