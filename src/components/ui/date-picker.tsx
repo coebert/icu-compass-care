@@ -229,12 +229,11 @@ export function DateTimePicker({
           />
         </PopoverContent>
       </Popover>
-      <Input
-        type="time"
-        aria-label="Time"
+      <TimeInput24
+        aria-label="Time (24-hour)"
         disabled={disabled}
         value={timeValue}
-        onChange={(e) => emit(selected ?? new Date(), e.target.value)}
+        onChange={(t) => emit(selected ?? new Date(), t)}
         className="sm:w-32"
       />
     </div>
