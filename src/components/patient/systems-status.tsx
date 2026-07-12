@@ -278,8 +278,16 @@ export function MicroStatus({
   };
 
   const saveEdit = (idx: number) => {
-    const trimmed = editName.trim();
+    const trimmed = canonicalizeName(editName);
     if (!trimmed || !editStart) return;
+    if (
+      agents.some(
+        (a, i) => i !== idx && a.name?.trim().toLowerCase() === trimmed.toLowerCase(),
+      )
+    ) {
+      toast.error(`${trimmed} is already listed for this patient`);
+      return;
+    }
     mut.mutate(
       agents.map((a, i) =>
         i === idx ? { ...a, name: trimmed, started_on: editStart } : a,
@@ -287,6 +295,7 @@ export function MicroStatus({
       { onSuccess: () => setEditingIdx(null) },
     );
   };
+
 
   const indexed = agents.map((a, i) => ({ a, i }));
   const current = indexed.filter(({ a }) => !a.ended_on);
