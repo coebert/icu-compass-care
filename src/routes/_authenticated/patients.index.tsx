@@ -620,6 +620,7 @@ function PatientsBoard() {
         </DialogContent>
       </Dialog>
     </div>
+    </KeyInvestigationsContext.Provider>
     </AcuityContext.Provider>
   );
 }
