@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Pencil, Check, X } from "lucide-react";
 import { courseDays, type Antimicrobial } from "@/lib/antimicrobials";
 import { toast } from "sonner";
 
@@ -186,6 +186,10 @@ export function MicroStatus({
     () => new Date().toISOString().slice(0, 10),
   );
 
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editStart, setEditStart] = useState("");
+
   const mut = useMutation({
     mutationFn: (next: Antimicrobial[]) =>
       update({ data: { id: patientId, antimicrobials: next } as never }),
@@ -224,6 +228,27 @@ export function MicroStatus({
     );
   };
 
+  const startEdit = (idx: number, a: Antimicrobial) => {
+    setEditingIdx(idx);
+    setEditName(a.name ?? "");
+    setEditStart(a.started_on ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingIdx(null);
+  };
+
+  const saveEdit = (idx: number) => {
+    const trimmed = editName.trim();
+    if (!trimmed || !editStart) return;
+    mut.mutate(
+      agents.map((a, i) =>
+        i === idx ? { ...a, name: trimmed, started_on: editStart } : a,
+      ),
+      { onSuccess: () => setEditingIdx(null) },
+    );
+  };
+
   const indexed = agents.map((a, i) => ({ a, i }));
   const current = indexed.filter(({ a }) => !a.ended_on);
   const completed = indexed.filter(({ a }) => !!a.ended_on);
@@ -231,6 +256,7 @@ export function MicroStatus({
   const renderItem = ({ a, i }: { a: Antimicrobial; i: number }) => {
     const days = courseDays(a.started_on, a.ended_on);
     const isCompleted = !!a.ended_on;
+    const isEditing = editingIdx === i;
     return (
       <li
         key={i}
@@ -238,60 +264,126 @@ export function MicroStatus({
           isCompleted ? "opacity-70" : "border-primary/30 bg-primary/5"
         }`}
       >
-        <div>
-          <span className="font-medium">{a.name}</span>
-          <span className="ml-2 text-muted-foreground">
-            {a.started_on}
-            {isCompleted ? <> → {a.ended_on}</> : <> → ongoing</>}
-            {days != null && (
-              <>
-                {" "}
-                · {isCompleted
-                  ? `total course ${days} day${days === 1 ? "" : "s"}`
-                  : `day ${days} of course`}
-              </>
-            )}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {isCompleted && (
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
-              End
-              <Input
-                type="date"
-                className="h-8 w-[9.5rem]"
-                value={a.ended_on ?? ""}
-                min={a.started_on}
-                max={new Date().toISOString().slice(0, 10)}
+        {isEditing ? (
+          <>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[140px]">
+                <label className="mb-1 block text-xs text-muted-foreground">Agent</label>
+                <Input
+                  autoFocus
+                  className="h-8"
+                  value={editName}
+                  disabled={mut.isPending}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEdit(i);
+                    if (e.key === "Escape") cancelEdit();
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Start date</label>
+                <Input
+                  type="date"
+                  className="h-8 w-[9.5rem]"
+                  value={editStart}
+                  max={new Date().toISOString().slice(0, 10)}
+                  disabled={mut.isPending}
+                  onChange={(e) => setEditStart(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8"
+                disabled={mut.isPending || !editName.trim() || !editStart}
+                onClick={() => saveEdit(i)}
+              >
+                <Check className="mr-1 h-4 w-4" /> Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8"
                 disabled={mut.isPending}
-                onChange={(e) => setEnd(i, e.target.value)}
-              />
-            </label>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8"
-            disabled={mut.isPending}
-            onClick={() => toggleStatus(i)}
-          >
-            {isCompleted ? "Mark current" : "Mark completed"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            disabled={mut.isPending}
-            onClick={() => remove(i)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+                onClick={cancelEdit}
+              >
+                <X className="mr-1 h-4 w-4" /> Cancel
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <span className="font-medium">{a.name}</span>
+              <span className="ml-2 text-muted-foreground">
+                {a.started_on}
+                {isCompleted ? <> → {a.ended_on}</> : <> → ongoing</>}
+                {days != null && (
+                  <>
+                    {" "}
+                    · {isCompleted
+                      ? `total course ${days} day${days === 1 ? "" : "s"}`
+                      : `day ${days} of course`}
+                  </>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {isCompleted && (
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  End
+                  <Input
+                    type="date"
+                    className="h-8 w-[9.5rem]"
+                    value={a.ended_on ?? ""}
+                    min={a.started_on}
+                    max={new Date().toISOString().slice(0, 10)}
+                    disabled={mut.isPending}
+                    onChange={(e) => setEnd(i, e.target.value)}
+                  />
+                </label>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={mut.isPending}
+                onClick={() => startEdit(i, a)}
+              >
+                <Pencil className="mr-1 h-4 w-4" /> Edit
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={mut.isPending}
+                onClick={() => toggleStatus(i)}
+              >
+                {isCompleted ? "Mark current" : "Mark completed"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                disabled={mut.isPending}
+                onClick={() => remove(i)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </>
+        )}
       </li>
     );
   };
+
 
   return (
     <div className="sm:col-span-2 space-y-4 rounded-lg border p-4">
