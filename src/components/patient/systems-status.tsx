@@ -215,26 +215,32 @@ export function MicroStatus({
     const byLower = new Map<string, string>();
     for (const raw of [
       ...nameOptions,
-      ...agents.map((a) => a.name?.trim()).filter((n): n is string => !!n),
+      ...agents.map((a) => normalizeAntimicrobialName(a.name ?? "")).filter((n) => !!n),
     ]) {
-      const key = raw.toLowerCase();
-      if (!byLower.has(key)) byLower.set(key, raw);
+      const norm = normalizeAntimicrobialName(raw);
+      const key = norm.toLowerCase();
+      if (norm && !byLower.has(key)) byLower.set(key, norm);
     }
     return Array.from(byLower.values()).sort((a, b) => a.localeCompare(b));
   })();
 
   // Snap a typed name to an existing agent's spelling when it matches
-  // case-insensitively, so casing differences never create a duplicate.
+  // case-insensitively (after whitespace normalization), so casing or spacing
+  // differences never create a duplicate.
   const canonicalizeName = (input: string): string => {
-    const trimmed = input.trim();
-    const match = agentOptions.find((o) => o.toLowerCase() === trimmed.toLowerCase());
-    return match ?? trimmed;
+    const norm = normalizeAntimicrobialName(input);
+    const match = agentOptions.find((o) => o.toLowerCase() === norm.toLowerCase());
+    return match ?? norm;
   };
 
   const add = () => {
     const trimmed = canonicalizeName(name);
     if (!trimmed) return;
-    if (agents.some((a) => a.name?.trim().toLowerCase() === trimmed.toLowerCase())) {
+    if (
+      agents.some(
+        (a) => normalizeAntimicrobialName(a.name ?? "").toLowerCase() === trimmed.toLowerCase(),
+      )
+    ) {
       toast.error(`${trimmed} is already listed for this patient`);
       return;
     }
@@ -242,6 +248,7 @@ export function MicroStatus({
     setName("");
     setStartedOn(new Date().toISOString().slice(0, 10));
   };
+
 
 
   const remove = (idx: number) => {
