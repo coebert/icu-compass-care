@@ -80,6 +80,47 @@ export function summariseAllergies(value: unknown): string {
   return list.map((a) => a.substance).join(", ");
 }
 
+// Structured treatment-escalation-plan exclusions: the interventions a patient
+// should NOT receive. Order here is display order. Keys are stored in the
+// patients.tep_exclusions text[] column.
+export const TEP_INTERVENTIONS = [
+  { key: "hfno", label: "HFNO", full: "High-flow nasal oxygen" },
+  { key: "niv", label: "NIV", full: "Non-invasive ventilation" },
+  { key: "ivv", label: "I+V", full: "Intubation & ventilation" },
+  { key: "cvvh", label: "CVVH", full: "Haemofiltration (CVVH)" },
+  { key: "vasopressors", label: "Vasopressors", full: "Vasopressors / inotropes" },
+] as const;
+
+export type TepInterventionKey = (typeof TEP_INTERVENTIONS)[number]["key"];
+
+const TEP_KEYS = TEP_INTERVENTIONS.map((i) => i.key) as readonly string[];
+
+export function parseTepExclusions(value: unknown): TepInterventionKey[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: TepInterventionKey[] = [];
+  for (const item of TEP_INTERVENTIONS) {
+    if (value.includes(item.key) && !seen.has(item.key)) {
+      seen.add(item.key);
+      out.push(item.key);
+    }
+  }
+  return out;
+}
+
+export const TEP_INTERVENTION_LABEL: Record<TepInterventionKey, string> = Object.fromEntries(
+  TEP_INTERVENTIONS.map((i) => [i.key, i.label]),
+) as Record<TepInterventionKey, string>;
+
+// One-line "not for" summary, e.g. "Not for: NIV, I+V, CVVH".
+export function summariseTepExclusions(value: unknown): string {
+  const keys = parseTepExclusions(value);
+  if (keys.length === 0) return "";
+  return keys.map((k) => TEP_INTERVENTION_LABEL[k]).join(", ");
+}
+
+export { TEP_KEYS };
+
 export const STALE_THRESHOLD_HOURS = 12;
 
 // Hours since a record was last updated, or null when unknown.
