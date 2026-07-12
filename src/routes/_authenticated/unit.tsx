@@ -306,6 +306,63 @@ type OpenTask = {
   status: string;
 };
 
+type FieldChange = {
+  id: string;
+  patient_id: string;
+  field_name: string;
+  changed_at: string;
+  changed_by_email: string | null;
+};
+
+function RecentChangesCard({
+  changes,
+  patientById,
+}: {
+  changes: FieldChange[];
+  patientById: Map<string, Record<string, any>>;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <History className="h-4 w-4" /> Recent changes (unit-wide)
+          <Badge variant="secondary" className="ml-auto">{changes.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {changes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No recent changes recorded.</p>
+        ) : (
+          <ul className="divide-y text-sm">
+            {changes.map((c) => {
+              const p = patientById.get(c.patient_id);
+              return (
+                <li key={c.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5">
+                  {p ? (
+                    <PatientName patient={p} className="font-medium" />
+                  ) : (
+                    <span className="font-medium text-muted-foreground">Unknown patient</span>
+                  )}
+                  <span className="text-muted-foreground">{c.field_name.replace(/_/g, " ")}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {new Date(c.changed_at).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {c.changed_by_email ? ` · ${c.changed_by_email}` : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function UnitDashboard() {
   const list = useServerFn(listPatients);
   const beds = useServerFn(listBeds);
