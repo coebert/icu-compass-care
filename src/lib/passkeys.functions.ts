@@ -1,15 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-} from "@simplewebauthn/server";
-import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
+
+// `@simplewebauthn/server` pulls in tslib-based CommonJS deps
+// (@peculiar/asn1-*, tsyringe, pvtsutils) whose ESM interop breaks when
+// evaluated at module scope inside the Cloudflare Worker bundle
+// ("Cannot destructure property '__extends' of __toESM(...).default"). A
+// top-level import here poisons worker initialisation and 500s every server
+// route. Load it lazily inside each handler so it is only evaluated when a
+// passkey endpoint is actually invoked.
+async function loadWebauthn() {
+  const [mod, helpers] = await Promise.all([
+    import("@simplewebauthn/server"),
+    import("@simplewebauthn/server/helpers"),
+  ]);
+  return { ...mod, isoBase64URL: helpers.isoBase64URL };
+}
 
 // Derive the Relying Party origin + ID from the incoming request. WebAuthn
 // binds credentials to the exact host, so this must reflect the live domain.
@@ -32,6 +40,7 @@ export const startPasskeyRegistration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { rpID } = getRp();
+    const { generateRegistrationOptions } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: existing } = await db
@@ -79,6 +88,7 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { origin, rpID } = getRp();
+    const { verifyRegistrationResponse, isoBase64URL } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: ch } = await db
@@ -123,6 +133,7 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { rpID } = getRp();
+    const { generateAuthenticationOptions } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: creds } = await db
@@ -162,6 +173,7 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { origin, rpID } = getRp();
+    const { verifyAuthenticationResponse, isoBase64URL } = await loadWebauthn();
     const db = context.supabase as AnyDb;
 
     const { data: ch } = await db
