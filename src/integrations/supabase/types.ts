@@ -907,6 +907,7 @@ export type Database = {
           nok_relationship: string | null
           nutrition_route: string[]
           outstanding_tasks: string | null
+          parent_specialty: string | null
           past_medical_history: string | null
           pca_agents: string[]
           regional_analgesia: string[]
@@ -919,6 +920,7 @@ export type Database = {
           shared_with_partner_at: string | null
           shared_with_partner_by: string | null
           source_referral_id: string | null
+          specialty_consultant: string | null
           status: Database["public"]["Enums"]["patient_status"]
           systems_cvs: string | null
           systems_gastro: string | null
@@ -970,6 +972,7 @@ export type Database = {
           nok_relationship?: string | null
           nutrition_route?: string[]
           outstanding_tasks?: string | null
+          parent_specialty?: string | null
           past_medical_history?: string | null
           pca_agents?: string[]
           regional_analgesia?: string[]
@@ -982,6 +985,7 @@ export type Database = {
           shared_with_partner_at?: string | null
           shared_with_partner_by?: string | null
           source_referral_id?: string | null
+          specialty_consultant?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
@@ -1033,6 +1037,7 @@ export type Database = {
           nok_relationship?: string | null
           nutrition_route?: string[]
           outstanding_tasks?: string | null
+          parent_specialty?: string | null
           past_medical_history?: string | null
           pca_agents?: string[]
           regional_analgesia?: string[]
@@ -1045,6 +1050,7 @@ export type Database = {
           shared_with_partner_at?: string | null
           shared_with_partner_by?: string | null
           source_referral_id?: string | null
+          specialty_consultant?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
           systems_gastro?: string | null
