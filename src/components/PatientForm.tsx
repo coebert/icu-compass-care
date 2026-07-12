@@ -128,6 +128,8 @@ export function toFormValues(p: Record<string, unknown>): PatientFormValues {
       out.allergies = parseAllergies(v);
     } else if (key === "daily_goals") {
       out.daily_goals = parseDailyGoals(v);
+    } else if (key === "tep_exclusions") {
+      out.tep_exclusions = parseTepExclusions(v);
     } else if (key === "nok_last_updated" && typeof v === "string") {
       // datetime-local expects yyyy-MM-ddThh:mm
       out[key] = v.slice(0, 16) as never;
