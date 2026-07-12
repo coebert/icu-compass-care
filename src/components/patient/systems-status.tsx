@@ -228,6 +228,27 @@ export function MicroStatus({
     );
   };
 
+  const startEdit = (idx: number, a: Antimicrobial) => {
+    setEditingIdx(idx);
+    setEditName(a.name ?? "");
+    setEditStart(a.started_on ?? "");
+  };
+
+  const cancelEdit = () => {
+    setEditingIdx(null);
+  };
+
+  const saveEdit = (idx: number) => {
+    const trimmed = editName.trim();
+    if (!trimmed || !editStart) return;
+    mut.mutate(
+      agents.map((a, i) =>
+        i === idx ? { ...a, name: trimmed, started_on: editStart } : a,
+      ),
+      { onSuccess: () => setEditingIdx(null) },
+    );
+  };
+
   const indexed = agents.map((a, i) => ({ a, i }));
   const current = indexed.filter(({ a }) => !a.ended_on);
   const completed = indexed.filter(({ a }) => !!a.ended_on);
