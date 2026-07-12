@@ -844,10 +844,7 @@ const DraggablePatientLink = React.forwardRef<
     onDragEndPatient?: () => void;
     onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
     suppressClickRef?: React.MutableRefObject<boolean>;
-    onSummaryLongPress?: {
-      start: (e: React.PointerEvent) => void;
-      cancel: () => void;
-    };
+    onLongPress?: () => void;
   } & React.HTMLAttributes<HTMLAnchorElement>
 >(function DraggablePatientLink(
   {
@@ -857,7 +854,7 @@ const DraggablePatientLink = React.forwardRef<
     onDragEndPatient,
     onTouchDragStart,
     suppressClickRef,
-    onSummaryLongPress,
+    onLongPress,
     // Handlers injected by HoverCardTrigger (asChild) that must be merged so
     // hover/focus still opens the summary panel while our drag/click logic runs.
     onPointerEnter,
@@ -868,9 +865,19 @@ const DraggablePatientLink = React.forwardRef<
   },
   ref,
 ) {
-  // Tracks a touch long-press so the trailing click doesn't navigate away.
+  // Long-press (touch) opens the summary without hover. The trailing click is
+  // swallowed so opening the summary doesn't also navigate to the detail page.
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    startRef.current = null;
+  };
 
   return (
     <Link
@@ -881,10 +888,14 @@ const DraggablePatientLink = React.forwardRef<
       onDragStart={(e) => onDragStartPatient?.(p, e)}
       onDragEnd={() => onDragEndPatient?.()}
       onPointerDown={(e) => {
-        if (e.pointerType === "touch") {
+        if (e.pointerType === "touch" && onLongPress) {
           longPressFiredRef.current = false;
           startRef.current = { x: e.clientX, y: e.clientY };
-          onSummaryLongPress?.start(e);
+          clearLongPress();
+          longPressTimer.current = setTimeout(() => {
+            longPressFiredRef.current = true;
+            onLongPress();
+          }, 450);
         }
         onTouchDragStart?.(p, e);
       }}
@@ -893,17 +904,22 @@ const DraggablePatientLink = React.forwardRef<
         if (startRef.current) {
           const dx = Math.abs(e.clientX - startRef.current.x);
           const dy = Math.abs(e.clientY - startRef.current.y);
-          if (dx > 8 || dy > 8) onSummaryLongPress?.cancel();
+          if (dx > 8 || dy > 8) clearLongPress();
         }
       }}
-      onPointerUp={() => onSummaryLongPress?.cancel()}
-      onPointerCancel={() => onSummaryLongPress?.cancel()}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onFocus={onFocus}
       onBlur={onBlur}
       onClick={(e) => {
         // Swallow the click that trails a touch-drag or long-press so it doesn't navigate.
+        if (longPressFiredRef.current) {
+          e.preventDefault();
+          longPressFiredRef.current = false;
+          return;
+        }
         if (suppressClickRef?.current) {
           e.preventDefault();
           suppressClickRef.current = false;
@@ -917,6 +933,7 @@ const DraggablePatientLink = React.forwardRef<
     </Link>
   );
 });
+
 
 function BedBoard({
   roster,
