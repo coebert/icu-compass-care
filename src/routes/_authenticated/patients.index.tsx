@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import * as React from "react";
 import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -767,29 +768,47 @@ function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNo
 // A patient card that can be dragged onto a bed. Click still opens the detail
 // page; only a real drag gesture starts a move. Supports mouse (HTML5 drag)
 // and touch (long-press pointer drag).
-function DraggablePatientLink({
-  p,
-  children,
-  onDragStartPatient,
-  onDragEndPatient,
-  onTouchDragStart,
-  suppressClickRef,
-}: {
-  p: Patient;
-  children: React.ReactNode;
-  onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
-  onDragEndPatient?: () => void;
-  onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
-  suppressClickRef?: React.MutableRefObject<boolean>;
-}) {
+const DraggablePatientLink = React.forwardRef<
+  HTMLAnchorElement,
+  {
+    p: Patient;
+    children: React.ReactNode;
+    onDragStartPatient?: (p: Patient, e: React.DragEvent) => void;
+    onDragEndPatient?: () => void;
+    onTouchDragStart?: (p: Patient, e: React.PointerEvent) => void;
+    suppressClickRef?: React.MutableRefObject<boolean>;
+  } & React.HTMLAttributes<HTMLAnchorElement>
+>(function DraggablePatientLink(
+  {
+    p,
+    children,
+    onDragStartPatient,
+    onDragEndPatient,
+    onTouchDragStart,
+    suppressClickRef,
+    // Handlers injected by HoverCardTrigger (asChild) that must be merged so
+    // hover/focus still opens the summary panel while our drag/click logic runs.
+    onPointerEnter,
+    onPointerLeave,
+    onFocus,
+    onBlur,
+    ...rest
+  },
+  ref,
+) {
   return (
     <Link
+      ref={ref}
       to="/patients/$patientId"
       params={{ patientId: p.id }}
       draggable={!!onDragStartPatient}
       onDragStart={(e) => onDragStartPatient?.(p, e)}
       onDragEnd={() => onDragEndPatient?.()}
       onPointerDown={(e) => onTouchDragStart?.(p, e)}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
       onClick={(e) => {
         // Swallow the click that trails a touch-drag so it doesn't navigate.
         if (suppressClickRef?.current) {
@@ -799,11 +818,12 @@ function DraggablePatientLink({
       }}
       style={onTouchDragStart ? { touchAction: "pan-y" } : undefined}
       className={onDragStartPatient ? "block cursor-grab active:cursor-grabbing" : "block cursor-pointer"}
+      {...rest}
     >
       {children}
     </Link>
   );
-}
+});
 
 function BedBoard({
   roster,
