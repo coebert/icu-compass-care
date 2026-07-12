@@ -30,6 +30,8 @@ export const patientInput = z.object({
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
   bed: z.string().trim().max(50).optional().nullable(),
+  parent_specialty: z.string().trim().max(100).optional().nullable(),
+  specialty_consultant: z.string().trim().max(100).optional().nullable(),
   status: z.enum(["referred", "admitted", "discharged", "died"]),
   admission_date: z.string().optional().nullable(),
   discharge_date: z.string().optional().nullable(),
