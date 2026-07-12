@@ -813,32 +813,12 @@ function PatientHoverSummary({ p }: { p: Patient }) {
 // wrapper is inert and the card still opens the record on tap.
 function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clear = () => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-  };
-
-  // Long-press (touch) opens the summary without relying on hover.
-  const longPress = useMemo(
-    () => ({
-      start: (e: React.PointerEvent) => {
-        if (e.pointerType !== "touch") return;
-        clear();
-        timer.current = setTimeout(() => setOpen(true), 450);
-      },
-      cancel: clear,
-    }),
-    [],
-  );
 
   const child = React.isValidElement(children)
-    ? React.cloneElement(children as React.ReactElement<{ onSummaryLongPress?: typeof longPress }>, {
-        onSummaryLongPress: longPress,
-      })
+    ? React.cloneElement(
+        children as React.ReactElement<{ onLongPress?: () => void; suppressClickRef?: React.MutableRefObject<boolean> }>,
+        { onLongPress: () => setOpen(true) },
+      )
     : children;
 
   return (
@@ -850,6 +830,7 @@ function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNo
     </HoverCard>
   );
 }
+
 
 // A patient card that can be dragged onto a bed. Click still opens the detail
 // page; only a real drag gesture starts a move. Supports mouse (HTML5 drag)
