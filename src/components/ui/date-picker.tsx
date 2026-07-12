@@ -87,7 +87,7 @@ export function DatePicker({
  * regardless of the user's locale. Free-form entry is normalised on blur:
  * "9" → 09:00, "930" → 09:30, "1345" → 13:45, "9:30" → 09:30.
  */
-function normalizeTime24(raw: string): string {
+export function normalizeTime24(raw: string): string {
   const cleaned = raw.trim();
   if (!cleaned) return "";
   let h: number;
