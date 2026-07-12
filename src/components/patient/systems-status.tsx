@@ -186,6 +186,10 @@ export function MicroStatus({
     () => new Date().toISOString().slice(0, 10),
   );
 
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editStart, setEditStart] = useState("");
+
   const mut = useMutation({
     mutationFn: (next: Antimicrobial[]) =>
       update({ data: { id: patientId, antimicrobials: next } as never }),
