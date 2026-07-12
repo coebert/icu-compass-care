@@ -55,6 +55,25 @@ export function StatusTab({ patient }: { patient: Patient }) {
   return (
     <Card>
       <CardContent className="max-w-md space-y-4 p-6">
+        <div
+          className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+            patient.shared_with_partner
+              ? "border-sky-300 text-sky-700 dark:text-sky-300"
+              : "text-muted-foreground"
+          }`}
+        >
+          {patient.shared_with_partner ? (
+            <>
+              <Share2 className="h-4 w-4" />
+              <span className="font-medium">Shared with partner app</span>
+            </>
+          ) : (
+            <>
+              <ShieldOff className="h-4 w-4" />
+              <span className="font-medium">Not shared with partner app</span>
+            </>
+          )}
+        </div>
         <div className="space-y-1.5">
           <Label>Patient status</Label>
           <Select value={status} onValueChange={setStatus}>
