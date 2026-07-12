@@ -122,6 +122,7 @@ export function HaemStatus({
       groupLabel="Anticoagulation"
       options={ANTICOAGULATION_OPTIONS}
       notesLabel="Haem notes"
+      notesField="systems_haem"
       notes={patient.systems_haem}
     />
   );
