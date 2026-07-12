@@ -137,7 +137,7 @@ function fmtDue(due: string | null): { text: string; overdue: boolean } | null {
   const t = new Date(due).getTime();
   if (Number.isNaN(t)) return null;
   const overdue = t < Date.now();
-  const text = new Date(due).toLocaleString(undefined, {
+  const text = new Date(due).toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
