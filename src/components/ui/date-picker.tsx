@@ -81,9 +81,90 @@ export function DatePicker({
 }
 
 /**
+ * Locale-independent 24-hour time entry field. Uses a plain text input (not the
+ * native `<input type="time">`, whose display follows the OS/browser locale and
+ * can render AM/PM), so entries are always shown and captured as 24-hour `HH:mm`
+ * regardless of the user's locale. Free-form entry is normalised on blur:
+ * "9" → 09:00, "930" → 09:30, "1345" → 13:45, "9:30" → 09:30.
+ */
+function normalizeTime24(raw: string): string {
+  const cleaned = raw.trim();
+  if (!cleaned) return "";
+  let h: number;
+  let m: number;
+  const parts = cleaned.split(/[:.\s]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    h = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10);
+  } else {
+    const digits = cleaned.replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.length <= 2) {
+      h = parseInt(digits, 10);
+      m = 0;
+    } else {
+      h = parseInt(digits.slice(0, digits.length - 2), 10);
+      m = parseInt(digits.slice(-2), 10);
+    }
+  }
+  if (!Number.isFinite(h)) h = 0;
+  if (!Number.isFinite(m)) m = 0;
+  h = Math.min(23, Math.max(0, h));
+  m = Math.min(59, Math.max(0, m));
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export function TimeInput24({
+  value,
+  onChange,
+  id,
+  disabled,
+  className,
+  "aria-label": ariaLabel = "Time (24-hour)",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  id?: string;
+  disabled?: boolean;
+  className?: string;
+  "aria-label"?: string;
+}) {
+  const [draft, setDraft] = React.useState(value);
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!focused) setDraft(value);
+  }, [value, focused]);
+
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      placeholder="HH:MM"
+      maxLength={5}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      value={draft}
+      onFocus={() => setFocused(true)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setFocused(false);
+        const norm = normalizeTime24(draft);
+        setDraft(norm);
+        if (norm !== value) onChange(norm);
+      }}
+      className={className}
+    />
+  );
+}
+
+/**
  * British-formatted date + time picker. Stores/emits a `yyyy-MM-ddTHH:mm`
  * string (the shape the old native `<input type="datetime-local">` produced),
- * displaying the date part as `DD/MM/YYYY` with a 24-hour time field.
+ * displaying the date part as `DD/MM/YYYY` with a locale-independent 24-hour
+ * time field.
  */
 export function DateTimePicker({
   value,
