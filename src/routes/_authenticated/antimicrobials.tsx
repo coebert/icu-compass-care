@@ -83,11 +83,32 @@ function AntimicrobialLibrary() {
     onError: (e: Error) => toast.error("Could not remove", { description: e.message }),
   });
 
+  const firstLetterOf = (name: string) => {
+    const c = name.trim().charAt(0).toUpperCase();
+    return /[A-Z]/.test(c) ? c : "#";
+  };
+
+  const availableLetters = useMemo(() => {
+    const set = new Set(names.map((n) => firstLetterOf(n.name)));
+    return set;
+  }, [names]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return names;
-    return names.filter((n) => n.name.toLowerCase().includes(q));
-  }, [names, search]);
+    return names
+      .filter((n) => (letter === "all" ? true : firstLetterOf(n.name) === letter))
+      .filter((n) => (!q ? true : n.name.toLowerCase().includes(q)))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [names, search, letter]);
+
+  const hasActiveFilters = search.trim() !== "" || letter !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setLetter("all");
+  };
+
+  const ALPHABET = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
   function startEdit(row: AntimicrobialLibraryRow) {
     setEditingId(row.id);
