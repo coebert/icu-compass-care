@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Wind,
   Cable,
+  History,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/unit")({
