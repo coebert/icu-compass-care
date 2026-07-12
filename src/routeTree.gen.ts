@@ -18,6 +18,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
 import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
+import { Route as AuthenticatedAntimicrobialsRouteImport } from './routes/_authenticated/antimicrobials'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
 import { Route as AuthenticatedPatientsSharingRouteImport } from './routes/_authenticated/patients.sharing'
@@ -87,6 +88,12 @@ const AuthenticatedBedsRoute = AuthenticatedBedsRouteImport.update({
   path: '/beds',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAntimicrobialsRoute =
+  AuthenticatedAntimicrobialsRouteImport.update({
+    id: '/antimicrobials',
+    path: '/antimicrobials',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -230,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/reconcile': typeof AuthenticatedReconcileRoute
@@ -264,6 +272,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -299,6 +308,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/_authenticated/beds': typeof AuthenticatedBedsRoute
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/reconcile': typeof AuthenticatedReconcileRoute
@@ -335,6 +345,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
+    | '/antimicrobials'
     | '/beds'
     | '/patients'
     | '/reconcile'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
+    | '/antimicrobials'
     | '/beds'
     | '/reconcile'
     | '/settings'
@@ -403,6 +415,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/_authenticated/admin'
+    | '/_authenticated/antimicrobials'
     | '/_authenticated/beds'
     | '/_authenticated/patients'
     | '/_authenticated/reconcile'
@@ -519,6 +532,13 @@ declare module '@tanstack/react-router' {
       path: '/beds'
       fullPath: '/beds'
       preLoaderRoute: typeof AuthenticatedBedsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/antimicrobials': {
+      id: '/_authenticated/antimicrobials'
+      path: '/antimicrobials'
+      fullPath: '/antimicrobials'
+      preLoaderRoute: typeof AuthenticatedAntimicrobialsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin': {
@@ -721,6 +741,7 @@ const AuthenticatedPatientsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAntimicrobialsRoute: typeof AuthenticatedAntimicrobialsRoute
   AuthenticatedBedsRoute: typeof AuthenticatedBedsRoute
   AuthenticatedPatientsRoute: typeof AuthenticatedPatientsRouteWithChildren
   AuthenticatedReconcileRoute: typeof AuthenticatedReconcileRoute
@@ -730,6 +751,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAntimicrobialsRoute: AuthenticatedAntimicrobialsRoute,
   AuthenticatedBedsRoute: AuthenticatedBedsRoute,
   AuthenticatedPatientsRoute: AuthenticatedPatientsRouteWithChildren,
   AuthenticatedReconcileRoute: AuthenticatedReconcileRoute,
