@@ -991,19 +991,21 @@ function Section({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {patients.map((p) => (
-          <DraggablePatientLink
-            key={p.id}
-            p={p}
-            onDragStartPatient={onDragStartPatient}
-            onDragEndPatient={onDragEndPatient}
-            onTouchDragStart={onTouchDragStart}
-            suppressClickRef={suppressClickRef}
-          >
-            <Card className="h-full transition-colors hover:border-primary/50">
-              <PatientCardBody p={p} />
-            </Card>
-          </DraggablePatientLink>
+          <PatientHoverCard key={p.id} p={p}>
+            <DraggablePatientLink
+              p={p}
+              onDragStartPatient={onDragStartPatient}
+              onDragEndPatient={onDragEndPatient}
+              onTouchDragStart={onTouchDragStart}
+              suppressClickRef={suppressClickRef}
+            >
+              <Card className="h-full transition-colors hover:border-primary/50">
+                <PatientCardBody p={p} />
+              </Card>
+            </DraggablePatientLink>
+          </PatientHoverCard>
         ))}
+
       </div>
     </div>
   );
