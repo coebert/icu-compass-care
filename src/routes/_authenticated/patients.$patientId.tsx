@@ -10,6 +10,7 @@ import { SafetySummary, DailyGoalsCard } from "@/components/patient/safety-summa
 import { ObservationsCard } from "@/components/patient/observations-card";
 import { LinesCard } from "@/components/patient/lines-card";
 import { InfoBlock } from "@/components/patient/shared";
+import { EditableField } from "@/components/patient/systems-widgets";
 import { parseTepExclusions, TEP_INTERVENTION_LABEL } from "@/lib/patient-safety";
 import {
   RespiratoryStatus,
@@ -446,11 +447,11 @@ function PatientDetail() {
           <RecentInvestigations patientId={patientId} />
           <Card>
             <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
-              <InfoBlock label="Parent specialty" value={patient.parent_specialty} />
-              <InfoBlock label="Specialty consultant" value={patient.specialty_consultant} />
-              <InfoBlock label="Past medical history" value={patient.past_medical_history} />
-              <InfoBlock label="Current admission" value={patient.current_admission} />
-              <InfoBlock label="Current management" value={patient.current_management} />
+              <EditableField patientId={patientId} field="parent_specialty" label="Parent specialty" value={patient.parent_specialty} />
+              <EditableField patientId={patientId} field="specialty_consultant" label="Specialty consultant" value={patient.specialty_consultant} />
+              <EditableField patientId={patientId} field="past_medical_history" label="Past medical history" value={patient.past_medical_history} multiline />
+              <EditableField patientId={patientId} field="current_admission" label="Current admission" value={patient.current_admission} multiline />
+              <EditableField patientId={patientId} field="current_management" label="Current management" value={patient.current_management} multiline />
             </CardContent>
           </Card>
           <DailyGoalsCard patient={patient} />
