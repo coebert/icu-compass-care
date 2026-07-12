@@ -200,9 +200,21 @@ export function MicroStatus({
   const mut = useMutation({
     mutationFn: (next: Antimicrobial[]) =>
       update({ data: { id: patientId, antimicrobials: next } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["antimicrobial-names"] });
+    },
     onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
   });
+
+  // Merge saved names with any already on this patient so freshly-entered
+  // agents are immediately available as suggestions.
+  const agentOptions = Array.from(
+    new Set([
+      ...nameOptions,
+      ...agents.map((a) => a.name?.trim()).filter((n): n is string => !!n),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
 
   const add = () => {
     const trimmed = name.trim();
