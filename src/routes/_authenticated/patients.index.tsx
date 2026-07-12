@@ -16,12 +16,17 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
+import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
 import { type Observation } from "@/lib/observations";
 import { AcuityBadge } from "@/components/patient/observations-card";
 import { toast } from "sonner";
 
 // Supplies the latest observation per patient down to the deeply-nested cards.
 const AcuityContext = createContext<Map<string, Observation>>(new Map());
+
+// Latest key investigation per patient, keyed by "<patientId>::<category>".
+type KeyInvestigation = { category: string; findings: string; result_at: string };
+const KeyInvestigationsContext = createContext<Map<string, KeyInvestigation>>(new Map());
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
