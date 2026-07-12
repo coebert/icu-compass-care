@@ -76,7 +76,7 @@ export function buildHandoverPdf(patients: HandoverPatient[], opts?: HandoverPdf
   const doc = new jsPDF({ orientation, unit: "mm", format: pageSize });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const generated = new Date().toLocaleString("en-GB");
+  const generated = new Date().toLocaleString("en-GB", { hour12: false });
   const title = opts?.title?.trim() || DEFAULT_TITLE;
   const subtitle = opts?.subtitle?.trim() || "";
   const footerText = opts?.footerText?.trim() || DEFAULT_FOOTER;
