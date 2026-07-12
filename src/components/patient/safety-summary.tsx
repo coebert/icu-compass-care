@@ -1,4 +1,5 @@
 import { AlertTriangle, BedDouble, Clock, HeartPulse, ShieldCheck } from "lucide-react";
+import { fmtDateTime } from "@/lib/icu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -137,7 +138,7 @@ export function DailyGoalsCard({ patient }: { patient: Record<string, unknown> }
         </div>
         {(reviewedBy || reviewedAt) && (
           <p className="text-xs text-muted-foreground">
-            Last reviewed {reviewedAt ? new Date(reviewedAt).toLocaleString() : ""}
+            Last reviewed {reviewedAt ? fmtDateTime(reviewedAt) : ""}
             {reviewedBy ? ` by ${reviewedBy}` : ""}
           </p>
         )}

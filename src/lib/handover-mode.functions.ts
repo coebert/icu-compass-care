@@ -31,7 +31,7 @@ export function shiftKeyLabel(key: string): string {
   if (!m) return key;
   const [, y, mo, d, s] = m;
   const date = new Date(Number(y), Number(mo) - 1, Number(d));
-  const dateLabel = date.toLocaleDateString(undefined, {
+  const dateLabel = date.toLocaleDateString("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
