@@ -54,7 +54,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
@@ -253,9 +253,13 @@ function PatientDetail() {
                 <ClipboardPlus className="h-3 w-3" /> From referral
               </Badge>
             )}
-            {patient.shared_with_partner && (
+            {patient.shared_with_partner ? (
               <Badge variant="outline" className="gap-1 border-sky-300 text-sky-700 dark:text-sky-300">
                 <Share2 className="h-3 w-3" /> Shared with partner
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <ShieldOff className="h-3 w-3" /> Not shared with partner
               </Badge>
             )}
 
