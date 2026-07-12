@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
@@ -663,6 +664,106 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   );
 }
 
+// A compact key-info panel shown when a clinician hovers a patient's bed card.
+// Read-only glance: identity, admission reason, organ support, and safety flags
+// so staff can triage without opening the full record.
+function PatientHoverSummary({ p }: { p: Patient }) {
+  const flags = deriveSafetyFlags(p);
+  const obsMap = useContext(AcuityContext);
+  const latestObs = obsMap.get(p.id);
+  const support = {
+    ventilated:
+      p.airway_type === "ett" ||
+      p.airway_type === "tracheostomy" ||
+      (Array.isArray(p.resp_support) && p.resp_support.length > 0),
+    rrt: p.renal_rrt === true,
+    vasoactive: Array.isArray(p.vasoactive_agents) && p.vasoactive_agents.length > 0,
+  };
+  const showAcuity = !!latestObs || support.ventilated || support.rrt || support.vasoactive;
+
+  const organSupport = [
+    support.ventilated && "Ventilated",
+    support.vasoactive && "Vasoactive",
+    support.rrt && "RRT",
+  ].filter(Boolean) as string[];
+
+  const consultant = [p.specialty_consultant, p.parent_specialty].filter(Boolean).join(" · ");
+
+  const Row = ({ label, value }: { label: string; value?: React.ReactNode }) =>
+    value ? (
+      <div className="flex gap-2 text-xs">
+        <span className="shrink-0 font-medium text-muted-foreground">{label}</span>
+        <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-foreground">{value}</span>
+      </div>
+    ) : null;
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <PatientName patient={p} showAge />
+          <p className="truncate text-xs text-muted-foreground">{formatLocation(p)}</p>
+        </div>
+        <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
+          {STATUS_LABELS[p.status]}
+        </Badge>
+      </div>
+
+      {(showAcuity || flags.dnacpr || flags.tep || flags.isolation || flags.hasAllergies) && (
+        <div className="flex flex-wrap gap-1.5">
+          {showAcuity && <AcuityBadge latest={latestObs} support={support} />}
+          {flags.hasAllergies && (
+            <Badge variant="outline" className="gap-1 border-rose-400 text-rose-700 dark:text-rose-300">
+              <AlertTriangle className="h-3 w-3 shrink-0" /> Allergy
+            </Badge>
+          )}
+          {flags.dnacpr && (
+            <Badge variant="outline" className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300">
+              <AlertTriangle className="h-3 w-3" /> DNACPR
+            </Badge>
+          )}
+          {flags.tep && <Badge variant="outline">TEP</Badge>}
+          {flags.isolation && (
+            <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300">
+              <BedDouble className="h-3 w-3" /> Isolation
+            </Badge>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-1.5 border-t pt-2">
+        <Row label="MRN" value={p.hospital_number || undefined} />
+        <Row label="Team" value={consultant || undefined} />
+        <Row label="Reason" value={p.current_admission?.trim() || undefined} />
+        <Row label="Support" value={organSupport.length ? organSupport.join(", ") : undefined} />
+        <Row label="Allergy" value={flags.hasAllergies ? flags.allergies : undefined} />
+        <Row
+          label="Tasks"
+          value={
+            p.outstanding_tasks?.trim() ? (
+              <span className="line-clamp-3">{p.outstanding_tasks}</span>
+            ) : undefined
+          }
+        />
+        <Row label="Admitted" value={fmtDate(p.admission_date)} />
+      </div>
+    </div>
+  );
+}
+
+// Wraps a bed card so hovering reveals the key-info panel. On touch devices the
+// wrapper is inert and the card still opens the record on tap.
+function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNode }) {
+  return (
+    <HoverCard openDelay={150} closeDelay={80}>
+      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+      <HoverCardContent align="start" className="w-72">
+        <PatientHoverSummary p={p} />
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 // A patient card that can be dragged onto a bed. Click still opens the detail
 // page; only a real drag gesture starts a move. Supports mouse (HTML5 drag)
 // and touch (long-press pointer drag).
@@ -794,22 +895,24 @@ function BedBoard({
                   </p>
                 )}
                 {occupants.map((p) => (
-                  <DraggablePatientLink
-                    key={p.id}
-                    p={p}
-                    onDragStartPatient={onDragStartPatient}
-                    onDragEndPatient={onDragEndPatient}
-                    onTouchDragStart={onTouchDragStart}
-                    suppressClickRef={suppressClickRef}
-                  >
-                    <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
-                      <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
-                        {label}
-                      </div>
-                      <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
-                    </Card>
-                  </DraggablePatientLink>
+                  <PatientHoverCard key={p.id} p={p}>
+                    <DraggablePatientLink
+                      p={p}
+                      onDragStartPatient={onDragStartPatient}
+                      onDragEndPatient={onDragEndPatient}
+                      onTouchDragStart={onTouchDragStart}
+                      suppressClickRef={suppressClickRef}
+                    >
+                      <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
+                        <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
+                          {label}
+                        </div>
+                        <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
+                      </Card>
+                    </DraggablePatientLink>
+                  </PatientHoverCard>
                 ))}
+
               </div>
             );
           }
@@ -841,19 +944,21 @@ function BedBoard({
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {unassigned.map((p) => (
-              <DraggablePatientLink
-                key={p.id}
-                p={p}
-                onDragStartPatient={onDragStartPatient}
-                onDragEndPatient={onDragEndPatient}
-                onTouchDragStart={onTouchDragStart}
-                suppressClickRef={suppressClickRef}
-              >
-                <Card className="h-full transition-colors hover:border-primary/50">
-                  <PatientCardBody p={p} />
-                </Card>
-              </DraggablePatientLink>
+              <PatientHoverCard key={p.id} p={p}>
+                <DraggablePatientLink
+                  p={p}
+                  onDragStartPatient={onDragStartPatient}
+                  onDragEndPatient={onDragEndPatient}
+                  onTouchDragStart={onTouchDragStart}
+                  suppressClickRef={suppressClickRef}
+                >
+                  <Card className="h-full transition-colors hover:border-primary/50">
+                    <PatientCardBody p={p} />
+                  </Card>
+                </DraggablePatientLink>
+              </PatientHoverCard>
             ))}
+
           </div>
         </div>
       )}
@@ -886,19 +991,21 @@ function Section({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {patients.map((p) => (
-          <DraggablePatientLink
-            key={p.id}
-            p={p}
-            onDragStartPatient={onDragStartPatient}
-            onDragEndPatient={onDragEndPatient}
-            onTouchDragStart={onTouchDragStart}
-            suppressClickRef={suppressClickRef}
-          >
-            <Card className="h-full transition-colors hover:border-primary/50">
-              <PatientCardBody p={p} />
-            </Card>
-          </DraggablePatientLink>
+          <PatientHoverCard key={p.id} p={p}>
+            <DraggablePatientLink
+              p={p}
+              onDragStartPatient={onDragStartPatient}
+              onDragEndPatient={onDragEndPatient}
+              onTouchDragStart={onTouchDragStart}
+              suppressClickRef={suppressClickRef}
+            >
+              <Card className="h-full transition-colors hover:border-primary/50">
+                <PatientCardBody p={p} />
+              </Card>
+            </DraggablePatientLink>
+          </PatientHoverCard>
         ))}
+
       </div>
     </div>
   );
