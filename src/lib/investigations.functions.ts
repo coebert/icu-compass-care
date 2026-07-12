@@ -25,6 +25,33 @@ export const listInvestigations = createServerFn({ method: "GET" })
     return rows;
   });
 
+// Categories surfaced as quick-glance fields on the bed board hover summary.
+export const QUICK_GLANCE_CATEGORIES = ["Bloods", "CXR", "CT chest"] as const;
+
+// Latest investigation per patient for each quick-glance category — powers the
+// bed board hover summary without an N+1 fetch per card.
+export const listLatestKeyInvestigations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("investigations")
+      .select("id, patient_id, category, findings, result_at")
+      .in("category", QUICK_GLANCE_CATEGORIES as unknown as string[])
+      .order("result_at", { ascending: false })
+      .limit(2000);
+    if (error) throw safeDbError(error);
+    // Keep only the most recent row per (patient, category).
+    const seen = new Set<string>();
+    const latest: NonNullable<typeof rows> = [];
+    for (const r of rows ?? []) {
+      const key = `${r.patient_id}::${r.category}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      latest.push(r);
+    }
+    return latest;
+  });
+
 export const addInvestigation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => investigationInput.parse(input))

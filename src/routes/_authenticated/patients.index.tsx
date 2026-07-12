@@ -6,7 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { listPatients, createPatient, updatePatient } from "@/lib/patients.functions";
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
-import { STATUS_BADGE, STATUS_LABELS, fmtDate } from "@/lib/icu";
+import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,12 +16,17 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
+import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
 import { type Observation } from "@/lib/observations";
 import { AcuityBadge } from "@/components/patient/observations-card";
 import { toast } from "sonner";
 
 // Supplies the latest observation per patient down to the deeply-nested cards.
 const AcuityContext = createContext<Map<string, Observation>>(new Map());
+
+// Latest key investigation per patient, keyed by "<patientId>::<category>".
+type KeyInvestigation = { category: string; findings: string; result_at: string };
+const KeyInvestigationsContext = createContext<Map<string, KeyInvestigation>>(new Map());
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
@@ -113,6 +118,27 @@ function PatientsBoard() {
     for (const o of latestObs) m.set(o.patient_id, o);
     return m;
   }, [latestObs]);
+
+  const latestKeyInvFn = useServerFn(listLatestKeyInvestigations);
+  const { data: latestKeyInv = [] } = useQuery({
+    queryKey: ["latest-key-investigations"],
+    queryFn: () =>
+      latestKeyInvFn() as Promise<
+        { patient_id: string; category: string; findings: string; result_at: string }[]
+      >,
+  });
+  const keyInvByPatient = useMemo(() => {
+    const m = new Map<string, KeyInvestigation>();
+    for (const r of latestKeyInv) {
+      m.set(`${r.patient_id}::${r.category}`, {
+        category: r.category,
+        findings: r.findings,
+        result_at: r.result_at,
+      });
+    }
+    return m;
+  }, [latestKeyInv]);
+
 
   const createMut = useMutation({
     mutationFn: (v: PatientFormValues) => create({ data: v as never }),
@@ -451,6 +477,7 @@ function PatientsBoard() {
 
   return (
     <AcuityContext.Provider value={obsByPatient}>
+    <KeyInvestigationsContext.Provider value={keyInvByPatient}>
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
@@ -593,6 +620,7 @@ function PatientsBoard() {
         </DialogContent>
       </Dialog>
     </div>
+    </KeyInvestigationsContext.Provider>
     </AcuityContext.Provider>
   );
 }
@@ -690,6 +718,11 @@ function PatientHoverSummary({ p }: { p: Patient }) {
 
   const consultant = [p.specialty_consultant, p.parent_specialty].filter(Boolean).join(" · ");
 
+  const keyInvMap = useContext(KeyInvestigationsContext);
+  const keyInvestigations = ["Bloods", "CXR", "CT chest"]
+    .map((cat) => ({ cat, inv: keyInvMap.get(`${p.id}::${cat}`) }))
+    .filter((x) => !!x.inv) as { cat: string; inv: KeyInvestigation }[];
+
   const Row = ({ label, value }: { label: string; value?: React.ReactNode }) =>
     value ? (
       <div className="flex gap-2 text-xs">
@@ -748,6 +781,30 @@ function PatientHoverSummary({ p }: { p: Patient }) {
         />
         <Row label="Admitted" value={fmtDate(p.admission_date)} />
       </div>
+
+      <div className="space-y-1.5 border-t pt-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Latest results
+        </p>
+        {keyInvestigations.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No bloods, CXR or CT chest recorded.</p>
+        ) : (
+          keyInvestigations.map(({ cat, inv }) => (
+            <div key={cat} className="text-xs">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium text-foreground">{cat}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {fmtDateTime(inv.result_at)}
+                </span>
+              </div>
+              <p className="line-clamp-2 whitespace-pre-wrap break-words text-muted-foreground">
+                {inv.findings}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
     </div>
   );
 }
