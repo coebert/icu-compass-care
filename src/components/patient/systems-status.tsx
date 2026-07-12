@@ -5,6 +5,7 @@ import { updatePatient } from "@/lib/patients.functions";
 import {
   CheckboxOptionGroup,
   SystemMultiSelectCard,
+  EditableField,
   usePatientFieldMutation,
 } from "@/components/patient/systems-widgets";
 import { InfoBlock } from "@/components/patient/shared";
