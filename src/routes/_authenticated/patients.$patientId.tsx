@@ -470,7 +470,7 @@ function PatientDetail() {
                 <GastroNutritionStatus patientId={patientId} patient={patient} />
                 <HaemStatus patientId={patientId} patient={patient} />
                 <MicroStatus patientId={patientId} patient={patient} />
-                <InfoBlock label="Other" value={patient.systems_other} />
+                <EditableField patientId={patientId} field="systems_other" label="Other" value={patient.systems_other} multiline />
               </div>
             </CardContent>
           </Card>
