@@ -92,6 +92,7 @@ export function CardiovascularStatus({
       groupLabel="Vasoactive agents"
       options={VASOACTIVE_OPTIONS}
       notesLabel="CVS notes"
+      notesField="systems_cvs"
       notes={patient.systems_cvs}
     />
   );
