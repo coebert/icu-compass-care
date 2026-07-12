@@ -1,4 +1,5 @@
 import { AlertTriangle, BedDouble, Clock, HeartPulse, ShieldCheck } from "lucide-react";
+import { fmtDateTime } from "@/lib/icu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
