@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Share2, ShieldOff } from "lucide-react";
 
 type Patient = DomainPatient & Record<string, any>;
 
