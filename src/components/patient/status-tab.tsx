@@ -1,0 +1,94 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import type { Patient as DomainPatient } from "@/lib/domain-types";
+import { updatePatient } from "@/lib/patients.functions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+
+type Patient = DomainPatient & Record<string, any>;
+
+export function StatusTab({ patient }: { patient: Patient }) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+  const [status, setStatus] = useState<string>(patient.status);
+  const [dischargeDate, setDischargeDate] = useState(patient.discharge_date ?? "");
+  const [destination, setDestination] = useState(patient.discharge_destination ?? "");
+  const [dod, setDod] = useState(patient.date_of_death ?? "");
+
+  const mut = useMutation({
+    mutationFn: () =>
+      update({
+        data: {
+          id: patient.id,
+          expected_updated_at: patient.updated_at,
+          status,
+          discharge_date: status === "discharged" ? dischargeDate : "",
+          discharge_destination: status === "discharged" ? destination : "",
+          date_of_death: status === "died" ? dod : "",
+        } as never,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", patient.id] });
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patient-audit", patient.id] });
+      qc.invalidateQueries({ queryKey: ["patient-field-changes", patient.id] });
+      toast.success("Status updated");
+    },
+    onError: (e: Error) =>
+      e.message.startsWith("CONFLICT:")
+        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
+        : toast.error("Update failed", { description: e.message }),
+  });
+
+  return (
+    <Card>
+      <CardContent className="max-w-md space-y-4 p-6">
+        <div className="space-y-1.5">
+          <Label>Patient status</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="referred">Referred (outlier)</SelectItem>
+              <SelectItem value="admitted">Admitted</SelectItem>
+              <SelectItem value="discharged">Discharged</SelectItem>
+              <SelectItem value="died">Died</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {status === "discharged" && (
+          <>
+            <div className="space-y-1.5">
+              <Label>Discharge date</Label>
+              <DatePicker value={dischargeDate} onChange={setDischargeDate} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Discharge destination</Label>
+              <Input value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="e.g. Ward, another hospital, home" />
+            </div>
+          </>
+        )}
+        {status === "died" && (
+          <div className="space-y-1.5">
+            <Label>Date of death</Label>
+            <DatePicker value={dod} onChange={setDod} />
+          </div>
+        )}
+        <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
+          {mut.isPending ? "Saving…" : "Update status"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
