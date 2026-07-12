@@ -812,9 +812,38 @@ function PatientHoverSummary({ p }: { p: Patient }) {
 // Wraps a bed card so hovering reveals the key-info panel. On touch devices the
 // wrapper is inert and the card still opens the record on tap.
 function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clear = () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+
+  // Long-press (touch) opens the summary without relying on hover.
+  const longPress = useMemo(
+    () => ({
+      start: (e: React.PointerEvent) => {
+        if (e.pointerType !== "touch") return;
+        clear();
+        timer.current = setTimeout(() => setOpen(true), 450);
+      },
+      cancel: clear,
+    }),
+    [],
+  );
+
+  const child = React.isValidElement(children)
+    ? React.cloneElement(children as React.ReactElement<{ onSummaryLongPress?: typeof longPress }>, {
+        onSummaryLongPress: longPress,
+      })
+    : children;
+
   return (
-    <HoverCard openDelay={150} closeDelay={80}>
-      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+    <HoverCard open={open} onOpenChange={setOpen} openDelay={150} closeDelay={80}>
+      <HoverCardTrigger asChild>{child}</HoverCardTrigger>
       <HoverCardContent align="start" className="w-72">
         <PatientHoverSummary p={p} />
       </HoverCardContent>
