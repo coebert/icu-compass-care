@@ -137,7 +137,7 @@ export function DailyGoalsCard({ patient }: { patient: Record<string, unknown> }
         </div>
         {(reviewedBy || reviewedAt) && (
           <p className="text-xs text-muted-foreground">
-            Last reviewed {reviewedAt ? new Date(reviewedAt).toLocaleString() : ""}
+            Last reviewed {reviewedAt ? fmtDateTime(reviewedAt) : ""}
             {reviewedBy ? ` by ${reviewedBy}` : ""}
           </p>
         )}
