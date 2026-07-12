@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
