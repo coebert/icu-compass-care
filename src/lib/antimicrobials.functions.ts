@@ -17,9 +17,8 @@ export type AntimicrobialLibraryRow = {
 
 const nameSchema = z
   .string()
-  .trim()
-  .min(1, "Name is required")
-  .max(120, "Name is too long");
+  .transform(normalizeAntimicrobialName)
+  .pipe(z.string().min(1, "Name is required").max(120, "Name is too long"));
 
 export const listAntimicrobialLibrary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
