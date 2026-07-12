@@ -177,6 +177,21 @@ export const getPatientFieldChanges = createServerFn({ method: "GET" })
     return rows ?? [];
   });
 
+// Unit-wide recent field changes across every patient, for the dashboard
+// "what changed" ribbon. Most recent first.
+export const listRecentFieldChanges = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("patient_field_changes")
+      .select("id, patient_id, field_name, changed_at, changed_by_email")
+      .order("changed_at", { ascending: false })
+      .limit(60);
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+
 // Status-change history for the Timeline, showing who made each change.
 // record_audit is admin-only via RLS, so this reads through the service-role
 // client, but stays gated behind requireSupabaseAuth (any signed-in clinician
