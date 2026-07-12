@@ -80,6 +80,7 @@ export function SystemMultiSelectCard({
   groupLabel,
   options,
   notesLabel,
+  notesField,
   notes,
 }: {
   patientId: string;
@@ -88,6 +89,7 @@ export function SystemMultiSelectCard({
   groupLabel: string;
   options: SystemOption[];
   notesLabel: string;
+  notesField: string;
   notes?: string | null;
 }) {
   const mut = usePatientFieldMutation(patientId);
@@ -100,7 +102,13 @@ export function SystemMultiSelectCard({
         onToggle={(v) => mut.mutate({ [arrayField]: toggleValue(selected, v) })}
         disabled={mut.isPending}
       />
-      <SystemNotes label={notesLabel} value={notes} />
+      <EditableField
+        patientId={patientId}
+        field={notesField}
+        label={notesLabel}
+        value={notes}
+        multiline
+      />
     </div>
   );
 }
