@@ -108,6 +108,11 @@ function AdminPage() {
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
+            <Link to="/antimicrobials">
+              <Pill className="h-4 w-4" /> Antimicrobial library
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
             <Link to="/patients/sharing">
               <Share2 className="h-4 w-4" /> Partner sharing
             </Link>
