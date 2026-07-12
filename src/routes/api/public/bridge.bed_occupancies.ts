@@ -3,22 +3,13 @@ import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.se
 import { getAdmin } from "@/lib/admin-db.server";
 import { buildBridgeBedBoard } from "@/lib/bridge-beds";
 
-/**
- * Read-only bridge endpoint exposing the Radnor Critical Care bed board to the
- * partner app: the fixed bed roster, per-bed occupancy, occupancy stats, and
- * any active ICU patients whose recorded bed does not match a known slot.
- *
- * Mirrors the in-app bed board (src/routes/_authenticated/patients.index.tsx)
- * so both surfaces agree on beds, occupancy, and side-room layout.
- */
-
-export const Route = createFileRoute("/api/public/bridge/beds")({
+export const Route = createFileRoute("/api/public/bridge/bed_occupancies")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       GET: async ({ request }) => {
-        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/beds");
+        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/bed_occupancies");
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
@@ -29,14 +20,22 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
           return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         }
 
+        const bed_occupancies = board.bed_board.map((slot) => ({
+          bed: slot.bed,
+          is_side_room: slot.is_side_room,
+          occupied: slot.occupied,
+          patient: slot.occupant,
+          occupant: slot.occupant,
+        }));
+
         await logSync(supabaseAdmin, {
           direction: "pull",
           entity: "beds",
-          record_count: board.stats.occupied + board.stats.unassigned,
+          record_count: bed_occupancies.filter((b) => b.occupied).length,
           actor: auth.actor,
         });
 
-        return json(board);
+        return json({ bed_occupancies, occupancies: bed_occupancies, stats: board.stats });
       },
     },
   },
