@@ -256,19 +256,30 @@ export const getPatientStatusChanges = createServerFn({ method: "GET" })
 export const listAntimicrobialNames = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("patients")
-      .select("antimicrobials");
+    const [{ data, error }, library] = await Promise.all([
+      context.supabase.from("patients").select("antimicrobials"),
+      context.supabase.from("antimicrobial_library").select("name"),
+    ]);
     if (error) throw safeDbError(error);
-    const names = new Set<string>();
+    if (library.error) throw safeDbError(library.error);
+    // De-duplicate case-insensitively (first spelling seen wins) so the
+    // library's canonical spellings and any patient-entered names combine into
+    // a single suggestion list without casing duplicates.
+    const byLower = new Map<string, string>();
+    const add = (name: unknown) => {
+      if (typeof name === "string" && name.trim()) {
+        const trimmed = name.trim();
+        const key = trimmed.toLowerCase();
+        if (!byLower.has(key)) byLower.set(key, trimmed);
+      }
+    };
+    for (const row of library.data ?? []) add((row as { name?: unknown }).name);
     for (const row of data ?? []) {
       const list = (row as { antimicrobials?: unknown }).antimicrobials;
       if (!Array.isArray(list)) continue;
-      for (const a of list) {
-        const name = (a as { name?: unknown })?.name;
-        if (typeof name === "string" && name.trim()) names.add(name.trim());
-      }
+      for (const a of list) add((a as { name?: unknown })?.name);
     }
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
+    return Array.from(byLower.values()).sort((a, b) => a.localeCompare(b));
   });
+
 
