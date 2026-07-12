@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listPatients } from "@/lib/patients.functions";
+import { listPatients, listRecentFieldChanges } from "@/lib/patients.functions";
 import { listOpenTasks, TASK_PRIORITY_LABEL, type TaskPriority } from "@/lib/patient-tasks.functions";
 import { listInSituLines, LINE_TYPE_LABEL, LINE_REVIEW_DAYS, type LineType } from "@/lib/lines.functions";
 import { daysInSitu } from "@/lib/lines";
