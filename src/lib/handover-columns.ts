@@ -11,7 +11,7 @@ import {
   latestMicrobiologyPerSpecimen,
   mostRecentInvestigation,
 } from "@/lib/handover-recency";
-import { summariseAllergies } from "@/lib/patient-safety";
+import { summariseAllergies, summariseTepExclusions } from "@/lib/patient-safety";
 import {
   latestObservation,
   meanArterialPressure,
