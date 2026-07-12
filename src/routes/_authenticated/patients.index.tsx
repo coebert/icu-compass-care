@@ -781,6 +781,30 @@ function PatientHoverSummary({ p }: { p: Patient }) {
         />
         <Row label="Admitted" value={fmtDate(p.admission_date)} />
       </div>
+
+      <div className="space-y-1.5 border-t pt-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Latest results
+        </p>
+        {keyInvestigations.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No bloods, CXR or CT chest recorded.</p>
+        ) : (
+          keyInvestigations.map(({ cat, inv }) => (
+            <div key={cat} className="text-xs">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium text-foreground">{cat}</span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {fmtDateTime(inv.result_at)}
+                </span>
+              </div>
+              <p className="line-clamp-2 whitespace-pre-wrap break-words text-muted-foreground">
+                {inv.findings}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
     </div>
   );
 }
