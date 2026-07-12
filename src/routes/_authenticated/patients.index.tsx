@@ -718,6 +718,11 @@ function PatientHoverSummary({ p }: { p: Patient }) {
 
   const consultant = [p.specialty_consultant, p.parent_specialty].filter(Boolean).join(" · ");
 
+  const keyInvMap = useContext(KeyInvestigationsContext);
+  const keyInvestigations = ["Bloods", "CXR", "CT chest"]
+    .map((cat) => ({ cat, inv: keyInvMap.get(`${p.id}::${cat}`) }))
+    .filter((x) => !!x.inv) as { cat: string; inv: KeyInvestigation }[];
+
   const Row = ({ label, value }: { label: string; value?: React.ReactNode }) =>
     value ? (
       <div className="flex gap-2 text-xs">
