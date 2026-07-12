@@ -437,21 +437,15 @@ export function MicroStatus({
           </div>
         )}
         <div className="mt-3 flex flex-wrap items-end gap-2">
-          <div className="flex-1 min-w-[140px]">
+          <div className="flex-1 min-w-[180px]">
             <label className="mb-1 block text-xs text-muted-foreground">
               Agent
             </label>
-            <Input
+            <SpecimenTypeCombobox
               value={name}
-              placeholder="e.g. Piperacillin/tazobactam"
-              disabled={mut.isPending}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  add();
-                }
-              }}
+              onChange={setName}
+              options={agentOptions}
+              placeholder="Search or type agent…"
             />
           </div>
           <div>
