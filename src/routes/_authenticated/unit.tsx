@@ -143,6 +143,7 @@ function fmtDue(due: string | null): { text: string; overdue: boolean } | null {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    hourCycle: "h23",
   });
   return { text, overdue };
 }
@@ -352,6 +353,7 @@ function RecentChangesCard({
                       hour: "2-digit",
                       minute: "2-digit",
                       hour12: false,
+                      hourCycle: "h23",
                     })}
                     {c.changed_by_email ? ` · ${c.changed_by_email}` : ""}
                   </span>
