@@ -27,6 +27,7 @@ export function SafetySummary({ patient }: { patient: Record<string, unknown> })
   const flags = deriveSafetyFlags(patient);
   const allergies = parseAllergies(patient.allergies);
   const weight = patient.weight_kg != null ? `${patient.weight_kg} kg` : null;
+  const tepExclusions = parseTepExclusions(patient.tep_exclusions);
 
   return (
     <Card className={allergies.length > 0 ? "border-rose-300 dark:border-rose-900" : undefined}>
