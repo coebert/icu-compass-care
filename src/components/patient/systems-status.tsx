@@ -8,7 +8,6 @@ import {
   EditableField,
   usePatientFieldMutation,
 } from "@/components/patient/systems-widgets";
-import { InfoBlock } from "@/components/patient/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,8 +62,8 @@ export function RespiratoryStatus({
         }
         disabled={mut.isPending}
       />
-      <InfoBlock label="Current FiO2" value={patient.resp_fio2} />
-      <InfoBlock label="Resp notes" value={patient.systems_resp} />
+      <EditableField patientId={patientId} field="resp_fio2" label="Current FiO2" value={patient.resp_fio2} placeholder="e.g. 0.4" />
+      <EditableField patientId={patientId} field="systems_resp" label="Resp notes" value={patient.systems_resp} multiline />
     </div>
   );
 }
@@ -163,7 +162,7 @@ export function RenalStatus({
           </label>
         </div>
       </div>
-      <InfoBlock label="Renal notes" value={patient.systems_renal} />
+      <EditableField patientId={patientId} field="systems_renal" label="Renal notes" value={patient.systems_renal} multiline />
     </div>
   );
 }
@@ -428,7 +427,7 @@ export function MicroStatus({
           </div>
         );
       })()}
-      <InfoBlock label="Micro notes" value={patient.systems_micro} />
+      <EditableField patientId={patientId} field="systems_micro" label="Micro notes" value={patient.systems_micro} multiline />
     </div>
   );
 }
@@ -546,7 +545,7 @@ export function NeuroStatus({
         disabled={mut.isPending}
         onToggle={(v) => toggleIn("regional_analgesia", regional, v)}
       />
-      <InfoBlock label="CNS / Neuro notes" value={patient.systems_neuro} />
+      <EditableField patientId={patientId} field="systems_neuro" label="CNS / Neuro notes" value={patient.systems_neuro} multiline />
     </div>
   );
 }
@@ -595,7 +594,7 @@ export function GastroNutritionStatus({
         disabled={mut.isPending}
         onToggle={toggle}
       />
-      <InfoBlock label="Gastro / Nutri notes" value={patient.systems_gastro} />
+      <EditableField patientId={patientId} field="systems_gastro" label="Gastro / Nutri notes" value={patient.systems_gastro} multiline />
     </div>
   );
 }
