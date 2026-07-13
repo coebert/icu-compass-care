@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { zTimestamp } from "@/lib/datetime";
 
 export const PATIENT_EVENT_TYPES = [
   "Surgical procedure",
@@ -19,7 +20,7 @@ const eventInput = z.object({
   patient_id: z.string().uuid(),
   event_type: z.string().trim().min(1).max(100),
   description: z.string().trim().max(20000).optional().nullable(),
-  event_at: z.string(),
+  event_at: zTimestamp,
 });
 
 export const listPatientEvents = createServerFn({ method: "GET" })
@@ -62,7 +63,7 @@ export const updatePatientEvent = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         event_type: z.string().trim().min(1).max(100),
         description: z.string().trim().max(20000).optional().nullable(),
-        event_at: z.string(),
+        event_at: zTimestamp,
       })
       .parse(input),
   )

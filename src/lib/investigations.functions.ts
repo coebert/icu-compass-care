@@ -2,12 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { zTimestamp } from "@/lib/datetime";
 
 const investigationInput = z.object({
   patient_id: z.string().uuid(),
   category: z.string().trim().min(1).max(100),
   findings: z.string().trim().min(1).max(20000),
-  result_at: z.string(),
+  result_at: zTimestamp,
 });
 
 export const listInvestigations = createServerFn({ method: "GET" })
@@ -73,7 +74,7 @@ export const updateInvestigation = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         category: z.string().trim().min(1).max(100),
         findings: z.string().trim().min(1).max(20000),
-        result_at: z.string(),
+        result_at: zTimestamp,
       })
       .parse(input),
   )

@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const DATE_VALUE = "yyyy-MM-dd";
-const DATETIME_VALUE = "yyyy-MM-dd'T'HH:mm";
 /** British display format used everywhere in the app. */
 const DATE_DISPLAY = "dd/MM/yyyy";
 
@@ -193,7 +192,11 @@ export function DateTimePicker({
     const [h, m] = (time || "00:00").split(":").map((n) => parseInt(n, 10));
     const next = new Date(date);
     next.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0);
-    onChange(format(next, DATETIME_VALUE));
+    // Emit an absolute UTC instant so the value round-trips losslessly through
+    // Postgres `timestamptz` columns (see src/lib/datetime.ts). `next` is a
+    // local Date built from the picked date + 24-hour time, so toISOString()
+    // captures the correct instant for the user's timezone.
+    onChange(next.toISOString());
   }
 
   return (

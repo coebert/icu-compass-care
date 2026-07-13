@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { zTimestamp } from "@/lib/datetime";
 
 export const REVIEW_SPECIALTIES = [
   "General surgery",
@@ -28,7 +29,7 @@ const reviewInput = z.object({
   specialty: z.string().trim().min(1).max(100),
   review: z.string().trim().max(20000).optional().nullable(),
   plan: z.string().trim().max(20000).optional().nullable(),
-  reviewed_at: z.string(),
+  reviewed_at: zTimestamp,
 });
 
 export const listPatientReviews = createServerFn({ method: "GET" })
@@ -73,7 +74,7 @@ export const updatePatientReview = createServerFn({ method: "POST" })
         specialty: z.string().trim().min(1).max(100),
         review: z.string().trim().max(20000).optional().nullable(),
         plan: z.string().trim().max(20000).optional().nullable(),
-        reviewed_at: z.string(),
+        reviewed_at: zTimestamp,
       })
       .parse(input),
   )
