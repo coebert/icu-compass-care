@@ -71,7 +71,7 @@ export const addPatientTask = createServerFn({ method: "POST" })
         priority: z.enum(TASK_PRIORITIES).optional(),
         category: z.enum(TASK_CATEGORIES).optional(),
         owner: z.string().trim().max(120).nullish(),
-        due_at: z.string().datetime().nullish(),
+        due_at: zTimestampNullish,
       })
       .parse(input),
   )
@@ -105,7 +105,7 @@ export const updatePatientTask = createServerFn({ method: "POST" })
         priority: z.enum(TASK_PRIORITIES).optional(),
         category: z.enum(TASK_CATEGORIES).optional(),
         owner: z.string().trim().max(120).nullish(),
-        due_at: z.string().datetime().nullish(),
+        due_at: zTimestampNullish,
       })
       .parse(input),
   )
