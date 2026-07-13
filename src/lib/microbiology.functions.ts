@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { zTimestamp } from "@/lib/datetime";
 
 const microbiologyInput = z.object({
   patient_id: z.string().uuid(),
