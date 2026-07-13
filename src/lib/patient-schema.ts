@@ -81,7 +81,7 @@ export const patientInput = z.object({
   nok_name: z.string().trim().max(200).optional().nullable(),
   nok_relationship: z.string().trim().max(100).optional().nullable(),
   nok_contact: z.string().trim().max(200).optional().nullable(),
-  nok_last_updated: z.string().optional().nullable(),
+  nok_last_updated: zTimestampNullish,
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
   weight_kg: z
     .preprocess(
