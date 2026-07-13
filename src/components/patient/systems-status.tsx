@@ -372,8 +372,8 @@ export function MicroStatus({
             <div>
               <span className="font-medium">{a.name}</span>
               <span className="ml-2 text-muted-foreground">
-                {a.started_on}
-                {isCompleted ? <> → {a.ended_on}</> : <> → ongoing</>}
+                {fmtDate(a.started_on)}
+                {isCompleted ? <> → {fmtDate(a.ended_on)}</> : <> → ongoing</>}
                 {days != null && (
                   <>
                     {" "}
