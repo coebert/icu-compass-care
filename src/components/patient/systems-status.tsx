@@ -337,13 +337,11 @@ export function MicroStatus({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">Start date</label>
-                <Input
-                  type="date"
+                <DatePicker
                   className="h-8 w-[9.5rem]"
                   value={editStart}
-                  max={new Date().toISOString().slice(0, 10)}
                   disabled={mut.isPending}
-                  onChange={(e) => setEditStart(e.target.value)}
+                  onChange={setEditStart}
                 />
               </div>
             </div>
