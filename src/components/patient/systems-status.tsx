@@ -579,6 +579,7 @@ const SEDATIVE_OPTIONS: { value: string; label: string }[] = [
 const PCA_OPTIONS: { value: string; label: string }[] = [
   { value: "morphine", label: "Morphine" },
   { value: "fentanyl", label: "Fentanyl" },
+  { value: "oxycodone", label: "Oxycodone" },
 ];
 
 const REGIONAL_OPTIONS: { value: string; label: string }[] = [
