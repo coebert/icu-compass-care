@@ -212,7 +212,12 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
       throw new Error("Passkey verification failed");
     }
 
-    await db
+    // counter and last_used_at are system-managed columns that clients are no
+    // longer permitted to update (RLS column grants restrict authenticated
+    // UPDATE to device_label only). Persist the verification result with the
+    // service-role client so the signature counter cannot be tampered with.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin
       .from("webauthn_credentials")
       .update({
         counter: verification.authenticationInfo.newCounter,
