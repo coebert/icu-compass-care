@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const DATE_VALUE = "yyyy-MM-dd";
-const DATETIME_VALUE = "yyyy-MM-dd'T'HH:mm";
 /** British display format used everywhere in the app. */
 const DATE_DISPLAY = "dd/MM/yyyy";
 
