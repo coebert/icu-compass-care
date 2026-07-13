@@ -388,14 +388,11 @@ export function MicroStatus({
               {isCompleted && (
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   End
-                  <Input
-                    type="date"
+                  <DatePicker
                     className="h-8 w-[9.5rem]"
                     value={a.ended_on ?? ""}
-                    min={a.started_on}
-                    max={new Date().toISOString().slice(0, 10)}
                     disabled={mut.isPending}
-                    onChange={(e) => setEnd(i, e.target.value)}
+                    onChange={(v) => setEnd(i, v)}
                   />
                 </label>
               )}
