@@ -232,11 +232,9 @@ export function LinesCard({ patientId }: { patientId: string }) {
               </div>
               <div className="space-y-1">
                 <Label>Insertion date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={insertedOn}
-                  max={today()}
-                  onChange={(e) => setInsertedOn(e.target.value)}
+                  onChange={setInsertedOn}
                 />
               </div>
               <div className="space-y-1">
