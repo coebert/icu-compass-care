@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { zTimestampNullish } from "@/lib/datetime";
 
 export const TASK_STATUSES = ["not_started", "in_progress", "completed"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
