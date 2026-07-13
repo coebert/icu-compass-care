@@ -17,6 +17,7 @@ import { type PatientLine, daysInSitu } from "@/lib/lines";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -232,11 +233,9 @@ export function LinesCard({ patientId }: { patientId: string }) {
               </div>
               <div className="space-y-1">
                 <Label>Insertion date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={insertedOn}
-                  max={today()}
-                  onChange={(e) => setInsertedOn(e.target.value)}
+                  onChange={setInsertedOn}
                 />
               </div>
               <div className="space-y-1">

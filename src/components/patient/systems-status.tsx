@@ -10,7 +10,9 @@ import {
   usePatientFieldMutation,
 } from "@/components/patient/systems-widgets";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
+import { DatePicker } from "@/components/ui/date-picker";
+import { fmtDate } from "@/lib/icu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Pencil, Check, X } from "lucide-react";
 import { courseDays, normalizeAntimicrobialName, type Antimicrobial } from "@/lib/antimicrobials";
@@ -335,13 +337,11 @@ export function MicroStatus({
               </div>
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">Start date</label>
-                <Input
-                  type="date"
+                <DatePicker
                   className="h-8 w-[9.5rem]"
                   value={editStart}
-                  max={new Date().toISOString().slice(0, 10)}
                   disabled={mut.isPending}
-                  onChange={(e) => setEditStart(e.target.value)}
+                  onChange={setEditStart}
                 />
               </div>
             </div>
@@ -372,8 +372,8 @@ export function MicroStatus({
             <div>
               <span className="font-medium">{a.name}</span>
               <span className="ml-2 text-muted-foreground">
-                {a.started_on}
-                {isCompleted ? <> → {a.ended_on}</> : <> → ongoing</>}
+                {fmtDate(a.started_on)}
+                {isCompleted ? <> → {fmtDate(a.ended_on)}</> : <> → ongoing</>}
                 {days != null && (
                   <>
                     {" "}
@@ -388,14 +388,11 @@ export function MicroStatus({
               {isCompleted && (
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   End
-                  <Input
-                    type="date"
+                  <DatePicker
                     className="h-8 w-[9.5rem]"
                     value={a.ended_on ?? ""}
-                    min={a.started_on}
-                    max={new Date().toISOString().slice(0, 10)}
                     disabled={mut.isPending}
-                    onChange={(e) => setEnd(i, e.target.value)}
+                    onChange={(v) => setEnd(i, v)}
                   />
                 </label>
               )}
@@ -490,12 +487,10 @@ export function MicroStatus({
             <label className="mb-1 block text-xs text-muted-foreground">
               Start date
             </label>
-            <Input
-              type="date"
+            <DatePicker
               value={startedOn}
-              max={new Date().toISOString().slice(0, 10)}
               disabled={mut.isPending}
-              onChange={(e) => setStartedOn(e.target.value)}
+              onChange={setStartedOn}
             />
           </div>
           <Button type="button" onClick={add} disabled={mut.isPending || !name.trim()}>
@@ -546,8 +541,8 @@ export function MicroStatus({
                         )}
                       </div>
                       <span className="text-muted-foreground">
-                        {a.started_on}
-                        {completed ? <> → {a.ended_on}</> : <> → ongoing</>}
+                        {fmtDate(a.started_on)}
+                        {completed ? <> → {fmtDate(a.ended_on)}</> : <> → ongoing</>}
                         {days != null && (
                           <>
                             {" "}
