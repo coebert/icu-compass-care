@@ -487,12 +487,10 @@ export function MicroStatus({
             <label className="mb-1 block text-xs text-muted-foreground">
               Start date
             </label>
-            <Input
-              type="date"
+            <DatePicker
               value={startedOn}
-              max={new Date().toISOString().slice(0, 10)}
               disabled={mut.isPending}
-              onChange={(e) => setStartedOn(e.target.value)}
+              onChange={setStartedOn}
             />
           </div>
           <Button type="button" onClick={add} disabled={mut.isPending || !name.trim()}>
