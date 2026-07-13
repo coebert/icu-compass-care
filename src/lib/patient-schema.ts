@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { zTimestampNullish } from "@/lib/datetime";
 
 // Shared, client-safe patient schema + lifecycle rules.
 //
