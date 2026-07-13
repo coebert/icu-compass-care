@@ -223,11 +223,11 @@ function HandoverHistoryPage() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="hv-from" className="text-xs">From</Label>
-            <Input id="hv-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DatePicker id="hv-from" value={from} onChange={setFrom} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="hv-to" className="text-xs">To</Label>
-            <Input id="hv-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <DatePicker id="hv-to" value={to} onChange={setTo} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="hv-shift" className="text-xs">Shift</Label>
