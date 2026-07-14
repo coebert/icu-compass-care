@@ -642,6 +642,8 @@ function PatientDetail() {
           )}
         </DialogContent>
       </Dialog>
+      {conflict.dialog}
     </div>
+
   );
 }
