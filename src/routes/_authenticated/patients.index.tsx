@@ -12,6 +12,7 @@ import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -72,6 +73,7 @@ function PatientsBoard() {
   const update = useServerFn(updatePatient);
   const beds = useServerFn(listBeds);
   const [search, setSearch] = useState("");
+  const [sexFilter, setSexFilter] = useState<"all" | "female" | "male" | "other" | "unknown">("all");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -228,13 +230,14 @@ function PatientsBoard() {
         p.hospital_number?.toLowerCase().includes(q) ||
         p.ward?.toLowerCase().includes(q);
       if (!matches) return false;
+      if (sexFilter !== "all" && p.sex !== sexFilter) return false;
       // While searching, span every record (current AND discharged/died) so a
       // patient can always be found by hospital number after discharge.
       if (q) return true;
       const active = p.status === "admitted" || p.status === "referred";
       return showArchived ? !active : active;
     });
-  }, [patients, search, showArchived]);
+  }, [patients, search, sexFilter, showArchived]);
 
 
   const icu = filtered.filter((p) => p.location_type === "icu");
@@ -498,6 +501,18 @@ function PatientsBoard() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <Select value={sexFilter} onValueChange={(v) => setSexFilter(v as typeof sexFilter)}>
+            <SelectTrigger className="h-11 w-full sm:h-10 sm:w-36" aria-label="Filter by sex">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sexes</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="unknown">Unknown</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant={showArchived ? "secondary" : "outline"} className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
