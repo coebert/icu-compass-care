@@ -192,6 +192,31 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     onError: (e: Error) => toast.error("Could not remove event", { description: e.message }),
   });
 
+  const [quickAt, setQuickAt] = useState<string>(() => new Date().toISOString());
+
+  const quickAddMut = useMutation({
+    mutationFn: async (at: string) =>
+      (await addEvent({
+        data: { patient_id: patientId, event_type: "Other", description: "", event_at: at } as never,
+      })) as PatientEvent,
+    onSuccess: async (row) => {
+      await qc.invalidateQueries({ queryKey: ["patient-events", patientId] });
+      toast.success("Event added — edit inline");
+      // Open the details editor for the newly created event.
+      setSelected({
+        key: `event-${row.id}`,
+        at: row.event_at,
+        icon: <Stethoscope className="h-4 w-4" />,
+        title: row.event_type,
+        detail: row.description,
+        kind: "event",
+        eventId: row.id,
+        eventType: row.event_type,
+      });
+    },
+    onError: (e: Error) => toast.error("Could not add event", { description: e.message }),
+  });
+
   const events = useMemo<TimelineEvent[]>(() => {
     const evs: TimelineEvent[] = [];
 
