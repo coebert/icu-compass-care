@@ -16,11 +16,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Share2, ShieldOff } from "lucide-react";
+import { Share2, ShieldOff, Trash2, AlertTriangle } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 
 type Patient = DomainPatient & Record<string, any>;
 
-export function StatusTab({ patient }: { patient: Patient }) {
+export function StatusTab({
+  patient,
+  onDelete,
+  isDeleting = false,
+}: {
+  patient: Patient;
+  onDelete?: () => void;
+  isDeleting?: boolean;
+}) {
   const qc = useQueryClient();
   const update = useServerFn(updatePatient);
   const [status, setStatus] = useState<string>(patient.status);
