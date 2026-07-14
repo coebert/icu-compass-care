@@ -47,6 +47,21 @@ export function MicrobiologyTab({
     queryFn: () => list({ data: { patientId } }) as Promise<Microbiology[]>,
   });
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId) return;
+    const t = setTimeout(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-focus-id="${focusId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(focusId);
+        setTimeout(() => setHighlightId(null), 2000);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [focusId, focusSeq, items.length]);
+
   const addMut = useMutation({
     mutationFn: () =>
       add({
