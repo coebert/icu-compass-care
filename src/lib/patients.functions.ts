@@ -141,9 +141,24 @@ export const updatePatient = createServerFn({ method: "POST" })
       await assertBedFree(context.supabase, mBed, id);
     }
 
+    // Auto-stamp the "ready for the ward" transition so the ward-wait timer
+    // is measured from a single trusted server clock, not the client's.
+    const patch: Record<string, unknown> = { ...clean(rest), updated_by: context.userId };
+    if (Object.prototype.hasOwnProperty.call(rest, "wardable")) {
+      const wasWardable = current.wardable === true;
+      const nextWardable = (rest as { wardable?: boolean }).wardable === true;
+      if (nextWardable && !wasWardable) {
+        patch.wardable_at = new Date().toISOString();
+        patch.wardable_by = context.userId;
+      } else if (!nextWardable && wasWardable) {
+        patch.wardable_at = null;
+        patch.wardable_by = null;
+      }
+    }
+
     const { data: row, error } = await context.supabase
       .from("patients")
-      .update({ ...clean(rest), updated_by: context.userId } as never)
+      .update(patch as never)
       .eq("id", id)
       .select()
       .single();
