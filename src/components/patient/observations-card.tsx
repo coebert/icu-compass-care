@@ -18,6 +18,7 @@ import {
   computeAcuity,
 } from "@/lib/observations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionUpdated } from "@/components/patient/section-updated";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -174,10 +175,13 @@ export function ObservationsCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Activity className="h-4 w-4" /> Observations & trends
-        </CardTitle>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <div className="min-w-0">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-4 w-4" /> Observations & trends
+          </CardTitle>
+          <SectionUpdated items={observations} className="mt-1" />
+        </div>
         <div className="flex items-center gap-2">
           <AcuityBadge latest={latest} support={support} />
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAdding((v) => !v)}>
