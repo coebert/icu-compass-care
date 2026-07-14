@@ -545,11 +545,20 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="investigations" className="mt-4">
-          <InvestigationsTab patientId={patientId} />
+          <InvestigationsTab
+            patientId={patientId}
+            focusId={focus?.tab === "investigations" ? focus.id : null}
+            focusSeq={focus?.tab === "investigations" ? focus.seq : 0}
+          />
         </TabsContent>
 
         <TabsContent value="microbiology" className="mt-4">
-          <MicrobiologyTab patientId={patientId} patient={patient} />
+          <MicrobiologyTab
+            patientId={patientId}
+            patient={patient}
+            focusId={focus?.tab === "microbiology" ? focus.id : null}
+            focusSeq={focus?.tab === "microbiology" ? focus.seq : 0}
+          />
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-4">
@@ -557,7 +566,14 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="timeline" className="mt-4">
-          <TimelineTab patient={patient} patientId={patientId} />
+          <TimelineTab
+            patient={patient}
+            patientId={patientId}
+            onNavigate={(tab, id) => {
+              setFocus({ tab, id, seq: Date.now() });
+              setActiveTab(tab);
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="status" className="mt-4">
