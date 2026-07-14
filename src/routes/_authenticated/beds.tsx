@@ -188,15 +188,47 @@ function BedsAdminPage() {
                         Side room
                       </Label>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive"
-                      onClick={() => remove(d.key)}
-                      aria-label="Remove bed"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {(() => {
+                      const occupants = occupantsFor(d.label);
+                      const button = (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          aria-label="Remove bed"
+                          onClick={occupants.length === 0 ? () => remove(d.key) : undefined}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      );
+                      if (occupants.length === 0) return button;
+                      return (
+                        <ConfirmDestructive
+                          title="This bed is currently occupied"
+                          description={
+                            <>
+                              <p className="mb-2">
+                                Bed <span className="font-medium">{d.label || "(unnamed)"}</span> currently has{" "}
+                                {occupants.length === 1 ? "an active patient" : `${occupants.length} active patients`}:
+                              </p>
+                              <ul className="mb-2 list-disc pl-5 text-sm">
+                                {occupants.map((n) => (
+                                  <li key={n}>{n}</li>
+                                ))}
+                              </ul>
+                              <p>
+                                Removing it here will only take effect when you press <span className="font-medium">Save changes</span>. Move
+                                the patient to another bed first to avoid an orphaned occupant on the board.
+                              </p>
+                            </>
+                          }
+                          confirmLabel="Remove anyway"
+                          onConfirm={() => remove(d.key)}
+                        >
+                          {button}
+                        </ConfirmDestructive>
+                      );
+                    })()}
                   </div>
                 );
               })}
