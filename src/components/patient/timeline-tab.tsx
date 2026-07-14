@@ -462,10 +462,21 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
                   {selected.icon}
                 </span>
               )}
-              {selected?.title}
+              {selected?.kind === "event" && selected.eventId ? "Event details" : selected?.title}
             </DialogTitle>
           </DialogHeader>
-          {selected && (
+          {selected && selected.kind === "event" && selected.eventId ? (
+            <EventEditor
+              key={selected.eventId}
+              event={keyEvents.find((k) => k.id === selected.eventId) as PatientEvent | undefined}
+              editEvent={editEvent}
+              onSaved={() => qc.invalidateQueries({ queryKey: ["patient-events", patientId] })}
+              onRemove={() => {
+                deleteMut.mutate(selected.eventId as string);
+                setSelected(null);
+              }}
+            />
+          ) : selected ? (
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
@@ -483,37 +494,8 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
                   <UserRound className="h-3 w-3" /> Changed by {selected.changedBy}
                 </p>
               )}
-              {selected.kind === "event" && selected.eventId && (
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => {
-                      const src = keyEvents.find((k) => k.id === selected.eventId);
-                      if (src) {
-                        setSelected(null);
-                        openEdit(src as PatientEvent);
-                      }
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-destructive"
-                    onClick={() => {
-                      deleteMut.mutate(selected.eventId as string);
-                      setSelected(null);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Remove
-                  </Button>
-                </div>
-              )}
             </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
 
