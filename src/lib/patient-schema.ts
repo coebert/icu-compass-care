@@ -28,7 +28,12 @@ export const patientInput = z.object({
   full_name: z.string().trim().min(1).max(10),
   hospital_number: z.string().trim().max(50).optional().nullable(),
   age: ageSchema,
-  sex: z.enum(["male", "female", "other", "unknown"]).optional().nullable(),
+  sex: z
+    .preprocess(
+      (v) => (v === "" || v === undefined ? null : v),
+      z.enum(["male", "female", "other", "unknown"]).nullable(),
+    )
+    .optional(),
 
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
