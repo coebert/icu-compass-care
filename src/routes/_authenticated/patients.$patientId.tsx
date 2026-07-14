@@ -84,6 +84,8 @@ function PatientDetail() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PatientFormValues | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology"; id: string; seq: number } | null>(null);
 
   const { hasClinicalAccess, profile } = useClinicalAccess();
 
