@@ -591,11 +591,14 @@ function PatientDetail() {
           <TimelineTab
             patient={patient}
             patientId={patientId}
+            filters={timelineFilters}
+            onFiltersChange={setTimelineFilters}
             onNavigate={(tab, id) => {
               setFocus({ tab, id, seq: Date.now() });
               setActiveTab(tab);
             }}
           />
+
         </TabsContent>
 
         <TabsContent value="status" className="mt-4">
