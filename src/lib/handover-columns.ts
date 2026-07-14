@@ -26,7 +26,7 @@ const SEX_SHORT: Record<string, string> = { male: "M", female: "F", other: "O", 
 
 function identity(p: HandoverPatient): string {
   const allergies = summariseAllergies((p as Record<string, unknown>).allergies);
-  const sex = SEX_SHORT[String((p as Record<string, unknown>).sex ?? "")] ?? null;
+  const sex = SEX_SHORT[String((p as Record<string, unknown>).sex ?? "")] ?? "U";
   const ageParts = [p.age != null ? `Age ${p.age}` : null, sex].filter(Boolean).join(" · ");
   return joinNonEmpty([
     p.full_name?.trim() || "—",
