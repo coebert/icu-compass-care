@@ -32,7 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Pencil,
   Trash2,
   Plus,
   AlertTriangle,
