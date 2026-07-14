@@ -150,18 +150,18 @@ function SecurityFaqPage() {
                   referrals, and microbiology is written to{" "}
                   <code>record_audit</code>. Each row stores the actor, their
                   role, the action, which fields changed, and a before/after
-                  snapshot with a timestamp.
+                  snapshot with a timestamp. This table is readable by admins.
                 </p>
                 <p>
-                  Key field changes — including identifiers, demographics, and
-                  clinical fields — are also captured in{" "}
-                  <code>patient_field_changes</code> so the history view can show
-                  exactly who changed a value and when.
+                  Key identifier and demographic field changes are also captured
+                  in <code>patient_field_changes</code>, which is readable by
+                  clinical staff, so the history view can show exactly who
+                  changed a value and when.
                 </p>
                 <p>
-                  Audit tables are append-only: they have INSERT and SELECT
-                  policies, but no UPDATE or DELETE policies, so history cannot
-                  be rewritten from the app.
+                  Audit tables are append-only: SELECT policies let authorised
+                  staff read them, but there are no UPDATE or DELETE policies,
+                  so history cannot be altered or erased through the app.
                 </p>
               </AccordionContent>
             </AccordionItem>
