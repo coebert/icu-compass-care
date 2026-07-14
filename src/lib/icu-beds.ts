@@ -9,10 +9,10 @@
 
 export type BedSlot = { label: string; is_side_room: boolean };
 
-/** Fallback roster: two side rooms then open-bay beds 3–10. */
+/** Fallback roster: side rooms at 1–2 and 11–12, open-bay beds 3–10. */
 export const DEFAULT_BEDS: BedSlot[] = [
-  { label: "SR1", is_side_room: true },
-  { label: "SR2", is_side_room: true },
+  { label: "1", is_side_room: true },
+  { label: "2", is_side_room: true },
   { label: "3", is_side_room: false },
   { label: "4", is_side_room: false },
   { label: "5", is_side_room: false },
@@ -21,6 +21,8 @@ export const DEFAULT_BEDS: BedSlot[] = [
   { label: "8", is_side_room: false },
   { label: "9", is_side_room: false },
   { label: "10", is_side_room: false },
+  { label: "11", is_side_room: true },
+  { label: "12", is_side_room: true },
 ];
 
 /** Case-insensitive, whitespace-tolerant bed key for comparisons. */
