@@ -22,11 +22,15 @@ function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"):
   return parts.filter(Boolean).join(sep);
 }
 
+const SEX_SHORT: Record<string, string> = { male: "M", female: "F", other: "O", unknown: "U" };
+
 function identity(p: HandoverPatient): string {
   const allergies = summariseAllergies((p as Record<string, unknown>).allergies);
+  const sex = SEX_SHORT[String((p as Record<string, unknown>).sex ?? "")] ?? null;
+  const ageParts = [p.age != null ? `Age ${p.age}` : null, sex].filter(Boolean).join(" · ");
   return joinNonEmpty([
     p.full_name?.trim() || "—",
-    p.age != null ? `Age ${p.age}` : null,
+    ageParts || null,
     (p as Record<string, unknown>).weight_kg != null ? `Wt ${(p as Record<string, unknown>).weight_kg}kg` : null,
     p.hospital_number ? `MRN ${p.hospital_number}` : null,
     allergies ? `Allergies: ${allergies}` : "Allergies: NKDA",
