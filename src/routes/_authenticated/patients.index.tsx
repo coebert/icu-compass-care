@@ -84,12 +84,32 @@ function PatientsBoard() {
   const create = useServerFn(createPatient);
   const update = useServerFn(updatePatient);
   const beds = useServerFn(listBeds);
-  const [search, setSearch] = useState("");
-  const [sexFilter, setSexFilter] = useState<"all" | "female" | "male" | "other" | "unknown">("all");
-  const [showArchived, setShowArchived] = useState(false);
+  const urlSearch = Route.useSearch();
+  const navigate = useNavigate();
+  type BoardSearch = z.infer<typeof patientsBoardSearchSchema>;
+  const updateBoardSearch = (patch: Partial<BoardSearch>) =>
+    navigate({
+      to: "/patients",
+      search: (prev: BoardSearch) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  const search = urlSearch.q;
+  const setSearch = (v: string) => updateBoardSearch({ q: v });
+  const SEX_OPTS = ["all", "female", "male", "other", "unknown"] as const;
+  type SexFilter = (typeof SEX_OPTS)[number];
+  const sexFilter: SexFilter = (SEX_OPTS as readonly string[]).includes(urlSearch.sex)
+    ? (urlSearch.sex as SexFilter)
+    : "all";
+  const setSexFilter = (v: SexFilter) => updateBoardSearch({ sex: v });
+  const showArchived = urlSearch.archived;
+  const setShowArchived = (fn: (prev: boolean) => boolean) =>
+    updateBoardSearch({ archived: fn(showArchived) });
+  const density: "compact" | "detailed" = urlSearch.density === "compact" ? "compact" : "detailed";
+  const setDensity = (v: "compact" | "detailed") => updateBoardSearch({ density: v });
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
+
 
   // Currently dragged patient (kept in a ref so drop handlers read the latest,
   // plus in state so the bed board can flag ineligible beds while dragging).
