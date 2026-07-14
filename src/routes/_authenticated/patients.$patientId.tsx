@@ -429,19 +429,27 @@ function PatientDetail() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="observations">Observations</TabsTrigger>
-          <TabsTrigger value="lines">Lines & devices</TabsTrigger>
-          <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
-          <TabsTrigger value="nok">Next of kin</TabsTrigger>
-          <TabsTrigger value="investigations">Investigations</TabsTrigger>
-          <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
-          <TabsTrigger value="reviews">Specialty reviews</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="observations">Observations</TabsTrigger>
+            <TabsTrigger value="lines">Lines & devices</TabsTrigger>
+            <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
+            <TabsTrigger value="nok">Next of kin</TabsTrigger>
+            <TabsTrigger value="investigations">Investigations</TabsTrigger>
+            <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
+            <TabsTrigger value="reviews">Specialty reviews</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+          {/* Right-edge fade so users see there's more to scroll on narrow viewports. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-md bg-gradient-to-l from-background to-transparent sm:hidden"
+          />
+        </div>
+
 
         <TabsContent value="observations" className="mt-4 space-y-4">
           <ObservationsCard
