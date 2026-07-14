@@ -14,11 +14,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History } from "lucide-react";
+import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon } from "lucide-react";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
+import { CommandMenu } from "@/components/CommandMenu";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
 import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
+
 
 // Automatically end a session after this much inactivity, warning shortly
 // before. Clinical data must not stay editable on an unattended workstation.
