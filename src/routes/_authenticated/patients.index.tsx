@@ -840,15 +840,32 @@ function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNo
 
   const child = React.isValidElement(children)
     ? React.cloneElement(
-        children as React.ReactElement<{ onLongPress?: () => void; suppressClickRef?: React.MutableRefObject<boolean> }>,
-        { onLongPress: () => setOpen(true) },
+        children as React.ReactElement<{
+          onLongPress?: () => void;
+          suppressClickRef?: React.MutableRefObject<boolean>;
+          onDragStart?: (e: React.DragEvent) => void;
+        }>,
+        {
+          onLongPress: () => setOpen(true),
+          // Close the summary the moment a drag begins so the floating card
+          // can never sit over a drop target.
+          onDragStart: (e: React.DragEvent) => {
+            setOpen(false);
+            (children as React.ReactElement<{ onDragStart?: (e: React.DragEvent) => void }>).props.onDragStart?.(e);
+          },
+        },
       )
     : children;
 
   return (
     <HoverCard open={open} onOpenChange={setOpen} openDelay={150} closeDelay={80}>
       <HoverCardTrigger asChild>{child}</HoverCardTrigger>
-      <HoverCardContent align="start" className="w-72">
+      {/* pointer-events-none ensures the summary panel never intercepts
+          drag-over / drop events on beds sitting underneath it. */}
+      <HoverCardContent
+        align="start"
+        className="pointer-events-none w-72 select-none"
+      >
         <PatientHoverSummary p={p} />
       </HoverCardContent>
     </HoverCard>
