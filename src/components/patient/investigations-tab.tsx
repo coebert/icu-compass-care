@@ -45,7 +45,15 @@ function toDateTimeLocal(iso?: string | null): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function InvestigationsTab({ patientId }: { patientId: string }) {
+export function InvestigationsTab({
+  patientId,
+  focusId = null,
+  focusSeq = 0,
+}: {
+  patientId: string;
+  focusId?: string | null;
+  focusSeq?: number;
+}) {
   const qc = useQueryClient();
   const list = useServerFn(listInvestigations);
   const add = useServerFn(addInvestigation);
