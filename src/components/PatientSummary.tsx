@@ -70,7 +70,7 @@ export function PatientName({
     >
       {formatInitials(patient)}
       {showAge && patient.age != null ? ` · ${formatAge(patient.age)}` : ""}
-      {formatSexShort(patient.sex) ? ` · ${formatSexShort(patient.sex)}` : ""}
+      {` · ${formatSexShort(patient.sex)}`}
     </span>
   );
 }
