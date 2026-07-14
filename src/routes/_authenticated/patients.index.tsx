@@ -36,6 +36,8 @@ import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
+import { MoveToBedMenu } from "@/components/patient/move-to-bed-menu";
+
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
