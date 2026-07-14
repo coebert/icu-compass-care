@@ -186,12 +186,13 @@ export function PatientForm({
   // clinical-safety risk, so the form blocks submission until it is filled in.
   const tepDetailsMissing =
     values.tep_in_place && values.tep_details.trim() === "";
+  const sexMissing = !values.sex;
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (tepDetailsMissing) return;
+        if (tepDetailsMissing || sexMissing) return;
         onSubmit();
       }}
       className="space-y-6"
