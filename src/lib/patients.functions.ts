@@ -130,6 +130,17 @@ export const updatePatient = createServerFn({ method: "POST" })
     const merged = { ...current, ...clean(rest) };
     validatePatientState(merged, current.status as PatientStatus);
 
+    // After merging, reject moves that would put two active patients in the
+    // same bed. Only enforce when the effective row is an active ICU occupant.
+    const mBed = merged.bed as string | null | undefined;
+    if (
+      mBed &&
+      merged.location_type === "icu" &&
+      (merged.status === "admitted" || merged.status === "referred")
+    ) {
+      await assertBedFree(context.supabase, mBed, id);
+    }
+
     const { data: row, error } = await context.supabase
       .from("patients")
       .update({ ...clean(rest), updated_by: context.userId } as never)
