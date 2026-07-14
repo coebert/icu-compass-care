@@ -69,7 +69,14 @@ export const createPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => patientInput.parse(input))
   .handler(async ({ context, data }) => {
-    validatePatientState(clean(data as Record<string, unknown>));
+    const cleaned = clean(data as Record<string, unknown>);
+    validatePatientState(cleaned);
+    const status = cleaned.status as string | undefined;
+    const locType = cleaned.location_type as string | undefined;
+    const bed = cleaned.bed as string | null | undefined;
+    if (bed && locType === "icu" && (status === "admitted" || status === "referred")) {
+      await assertBedFree(context.supabase, bed, null);
+    }
     const { data: row, error } = await context.supabase
       .from("patients")
       .insert({ ...clean(data as Record<string, unknown>), created_by: context.userId, updated_by: context.userId } as never)
