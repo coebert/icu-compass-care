@@ -282,4 +282,57 @@ export const listAntimicrobialNames = createServerFn({ method: "GET" })
     return Array.from(byLower.values()).sort((a, b) => a.localeCompare(b));
   });
 
+// Look up previous critical care admissions for the same person when a new
+// patient is being added. Matched by hospital number (preferred) or by
+// initials + age when no MRN is available. Returns discharged/died records
+// only — an active admission with the same MRN is a data-entry error, not a
+// readmission, and we surface that through the normal patient list.
+export const findPreviousAdmissions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        hospital_number: z.string().trim().optional(),
+        full_name: z.string().trim().optional(),
+        age: z.union([z.string(), z.number()]).optional(),
+        exclude_id: z.string().uuid().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const mrn = data.hospital_number?.trim();
+    const name = data.full_name?.trim();
+    const age =
+      typeof data.age === "number"
+        ? data.age
+        : typeof data.age === "string" && data.age.trim() !== ""
+          ? Number(data.age)
+          : null;
+
+    // Need at least an MRN, or (initials + age) — otherwise the match would
+    // be too broad and could surface unrelated patients.
+    if (!mrn && !(name && age != null && Number.isFinite(age))) return [];
+
+    let query = context.supabase
+      .from("patients")
+      .select(
+        "id, full_name, hospital_number, age, status, admission_date, discharge_date, discharge_destination, date_of_death, past_medical_history, allergies, tep_in_place, tep_details, tep_exclusions, dnacpr_decision, dnacpr_details, dnacpr_date, updated_at",
+      )
+      .in("status", ["discharged", "died"])
+      .order("updated_at", { ascending: false })
+      .limit(5);
+
+    if (mrn) {
+      query = query.ilike("hospital_number", mrn);
+    } else if (name && age != null) {
+      query = query.ilike("full_name", name).eq("age", age);
+    }
+    if (data.exclude_id) query = query.neq("id", data.exclude_id);
+
+    const { data: rows, error } = await query;
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+
 
