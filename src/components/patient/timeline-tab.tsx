@@ -140,6 +140,7 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
   const [type, setType] = useState<string>(PATIENT_EVENT_TYPES[0]);
   const [description, setDescription] = useState("");
   const [eventAt, setEventAt] = useState<string>("");
+  const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
 
   const { data: investigations = [] } = useQuery({
     queryKey: ["investigations", patientId],
