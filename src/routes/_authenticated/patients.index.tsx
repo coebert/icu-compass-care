@@ -826,13 +826,14 @@ function WardableToggle({ p }: { p: Patient }) {
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       disabled={pending}
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+      className={`inline-flex min-h-[32px] items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:min-h-0 sm:py-0.5 ${
         failed
           ? "border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/20"
           : isOn
             ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
             : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300"
       } ${pending ? "opacity-60" : ""}`}
+
     >
       {failed ? (
         <AlertTriangle className="h-3 w-3" aria-hidden />
