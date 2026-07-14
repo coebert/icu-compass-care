@@ -32,6 +32,8 @@ export type PatientFormValues = {
   full_name: string;
   hospital_number: string;
   age: string;
+  sex: "" | "male" | "female" | "other" | "unknown";
+
   location_type: "icu" | "outlier";
   ward: string;
   bed: string;
@@ -79,6 +81,8 @@ export function emptyPatient(): PatientFormValues {
     full_name: "",
     hospital_number: "",
     age: "",
+    sex: "",
+
     location_type: "icu",
     ward: "",
     bed: "",
@@ -204,6 +208,19 @@ export function PatientForm({
           <Field label="Age *">
             <Input type="number" min={0} max={130} step={1} value={values.age} onChange={(e) => set("age", e.target.value)} required />
           </Field>
+          <Field label="Sex">
+            <Select value={values.sex || "unspecified"} onValueChange={(v) => set("sex", (v === "unspecified" ? "" : v) as PatientFormValues["sex"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unspecified">Not recorded</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="unknown">Unknown</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
           <Field label="Hospital number">
             <Input id="pf-hospital_number" value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
           </Field>

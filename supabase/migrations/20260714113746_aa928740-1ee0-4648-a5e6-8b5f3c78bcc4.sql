@@ -1,0 +1,1 @@
+ALTER TABLE public.patients ADD COLUMN IF NOT EXISTS sex text CHECK (sex IN ('male','female','other','unknown'));
