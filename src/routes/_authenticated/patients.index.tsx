@@ -1007,7 +1007,7 @@ function BedBoard({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {roster.map((slot) => {
           const bed = slot.label;
-          const label = slot.is_side_room ? bed : `Bed ${bed}`;
+          const label = slot.is_side_room ? `Side room ${bed}` : `Bed ${bed}`;
           const occupants = bedOccupants.get(normalizeBed(bed)) ?? [];
           const isOver = overBed === bed || touchOverBed === bed;
           // While dragging, decide whether this bed can accept the patient so we
@@ -1040,6 +1040,22 @@ function BedBoard({
             : "border-primary ring-2 ring-primary/40";
           // Steady highlight applied to every legal target during a drag.
           const validRing = validTarget && !isOver ? "ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : "";
+          // Side rooms get a distinct amber accent so isolation-capable beds are
+          // instantly identifiable at a glance across the whole board.
+          const sideRoomHeader = slot.is_side_room
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+            : "bg-muted/40";
+          const HeaderLabel = () => (
+            <span className="flex items-center gap-1.5">
+              {slot.is_side_room && <DoorClosed className="h-3.5 w-3.5" aria-hidden />}
+              <span>{label}</span>
+              {slot.is_side_room && (
+                <span className="ml-auto rounded-sm bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                  Isolation
+                </span>
+              )}
+            </span>
+          );
           if (occupants.length > 0) {
             return (
               <div key={slot.id} data-bed={bed} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
@@ -1057,9 +1073,9 @@ function BedBoard({
                       onTouchDragStart={onTouchDragStart}
                       suppressClickRef={suppressClickRef}
                     >
-                      <Card className={`h-full transition-colors hover:border-primary/50 ${isOver ? overRing : ""}`}>
-                        <div className="border-b bg-muted/40 px-4 py-1.5 text-xs font-semibold">
-                          {label}
+                      <Card className={`h-full transition-colors hover:border-primary/50 ${slot.is_side_room ? "border-amber-500/40" : ""} ${isOver ? overRing : ""}`}>
+                        <div className={`flex items-center border-b px-4 py-1.5 text-xs font-semibold ${sideRoomHeader}`}>
+                          <HeaderLabel />
                         </div>
                         <PatientCardBody p={p} bedLabel={slot.is_side_room ? "Side room" : undefined} />
                       </Card>
@@ -1070,6 +1086,9 @@ function BedBoard({
               </div>
             );
           }
+          const emptySideRoom = slot.is_side_room
+            ? "border-amber-500/50 bg-amber-500/5 hover:border-amber-500 hover:bg-amber-500/10"
+            : "bg-muted/20 hover:border-primary hover:bg-primary/5";
           return (
             <button
               key={slot.id}
@@ -1077,9 +1096,17 @@ function BedBoard({
               data-bed={bed}
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/20 p-4 text-center transition-colors hover:border-primary hover:bg-primary/5 ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
+              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
-              <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+              <span className={`flex items-center gap-1.5 text-xs font-semibold ${slot.is_side_room ? "text-amber-900 dark:text-amber-200" : "text-muted-foreground"}`}>
+                {slot.is_side_room && <DoorClosed className="h-3.5 w-3.5" aria-hidden />}
+                {label}
+              </span>
+              {slot.is_side_room && (
+                <span className="rounded-sm bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                  Isolation capable
+                </span>
+              )}
               <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary">
                 <Plus className="h-4 w-4" /> Empty
               </span>
