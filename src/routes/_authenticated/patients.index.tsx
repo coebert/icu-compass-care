@@ -433,7 +433,7 @@ function PatientsBoard() {
     const occupants = bedOccupants.get(targetKey) ?? [];
     if (occupants.some((o) => o.id === dragged.id)) return; // dropped on its own bed
 
-    const targetLabel = isSideRoom(targetBed, bedRoster) ? targetBed : `Bed ${targetBed}`;
+    const targetLabel = isSideRoom(targetBed, bedRoster) ? `Side room ${targetBed}` : `Bed ${targetBed}`;
 
     // Is the dragged patient allowed in the target bed?
     const eligibility = checkBedEligibility(dragged, targetBed, bedRoster);
