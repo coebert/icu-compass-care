@@ -209,18 +209,29 @@ export function PatientForm({
           <Field label="Age *">
             <Input type="number" min={0} max={130} step={1} value={values.age} onChange={(e) => set("age", e.target.value)} required />
           </Field>
-          <Field label="Sex">
-            <Select value={values.sex || "unspecified"} onValueChange={(v) => set("sex", (v === "unspecified" ? "" : v) as PatientFormValues["sex"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Field label="Sex *">
+            <Select value={values.sex || undefined} onValueChange={(v) => set("sex", v as PatientFormValues["sex"])}>
+              <SelectTrigger
+                aria-invalid={sexMissing || undefined}
+                aria-describedby={sexMissing ? "pf-sex-error" : undefined}
+                className={sexMissing ? "border-destructive focus-visible:ring-destructive" : undefined}
+              >
+                <SelectValue placeholder="Select sex…" />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unspecified">Not recorded</SelectItem>
                 <SelectItem value="female">Female</SelectItem>
                 <SelectItem value="male">Male</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
                 <SelectItem value="unknown">Unknown</SelectItem>
               </SelectContent>
             </Select>
+            {sexMissing && (
+              <p id="pf-sex-error" className="text-xs text-destructive">
+                Please select a sex. Use "Unknown" if it isn't recorded.
+              </p>
+            )}
           </Field>
+
 
           <Field label="Hospital number">
             <Input id="pf-hospital_number" value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
