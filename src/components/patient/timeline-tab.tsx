@@ -169,13 +169,6 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     setDialogOpen(true);
   };
 
-  const openEdit = (ev: PatientEvent) => {
-    setEditId(ev.id);
-    setType(ev.event_type);
-    setDescription(ev.description ?? "");
-    setEventAt(ev.event_at ?? new Date().toISOString());
-    setDialogOpen(true);
-  };
 
   const saveMut = useMutation({
     mutationFn: () =>
