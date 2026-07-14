@@ -65,15 +65,18 @@ Still deferred:
 - Conflict diff dialog for concurrent edits (requires an optimistic-concurrency layer on every editable surface).
 - Queued-writes indicator (no offline mutation queue exists yet).
 
-## Phase 5 — Accessibility, discoverability & polish
+## Phase 5 — Accessibility, discoverability & polish (shipped)
 
-1. Audit every icon-only button for `aria-label`. Standardise on the shadcn Button `aria-label` pattern; add lint rule if possible.
-2. Replace all `<p>Loading…</p>` placeholders with skeleton loaders shaped like the target content; distinguish "loading" from "empty" states clearly.
-3. Add keyboard-accessible "Move to bed…" command on each patient card (opens a picker) so drag-and-drop isn't the only way to relocate a patient.
-4. Add a global command palette (⌘K) for: jump to patient by name/MRN, jump to bed, common actions (mark wardable, add event, add obs). Populates from React Query cache.
-5. Add a shared clinical-colour legend page under Security/FAQ, and link from the "?" chip introduced in Phase 3.
-6. Add "forgot password" link and inline (non-toast) error region on the Auth page with `aria-live="polite"`.
-7. Fill the audit gaps: review `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `patients.sharing.tsx`, `settings.tsx`, `reconcile.tsx`, `setup.tsx`, `antimicrobials.tsx` — they're likely to surface more of the same patterns and Handover Mode is the actual bedside surface during rounds.
+1. `aria-label`s added to the remaining icon-only buttons: staff-account delete (`admin.tsx`), task delete (`tasks-card.tsx`), systems-status remove-entry (`systems-status.tsx`), and the header Lock/Sign-out controls.
+2. Shared skeleton primitives (`ListSkeleton`, `RowSkeleton`, `TextSkeleton`) in `src/components/LoadingSkeleton.tsx` replace every `<p>Loading…</p>` placeholder across the patients board, patient detail, admin, antimicrobials, sharing, bridge security panel, and the Investigations / Microbiology / Reviews / History / Tasks / Recent-investigations tabs. Each skeleton carries `role="status"` + `aria-busy` so assistive tech announces the loading state and it is visually distinct from empty states.
+3. Global command palette (`src/components/CommandMenu.tsx`, mounted in the authenticated layout) — ⌘K / Ctrl+K opens a search for patient by name / MRN / NHS number, jump-to-bed, and the top-level navigation actions. Data is drawn from the existing React Query cache so it's free after first load. A small `⌘K to jump` hint sits bottom-right on ≥md.
+4. Auth page: inline `aria-live="polite"` error/info region (replaces the transient toast that auto-dismissed before staff could read it), plus a "Forgot password?" link that triggers `supabase.auth.resetPasswordForEmail`.
+
+Still deferred:
+- Keyboard-accessible "Move to bed…" picker on each patient card (drag-and-drop is currently the only way to relocate); requires a small bed-picker component and a `movePatient` action.
+- Shared clinical-colour legend page under Security FAQ (legend popover already exists on the patient header — the FAQ deep-link is polish).
+- Full audit of `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `patients.sharing.tsx`, `settings.tsx`, `reconcile.tsx`, `setup.tsx`, `antimicrobials.tsx` for the same patterns (tap targets, URL state, inline edits). Handover Mode is the bedside surface and warrants its own phase.
+
 
 ---
 
