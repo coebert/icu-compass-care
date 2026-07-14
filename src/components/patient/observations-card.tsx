@@ -315,14 +315,20 @@ export function ObservationsCard({
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0 text-destructive"
-                    onClick={() => delMut.mutate(o.id)}
+                  <ConfirmDestructive
+                    title="Delete this observation?"
+                    description={`Removes the ${new Date(o.recorded_at).toLocaleString("en-GB", { hour12: false })} entry permanently. This cannot be undone.`}
+                    onConfirm={() => delMut.mutate(o.id)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Delete observation"
+                      className="h-6 w-6 shrink-0 text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </ConfirmDestructive>
                 </li>
               ))}
             </ul>
