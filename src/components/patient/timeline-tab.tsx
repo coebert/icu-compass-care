@@ -192,6 +192,8 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     onError: (e: Error) => toast.error("Could not remove event", { description: e.message }),
   });
 
+  const [selected, setSelected] = useState<TimelineEvent | null>(null);
+
   const [quickAt, setQuickAt] = useState<string>(() => new Date().toISOString());
 
   const quickAddMut = useMutation({
