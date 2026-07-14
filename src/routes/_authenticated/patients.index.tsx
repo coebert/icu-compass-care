@@ -534,7 +534,7 @@ function PatientsBoard() {
   return (
     <AcuityContext.Provider value={obsByPatient}>
     <KeyInvestigationsContext.Provider value={keyInvByPatient}>
-    <div className="space-y-6">
+    <div className="space-y-6" data-density={density}>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Patient board</h1>
@@ -552,7 +552,7 @@ function PatientsBoard() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={sexFilter} onValueChange={(v) => setSexFilter(v as typeof sexFilter)}>
+          <Select value={sexFilter} onValueChange={(v) => setSexFilter(v as SexFilter)}>
             <SelectTrigger className="h-11 w-full sm:h-10 sm:w-36" aria-label="Filter by sex">
               <SelectValue />
             </SelectTrigger>
@@ -564,9 +564,19 @@ function PatientsBoard() {
               <SelectItem value="unknown">Unknown</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            className="h-11 gap-1.5 sm:h-10"
+            onClick={() => setDensity(density === "compact" ? "detailed" : "compact")}
+            aria-label={density === "compact" ? "Show detailed cards" : "Show compact cards"}
+            title={density === "compact" ? "Detailed cards" : "Compact cards"}
+          >
+            {density === "compact" ? "Detailed" : "Compact"}
+          </Button>
           <Button variant={showArchived ? "secondary" : "outline"} className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
+
           <Button
             variant="outline"
             className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
