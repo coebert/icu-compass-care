@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type {
@@ -260,52 +260,44 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     [events],
   );
 
-  const EventCard = ({ ev }: { ev: TimelineEvent }) => (
-    <Card className="w-full">
-      <CardContent className="space-y-1 p-3">
-        <div className="flex items-start gap-2">
-          <span
-            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${KIND_STYLE[ev.kind]}`}
-          >
-            {ev.icon}
-          </span>
-          <span className="text-sm font-medium leading-tight">{ev.title}</span>
-        </div>
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
-        </span>
-        {ev.detail?.trim() && (
-          <p className="line-clamp-3 whitespace-pre-wrap text-sm text-muted-foreground">{ev.detail}</p>
-        )}
-        {ev.changedBy && (
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <UserRound className="h-3 w-3" />
-            Changed by {ev.changedBy}
-          </p>
-        )}
-        {ev.kind === "event" && ev.eventId && (
-          <div className="flex gap-1 pt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 px-2 text-xs"
-              onClick={() => openEdit(keyEvents.find((k) => k.id === ev.eventId) as PatientEvent)}
-            >
-              <Pencil className="h-3 w-3" /> Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 px-2 text-xs text-destructive"
-              onClick={() => deleteMut.mutate(ev.eventId as string)}
-            >
-              <Trash2 className="h-3 w-3" /> Remove
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+  const [selected, setSelected] = useState<TimelineEvent | null>(null);
+  const [cols, setCols] = useState(3);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const compute = () => {
+      const w = window.innerWidth;
+      setCols(w >= 1280 ? 6 : w >= 1024 ? 5 : w >= 768 ? 4 : w >= 640 ? 3 : 2);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
+
+  const rows = useMemo(() => {
+    const out: TimelineEvent[][] = [];
+    for (let i = 0; i < chronological.length; i += cols) {
+      out.push(chronological.slice(i, i + cols));
+    }
+    return out;
+  }, [chronological, cols]);
+
+  const TimelineNode = ({ ev }: { ev: TimelineEvent }) => (
+    <button
+      type="button"
+      onClick={() => setSelected(ev)}
+      className="group relative z-10 flex w-full flex-col items-center gap-1.5 rounded-md p-1 text-center transition hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span
+        className={`flex h-10 w-10 items-center justify-center rounded-full ring-4 ring-background transition group-hover:scale-110 ${KIND_STYLE[ev.kind]}`}
+      >
+        {ev.icon}
+      </span>
+      <span className="line-clamp-2 text-xs font-medium leading-tight">{ev.title}</span>
+      <span className="text-[10px] text-muted-foreground">
+        {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "—"}
+      </span>
+    </button>
   );
 
   return (
@@ -313,7 +305,7 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Activity className="h-4 w-4" />
-          Key clinical events, admission, discharge and investigation snapshots — retained after discharge.
+          Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Tap any item for details.
         </div>
         <Button size="sm" className="ml-auto gap-1.5" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Add event
@@ -327,49 +319,108 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-x-auto pb-3">
-          <div className="relative flex min-w-max items-stretch gap-3 px-2 py-2">
-            {/* Central horizontal line running through every node */}
-            <div className="pointer-events-none absolute left-4 right-4 top-1/2 h-0.5 -translate-y-1/2 bg-border" />
-
-            {chronological.map((ev, i) => {
-              const above = i % 2 === 0;
-              return (
-                <div key={ev.key} className="relative flex w-56 shrink-0 flex-col">
-                  {/* Branch above the line */}
-                  <div className="flex min-h-[9rem] flex-1 flex-col items-center justify-end pb-1">
-                    {above && (
-                      <>
-                        <EventCard ev={ev} />
-                        <div className="h-4 w-px bg-border" />
-                      </>
-                    )}
-                  </div>
-
-                  {/* Node sitting on the line */}
-                  <div className="relative z-10 flex items-center justify-center">
-                    <span
-                      className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-background ${KIND_STYLE[ev.kind]}`}
-                    >
-                      {ev.icon}
-                    </span>
-                  </div>
-
-                  {/* Branch below the line */}
-                  <div className="flex min-h-[9rem] flex-1 flex-col items-center justify-start pt-1">
-                    {!above && (
-                      <>
-                        <div className="h-4 w-px bg-border" />
-                        <EventCard ev={ev} />
-                      </>
-                    )}
-                  </div>
+        <div className="space-y-2 py-2">
+          {rows.map((row, rowIdx) => {
+            const reversed = rowIdx % 2 === 1;
+            const items = reversed ? [...row].reverse() : row;
+            const isLastRow = rowIdx === rows.length - 1;
+            return (
+              <div key={rowIdx} className="relative">
+                {/* Horizontal connector across this row's nodes */}
+                <div
+                  className="pointer-events-none absolute top-6 h-0.5 bg-border"
+                  style={{
+                    left: `calc(${100 / (row.length * 2)}%)`,
+                    right: `calc(${100 / (row.length * 2)}%)`,
+                  }}
+                />
+                <div
+                  className="grid gap-2"
+                  style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                >
+                  {items.map((ev) => (
+                    <TimelineNode key={ev.key} ev={ev} />
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+                {/* Snake connector down to next row on the correct side */}
+                {!isLastRow && row.length === cols && (
+                  <div
+                    className="pointer-events-none absolute top-6 h-[calc(100%+0.5rem)] w-0.5 bg-border"
+                    style={reversed ? { left: `calc(${100 / (cols * 2)}%)` } : { right: `calc(${100 / (cols * 2)}%)` }}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selected && (
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full ${KIND_STYLE[selected.kind]}`}
+                >
+                  {selected.icon}
+                </span>
+              )}
+              {selected?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {selected && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                {selected.at
+                  ? isDate(selected.at)
+                    ? fmtDate(selected.at)
+                    : fmtDateTime(selected.at)
+                  : "Date not recorded"}
+              </div>
+              {selected.detail?.trim() && (
+                <p className="whitespace-pre-wrap text-foreground">{selected.detail}</p>
+              )}
+              {selected.changedBy && (
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <UserRound className="h-3 w-3" /> Changed by {selected.changedBy}
+                </p>
+              )}
+              {selected.kind === "event" && selected.eventId && (
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => {
+                      const src = keyEvents.find((k) => k.id === selected.eventId);
+                      if (src) {
+                        setSelected(null);
+                        openEdit(src as PatientEvent);
+                      }
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-destructive"
+                    onClick={() => {
+                      deleteMut.mutate(selected.eventId as string);
+                      setSelected(null);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Remove
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
