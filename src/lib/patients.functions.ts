@@ -79,7 +79,7 @@ export const createPatient = createServerFn({ method: "POST" })
     }
     const { data: row, error } = await context.supabase
       .from("patients")
-      .insert({ ...clean(data as Record<string, unknown>), created_by: context.userId, updated_by: context.userId } as never)
+      .insert({ ...cleaned, created_by: context.userId, updated_by: context.userId } as never)
       .select()
       .single();
     if (error) throw safeDbError(error);
