@@ -50,6 +50,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 
 type Patient = DomainPatient & Record<string, any>;
 type Investigation = DomainInvestigation & Record<string, any>;
