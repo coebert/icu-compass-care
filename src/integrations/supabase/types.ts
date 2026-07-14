@@ -937,6 +937,7 @@ export type Database = {
           resp_fio2: string | null
           resp_support: string[]
           sedative_agents: string[]
+          sex: string | null
           shared_with_partner: boolean
           shared_with_partner_at: string | null
           shared_with_partner_by: string | null
@@ -1002,6 +1003,7 @@ export type Database = {
           resp_fio2?: string | null
           resp_support?: string[]
           sedative_agents?: string[]
+          sex?: string | null
           shared_with_partner?: boolean
           shared_with_partner_at?: string | null
           shared_with_partner_by?: string | null
@@ -1067,6 +1069,7 @@ export type Database = {
           resp_fio2?: string | null
           resp_support?: string[]
           sedative_agents?: string[]
+          sex?: string | null
           shared_with_partner?: boolean
           shared_with_partner_at?: string | null
           shared_with_partner_by?: string | null
