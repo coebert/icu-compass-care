@@ -779,6 +779,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
             <Clock className="h-3 w-3" /> {flags.staleHours != null ? `${Math.floor(flags.staleHours)}h` : "Stale"}
           </Badge>
         )}
+        {(p.status === "admitted" || p.status === "referred") && <WardableToggle p={p} />}
       </div>
       {p.outstanding_tasks && (
         <p className="line-clamp-2 text-xs text-muted-foreground">
