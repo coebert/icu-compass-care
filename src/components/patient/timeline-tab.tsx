@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type {
@@ -32,7 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Pencil,
   Trash2,
   Plus,
   AlertTriangle,
@@ -170,13 +169,6 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     setDialogOpen(true);
   };
 
-  const openEdit = (ev: PatientEvent) => {
-    setEditId(ev.id);
-    setType(ev.event_type);
-    setDescription(ev.description ?? "");
-    setEventAt(ev.event_at ?? new Date().toISOString());
-    setDialogOpen(true);
-  };
 
   const saveMut = useMutation({
     mutationFn: () =>
@@ -462,10 +454,21 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
                   {selected.icon}
                 </span>
               )}
-              {selected?.title}
+              {selected?.kind === "event" && selected.eventId ? "Event details" : selected?.title}
             </DialogTitle>
           </DialogHeader>
-          {selected && (
+          {selected && selected.kind === "event" && selected.eventId ? (
+            <EventEditor
+              key={selected.eventId}
+              event={keyEvents.find((k) => k.id === selected.eventId) as PatientEvent | undefined}
+              editEvent={editEvent}
+              onSaved={() => qc.invalidateQueries({ queryKey: ["patient-events", patientId] })}
+              onRemove={() => {
+                deleteMut.mutate(selected.eventId as string);
+                setSelected(null);
+              }}
+            />
+          ) : selected ? (
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
@@ -483,37 +486,8 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
                   <UserRound className="h-3 w-3" /> Changed by {selected.changedBy}
                 </p>
               )}
-              {selected.kind === "event" && selected.eventId && (
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => {
-                      const src = keyEvents.find((k) => k.id === selected.eventId);
-                      if (src) {
-                        setSelected(null);
-                        openEdit(src as PatientEvent);
-                      }
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-destructive"
-                    onClick={() => {
-                      deleteMut.mutate(selected.eventId as string);
-                      setSelected(null);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Remove
-                  </Button>
-                </div>
-              )}
             </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -558,6 +532,141 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function EventEditor({
+  event,
+  editEvent,
+  onSaved,
+  onRemove,
+}: {
+  event: PatientEvent | undefined;
+  editEvent: (args: { data: any }) => Promise<any>;
+  onSaved: () => void;
+  onRemove: () => void;
+}) {
+  const [type, setType] = useState<string>(event?.event_type ?? PATIENT_EVENT_TYPES[0]);
+  const [eventAt, setEventAt] = useState<string>(event?.event_at ?? "");
+  const [description, setDescription] = useState<string>(event?.description ?? "");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const dirty = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const validate = (): string | null => {
+    if (!type) return "Event type is required";
+    if (!eventAt) return "Date & time is required";
+    const t = new Date(eventAt).getTime();
+    if (Number.isNaN(t)) return "Invalid date";
+    if (t > Date.now() + 60_000) return "Date cannot be in the future";
+    if (description.length > 2000) return "Notes must be under 2000 characters";
+    return null;
+  };
+
+  const validationError = validate();
+
+  useEffect(() => {
+    if (!dirty.current || !event) return;
+    if (validationError) {
+      setStatus("error");
+      setErrorMsg(validationError);
+      return;
+    }
+    if (
+      type === event.event_type &&
+      eventAt === (event.event_at ?? "") &&
+      description === (event.description ?? "")
+    ) {
+      return;
+    }
+    setStatus("saving");
+    setErrorMsg(null);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        await editEvent({ data: { id: event.id, event_type: type, description, event_at: eventAt } });
+        setStatus("saved");
+        onSaved();
+      } catch (e) {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Save failed");
+      }
+    }, 700);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, eventAt, description]);
+
+  const markDirty = () => {
+    dirty.current = true;
+  };
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="space-y-1.5">
+        <Label>Event type</Label>
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            markDirty();
+            setType(v);
+          }}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {PATIENT_EVENT_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Date &amp; time</Label>
+        <DateTimePicker
+          value={eventAt}
+          onChange={(v) => {
+            markDirty();
+            setEventAt(v ?? "");
+          }}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Notes</Label>
+        <Textarea
+          value={description}
+          onChange={(e) => {
+            markDirty();
+            setDescription(e.target.value);
+          }}
+          rows={3}
+          placeholder="Add notes"
+        />
+        <div className="text-[10px] text-muted-foreground text-right">{description.length}/2000</div>
+      </div>
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="text-xs">
+          {status === "saving" && <span className="text-muted-foreground">Saving…</span>}
+          {status === "saved" && <span className="text-emerald-600 dark:text-emerald-400">Saved</span>}
+          {status === "error" && <span className="text-destructive">{errorMsg ?? "Save failed"}</span>}
+          {status === "idle" && !validationError && (
+            <span className="text-muted-foreground">Changes save automatically</span>
+          )}
+          {status === "idle" && validationError && (
+            <span className="text-destructive">{validationError}</span>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1 text-destructive"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Remove
+        </Button>
+      </div>
     </div>
   );
 }
