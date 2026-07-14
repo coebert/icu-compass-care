@@ -6,9 +6,12 @@ import { cn } from "@/lib/utils";
  * card surfaces. Change formatting here once and every surface follows.
  */
 
+export type PatientSex = "male" | "female" | "other" | "unknown";
+
 export type PatientSummaryData = {
   full_name?: string | null;
   age?: number | null;
+  sex?: string | null;
   hospital_number?: string | null;
 };
 
@@ -20,9 +23,32 @@ export function formatAge(age?: number | null): string {
   return age != null ? `${age}y` : "—";
 }
 
+// Short badge-style sex marker (F / M / O / U) to sit alongside age without
+// crowding the compact patient cards. Returns null when sex isn't recorded.
+export function formatSexShort(sex?: string | null): string | null {
+  switch (sex) {
+    case "female": return "F";
+    case "male": return "M";
+    case "other": return "O";
+    case "unknown": return "U";
+    default: return null;
+  }
+}
+
+export function formatSexLong(sex?: string | null): string | null {
+  switch (sex) {
+    case "female": return "Female";
+    case "male": return "Male";
+    case "other": return "Other";
+    case "unknown": return "Unknown";
+    default: return null;
+  }
+}
+
 export function formatHospitalNumber(hospitalNumber?: string | null): string | null {
   return hospitalNumber ? `MRN ${hospitalNumber}` : null;
 }
+
 
 /** Patient initials, optionally with age appended (used on cards). */
 export function PatientName({
@@ -45,9 +71,11 @@ export function PatientName({
     >
       {formatInitials(patient)}
       {showAge && patient.age != null ? ` · ${formatAge(patient.age)}` : ""}
+      {formatSexShort(patient.sex) ? ` · ${formatSexShort(patient.sex)}` : ""}
     </span>
   );
 }
+
 
 /**
  * Muted meta line joining hospital number and age with any extra segments.
@@ -69,12 +97,15 @@ export function PatientMetaLine({
   showAge?: boolean;
   className?: string;
 }) {
+  const sexLabel = formatSexLong(patient.sex);
   const segments: (string | null | undefined | false)[] = [
     ...leading,
     showHospitalNumber ? formatHospitalNumber(patient.hospital_number) : null,
     showAge ? `Age ${patient.age != null ? patient.age : "—"}` : null,
+    sexLabel,
     ...trailing,
   ];
+
   const text = segments.filter(Boolean).join(" · ");
   return <p className={cn("text-sm text-muted-foreground", className)}>{text}</p>;
 }
