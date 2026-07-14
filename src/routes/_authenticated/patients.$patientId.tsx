@@ -98,24 +98,26 @@ function PatientDetail() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PatientFormValues | null>(null);
+  type SearchShape = z.infer<typeof patientDetailSearchSchema>;
   const activeTab = (TAB_KEYS as readonly string[]).includes(search.tab) ? search.tab : "overview";
   const setActiveTab = (tab: string) =>
     navigate({
       to: "/patients/$patientId",
       params: { patientId },
-      search: (prev) => ({ ...prev, tab }),
+      search: (prev: SearchShape) => ({ ...prev, tab }),
       replace: true,
     });
   const timelineFilters = search.filter
     .split(",")
-    .filter((k): k is TimelineFilterKey => (TIMELINE_FILTER_KEYS as string[]).includes(k));
+    .filter((k: string): k is TimelineFilterKey => (TIMELINE_FILTER_KEYS as string[]).includes(k));
   const setTimelineFilters = (next: TimelineFilterKey[]) =>
     navigate({
       to: "/patients/$patientId",
       params: { patientId },
-      search: (prev) => ({ ...prev, filter: next.join(",") }),
+      search: (prev: SearchShape) => ({ ...prev, filter: next.join(",") }),
       replace: true,
     });
+
   const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology"; id: string; seq: number } | null>(null);
 
 
