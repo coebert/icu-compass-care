@@ -534,7 +534,7 @@ function PatientsBoard() {
   return (
     <AcuityContext.Provider value={obsByPatient}>
     <KeyInvestigationsContext.Provider value={keyInvByPatient}>
-    <div className="space-y-6" data-density={density}>
+    <div className="group/board space-y-6" data-density={density}>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Patient board</h1>
