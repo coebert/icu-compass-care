@@ -49,6 +49,11 @@ const patientUpsert = z.object({
   nok_contact: z.string().trim().max(200).optional().nullable(),
   nok_last_updated: z.string().optional().nullable(),
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
+  // Ready-for-ward marker + server-stamped transition timestamps. Sent
+  // across the bridge so the partner app sees the same wait-time signal.
+  wardable: z.boolean().optional(),
+  wardable_at: z.string().optional().nullable(),
+  wardable_by: z.string().trim().max(200).optional().nullable(),
   // Structured clinical fields, kept in sync with the app model.
   ...PATIENT_ARRAY_FIELDS,
 });

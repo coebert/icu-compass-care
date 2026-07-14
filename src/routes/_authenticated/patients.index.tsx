@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
@@ -649,6 +649,85 @@ function PatientsBoard() {
   );
 }
 
+// Format elapsed time since the patient was marked "ready for the ward".
+// Ticks live so the timer updates without a network round-trip.
+function useElapsedSince(iso: string | null | undefined): string {
+  const [now, setNow] = useState(() => Date.now());
+  React.useEffect(() => {
+    if (!iso) return;
+    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(t);
+  }, [iso]);
+  if (!iso) return "";
+  const ms = Math.max(0, now - new Date(iso).getTime());
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hrs < 24) return `${hrs}h ${rem}m`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ${hrs % 24}h`;
+}
+
+// Clickable "Wardable" pill. Marking a patient as ready-for-ward stamps a
+// server-side timestamp and starts an elapsed timer — the difference between
+// this and actual discharge is the data we're trying to gather.
+function WardableToggle({ p }: { p: Patient }) {
+  const qc = useQueryClient();
+  const update = useServerFn(updatePatient);
+  const isOn = p.wardable === true;
+  const elapsed = useElapsedSince(isOn ? p.wardable_at : null);
+  const mut = useMutation({
+    mutationFn: (next: boolean) =>
+      update({
+        data: {
+          id: p.id,
+          wardable: next,
+          expected_updated_at: p.updated_at,
+        } as never,
+      }),
+    onSuccess: (_r, next) => {
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      toast.success(next ? "Marked ready for ward" : "Ward-ready cleared");
+    },
+    onError: (e: Error) => toast.error("Could not update", { description: e.message }),
+  });
+  const label = isOn
+    ? `Wardable · ${elapsed || "just now"}`
+    : "Wardable";
+  return (
+    <button
+      type="button"
+      aria-pressed={isOn}
+      title={
+        isOn && p.wardable_at
+          ? `Marked ready ${fmtDateTime(p.wardable_at)}`
+          : "Mark this patient as ready for a ward bed"
+      }
+      onClick={(e) => {
+        // Sits inside the DraggablePatientLink <a>, so stop the click from
+        // navigating to the patient page.
+        e.preventDefault();
+        e.stopPropagation();
+        if (mut.isPending) return;
+        mut.mutate(!isOn);
+      }}
+      // Prevent this control from initiating a drag of the parent card.
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      disabled={mut.isPending}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+        isOn
+          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+          : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300"
+      } ${mut.isPending ? "opacity-60" : ""}`}
+    >
+      <Home className="h-3 w-3" aria-hidden />
+      {label}
+    </button>
+  );
+}
+
 function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   const flags = deriveSafetyFlags(p);
   const obsMap = useContext(AcuityContext);
@@ -700,6 +779,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
             <Clock className="h-3 w-3" /> {flags.staleHours != null ? `${Math.floor(flags.staleHours)}h` : "Stale"}
           </Badge>
         )}
+        {(p.status === "admitted" || p.status === "referred") && <WardableToggle p={p} />}
       </div>
       {p.outstanding_tasks && (
         <p className="line-clamp-2 text-xs text-muted-foreground">

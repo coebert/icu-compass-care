@@ -21,6 +21,10 @@ export function occupantView(p: BridgePatient) {
     tep_in_place: p.tep_in_place ?? null,
     dnacpr_decision: p.dnacpr_decision ?? null,
     outstanding_tasks: p.outstanding_tasks ?? null,
+    // Ready-for-ward marker + when it was set, so the partner app can show
+    // the same "waiting for ward bed" state and elapsed timer.
+    wardable: p.wardable ?? null,
+    wardable_at: p.wardable_at ?? null,
     updated_at: p.updated_at ?? null,
   };
 }

@@ -959,6 +959,9 @@ export type Database = {
           updated_by: string | null
           vasoactive_agents: string[]
           ward: string | null
+          wardable: boolean
+          wardable_at: string | null
+          wardable_by: string | null
           weight_kg: number | null
         }
         Insert: {
@@ -1025,6 +1028,9 @@ export type Database = {
           updated_by?: string | null
           vasoactive_agents?: string[]
           ward?: string | null
+          wardable?: boolean
+          wardable_at?: string | null
+          wardable_by?: string | null
           weight_kg?: number | null
         }
         Update: {
@@ -1091,6 +1097,9 @@ export type Database = {
           updated_by?: string | null
           vasoactive_agents?: string[]
           ward?: string | null
+          wardable?: boolean
+          wardable_at?: string | null
+          wardable_by?: string | null
           weight_kg?: number | null
         }
         Relationships: []
