@@ -337,7 +337,6 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     [filteredEvents],
   );
 
-  const [selected, setSelected] = useState<TimelineEvent | null>(null);
   const [cols, setCols] = useState(3);
 
   useEffect(() => {
