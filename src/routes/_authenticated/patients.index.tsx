@@ -1364,3 +1364,56 @@ function Section({
     </div>
   );
 }
+
+type RecentMove = {
+  key: string;
+  at: number;
+  label: string;
+  previous: { id: string; bed: string | null; location_type: string }[];
+};
+
+function RecentMovesStrip({
+  moves,
+  onRevert,
+  onDismiss,
+}: {
+  moves: RecentMove[];
+  onRevert: (m: RecentMove) => void;
+  onDismiss: (key: string) => void;
+}) {
+  if (moves.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
+      <span className="font-medium text-muted-foreground">Recent bed moves:</span>
+      {moves.map((m) => {
+        const seconds = Math.max(1, Math.round((Date.now() - m.at) / 1000));
+        const ago = seconds < 60 ? `${seconds}s ago` : `${Math.round(seconds / 60)}m ago`;
+        return (
+          <div
+            key={m.key}
+            className="flex items-center gap-1 rounded-full border bg-background px-2 py-1"
+          >
+            <span className="truncate max-w-[16rem]">{m.label}</span>
+            <span className="text-muted-foreground">· {ago}</span>
+            <button
+              type="button"
+              onClick={() => onRevert(m)}
+              className="ml-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-primary hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Revert this bed move"
+            >
+              <Undo2 className="h-3 w-3" /> Revert
+            </button>
+            <button
+              type="button"
+              onClick={() => onDismiss(m.key)}
+              className="ml-0.5 inline-flex items-center rounded-full p-0.5 text-muted-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Dismiss from recent moves"
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
