@@ -858,7 +858,7 @@ function PatientHoverCard({ p, children }: { p: Patient; children: React.ReactNo
     : children;
 
   return (
-    <HoverCard open={open} onOpenChange={setOpen} openDelay={150} closeDelay={80}>
+    <HoverCard open={open} onOpenChange={setOpen} openDelay={450} closeDelay={80}>
       <HoverCardTrigger asChild>{child}</HoverCardTrigger>
       {/* pointer-events-none ensures the summary panel never intercepts
           drag-over / drop events on beds sitting underneath it. */}
