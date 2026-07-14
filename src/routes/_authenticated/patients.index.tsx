@@ -558,6 +558,16 @@ function PatientsBoard() {
           <p className="text-sm text-muted-foreground">
             {showArchived ? "Discharged & deceased records" : "Current ICU patients and outlying referrals"}
           </p>
+          {preset && (
+            <button
+              type="button"
+              onClick={clearPreset}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/15"
+              aria-label={`Clear filter: ${PRESETS[preset].label}`}
+            >
+              Filter: {PRESETS[preset].label} · clear ✕
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2.5 sm:ml-auto">
           <div className="relative w-full sm:w-56">
