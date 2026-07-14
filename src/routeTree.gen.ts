@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUnitRouteImport } from './routes/_authenticated/unit'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSecurityFaqRouteImport } from './routes/_authenticated/security-faq'
 import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
 import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
@@ -73,6 +74,12 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSecurityFaqRoute =
+  AuthenticatedSecurityFaqRouteImport.update({
+    id: '/security-faq',
+    path: '/security-faq',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedReconcileRoute = AuthenticatedReconcileRouteImport.update({
   id: '/reconcile',
   path: '/reconcile',
@@ -241,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/beds': typeof AuthenticatedBedsRoute
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/reconcile': typeof AuthenticatedReconcileRoute
+  '/security-faq': typeof AuthenticatedSecurityFaqRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
@@ -275,6 +283,7 @@ export interface FileRoutesByTo {
   '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
   '/reconcile': typeof AuthenticatedReconcileRoute
+  '/security-faq': typeof AuthenticatedSecurityFaqRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/unit': typeof AuthenticatedUnitRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
@@ -312,6 +321,7 @@ export interface FileRoutesById {
   '/_authenticated/beds': typeof AuthenticatedBedsRoute
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/reconcile': typeof AuthenticatedReconcileRoute
+  '/_authenticated/security-faq': typeof AuthenticatedSecurityFaqRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/unit': typeof AuthenticatedUnitRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
@@ -349,6 +359,7 @@ export interface FileRouteTypes {
     | '/beds'
     | '/patients'
     | '/reconcile'
+    | '/security-faq'
     | '/settings'
     | '/unit'
     | '/patients/$patientId'
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/antimicrobials'
     | '/beds'
     | '/reconcile'
+    | '/security-faq'
     | '/settings'
     | '/unit'
     | '/patients/$patientId'
@@ -419,6 +431,7 @@ export interface FileRouteTypes {
     | '/_authenticated/beds'
     | '/_authenticated/patients'
     | '/_authenticated/reconcile'
+    | '/_authenticated/security-faq'
     | '/_authenticated/settings'
     | '/_authenticated/unit'
     | '/_authenticated/patients/$patientId'
@@ -511,6 +524,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/security-faq': {
+      id: '/_authenticated/security-faq'
+      path: '/security-faq'
+      fullPath: '/security-faq'
+      preLoaderRoute: typeof AuthenticatedSecurityFaqRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reconcile': {
@@ -745,6 +765,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBedsRoute: typeof AuthenticatedBedsRoute
   AuthenticatedPatientsRoute: typeof AuthenticatedPatientsRouteWithChildren
   AuthenticatedReconcileRoute: typeof AuthenticatedReconcileRoute
+  AuthenticatedSecurityFaqRoute: typeof AuthenticatedSecurityFaqRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedUnitRoute: typeof AuthenticatedUnitRoute
 }
@@ -755,6 +776,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBedsRoute: AuthenticatedBedsRoute,
   AuthenticatedPatientsRoute: AuthenticatedPatientsRouteWithChildren,
   AuthenticatedReconcileRoute: AuthenticatedReconcileRoute,
+  AuthenticatedSecurityFaqRoute: AuthenticatedSecurityFaqRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedUnitRoute: AuthenticatedUnitRoute,
 }
