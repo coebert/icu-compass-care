@@ -36,12 +36,24 @@ import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+const patientsBoardSearchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  sex: fallback(z.string(), "all").default("all"),
+  archived: fallback(z.boolean(), false).default(false),
+  density: fallback(z.string(), "detailed").default("detailed"),
+});
+
 export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
+  validateSearch: zodValidator(patientsBoardSearchSchema),
 });
 
 import type { Patient as DomainPatient } from "@/lib/domain-types";
 type Patient = DomainPatient & Record<string, any>;
+
 
 const DRAG_MIME = "application/x-patient";
 
