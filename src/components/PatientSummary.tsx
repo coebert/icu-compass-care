@@ -23,25 +23,24 @@ export function formatAge(age?: number | null): string {
   return age != null ? `${age}y` : "—";
 }
 
-// Short badge-style sex marker (F / M / O / U) to sit alongside age without
-// crowding the compact patient cards. Returns null when sex isn't recorded.
-export function formatSexShort(sex?: string | null): string | null {
+// Short badge-style sex marker (F / M / O / U) to sit alongside age. Treats
+// null/empty/unrecognised values as "U" (Unknown) so every surface stays
+// consistent with the form's null-to-unknown normalisation.
+export function formatSexShort(sex?: string | null): string {
   switch (sex) {
     case "female": return "F";
     case "male": return "M";
     case "other": return "O";
-    case "unknown": return "U";
-    default: return null;
+    default: return "U";
   }
 }
 
-export function formatSexLong(sex?: string | null): string | null {
+export function formatSexLong(sex?: string | null): string {
   switch (sex) {
     case "female": return "Female";
     case "male": return "Male";
     case "other": return "Other";
-    case "unknown": return "Unknown";
-    default: return null;
+    default: return "Unknown";
   }
 }
 
@@ -71,7 +70,7 @@ export function PatientName({
     >
       {formatInitials(patient)}
       {showAge && patient.age != null ? ` · ${formatAge(patient.age)}` : ""}
-      {formatSexShort(patient.sex) ? ` · ${formatSexShort(patient.sex)}` : ""}
+      {` · ${formatSexShort(patient.sex)}`}
     </span>
   );
 }
