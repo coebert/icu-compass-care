@@ -557,7 +557,11 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="status" className="mt-4">
-          <StatusTab patient={patient} />
+          <StatusTab
+            patient={patient}
+            onDelete={() => deleteMut.mutate()}
+            isDeleting={deleteMut.isPending}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
