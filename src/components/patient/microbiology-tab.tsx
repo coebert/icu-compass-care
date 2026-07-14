@@ -157,7 +157,7 @@ export function MicrobiologyTab({
   }, [items, agents]);
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
