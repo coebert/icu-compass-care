@@ -282,14 +282,20 @@ export function MicrobiologyTab({
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm">{it.findings}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-destructive"
-                    onClick={() => delMut.mutate(it.id)}
+                  <ConfirmDestructive
+                    title="Delete this microbiology result?"
+                    description={`Removes the ${it.specimen_type} result from ${fmtDateTime(it.result_at)} permanently.`}
+                    onConfirm={() => delMut.mutate(it.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Delete microbiology result"
+                      className="shrink-0 text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </ConfirmDestructive>
                 </CardContent>
               </Card>
             ))}
