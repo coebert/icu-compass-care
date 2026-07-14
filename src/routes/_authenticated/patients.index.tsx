@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,12 +36,24 @@ import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+const patientsBoardSearchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  sex: fallback(z.string(), "all").default("all"),
+  archived: fallback(z.boolean(), false).default(false),
+  density: fallback(z.string(), "detailed").default("detailed"),
+});
+
 export const Route = createFileRoute("/_authenticated/patients/")({
   component: PatientsBoard,
+  validateSearch: zodValidator(patientsBoardSearchSchema),
 });
 
 import type { Patient as DomainPatient } from "@/lib/domain-types";
 type Patient = DomainPatient & Record<string, any>;
+
 
 const DRAG_MIME = "application/x-patient";
 
@@ -72,12 +84,32 @@ function PatientsBoard() {
   const create = useServerFn(createPatient);
   const update = useServerFn(updatePatient);
   const beds = useServerFn(listBeds);
-  const [search, setSearch] = useState("");
-  const [sexFilter, setSexFilter] = useState<"all" | "female" | "male" | "other" | "unknown">("all");
-  const [showArchived, setShowArchived] = useState(false);
+  const urlSearch = Route.useSearch();
+  const navigate = useNavigate();
+  type BoardSearch = z.infer<typeof patientsBoardSearchSchema>;
+  const updateBoardSearch = (patch: Partial<BoardSearch>) =>
+    navigate({
+      to: "/patients",
+      search: (prev: BoardSearch) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  const search = urlSearch.q;
+  const setSearch = (v: string) => updateBoardSearch({ q: v });
+  const SEX_OPTS = ["all", "female", "male", "other", "unknown"] as const;
+  type SexFilter = (typeof SEX_OPTS)[number];
+  const sexFilter: SexFilter = (SEX_OPTS as readonly string[]).includes(urlSearch.sex)
+    ? (urlSearch.sex as SexFilter)
+    : "all";
+  const setSexFilter = (v: SexFilter) => updateBoardSearch({ sex: v });
+  const showArchived = urlSearch.archived;
+  const setShowArchived = (fn: (prev: boolean) => boolean) =>
+    updateBoardSearch({ archived: fn(showArchived) });
+  const density: "compact" | "detailed" = urlSearch.density === "compact" ? "compact" : "detailed";
+  const setDensity = (v: "compact" | "detailed") => updateBoardSearch({ density: v });
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
+
 
   // Currently dragged patient (kept in a ref so drop handlers read the latest,
   // plus in state so the bed board can flag ineligible beds while dragging).
@@ -502,7 +534,7 @@ function PatientsBoard() {
   return (
     <AcuityContext.Provider value={obsByPatient}>
     <KeyInvestigationsContext.Provider value={keyInvByPatient}>
-    <div className="space-y-6">
+    <div className="group/board space-y-6" data-density={density}>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Patient board</h1>
@@ -520,7 +552,7 @@ function PatientsBoard() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={sexFilter} onValueChange={(v) => setSexFilter(v as typeof sexFilter)}>
+          <Select value={sexFilter} onValueChange={(v) => setSexFilter(v as SexFilter)}>
             <SelectTrigger className="h-11 w-full sm:h-10 sm:w-36" aria-label="Filter by sex">
               <SelectValue />
             </SelectTrigger>
@@ -532,9 +564,19 @@ function PatientsBoard() {
               <SelectItem value="unknown">Unknown</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            className="h-11 gap-1.5 sm:h-10"
+            onClick={() => setDensity(density === "compact" ? "detailed" : "compact")}
+            aria-label={density === "compact" ? "Show detailed cards" : "Show compact cards"}
+            title={density === "compact" ? "Detailed cards" : "Compact cards"}
+          >
+            {density === "compact" ? "Detailed" : "Compact"}
+          </Button>
           <Button variant={showArchived ? "secondary" : "outline"} className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
+
           <Button
             variant="outline"
             className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
@@ -784,13 +826,14 @@ function WardableToggle({ p }: { p: Patient }) {
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
       disabled={pending}
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+      className={`inline-flex min-h-[32px] items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:min-h-0 sm:py-0.5 ${
         failed
           ? "border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/20"
           : isOn
             ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
             : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300"
       } ${pending ? "opacity-60" : ""}`}
+
     >
       {failed ? (
         <AlertTriangle className="h-3 w-3" aria-hidden />
@@ -858,17 +901,20 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
         {(p.status === "admitted" || p.status === "referred") && <WardableToggle p={p} />}
       </div>
       {p.outstanding_tasks && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
+        <p className="line-clamp-2 text-xs text-muted-foreground group-data-[density=compact]/board:hidden">
           <span className="font-medium text-foreground">Tasks: </span>
           {p.outstanding_tasks}
         </p>
       )}
-      <PatientMetaLine
-        patient={p}
-        showAge={false}
-        trailing={[`Adm ${fmtDate(p.admission_date)}`]}
-        className="text-[11px]"
-      />
+      <div className="group-data-[density=compact]/board:hidden">
+        <PatientMetaLine
+          patient={p}
+          showAge={false}
+          trailing={[`Adm ${fmtDate(p.admission_date)}`]}
+          className="text-[11px]"
+        />
+      </div>
+
     </CardContent>
   );
 }

@@ -166,11 +166,17 @@ function AuthenticatedLayout() {
               const active = best.to === item.to;
               return (
                 <Link key={item.to} to={item.to}>
-                  <Button variant={active ? "secondary" : "ghost"} size="sm" className="gap-1.5">
+                  <Button
+                    variant={active ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-label={item.label}
+                    className="h-11 gap-1.5 sm:h-9"
+                  >
                     <item.icon className="h-4 w-4" />
                     <span className="hidden sm:inline">{item.label}</span>
                   </Button>
                 </Link>
+
               );
             })}
           </nav>

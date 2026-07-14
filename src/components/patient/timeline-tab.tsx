@@ -78,7 +78,8 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
-type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
+export type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
+export const TIMELINE_FILTER_KEYS: FilterKey[] = ["scans", "procedures", "lines", "micro", "antibiotics"];
 
 const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
   { key: "scans", label: "Scans", icon: <Scan className="h-3.5 w-3.5" /> },
@@ -131,10 +132,14 @@ export function TimelineTab({
   patient,
   patientId,
   onNavigate,
+  filters,
+  onFiltersChange,
 }: {
   patient: Patient;
   patientId: string;
   onNavigate?: (tab: "investigations" | "microbiology", id: string) => void;
+  filters?: FilterKey[];
+  onFiltersChange?: (next: FilterKey[]) => void;
 }) {
   const qc = useQueryClient();
   const listInv = useServerFn(listInvestigations);
@@ -149,7 +154,14 @@ export function TimelineTab({
   const [type, setType] = useState<string>(PATIENT_EVENT_TYPES[0]);
   const [description, setDescription] = useState("");
   const [eventAt, setEventAt] = useState<string>("");
-  const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
+  const [uncontrolledFilters, setUncontrolledFilters] = useState<FilterKey[]>([]);
+  const activeFilters = filters ?? uncontrolledFilters;
+  const setActiveFilters = (next: FilterKey[] | ((prev: FilterKey[]) => FilterKey[])) => {
+    const resolved = typeof next === "function" ? next(activeFilters) : next;
+    if (onFiltersChange) onFiltersChange(resolved);
+    else setUncontrolledFilters(resolved);
+  };
+
 
   const { data: investigations = [] } = useQuery({
     queryKey: ["investigations", patientId],

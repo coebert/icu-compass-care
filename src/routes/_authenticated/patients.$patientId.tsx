@@ -48,8 +48,32 @@ import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
 
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+import { TIMELINE_FILTER_KEYS, type FilterKey as TimelineFilterKey } from "@/components/patient/timeline-tab";
+
+const TAB_KEYS = [
+  "overview",
+  "observations",
+  "lines",
+  "escalation",
+  "nok",
+  "investigations",
+  "microbiology",
+  "reviews",
+  "timeline",
+  "status",
+  "history",
+] as const;
+
+const patientDetailSearchSchema = z.object({
+  tab: fallback(z.string(), "overview").default("overview"),
+  filter: fallback(z.string(), "").default(""),
+});
+
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
   component: PatientDetail,
+  validateSearch: zodValidator(patientDetailSearchSchema),
 });
 
 type Patient = DomainPatient & Record<string, any>;
@@ -66,6 +90,7 @@ const MISSING_FIELD_ANCHORS: Record<string, string> = {
 function PatientDetail() {
   const { patientId } = Route.useParams();
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const qc = useQueryClient();
   const get = useServerFn(getPatient);
   const update = useServerFn(updatePatient);
@@ -73,8 +98,28 @@ function PatientDetail() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PatientFormValues | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  type SearchShape = z.infer<typeof patientDetailSearchSchema>;
+  const activeTab = (TAB_KEYS as readonly string[]).includes(search.tab) ? search.tab : "overview";
+  const setActiveTab = (tab: string) =>
+    navigate({
+      to: "/patients/$patientId",
+      params: { patientId },
+      search: (prev: SearchShape) => ({ ...prev, tab }),
+      replace: true,
+    });
+  const timelineFilters = search.filter
+    .split(",")
+    .filter((k: string): k is TimelineFilterKey => (TIMELINE_FILTER_KEYS as string[]).includes(k));
+  const setTimelineFilters = (next: TimelineFilterKey[]) =>
+    navigate({
+      to: "/patients/$patientId",
+      params: { patientId },
+      search: (prev: SearchShape) => ({ ...prev, filter: next.join(",") }),
+      replace: true,
+    });
+
   const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology"; id: string; seq: number } | null>(null);
+
 
   const { hasClinicalAccess, profile } = useClinicalAccess();
 
@@ -384,19 +429,27 @@ function PatientDetail() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="observations">Observations</TabsTrigger>
-          <TabsTrigger value="lines">Lines & devices</TabsTrigger>
-          <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
-          <TabsTrigger value="nok">Next of kin</TabsTrigger>
-          <TabsTrigger value="investigations">Investigations</TabsTrigger>
-          <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
-          <TabsTrigger value="reviews">Specialty reviews</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="observations">Observations</TabsTrigger>
+            <TabsTrigger value="lines">Lines & devices</TabsTrigger>
+            <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
+            <TabsTrigger value="nok">Next of kin</TabsTrigger>
+            <TabsTrigger value="investigations">Investigations</TabsTrigger>
+            <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
+            <TabsTrigger value="reviews">Specialty reviews</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+          {/* Right-edge fade so users see there's more to scroll on narrow viewports. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-md bg-gradient-to-l from-background to-transparent sm:hidden"
+          />
+        </div>
+
 
         <TabsContent value="observations" className="mt-4 space-y-4">
           <ObservationsCard
@@ -538,11 +591,14 @@ function PatientDetail() {
           <TimelineTab
             patient={patient}
             patientId={patientId}
+            filters={timelineFilters}
+            onFiltersChange={setTimelineFilters}
             onNavigate={(tab, id) => {
               setFocus({ tab, id, seq: Date.now() });
               setActiveTab(tab);
             }}
           />
+
         </TabsContent>
 
         <TabsContent value="status" className="mt-4">
