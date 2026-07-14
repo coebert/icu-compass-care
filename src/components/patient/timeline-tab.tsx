@@ -374,7 +374,13 @@ export function TimelineTab({
   const TimelineNode = ({ ev }: { ev: TimelineEvent }) => (
     <button
       type="button"
-      onClick={() => setSelected(ev)}
+      onClick={() => {
+        if (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) {
+          onNavigate(ev.kind === "investigation" ? "investigations" : "microbiology", ev.sourceId);
+          return;
+        }
+        setSelected(ev);
+      }}
       className="group relative z-10 flex w-full flex-col items-center gap-1.5 rounded-md p-1 text-center transition hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
