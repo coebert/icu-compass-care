@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionUpdated } from "@/components/patient/section-updated";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -162,10 +163,13 @@ export function InvestigationsTab({
 
   return (
     <div ref={containerRef} className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Most recent results
-        </h2>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Most recent results
+          </h2>
+          <SectionUpdated items={items} className="mt-0.5" />
+        </div>
         <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Add result
         </Button>

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionUpdated } from "@/components/patient/section-updated";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -167,6 +168,7 @@ export function MicrobiologyTab({
           <p className="text-xs text-muted-foreground">
             Blood cultures, swabs, CSF and other significant micro findings.
           </p>
+          <SectionUpdated items={items} className="mt-0.5" />
         </div>
         <Button size="sm" className="h-11 gap-1.5 sm:h-9" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Add result

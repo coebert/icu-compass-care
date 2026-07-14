@@ -42,12 +42,14 @@ function StatCard({
   value,
   sub,
   tone,
+  preset,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   sub?: string;
   tone?: "default" | "warn" | "danger";
+  preset?: "vent" | "vasoactive" | "rrt" | "isolation" | "noresus" | "allergy" | "stale";
 }) {
   const toneClass =
     tone === "danger"
@@ -55,20 +57,30 @@ function StatCard({
       : tone === "warn"
         ? "text-amber-600 dark:text-amber-400"
         : "text-primary";
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className={`rounded-lg bg-muted p-2 ${toneClass}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-2xl font-bold leading-none">{value}</p>
-          <p className="truncate text-xs text-muted-foreground">{label}</p>
-          {sub && <p className="truncate text-[11px] text-muted-foreground">{sub}</p>}
-        </div>
-      </CardContent>
-    </Card>
+  const body = (
+    <CardContent className="flex items-center gap-3 p-4">
+      <div className={`rounded-lg bg-muted p-2 ${toneClass}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-2xl font-bold leading-none">{value}</p>
+        <p className="truncate text-xs text-muted-foreground">{label}</p>
+        {sub && <p className="truncate text-[11px] text-muted-foreground">{sub}</p>}
+      </div>
+    </CardContent>
   );
+  if (preset) {
+    return (
+      <Link
+        to="/patients"
+        search={{ preset, q: "", sex: "all", archived: false, density: "detailed" }}
+        aria-label={`Open bed board filtered by ${label}`}
+      >
+        <Card className="transition-colors hover:border-primary/50 hover:bg-muted/40">{body}</Card>
+      </Link>
+    );
+  }
+  return <Card>{body}</Card>;
 }
 
 function PatientRow({ p, right }: { p: Patient; right?: React.ReactNode }) {
@@ -465,13 +477,13 @@ function UnitDashboard() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <StatCard icon={BedDouble} label="ICU beds occupied" value={`${stats.occupied}${stats.totalBeds ? `/${stats.totalBeds}` : ""}`} />
-        <StatCard icon={Wind} label="Ventilated / resp support" value={stats.ventilated.length} />
-        <StatCard icon={HeartPulse} label="On vasoactives" value={stats.vasoactive.length} tone="warn" />
-        <StatCard icon={Droplets} label="On RRT" value={stats.rrt.length} tone="warn" />
+        <StatCard icon={Wind} label="Ventilated / resp support" value={stats.ventilated.length} preset="vent" />
+        <StatCard icon={HeartPulse} label="On vasoactives" value={stats.vasoactive.length} tone="warn" preset="vasoactive" />
+        <StatCard icon={Droplets} label="On RRT" value={stats.rrt.length} tone="warn" preset="rrt" />
         <StatCard icon={ClipboardList} label="Open tasks" value={openTasks.length} sub={`${taskStats.critical.length} critical`} tone={taskStats.critical.length ? "danger" : "default"} />
         <StatCard icon={Clock} label="Overdue tasks" value={taskStats.overdue.length} tone={taskStats.overdue.length ? "danger" : "default"} />
         <StatCard icon={Activity} label="Total active patients" value={active.length} />
-        <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
+        <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} preset="noresus" />
         <StatCard icon={HeartPulse} label="High acuity" value={highAcuity.length} tone={highAcuity.length ? "danger" : "default"} />
       </div>
 

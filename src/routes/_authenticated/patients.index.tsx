@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw, Undo2, X as XIcon } from "lucide-react";
-import { deriveSafetyFlags } from "@/lib/patient-safety";
+import { deriveSafetyFlags, parseAllergies } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
 import { type Observation } from "@/lib/observations";
@@ -44,6 +44,8 @@ const patientsBoardSearchSchema = z.object({
   sex: fallback(z.string(), "all").default("all"),
   archived: fallback(z.boolean(), false).default(false),
   density: fallback(z.string(), "detailed").default("detailed"),
+  // Optional shortcut applied from the Unit dashboard stat cards.
+  preset: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/_authenticated/patients/")({
@@ -106,6 +108,19 @@ function PatientsBoard() {
     updateBoardSearch({ archived: fn(showArchived) });
   const density: "compact" | "detailed" = urlSearch.density === "compact" ? "compact" : "detailed";
   const setDensity = (v: "compact" | "detailed") => updateBoardSearch({ density: v });
+  const PRESETS = {
+    vent: { label: "Ventilated / resp support", test: (p: Patient) =>
+      p.airway_type === "ett" || p.airway_type === "tracheostomy" || (Array.isArray(p.resp_support) && p.resp_support.length > 0) },
+    vasoactive: { label: "On vasoactives", test: (p: Patient) => Array.isArray(p.vasoactive_agents) && p.vasoactive_agents.length > 0 },
+    rrt: { label: "On RRT", test: (p: Patient) => p.renal_rrt === true },
+    isolation: { label: "Isolation", test: (p: Patient) => p.isolation_required === true },
+    noresus: { label: "No resus/TEP decision", test: (p: Patient) => !p.dnacpr_decision && !p.tep_in_place },
+    allergy: { label: "Recorded allergies", test: (p: Patient) => parseAllergies(p.allergies).length > 0 },
+    stale: { label: "Records not updated recently", test: (p: Patient) => Boolean(deriveSafetyFlags(p).stale) },
+  } as const;
+  type PresetKey = keyof typeof PRESETS;
+  const preset: PresetKey | "" = (urlSearch.preset in PRESETS ? (urlSearch.preset as PresetKey) : "");
+  const clearPreset = () => updateBoardSearch({ preset: "" });
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
@@ -286,9 +301,11 @@ function PatientsBoard() {
       // patient can always be found by hospital number after discharge.
       if (q) return true;
       const active = p.status === "admitted" || p.status === "referred";
-      return showArchived ? !active : active;
+      if (!(showArchived ? !active : active)) return false;
+      if (preset && !PRESETS[preset].test(p)) return false;
+      return true;
     });
-  }, [patients, search, sexFilter, showArchived]);
+  }, [patients, search, sexFilter, showArchived, preset]);
 
 
   const icu = filtered.filter((p) => p.location_type === "icu");
@@ -541,6 +558,16 @@ function PatientsBoard() {
           <p className="text-sm text-muted-foreground">
             {showArchived ? "Discharged & deceased records" : "Current ICU patients and outlying referrals"}
           </p>
+          {preset && (
+            <button
+              type="button"
+              onClick={clearPreset}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/15"
+              aria-label={`Clear filter: ${PRESETS[preset].label}`}
+            >
+              Filter: {PRESETS[preset].label} · clear ✕
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2.5 sm:ml-auto">
           <div className="relative w-full sm:w-56">
