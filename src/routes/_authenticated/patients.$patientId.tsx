@@ -391,26 +391,6 @@ function PatientDetail() {
           >
             <Pencil className="h-4 w-4" /> Edit
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="gap-1.5 text-destructive">
-                <Trash2 className="h-4 w-4" /> Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this patient record?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes the record and all its investigations. To keep the
-                  record for review, change the status to discharged or died instead.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => deleteMut.mutate()}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       </div>
 
