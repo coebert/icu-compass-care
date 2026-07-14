@@ -385,9 +385,37 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
           <Activity className="h-4 w-4" />
           Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Tap any item for details.
         </div>
-        <Button size="sm" className="ml-auto gap-1.5" onClick={openAdd}>
-          <Plus className="h-4 w-4" /> Add event
-        </Button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-md border bg-muted/30 p-1 pl-2">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Quick add at</span>
+            <div className="w-[210px]">
+              <DateTimePicker value={quickAt} onChange={(v) => setQuickAt(v ?? "")} />
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5"
+              disabled={!quickAt || quickAddMut.isPending}
+              onClick={() => quickAddMut.mutate(quickAt)}
+              title="Create event at this time and open the inline editor"
+            >
+              <Plus className="h-4 w-4" />
+              {quickAddMut.isPending ? "Adding…" : "Quick add"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-2 text-xs"
+              onClick={() => setQuickAt(new Date().toISOString())}
+              title="Reset to now"
+            >
+              Now
+            </Button>
+          </div>
+          <Button size="sm" className="gap-1.5" onClick={openAdd}>
+            <Plus className="h-4 w-4" /> Add event
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
