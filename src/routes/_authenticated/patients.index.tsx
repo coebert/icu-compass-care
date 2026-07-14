@@ -900,17 +900,20 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
         {(p.status === "admitted" || p.status === "referred") && <WardableToggle p={p} />}
       </div>
       {p.outstanding_tasks && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
+        <p className="line-clamp-2 text-xs text-muted-foreground group-data-[density=compact]/board:hidden">
           <span className="font-medium text-foreground">Tasks: </span>
           {p.outstanding_tasks}
         </p>
       )}
-      <PatientMetaLine
-        patient={p}
-        showAge={false}
-        trailing={[`Adm ${fmtDate(p.admission_date)}`]}
-        className="text-[11px]"
-      />
+      <div className="group-data-[density=compact]/board:hidden">
+        <PatientMetaLine
+          patient={p}
+          showAge={false}
+          trailing={[`Adm ${fmtDate(p.admission_date)}`]}
+          className="text-[11px]"
+        />
+      </div>
+
     </CardContent>
   );
 }
