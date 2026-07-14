@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Trash2, Plus, Microscope, Pill } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { toast } from "sonner";
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
