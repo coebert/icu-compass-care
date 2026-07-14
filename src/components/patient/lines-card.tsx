@@ -15,6 +15,7 @@ import {
 } from "@/lib/lines.functions";
 import { type PatientLine, daysInSitu } from "@/lib/lines";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionUpdated } from "@/components/patient/section-updated";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -203,15 +204,18 @@ export function LinesCard({ patientId }: { patientId: string }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-        <CardTitle className="flex items-center gap-2">
-          <Cable className="h-4 w-4" /> Lines &amp; devices
-          {active.length > 0 && (
-            <Badge variant="outline" className="text-muted-foreground">
-              {active.length} in situ
-            </Badge>
-          )}
-        </CardTitle>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
+        <div className="min-w-0">
+          <CardTitle className="flex items-center gap-2">
+            <Cable className="h-4 w-4" /> Lines &amp; devices
+            {active.length > 0 && (
+              <Badge variant="outline" className="text-muted-foreground">
+                {active.length} in situ
+              </Badge>
+            )}
+          </CardTitle>
+          <SectionUpdated items={lines} className="mt-1" />
+        </div>
         {!adding && (
           <Button size="sm" onClick={() => setAdding(true)}>
             <Plus className="mr-1 h-4 w-4" /> Add
