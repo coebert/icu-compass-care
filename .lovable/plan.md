@@ -1,73 +1,85 @@
-# ICU Handover App — Senior Critical Care Review & Improvement Plan
 
-Reviewed as a Salisbury Critical Care consultant/senior-nurse group. The app is already strong: bed board with drag/drop, systems-based patient cards, escalation/resus, NOK, investigations, microbiology, specialty reviews, timeline, tasks, handover PDF, bridge sync with the referral app, audit and RBAC. The gaps below are about turning a good record into a genuine day-to-day clinical workhorse.
+# ICU Handover — UX & Ergonomics Improvement Plan
 
-## What works well (keep)
-- Systems-by-systems structure mirrors how we hand over.
-- Bed board with eligibility/isolation logic and undo is excellent ergonomics.
-- Retain-not-delete lifecycle, audit trail, and strict RLS suit clinical governance.
-- Deterministic handover PDF with recency selection.
+Based on a full-app design audit. Findings are cited with file paths in the audit; this plan groups the fixes into 5 rollout phases so the highest safety/usability wins ship first without churning the whole app in one go.
 
-## Key findings (clinician perspective)
-
-### 1. Clinical content gaps
-- **No structured observations / trend.** Everything physiological is free text. We can't see a NEWS2 or a simple obs trend (HR/BP/SpO2/temp, ventilator settings, lactate) at a glance. This is the single biggest utility gap.
-- **No severity/organ-support scoring.** No SOFA (or even organ-support count) to convey acuity at handover or for the board.
-- **No fluid balance / 24h summary.** Ubiquitous on a ward round; currently absent.
-- **Allergies not first-class.** Allergy lives inside free text; it should be a prominent, structured, always-visible safety field (like DNACPR).
-- **Weight / dosing basis not surfaced** despite being carried from referral.
-- **Lines & devices not tracked** (CVC/arterial/VAS/CVL/drains with insertion dates) — needed for daily line reviews and infection surveillance.
-- **VTE / stress-ulcer / glycaemic "daily goals" checklist** (FAST-HUG style) missing — high-yield safety net.
-
-### 2. Ergonomics / workflow
-- **Patient page is a 2,264-line monolith with 9 tabs.** Slow to scan on a ward round; overview should be a single dense, printable "one-look" summary.
-- **Tasks are unstructured.** No owner, no due time, no priority, no "for ward round vs jobs list" split; can't see all outstanding jobs unit-wide.
-- **No unit-level dashboard.** No single view of occupancy, acuity, isolation, outstanding jobs, DNACPR/TEP status, or overdue reviews across the whole unit.
-- **No explicit shift-handover workflow.** Handover is a PDF export, not a "handover mode" (read-out order, acknowledgement, what-changed-since-last-shift).
-- **Board cards are light on safety flags.** Isolation shows, but DNACPR/TEP ceiling, allergy, and acuity aren't glanceable on the card.
-- **"What changed" not surfaced.** patient_field_changes exists but there's no per-patient "recent changes" ribbon for the incoming team.
-
-### 3. Safety & data quality
-- `full_name` capped at 10 chars (initials-only) is deliberate for IG, but the board/PDF should make the identity model explicit to avoid mis-ID.
-- Allergy and weight being free-text is a prescribing-safety risk.
-- No "stale record" indicator (last meaningful clinical update age) on the board.
+Each phase is independently shippable. After each phase we can pause, review with users, then continue.
 
 ---
 
-## Implementation plan (phased)
+## Phase 1 — Safety & consistency of destructive actions (highest priority)
 
-### Phase 1 — High-yield safety & glanceability — DONE
-1. **Structured allergies** — ✅ `patient-safety.ts` model (substance/reaction/severity), editable in `PatientForm.tsx`, surfaced in the overview `SafetySummary`, board cards (`patients.index.tsx`), unit dashboard, and handover PDF (`handover-columns.ts`, NKDA fallback).
-2. **Board safety flags** — ✅ `deriveSafetyFlags` drives DNACPR / TEP / isolation / allergy / stale-(>12h) chips on each board card and the bed board.
-3. **Overview "one-look" summary** — ✅ `SafetySummary` strip (identity + safety flags + weight + allergies) on the patient overview.
-4. **Daily goals / FAST-HUG checklist** — ✅ `DailyGoalsCard` + editable toggles in `PatientForm.tsx` with `daily_goals_reviewed_by/at` stamp and progress counter.
+Rationale: the biggest cross-cutting risk we found was that clinically significant deletes are one-tap, no-confirm, and inconsistent between near-identical surfaces.
 
+1. Add a shared `ConfirmDestructive` wrapper (thin AlertDialog helper) and apply it uniformly to every delete/destroy button:
+   - Observation delete, Line delete, Microbiology delete, Timeline event delete, Bed remove, Investigation delete (verify), Patient delete cascade wording.
+2. Rewrite the Patient delete warning text to name every cascade (obs, lines, micro, reviews, timeline, audit).
+3. Add confirmation to role changes in Admin (Make admin / Make clinician), plus a short "why this matters" line.
+4. Add a warning + block on Bed remove when the bed currently has an occupant.
+5. Move Delete out of the header action row on the patient page into a "Danger zone" section at the bottom of the Status tab, visually separated from Edit/Handover PDF.
+6. Extend the existing 10s undo toast on bed moves to include a persistent "recent moves" strip (last 3 moves, click to revert) so an unseen toast isn't the only rescue path.
 
-### Phase 2 — Tasks & unit dashboard (ergonomics)
-5. **Upgrade tasks:** add owner, priority, due time, and category (ward-round item vs job). Reuse existing patient_tasks (add columns).
-6. **Unit dashboard route** (`/unit`): occupancy grid, acuity/organ-support counts, isolation list, outstanding jobs across all patients, patients with no DNACPR/TEP decision, overdue specialty reviews.
-7. **"What changed since" ribbon** on the patient page and dashboard, driven by existing `patient_field_changes`.
+## Phase 2 — Ward-round ergonomics (bed board + patient tabs)
 
-### Phase 3 — Structured physiology (largest, highest utility) — DONE
-8. **Observations model:** ✅ `patient_observations` table (timestamped HR, BP, MAP, SpO2, FiO2, RR, temp, GCS, lactate, vent mode/PEEP/Vt, vasopressor + dose, urine, fluid in/out) + GRANT + RLS + server fns (`observations.functions.ts`).
-9. **Compact trend view:** ✅ sparkline mini-charts + numeric "latest obs" block in the new Observations tab (`observations-card.tsx`). (PDF integration deferred.)
-10. **Organ-support / SOFA-lite score:** ✅ `computeAcuity` in `observations.ts`, shown as an acuity badge on the board cards and unit dashboard.
-11. **Fluid balance:** ✅ 24h in/out/net capture and display in the Observations tab.
+Rationale: this is where most clinician time is spent; small friction here compounds every round.
 
+1. Persist bed-board state in the URL: search, sex filter, sort, view density. Use TanStack search-param validation. Same for Handover History filters and Timeline filters.
+2. Persist the active patient-detail tab in the URL (`?tab=escalation`) so deep links, refresh, and browser back/forward preserve context. Keep the existing Timeline → Investigations `focus` mechanism.
+3. Add a visible chevron/gradient overflow affordance on the 11-tab TabsList so scrolled-off tabs are discoverable on narrow viewports; consider grouping less-used tabs (Status, History) into a "More" menu on <md widths.
+4. Raise all primary-touch controls to 44×44:
+   - Wardable pill on bed cards.
+   - Icon-only nav buttons (Patients / History / Unit / Security / Profile).
+   - Delete/edit icon buttons inside card lists.
+5. Replace hover-only affordances with tap-friendly equivalents:
+   - `EditableField` pencil: show a subtle always-visible edit icon on touch (media query or `@media (pointer: coarse)`), not just on `group-hover`.
+   - `PatientHoverCard` on touch: add a visible "info" affordance (small chip) alongside the long-press so the feature is discoverable.
+6. Add a compact/detailed toggle on the bed board for large units (persisted in URL).
 
-### Phase 4 — Handover workflow & devices — DONE
-12. **Lines & devices tracker** — ✅ `patient_lines` table + `lines.functions.ts` + `lines-card.tsx` (new patient tab): type/site/laterality/size, insertion date, day-in-situ counter with per-device review-overdue flags, remove/delete. Unit-dashboard infection-surveillance card (`LinesSurveillanceCard`) lists all in-situ lines with overdue-review flags.
-13. **Shift-handover mode:** ✅ `/patients/handover-mode` route — patients ordered by bed, per-patient given/received acknowledgement (`handover_acknowledgements` table + `handover-mode.functions.ts`, keyed by date+am/pm shift), "changed since handover" ribbon from `patient_field_changes`, progress counter, PDF export link.
-14. **Refactor patients.$patientId.tsx** into per-tab components — DEFERRED (pure refactor, no behaviour change; tackle separately).
+## Phase 3 — Data-entry consistency & validation
+
+Rationale: two different edit paths for the same field (inline vs full modal) causes confusion and increases conflict risk.
+
+1. Retire the full `PatientForm` modal on the patient detail page for fields already inline-editable. Keep the modal only for initial patient creation (new-patient flow) and for the escalation/NOK block that is currently read-only. Add inline editing to Escalation & Resus and NOK tabs using the existing `EditableField` primitive.
+2. Add range validators to Observations numeric fields (HR, BP, MAP, SpO₂, RR, temperature, lactate, PEEP, Vt) with soft warnings ("Value outside physiological range — confirm?") rather than hard blocks.
+3. Batch `CheckboxOptionGroup` toggles: local optimistic state + a single debounced save (300ms) instead of a serial round-trip per click. Show a subtle "Saving…/Saved" pill in the widget header.
+4. Change Timeline Quick-add so no DB row is created until the user confirms in the inline editor (or auto-purge empty "Other" events created and abandoned within 5 minutes).
+5. Fix TEP colour semantics: pick a shared clinical colour system (e.g. destructive = safety-critical restriction, warning = attention needed, secondary = neutral state) and apply to DNACPR, TEP, isolation, wardable, deteriorating consistently. Add a one-line legend accessible from a "?" icon on the badges row.
+6. Unify toast conventions: success = 4s, warning/conflict = 10s with action, destructive-outcome = persistent until dismissed. Extract into a `notify` helper.
+
+## Phase 4 — Awareness, staleness & real-time
+
+Rationale: this is a shared clinical record with no presence signalling today.
+
+1. Add a Supabase Realtime channel scoped per patient: broadcast "user X viewing/editing" presence. Show small avatars in the patient header. On field edit, show a soft yellow ring on any field another user is currently editing.
+2. Add per-section "Updated HH:mm by Name" line under each Overview widget, Observations, Investigations, Micro, Reviews. Uses existing audit/field-change data.
+3. Replace the post-hoc "CONFLICT:" toast with a diff dialog: "This field changed while you were editing. Yours: … / Theirs: … / Keep mine / Keep theirs / Merge."
+4. On the Unit dashboard, add a soft `refetchInterval` (30s) and a "Last synced" timestamp; make stat cards clickable to filter the bed board.
+5. Add an offline banner (`navigator.onLine` + Supabase channel status) with a queued-writes indicator. Block risky writes when offline; allow read-only browsing.
+
+## Phase 5 — Accessibility, discoverability & polish
+
+1. Audit every icon-only button for `aria-label`. Standardise on the shadcn Button `aria-label` pattern; add lint rule if possible.
+2. Replace all `<p>Loading…</p>` placeholders with skeleton loaders shaped like the target content; distinguish "loading" from "empty" states clearly.
+3. Add keyboard-accessible "Move to bed…" command on each patient card (opens a picker) so drag-and-drop isn't the only way to relocate a patient.
+4. Add a global command palette (⌘K) for: jump to patient by name/MRN, jump to bed, common actions (mark wardable, add event, add obs). Populates from React Query cache.
+5. Add a shared clinical-colour legend page under Security/FAQ, and link from the "?" chip introduced in Phase 3.
+6. Add "forgot password" link and inline (non-toast) error region on the Auth page with `aria-live="polite"`.
+7. Fill the audit gaps: review `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `patients.sharing.tsx`, `settings.tsx`, `reconcile.tsx`, `setup.tsx`, `antimicrobials.tsx` — they're likely to surface more of the same patterns and Handover Mode is the actual bedside surface during rounds.
 
 ---
 
-## Technical notes
-- All new tables: `CREATE TABLE` in `public` + explicit `GRANT` to `authenticated`/`service_role` + `ENABLE RLS` + shared-team policies matching existing patient tables; add to bridge schema only where the partner app needs it.
-- New reads/writes as `createServerFn` with `requireSupabaseAuth`, mirroring `patient-tasks.functions.ts`.
-- Keep free-text systems fields (clinicians rely on narrative) — add structure alongside, never replace.
-- Preserve handover PDF determinism; extend `handover-columns.ts`/`handover-types.ts` rather than rewriting.
-- Each phase ships independently with typecheck + existing test suite green.
+## Suggested sequencing
 
-## Suggested first step
-Phase 1 (structured allergies + board safety flags + one-look Overview + daily-goals checklist) delivers the most clinical safety value per unit of work and is almost entirely additive. I'd recommend starting there.
+- **Phase 1**: 1 short cycle. Almost all shadcn AlertDialog work + one shared helper. Low risk, high safety payoff.
+- **Phase 2**: URL state + touch targets. Medium effort, spread across bed board and patient page.
+- **Phase 3**: Inline-editing convergence is the biggest single refactor; do it after Phase 1 & 2 so the destructive/URL infra is already stable.
+- **Phase 4**: Introduces Realtime — new infra; ship after the editing model is settled so presence has one clear model to attach to.
+- **Phase 5**: Ongoing polish and closing the audit gaps.
+
+## Notes / open questions to confirm before Phase 1 starts
+
+- Whether Investigations delete already uses AlertDialog (file was truncated in the audit — quick verify).
+- Whether any Realtime channel already exists elsewhere in `src/lib` we should extend rather than add.
+- Which surfaces are the actual bedside-round view (Handover Mode vs. patient detail) — will shape Phase 2 tap-target priorities.
+
+If you approve, I'll start with **Phase 1** in the next turn.
