@@ -605,6 +605,14 @@ function PatientsBoard() {
         )
       ) : (
         <div className="space-y-8">
+          <RecentMovesStrip
+            moves={recentMoves}
+            onRevert={(m) => {
+              undoMut.mutate(m.previous);
+              clearRecentMove(m.key);
+            }}
+            onDismiss={clearRecentMove}
+          />
           <BedBoard
             roster={bedRoster}
             bedOccupants={bedOccupants}
