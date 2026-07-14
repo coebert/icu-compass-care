@@ -304,15 +304,20 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
+  const filteredEvents = useMemo(() => {
+    if (activeFilters.length === 0) return events;
+    return events.filter((ev) => activeFilters.some((f) => matchesFilter(ev, f)));
+  }, [events, activeFilters]);
+
   // Horizontal timeline reads left (oldest) to right (newest).
   const chronological = useMemo(
     () =>
-      [...events].sort((a, b) => {
+      [...filteredEvents].sort((a, b) => {
         const ta = a.at ? new Date(a.at).getTime() : 0;
         const tb = b.at ? new Date(b.at).getTime() : 0;
         return ta - tb;
       }),
-    [events],
+    [filteredEvents],
   );
 
   const [selected, setSelected] = useState<TimelineEvent | null>(null);
