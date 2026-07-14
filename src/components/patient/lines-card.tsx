@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Cable, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { fmtDate } from "@/lib/icu";
 
 const today = () => new Date().toISOString().slice(0, 10);
