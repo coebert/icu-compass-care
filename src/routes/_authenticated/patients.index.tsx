@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw, Undo2, X as XIcon } from "lucide-react";
-import { deriveSafetyFlags } from "@/lib/patient-safety";
+import { deriveSafetyFlags, parseAllergies } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
 import { type Observation } from "@/lib/observations";
@@ -108,6 +108,19 @@ function PatientsBoard() {
     updateBoardSearch({ archived: fn(showArchived) });
   const density: "compact" | "detailed" = urlSearch.density === "compact" ? "compact" : "detailed";
   const setDensity = (v: "compact" | "detailed") => updateBoardSearch({ density: v });
+  const PRESETS = {
+    vent: { label: "Ventilated / resp support", test: (p: Patient) =>
+      p.airway_type === "ett" || p.airway_type === "tracheostomy" || (Array.isArray(p.resp_support) && p.resp_support.length > 0) },
+    vasoactive: { label: "On vasoactives", test: (p: Patient) => Array.isArray(p.vasoactive_agents) && p.vasoactive_agents.length > 0 },
+    rrt: { label: "On RRT", test: (p: Patient) => p.renal_rrt === true },
+    isolation: { label: "Isolation", test: (p: Patient) => p.isolation_required === true },
+    noresus: { label: "No resus/TEP decision", test: (p: Patient) => !p.dnacpr_decision && !p.tep_in_place },
+    allergy: { label: "Recorded allergies", test: (p: Patient) => parseAllergies(p.allergies).length > 0 },
+    stale: { label: "Records not updated recently", test: (p: Patient) => Boolean(deriveSafetyFlags(p).stale) },
+  } as const;
+  type PresetKey = keyof typeof PRESETS;
+  const preset: PresetKey | "" = (urlSearch.preset in PRESETS ? (urlSearch.preset as PresetKey) : "");
+  const clearPreset = () => updateBoardSearch({ preset: "" });
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
