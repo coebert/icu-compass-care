@@ -126,7 +126,15 @@ function matchesFilter(ev: TimelineEvent, filter: FilterKey): boolean {
   }
 }
 
-export function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
+export function TimelineTab({
+  patient,
+  patientId,
+  onNavigate,
+}: {
+  patient: Patient;
+  patientId: string;
+  onNavigate?: (tab: "investigations" | "microbiology", id: string) => void;
+}) {
   const qc = useQueryClient();
   const listInv = useServerFn(listInvestigations);
   const listMicro = useServerFn(listMicrobiology);
