@@ -269,10 +269,12 @@ export function OutstandingTasks({ patientId, freeText }: { patientId: string; f
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 shrink-0 text-destructive"
+                    aria-label="Delete task"
                     onClick={() => deleteMut.mutate(t.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+
                 </li>
               );
             })}

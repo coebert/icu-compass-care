@@ -421,11 +421,13 @@ export function MicroStatus({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0"
+                aria-label="Remove entry"
                 disabled={mut.isPending}
                 onClick={() => remove(i)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
+
             </div>
           </>
         )}
