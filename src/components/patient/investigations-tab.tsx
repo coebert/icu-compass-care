@@ -70,6 +70,22 @@ export function InvestigationsTab({
     queryFn: () => list({ data: { patientId } }) as Promise<Investigation[]>,
   });
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId) return;
+    // wait for the list to render before scrolling
+    const t = setTimeout(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-focus-id="${focusId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(focusId);
+        setTimeout(() => setHighlightId(null), 2000);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [focusId, focusSeq, items.length]);
+
   const openAdd = () => {
     setEditingId(null);
     setCategory(INVESTIGATION_CATEGORIES[0]);
