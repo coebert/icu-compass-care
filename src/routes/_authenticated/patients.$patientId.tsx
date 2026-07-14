@@ -48,6 +48,8 @@ import { ArrowLeft, Pencil, AlertTriangle, Circle, CheckCircle2, FileDown, Loade
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
+import { useConflictDialog } from "@/components/ConflictDialog";
+
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -130,6 +132,8 @@ function PatientDetail() {
     enabled: hasClinicalAccess,
   });
 
+  const conflict = useConflictDialog();
+
   const updateMut = useMutation({
     mutationFn: (v: PatientFormValues) =>
       update({ data: { id: patientId, expected_updated_at: patient?.updated_at, ...v } as never }),
@@ -140,11 +144,18 @@ function PatientDetail() {
       setEditing(false);
       toast.success("Patient updated");
     },
-    onError: (e: Error) =>
-      e.message.startsWith("CONFLICT:")
-        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
-        : toast.error("Update failed", { description: e.message }),
+    onError: (e: Error) => {
+      if (
+        conflict.showConflict(e, {
+          invalidateKeys: [["patient", patientId], ["patients"], ["patient-audit", patientId]],
+        })
+      ) {
+        return;
+      }
+      toast.error("Update failed", { description: e.message });
+    },
   });
+
 
   // Admin-only: mark this single patient as shared / not shared with the partner
   // app. The backend enforces admin-only; this is the per-patient control.
