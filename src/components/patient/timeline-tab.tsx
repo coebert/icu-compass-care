@@ -78,7 +78,9 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
-type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
+export type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
+export const TIMELINE_FILTER_KEYS: FilterKey[] = ["scans", "procedures", "lines", "micro", "antibiotics"];
+type _FilterKeyAlias = FilterKey;
 
 const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
   { key: "scans", label: "Scans", icon: <Scan className="h-3.5 w-3.5" /> },
