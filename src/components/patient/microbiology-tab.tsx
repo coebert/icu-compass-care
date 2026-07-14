@@ -22,7 +22,17 @@ import { toast } from "sonner";
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
 
-export function MicrobiologyTab({ patientId, patient }: { patientId: string; patient: Record<string, any> }) {
+export function MicrobiologyTab({
+  patientId,
+  patient,
+  focusId = null,
+  focusSeq = 0,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+  focusId?: string | null;
+  focusSeq?: number;
+}) {
   const qc = useQueryClient();
   const list = useServerFn(listMicrobiology);
   const add = useServerFn(addMicrobiology);
