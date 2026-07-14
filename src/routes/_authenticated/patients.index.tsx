@@ -301,9 +301,11 @@ function PatientsBoard() {
       // patient can always be found by hospital number after discharge.
       if (q) return true;
       const active = p.status === "admitted" || p.status === "referred";
-      return showArchived ? !active : active;
+      if (!(showArchived ? !active : active)) return false;
+      if (preset && !PRESETS[preset].test(p)) return false;
+      return true;
     });
-  }, [patients, search, sexFilter, showArchived]);
+  }, [patients, search, sexFilter, showArchived, preset]);
 
 
   const icu = filtered.filter((p) => p.location_type === "icu");
