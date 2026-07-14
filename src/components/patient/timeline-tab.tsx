@@ -290,6 +290,7 @@ export function TimelineTab({
         title: it.category,
         detail: it.findings,
         kind: "investigation",
+        sourceId: it.id,
       });
     }
 
@@ -301,6 +302,7 @@ export function TimelineTab({
         title: m.specimen_type,
         detail: m.findings,
         kind: "microbiology",
+        sourceId: m.id,
       });
     }
 
