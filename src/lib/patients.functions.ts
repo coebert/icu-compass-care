@@ -10,8 +10,36 @@ import {
   type PatientStatus,
 } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
+import { normalizeBed } from "@/lib/icu-beds";
 
-
+// Reject bed collisions before writing so two active patients can't share a
+// bed via the form, drag-and-drop, or the bridge write path. `excludeId` skips
+// the patient being edited so re-saving their own row doesn't self-conflict.
+async function assertBedFree(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  bed: string,
+  excludeId: string | null,
+): Promise<void> {
+  const target = normalizeBed(bed);
+  if (!target) return;
+  let q = supabase
+    .from("patients")
+    .select("id, full_name, hospital_number")
+    .eq("location_type", "icu")
+    .in("status", ["admitted", "referred"])
+    .ilike("bed", bed.trim());
+  if (excludeId) q = q.neq("id", excludeId);
+  const { data, error } = await q.limit(1);
+  if (error) throw safeDbError(error);
+  const other = data?.[0];
+  if (other) {
+    const who = other.full_name ?? other.hospital_number ?? "another patient";
+    throw new Error(
+      `Bed ${bed} is already occupied by ${who}. Move or discharge them first.`,
+    );
+  }
+}
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -41,10 +69,17 @@ export const createPatient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => patientInput.parse(input))
   .handler(async ({ context, data }) => {
-    validatePatientState(clean(data as Record<string, unknown>));
+    const cleaned = clean(data as Record<string, unknown>);
+    validatePatientState(cleaned);
+    const status = cleaned.status as string | undefined;
+    const locType = cleaned.location_type as string | undefined;
+    const bed = cleaned.bed as string | null | undefined;
+    if (bed && locType === "icu" && (status === "admitted" || status === "referred")) {
+      await assertBedFree(context.supabase, bed, null);
+    }
     const { data: row, error } = await context.supabase
       .from("patients")
-      .insert({ ...clean(data as Record<string, unknown>), created_by: context.userId, updated_by: context.userId } as never)
+      .insert({ ...cleaned, created_by: context.userId, updated_by: context.userId } as never)
       .select()
       .single();
     if (error) throw safeDbError(error);
@@ -94,6 +129,17 @@ export const updatePatient = createServerFn({ method: "POST" })
     // the effective row (current values overlaid with the incoming changes).
     const merged = { ...current, ...clean(rest) };
     validatePatientState(merged, current.status as PatientStatus);
+
+    // After merging, reject moves that would put two active patients in the
+    // same bed. Only enforce when the effective row is an active ICU occupant.
+    const mBed = merged.bed as string | null | undefined;
+    if (
+      mBed &&
+      merged.location_type === "icu" &&
+      (merged.status === "admitted" || merged.status === "referred")
+    ) {
+      await assertBedFree(context.supabase, mBed, id);
+    }
 
     const { data: row, error } = await context.supabase
       .from("patients")
