@@ -192,12 +192,12 @@ function AuthenticatedLayout() {
               {profile?.profile?.display_name ?? profile?.email}
             </span>
             {deviceEnrolled && (
-              <Button variant="outline" size="sm" onClick={lockNow} className="gap-1.5">
+              <Button variant="outline" size="sm" onClick={lockNow} className="gap-1.5" aria-label="Lock session">
                 <Lock className="h-4 w-4" />
                 <span className="hidden sm:inline">Lock now</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => void signOut()} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => void signOut()} className="gap-1.5" aria-label="Sign out">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sign out</span>
             </Button>
@@ -207,6 +207,16 @@ function AuthenticatedLayout() {
       <main className="mx-auto max-w-6xl px-4 py-6">
         <Outlet />
       </main>
+      <CommandMenu />
+      {/* Discoverability hint for the command palette on ≥md viewports. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed bottom-3 right-3 hidden items-center gap-1.5 rounded-md border bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur md:inline-flex"
+      >
+        <CommandIcon className="h-3 w-3" />
+        <span>K to jump</span>
+      </div>
     </div>
+
   );
 }
