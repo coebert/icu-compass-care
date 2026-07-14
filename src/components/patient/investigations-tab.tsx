@@ -161,7 +161,7 @@ export function InvestigationsTab({
   }, [items]);
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Most recent results
