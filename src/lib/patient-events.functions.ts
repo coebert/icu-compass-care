@@ -13,6 +13,7 @@ export const PATIENT_EVENT_TYPES = [
   "Line insertion",
   "Cardiac arrest",
   "Transfer",
+  "Antibiotics",
   "Other",
 ] as const;
 
