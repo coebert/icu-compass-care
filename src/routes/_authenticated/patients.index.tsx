@@ -224,6 +224,14 @@ function PatientsBoard() {
             }
           : {}),
       });
+      if (previous && previous.length > 0) {
+        pushRecentMove({
+          key: `${previous.map((p) => p.id).join(",")}-${Date.now()}`,
+          at: Date.now(),
+          label: summary ?? "Bed move",
+          previous,
+        });
+      }
     },
     onError: (e: Error) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
