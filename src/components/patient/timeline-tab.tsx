@@ -44,6 +44,11 @@ import {
   Activity,
   Stethoscope,
   UserRound,
+  Scan,
+  Scissors,
+  GitBranch,
+  Pill,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
