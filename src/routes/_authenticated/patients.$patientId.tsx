@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -240,7 +241,7 @@ function PatientDetail() {
       />
     );
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isLoading) return <ListSkeleton rows={3} />;
   if (!patient)
     return (
       <div className="space-y-3">

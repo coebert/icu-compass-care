@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { HeartPulse, ShieldCheck } from "lucide-react";
+import { HeartPulse, ShieldCheck, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -27,6 +27,8 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -44,14 +46,40 @@ function AuthPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
+    setInfo(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
     if (error) {
-      toast.error("Sign in failed", { description: error.message });
+      // Keep the error visible in-page (screen-reader announced) rather than
+      // relying on a toast that may auto-dismiss before staff can read it.
+      setError(error.message || "Sign in failed. Please try again.");
       return;
     }
     toast.success("Signed in");
     navigate({ to: "/patients" });
+  }
+
+  async function handleForgotPassword() {
+    const target = email.trim();
+    setError(null);
+    setInfo(null);
+    if (!target) {
+      setError("Enter your email address above, then tap “Forgot password”.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    setLoading(false);
+    if (error) {
+      setError(error.message || "Could not send reset email.");
+      return;
+    }
+    setInfo(
+      `If an account exists for ${target}, a password-reset email has been sent. Check your inbox and spam folder.`,
+    );
   }
 
   return (
@@ -65,7 +93,7 @@ function AuthPage() {
           <CardDescription>Salisbury District Hospital · Critical Care</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
               <Label htmlFor="email">Username (email)</Label>
               <Input
@@ -76,10 +104,22 @@ function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@nhs.net"
+                aria-invalid={!!error || undefined}
+                aria-describedby={error ? "auth-error" : info ? "auth-info" : undefined}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -87,8 +127,32 @@ function AuthPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!error || undefined}
+                aria-describedby={error ? "auth-error" : undefined}
               />
             </div>
+
+            {/* Persistent, screen-reader-announced status region. */}
+            <div aria-live="polite" role="status" className="min-h-[1.25rem]">
+              {error && (
+                <p
+                  id="auth-error"
+                  className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-sm text-destructive"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </p>
+              )}
+              {info && !error && (
+                <p
+                  id="auth-info"
+                  className="rounded-md border bg-muted/60 px-2.5 py-2 text-sm text-muted-foreground"
+                >
+                  {info}
+                </p>
+              )}
+            </div>
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in…" : "Sign in"}
             </Button>

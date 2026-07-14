@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -128,8 +129,9 @@ function AdminPage() {
 
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={4} />
       ) : (
+
         <div className="grid gap-3">
           {staff.map((s) => {
             const isAdmin = s.roles.includes("admin");
@@ -162,7 +164,7 @@ function AdminPage() {
                     </ConfirmDestructive>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive">
+                        <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Delete account for ${s.display_name ?? "user"}`}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>

@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -207,8 +208,9 @@ export function OutstandingTasks({ patientId, freeText }: { patientId: string; f
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <RowSkeleton rows={3} />
         ) : tasks.length === 0 ? (
+
           <p className="text-sm text-muted-foreground">No tasks yet.</p>
         ) : (
           <ul className="space-y-1.5">
@@ -269,10 +271,12 @@ export function OutstandingTasks({ patientId, freeText }: { patientId: string; f
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 shrink-0 text-destructive"
+                    aria-label="Delete task"
                     onClick={() => deleteMut.mutate(t.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+
                 </li>
               );
             })}

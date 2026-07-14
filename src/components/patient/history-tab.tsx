@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -56,7 +57,7 @@ export function AuditTab({ patientId }: { patientId: string }) {
     queryFn: () => fetchAudit({ data: { id: patientId } }) as Promise<AuditRow[]>,
   });
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isLoading) return <RowSkeleton rows={6} />;
   if (rows.length === 0)
     return (
       <Card>

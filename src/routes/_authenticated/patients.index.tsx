@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { createContext, useContext, useMemo, useRef, useState } from "react";
@@ -642,8 +643,9 @@ function PatientsBoard() {
 
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={5} />
       ) : search.trim() ? (
+
         filtered.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">

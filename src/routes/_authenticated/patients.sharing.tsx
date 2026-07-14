@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -155,8 +156,9 @@ function SharingManager() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={4} />
       ) : filtered.length === 0 ? (
+
         <p className="text-sm text-muted-foreground">No patients found.</p>
       ) : (
         <div className="space-y-2">

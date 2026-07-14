@@ -1,3 +1,4 @@
+import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -136,8 +137,9 @@ function BedsAdminPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <RowSkeleton rows={4} />
           ) : (
+
             <>
               {draft.map((d, i) => {
                 const label = d.label.trim().toUpperCase();
