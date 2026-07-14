@@ -501,6 +501,18 @@ function PatientsBoard() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <Select value={sexFilter} onValueChange={(v) => setSexFilter(v as typeof sexFilter)}>
+            <SelectTrigger className="h-11 w-full sm:h-10 sm:w-36" aria-label="Filter by sex">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sexes</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="unknown">Unknown</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant={showArchived ? "secondary" : "outline"} className="h-11 flex-1 sm:h-10 sm:flex-none" onClick={() => setShowArchived((s) => !s)}>
             {showArchived ? "Show current" : "Archive"}
           </Button>
