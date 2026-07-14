@@ -372,10 +372,46 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {FILTERS.map((f) => {
+          const active = activeFilters.includes(f.key);
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() =>
+                setActiveFilters((prev) =>
+                  prev.includes(f.key) ? prev.filter((k) => k !== f.key) : [...prev, f.key],
+                )
+              }
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-accent"
+              }`}
+            >
+              {f.icon}
+              {f.label}
+            </button>
+          );
+        })}
+        {activeFilters.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setActiveFilters([])}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3 w-3" /> Clear
+          </button>
+        )}
+      </div>
+
       {chronological.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No timeline events recorded yet.
+            {activeFilters.length > 0
+              ? "No events match the selected filters."
+              : "No timeline events recorded yet."}
           </CardContent>
         </Card>
       ) : (
