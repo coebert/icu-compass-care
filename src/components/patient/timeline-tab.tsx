@@ -543,3 +543,138 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
     </div>
   );
 }
+
+function EventEditor({
+  event,
+  editEvent,
+  onSaved,
+  onRemove,
+}: {
+  event: PatientEvent | undefined;
+  editEvent: (args: { data: any }) => Promise<any>;
+  onSaved: () => void;
+  onRemove: () => void;
+}) {
+  const [type, setType] = useState<string>(event?.event_type ?? PATIENT_EVENT_TYPES[0]);
+  const [eventAt, setEventAt] = useState<string>(event?.event_at ?? "");
+  const [description, setDescription] = useState<string>(event?.description ?? "");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const dirty = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const validate = (): string | null => {
+    if (!type) return "Event type is required";
+    if (!eventAt) return "Date & time is required";
+    const t = new Date(eventAt).getTime();
+    if (Number.isNaN(t)) return "Invalid date";
+    if (t > Date.now() + 60_000) return "Date cannot be in the future";
+    if (description.length > 2000) return "Notes must be under 2000 characters";
+    return null;
+  };
+
+  const validationError = validate();
+
+  useEffect(() => {
+    if (!dirty.current || !event) return;
+    if (validationError) {
+      setStatus("error");
+      setErrorMsg(validationError);
+      return;
+    }
+    if (
+      type === event.event_type &&
+      eventAt === (event.event_at ?? "") &&
+      description === (event.description ?? "")
+    ) {
+      return;
+    }
+    setStatus("saving");
+    setErrorMsg(null);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      try {
+        await editEvent({ data: { id: event.id, event_type: type, description, event_at: eventAt } });
+        setStatus("saved");
+        onSaved();
+      } catch (e) {
+        setStatus("error");
+        setErrorMsg(e instanceof Error ? e.message : "Save failed");
+      }
+    }, 700);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, eventAt, description]);
+
+  const markDirty = () => {
+    dirty.current = true;
+  };
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="space-y-1.5">
+        <Label>Event type</Label>
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            markDirty();
+            setType(v);
+          }}
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {PATIENT_EVENT_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Date &amp; time</Label>
+        <DateTimePicker
+          value={eventAt}
+          onChange={(v) => {
+            markDirty();
+            setEventAt(v ?? "");
+          }}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Notes</Label>
+        <Textarea
+          value={description}
+          onChange={(e) => {
+            markDirty();
+            setDescription(e.target.value);
+          }}
+          rows={3}
+          placeholder="Add notes"
+        />
+        <div className="text-[10px] text-muted-foreground text-right">{description.length}/2000</div>
+      </div>
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="text-xs">
+          {status === "saving" && <span className="text-muted-foreground">Saving…</span>}
+          {status === "saved" && <span className="text-emerald-600 dark:text-emerald-400">Saved</span>}
+          {status === "error" && <span className="text-destructive">{errorMsg ?? "Save failed"}</span>}
+          {status === "idle" && !validationError && (
+            <span className="text-muted-foreground">Changes save automatically</span>
+          )}
+          {status === "idle" && validationError && (
+            <span className="text-destructive">{validationError}</span>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1 text-destructive"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Remove
+        </Button>
+      </div>
+    </div>
+  );
+}
