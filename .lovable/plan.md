@@ -56,6 +56,15 @@ Rationale: this is a shared clinical record with no presence signalling today.
 4. On the Unit dashboard, add a soft `refetchInterval` (30s) and a "Last synced" timestamp; make stat cards clickable to filter the bed board.
 5. Add an offline banner (`navigator.onLine` + Supabase channel status) with a queued-writes indicator. Block risky writes when offline; allow read-only browsing.
 
+## Phase 4.5 — Follow-ups (shipped)
+
+1. Per-section "Updated HH:mm" line under Observations, Lines, Investigations, Microbiology, Reviews via a shared `<SectionUpdated />` helper that reads `updated_at`/`created_at` from the section's own list — no extra fetch. Author attribution is deferred until the audit trail covers all detail tables (currently only `patients`/`investigations` write to `record_audit`).
+2. Clickable stat cards on the Unit dashboard link into the bed board with a new `preset` search param (`vent`, `vasoactive`, `rrt`, `noresus`). The board renders a clearable "Filter: <label>" chip below the heading and applies the preset to the list.
+
+Still deferred:
+- Conflict diff dialog for concurrent edits (requires an optimistic-concurrency layer on every editable surface).
+- Queued-writes indicator (no offline mutation queue exists yet).
+
 ## Phase 5 — Accessibility, discoverability & polish
 
 1. Audit every icon-only button for `aria-label`. Standardise on the shadcn Button `aria-label` pattern; add lint rule if possible.
