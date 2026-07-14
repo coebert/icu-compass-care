@@ -71,6 +71,7 @@ export async function writeAudit(
 const TRACKED_PATIENT_FIELDS: { column: string; label: string }[] = [
   { column: "full_name", label: "initials" },
   { column: "age", label: "age" },
+  { column: "sex", label: "sex" },
   { column: "hospital_number", label: "hospital_number" },
   // Clinical fields — surfaced in the "what changed" ribbon for the incoming team.
   { column: "current_admission", label: "current_admission" },
