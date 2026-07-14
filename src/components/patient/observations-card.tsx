@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Plus, Trash2, Droplets } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { fmtDateTime } from "@/lib/icu";
 
 export function AcuityBadge({
