@@ -32,6 +32,8 @@ export type PatientFormValues = {
   full_name: string;
   hospital_number: string;
   age: string;
+  sex: "" | "male" | "female" | "other" | "unknown";
+
   location_type: "icu" | "outlier";
   ward: string;
   bed: string;
