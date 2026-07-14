@@ -264,7 +264,15 @@ export function MicrobiologyTab({
         ) : (
           <div className="space-y-2">
             {items.map((it) => (
-              <Card key={it.id}>
+              <Card
+                key={it.id}
+                data-focus-id={it.id}
+                className={
+                  highlightId === it.id
+                    ? "ring-2 ring-primary ring-offset-2 transition-shadow"
+                    : "transition-shadow"
+                }
+              >
                 <CardContent className="flex items-start justify-between gap-3 p-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
