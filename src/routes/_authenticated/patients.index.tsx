@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
@@ -677,53 +677,102 @@ function WardableToggle({ p }: { p: Patient }) {
   const update = useServerFn(updatePatient);
   const isOn = p.wardable === true;
   const elapsed = useElapsedSince(isOn ? p.wardable_at : null);
-  const mut = useMutation({
-    mutationFn: (next: boolean) =>
-      update({
+  const [syncState, setSyncState] = useState<"idle" | "pending" | "failed">("idle");
+
+  // Attempt the local save + treat it as the trigger to publish the new
+  // wardable state to the partner app. Because the partner pulls via the
+  // bridge on a schedule, "publish" here means: (a) confirm the local write
+  // succeeded (which is what the bridge endpoint serves), and (b) surface a
+  // visible failure with retry if it didn't. We also do one silent retry
+  // for transient network hiccups before bothering the user.
+  const attempt = async (next: boolean, isRetry: boolean): Promise<void> => {
+    setSyncState("pending");
+    try {
+      await update({
         data: {
           id: p.id,
           wardable: next,
           expected_updated_at: p.updated_at,
         } as never,
-      }),
-    onSuccess: (_r, next) => {
+      });
+      setSyncState("idle");
       qc.invalidateQueries({ queryKey: ["patients"] });
-      toast.success(next ? "Marked ready for ward" : "Ward-ready cleared");
-    },
-    onError: (e: Error) => toast.error("Could not update", { description: e.message }),
+      qc.invalidateQueries({ queryKey: ["sync-status"] });
+      toast.success(next ? "Marked ready for ward" : "Ward-ready cleared", {
+        description: "Change will appear in the partner app on its next sync.",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // One silent retry on the first failure — many bridge/network errors
+      // are transient. Second failure escalates to a visible retry toast.
+      if (!isRetry) {
+        await new Promise((r) => setTimeout(r, 800));
+        return attempt(next, true);
+      }
+      setSyncState("failed");
+      toast.error("Wardable status did not sync", {
+        description: message,
+        duration: 12_000,
+        action: {
+          label: "Retry",
+          onClick: () => {
+            void attempt(next, false);
+          },
+        },
+      });
+    }
+  };
+
+  const mut = useMutation({
+    mutationFn: (next: boolean) => attempt(next, false),
   });
-  const label = isOn
-    ? `Wardable · ${elapsed || "just now"}`
-    : "Wardable";
+
+  const label = isOn ? `Wardable · ${elapsed || "just now"}` : "Wardable";
+  const failed = syncState === "failed";
+  const pending = mut.isPending || syncState === "pending";
+
   return (
     <button
       type="button"
       aria-pressed={isOn}
+      aria-live="polite"
       title={
-        isOn && p.wardable_at
-          ? `Marked ready ${fmtDateTime(p.wardable_at)}`
-          : "Mark this patient as ready for a ward bed"
+        failed
+          ? "Sync failed — click to retry"
+          : isOn && p.wardable_at
+            ? `Marked ready ${fmtDateTime(p.wardable_at)}`
+            : "Mark this patient as ready for a ward bed"
       }
       onClick={(e) => {
         // Sits inside the DraggablePatientLink <a>, so stop the click from
         // navigating to the patient page.
         e.preventDefault();
         e.stopPropagation();
-        if (mut.isPending) return;
-        mut.mutate(!isOn);
+        if (pending) return;
+        // If the last attempt failed, a click retries the same transition
+        // rather than toggling again (the local state hasn't moved).
+        mut.mutate(failed ? isOn : !isOn);
       }}
       // Prevent this control from initiating a drag of the parent card.
       draggable={false}
       onDragStart={(e) => e.preventDefault()}
-      disabled={mut.isPending}
+      disabled={pending}
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
-        isOn
-          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
-          : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300"
-      } ${mut.isPending ? "opacity-60" : ""}`}
+        failed
+          ? "border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/20"
+          : isOn
+            ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+            : "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300"
+      } ${pending ? "opacity-60" : ""}`}
     >
-      <Home className="h-3 w-3" aria-hidden />
-      {label}
+      {failed ? (
+        <AlertTriangle className="h-3 w-3" aria-hidden />
+      ) : pending ? (
+        <RefreshCw className="h-3 w-3 animate-spin" aria-hidden />
+      ) : (
+        <Home className="h-3 w-3" aria-hidden />
+      )}
+      {failed ? "Sync failed — retry" : pending ? "Syncing…" : label}
     </button>
   );
 }
