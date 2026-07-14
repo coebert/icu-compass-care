@@ -73,9 +73,13 @@ Still deferred:
 4. Auth page: inline `aria-live="polite"` error/info region (replaces the transient toast that auto-dismissed before staff could read it), plus a "Forgot password?" link that triggers `supabase.auth.resetPasswordForEmail`.
 
 Still deferred:
-- Keyboard-accessible "Move to bed…" picker on each patient card (drag-and-drop is currently the only way to relocate); requires a small bed-picker component and a `movePatient` action.
-- Shared clinical-colour legend page under Security FAQ (legend popover already exists on the patient header — the FAQ deep-link is polish).
 - Full audit of `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `patients.sharing.tsx`, `settings.tsx`, `reconcile.tsx`, `setup.tsx`, `antimicrobials.tsx` for the same patterns (tap targets, URL state, inline edits). Handover Mode is the bedside surface and warrants its own phase.
+- Conflict diff dialog and queued-writes indicator (both require larger architectural work — optimistic-concurrency layer and an offline mutation queue).
+
+Phase 5 deferred items shipped:
+- `MoveToBedMenu` (`src/components/patient/move-to-bed-menu.tsx`) — keyboard-accessible "Move to bed…" popover on every patient card. Lists the ICU bed roster, flags occupied and current beds, and offers "Unassign (keep in ICU)". Uses the existing `updatePatient` server fn.
+- Clinical-colour legend added to the Security FAQ (`#clinical-colour-legend` anchor) explaining rose = safety-critical, amber = attention, secondary = neutral, muted = stale/historical, with sample badges.
+
 
 
 ---

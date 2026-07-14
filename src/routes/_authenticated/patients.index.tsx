@@ -36,6 +36,8 @@ import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
+import { MoveToBedMenu } from "@/components/patient/move-to-bed-menu";
+
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
@@ -889,6 +891,8 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
     vasoactive: Array.isArray(p.vasoactive_agents) && p.vasoactive_agents.length > 0,
   };
   const showAcuity = !!latestObs || support.ventilated || support.rrt || support.vasoactive;
+  const name = p.full_name ?? "this patient";
+  const showMove = p.status === "admitted" || p.status === "referred";
   return (
     <CardContent className="space-y-2 p-4">
       <div className="flex items-start justify-between gap-2">
@@ -898,10 +902,20 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
             {bedLabel ?? formatLocation(p)}
           </p>
         </div>
-        <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
-          {STATUS_LABELS[p.status]}
-        </Badge>
+        <div className="flex shrink-0 items-center gap-1">
+          {showMove && (
+            <MoveToBedMenu
+              patientId={p.id}
+              currentBed={p.bed}
+              patientName={name}
+            />
+          )}
+          <Badge className={`${STATUS_BADGE[p.status]} shrink-0`} variant="secondary">
+            {STATUS_LABELS[p.status]}
+          </Badge>
+        </div>
       </div>
+
 
       <div className="flex flex-wrap gap-1.5">
         {showAcuity && <AcuityBadge latest={latestObs} support={support} />}
