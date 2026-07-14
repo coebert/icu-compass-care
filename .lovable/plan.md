@@ -77,8 +77,15 @@ Still deferred:
 - Conflict diff dialog and queued-writes indicator (both require larger architectural work — optimistic-concurrency layer and an offline mutation queue).
 
 Phase 5 deferred items shipped:
-- `MoveToBedMenu` (`src/components/patient/move-to-bed-menu.tsx`) — keyboard-accessible "Move to bed…" popover on every patient card. Lists the ICU bed roster, flags occupied and current beds, and offers "Unassign (keep in ICU)". Uses the existing `updatePatient` server fn.
-- Clinical-colour legend added to the Security FAQ (`#clinical-colour-legend` anchor) explaining rose = safety-critical, amber = attention, secondary = neutral, muted = stale/historical, with sample badges.
+- `MoveToBedMenu` (`src/components/patient/move-to-bed-menu.tsx`) — keyboard-accessible "Move to bed…" popover on every patient card.
+- Clinical-colour legend added to the Security FAQ (`#clinical-colour-legend` anchor).
+- Conflict diff dialog (`src/components/ConflictDialog.tsx`, `useConflictDialog` hook + `parseConflict` helper). Replaces the transient "Edit conflict" toast on the patient detail page and the Status tab with a persistent, non-dismissable dialog that explains what happened, offers "Reload latest" (invalidates the relevant queries and re-runs the loader) or "Keep editing (do not save)". Wired at every place that sends `expected_updated_at` on `updatePatient` today.
+
+Still deferred (larger architectural work — not built this cycle):
+- Offline mutation queue with a "queued writes" indicator in the header. Requires a persistent, ordered write log in `localStorage`/`IndexedDB`, per-mutation replay on reconnect with conflict handling, and a UI to inspect/discard pending items. No offline write path exists today; on reconnect a stale in-memory mutation still errors with a network toast.
+- Bringing the conflict-dialog pattern to every other editable surface (observations, lines, systems widgets, tasks, reviews, investigations, microbiology, timeline). Those mutations don't currently send `expected_updated_at`, so they need matching server-side concurrency checks first.
+- Deep audit of `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `settings.tsx`, `reconcile.tsx`, `antimicrobials.tsx` — a scan today found no blocking a11y/UX regressions (icon-only buttons all carry `aria-label`, loaders replaced, URL state persisted where relevant), so this is a review effort rather than a fix backlog.
+
 
 
 

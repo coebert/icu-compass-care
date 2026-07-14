@@ -18,6 +18,8 @@ import {
 import { toast } from "sonner";
 import { Share2, ShieldOff, Trash2, AlertTriangle } from "lucide-react";
 import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
+import { useConflictDialog } from "@/components/ConflictDialog";
+
 
 type Patient = DomainPatient & Record<string, any>;
 
@@ -36,6 +38,8 @@ export function StatusTab({
   const [dischargeDate, setDischargeDate] = useState(patient.discharge_date ?? "");
   const [destination, setDestination] = useState(patient.discharge_destination ?? "");
   const [dod, setDod] = useState(patient.date_of_death ?? "");
+
+  const conflict = useConflictDialog();
 
   const mut = useMutation({
     mutationFn: () =>
@@ -56,11 +60,23 @@ export function StatusTab({
       qc.invalidateQueries({ queryKey: ["patient-field-changes", patient.id] });
       toast.success("Status updated");
     },
-    onError: (e: Error) =>
-      e.message.startsWith("CONFLICT:")
-        ? toast.warning("Edit conflict", { description: e.message.replace("CONFLICT: ", "") })
-        : toast.error("Update failed", { description: e.message }),
+    onError: (e: Error) => {
+      if (
+        conflict.showConflict(e, {
+          invalidateKeys: [
+            ["patient", patient.id],
+            ["patients"],
+            ["patient-audit", patient.id],
+            ["patient-field-changes", patient.id],
+          ],
+        })
+      ) {
+        return;
+      }
+      toast.error("Update failed", { description: e.message });
+    },
   });
+
 
   return (
     <>
@@ -166,6 +182,8 @@ export function StatusTab({
         </CardContent>
       </Card>
     )}
+    {conflict.dialog}
     </>
   );
 }
+
