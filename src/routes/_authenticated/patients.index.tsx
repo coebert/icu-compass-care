@@ -6,6 +6,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { listPatients, createPatient, updatePatient } from "@/lib/patients.functions";
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
+import { PreviousAdmissionBanner } from "@/components/PreviousAdmissionBanner";
+
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -609,6 +611,12 @@ function PatientsBoard() {
           <DialogHeader>
             <DialogTitle>Add patient</DialogTitle>
           </DialogHeader>
+          <div className="mb-4">
+            <PreviousAdmissionBanner
+              values={form}
+              onApply={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            />
+          </div>
           <PatientForm
             values={form}
             onChange={setForm}
@@ -619,6 +627,7 @@ function PatientsBoard() {
           />
         </DialogContent>
       </Dialog>
+
     </div>
     </KeyInvestigationsContext.Provider>
     </AcuityContext.Provider>
