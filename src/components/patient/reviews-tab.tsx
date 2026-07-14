@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { SectionUpdated } from "@/components/patient/section-updated";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DateTimePicker } from "@/components/ui/date-picker";
@@ -93,10 +94,13 @@ export function ReviewsTab({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Users className="h-4 w-4" />
-          Reviews and plans from specialty teams — retained after discharge.
+      <div className="flex flex-wrap items-start gap-2">
+        <div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            Reviews and plans from specialty teams — retained after discharge.
+          </div>
+          <SectionUpdated items={reviews} className="mt-0.5" />
         </div>
         <Button size="sm" className="ml-auto gap-1.5" onClick={openAdd}>
           <Plus className="h-4 w-4" /> Add review
