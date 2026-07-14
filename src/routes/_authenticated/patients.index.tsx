@@ -91,6 +91,17 @@ function PatientsBoard() {
   // HTML5 drag events don't fire on touch, so we run a pointer-based drag:
   // long-press a card to pick it up, drag over a bed, lift to drop.
   const [touchOverBed, setTouchOverBed] = useState<string | null>(null);
+  type RecentMove = {
+    key: string;
+    at: number;
+    label: string;
+    previous: { id: string; bed: string | null; location_type: string }[];
+  };
+  const [recentMoves, setRecentMoves] = useState<RecentMove[]>([]);
+  const pushRecentMove = (m: RecentMove) =>
+    setRecentMoves((prev) => [m, ...prev.filter((r) => r.key !== m.key)].slice(0, 3));
+  const clearRecentMove = (key: string) =>
+    setRecentMoves((prev) => prev.filter((r) => r.key !== key));
   // Set true the moment a touch-drag ends so the card's click (which fires
   // after pointerup) doesn't navigate to the patient page.
   const suppressClickRef = useRef(false);
