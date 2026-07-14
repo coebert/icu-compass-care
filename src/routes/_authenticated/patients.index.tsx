@@ -73,6 +73,7 @@ function PatientsBoard() {
   const update = useServerFn(updatePatient);
   const beds = useServerFn(listBeds);
   const [search, setSearch] = useState("");
+  const [sexFilter, setSexFilter] = useState<"all" | "female" | "male" | "other" | "unknown">("all");
   const [showArchived, setShowArchived] = useState(false);
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
