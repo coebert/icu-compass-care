@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { Microbiology as DomainMicrobiology } from "@/lib/domain-types";
@@ -22,7 +22,17 @@ import { toast } from "sonner";
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
 
-export function MicrobiologyTab({ patientId, patient }: { patientId: string; patient: Record<string, any> }) {
+export function MicrobiologyTab({
+  patientId,
+  patient,
+  focusId = null,
+  focusSeq = 0,
+}: {
+  patientId: string;
+  patient: Record<string, any>;
+  focusId?: string | null;
+  focusSeq?: number;
+}) {
   const qc = useQueryClient();
   const list = useServerFn(listMicrobiology);
   const add = useServerFn(addMicrobiology);
@@ -36,6 +46,21 @@ export function MicrobiologyTab({ patientId, patient }: { patientId: string; pat
     queryKey: ["microbiology", patientId],
     queryFn: () => list({ data: { patientId } }) as Promise<Microbiology[]>,
   });
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId) return;
+    const t = setTimeout(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-focus-id="${focusId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(focusId);
+        setTimeout(() => setHighlightId(null), 2000);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [focusId, focusSeq, items.length]);
 
   const addMut = useMutation({
     mutationFn: () =>
@@ -132,7 +157,7 @@ export function MicrobiologyTab({ patientId, patient }: { patientId: string; pat
   }, [items, agents]);
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -239,7 +264,15 @@ export function MicrobiologyTab({ patientId, patient }: { patientId: string; pat
         ) : (
           <div className="space-y-2">
             {items.map((it) => (
-              <Card key={it.id}>
+              <Card
+                key={it.id}
+                data-focus-id={it.id}
+                className={
+                  highlightId === it.id
+                    ? "ring-2 ring-primary ring-offset-2 transition-shadow"
+                    : "transition-shadow"
+                }
+              >
                 <CardContent className="flex items-start justify-between gap-3 p-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

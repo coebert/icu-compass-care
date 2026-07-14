@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import type { Investigation as DomainInvestigation } from "@/lib/domain-types";
@@ -45,7 +45,15 @@ function toDateTimeLocal(iso?: string | null): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function InvestigationsTab({ patientId }: { patientId: string }) {
+export function InvestigationsTab({
+  patientId,
+  focusId = null,
+  focusSeq = 0,
+}: {
+  patientId: string;
+  focusId?: string | null;
+  focusSeq?: number;
+}) {
   const qc = useQueryClient();
   const list = useServerFn(listInvestigations);
   const add = useServerFn(addInvestigation);
@@ -61,6 +69,22 @@ export function InvestigationsTab({ patientId }: { patientId: string }) {
     queryKey: ["investigations", patientId],
     queryFn: () => list({ data: { patientId } }) as Promise<Investigation[]>,
   });
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId) return;
+    // wait for the list to render before scrolling
+    const t = setTimeout(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-focus-id="${focusId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(focusId);
+        setTimeout(() => setHighlightId(null), 2000);
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }, [focusId, focusSeq, items.length]);
 
   const openAdd = () => {
     setEditingId(null);
@@ -137,7 +161,7 @@ export function InvestigationsTab({ patientId }: { patientId: string }) {
   }, [items]);
 
   return (
-    <div className="space-y-6">
+    <div ref={containerRef} className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Most recent results
@@ -178,7 +202,15 @@ export function InvestigationsTab({ patientId }: { patientId: string }) {
         ) : (
           <div className="space-y-2">
             {items.map((it) => (
-              <Card key={it.id}>
+              <Card
+                key={it.id}
+                data-focus-id={it.id}
+                className={
+                  highlightId === it.id
+                    ? "ring-2 ring-primary ring-offset-2 transition-shadow"
+                    : "transition-shadow"
+                }
+              >
                 <CardContent className="flex items-start justify-between gap-3 p-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

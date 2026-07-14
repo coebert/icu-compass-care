@@ -66,6 +66,7 @@ type TimelineEvent = {
   eventId?: string;
   eventType?: string;
   changedBy?: string | null;
+  sourceId?: string;
 };
 
 const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
@@ -125,7 +126,15 @@ function matchesFilter(ev: TimelineEvent, filter: FilterKey): boolean {
   }
 }
 
-export function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
+export function TimelineTab({
+  patient,
+  patientId,
+  onNavigate,
+}: {
+  patient: Patient;
+  patientId: string;
+  onNavigate?: (tab: "investigations" | "microbiology", id: string) => void;
+}) {
   const qc = useQueryClient();
   const listInv = useServerFn(listInvestigations);
   const listMicro = useServerFn(listMicrobiology);
@@ -281,6 +290,7 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
         title: it.category,
         detail: it.findings,
         kind: "investigation",
+        sourceId: it.id,
       });
     }
 
@@ -292,6 +302,7 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
         title: m.specimen_type,
         detail: m.findings,
         kind: "microbiology",
+        sourceId: m.id,
       });
     }
 
@@ -363,7 +374,13 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
   const TimelineNode = ({ ev }: { ev: TimelineEvent }) => (
     <button
       type="button"
-      onClick={() => setSelected(ev)}
+      onClick={() => {
+        if (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) {
+          onNavigate(ev.kind === "investigation" ? "investigations" : "microbiology", ev.sourceId);
+          return;
+        }
+        setSelected(ev);
+      }}
       className="group relative z-10 flex w-full flex-col items-center gap-1.5 rounded-md p-1 text-center transition hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
