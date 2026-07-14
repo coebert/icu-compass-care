@@ -43,18 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
+import { ArrowLeft, Pencil, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
