@@ -44,6 +44,8 @@ const patientsBoardSearchSchema = z.object({
   sex: fallback(z.string(), "all").default("all"),
   archived: fallback(z.boolean(), false).default(false),
   density: fallback(z.string(), "detailed").default("detailed"),
+  // Optional shortcut applied from the Unit dashboard stat cards.
+  preset: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/_authenticated/patients/")({
