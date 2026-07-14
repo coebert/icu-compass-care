@@ -123,6 +123,7 @@ function AuthenticatedLayout() {
           { to: "/reconcile", label: "Sync", icon: RefreshCw },
         ]
       : []),
+    { to: "/security-faq", label: "Security", icon: ShieldCheck },
     { to: "/settings", label: "My profile", icon: User },
   ];
 
