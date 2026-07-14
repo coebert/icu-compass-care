@@ -230,13 +230,14 @@ function PatientsBoard() {
         p.hospital_number?.toLowerCase().includes(q) ||
         p.ward?.toLowerCase().includes(q);
       if (!matches) return false;
+      if (sexFilter !== "all" && p.sex !== sexFilter) return false;
       // While searching, span every record (current AND discharged/died) so a
       // patient can always be found by hospital number after discharge.
       if (q) return true;
       const active = p.status === "admitted" || p.status === "referred";
       return showArchived ? !active : active;
     });
-  }, [patients, search, showArchived]);
+  }, [patients, search, sexFilter, showArchived]);
 
 
   const icu = filtered.filter((p) => p.location_type === "icu");
