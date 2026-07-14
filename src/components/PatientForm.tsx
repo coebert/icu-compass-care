@@ -186,12 +186,13 @@ export function PatientForm({
   // clinical-safety risk, so the form blocks submission until it is filled in.
   const tepDetailsMissing =
     values.tep_in_place && values.tep_details.trim() === "";
+  const sexMissing = !values.sex;
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (tepDetailsMissing) return;
+        if (tepDetailsMissing || sexMissing) return;
         onSubmit();
       }}
       className="space-y-6"
@@ -208,18 +209,29 @@ export function PatientForm({
           <Field label="Age *">
             <Input type="number" min={0} max={130} step={1} value={values.age} onChange={(e) => set("age", e.target.value)} required />
           </Field>
-          <Field label="Sex">
-            <Select value={values.sex || "unspecified"} onValueChange={(v) => set("sex", (v === "unspecified" ? "" : v) as PatientFormValues["sex"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Field label="Sex *">
+            <Select value={values.sex || undefined} onValueChange={(v) => set("sex", v as PatientFormValues["sex"])}>
+              <SelectTrigger
+                aria-invalid={sexMissing || undefined}
+                aria-describedby={sexMissing ? "pf-sex-error" : undefined}
+                className={sexMissing ? "border-destructive focus-visible:ring-destructive" : undefined}
+              >
+                <SelectValue placeholder="Select sex…" />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unspecified">Not recorded</SelectItem>
                 <SelectItem value="female">Female</SelectItem>
                 <SelectItem value="male">Male</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
                 <SelectItem value="unknown">Unknown</SelectItem>
               </SelectContent>
             </Select>
+            {sexMissing && (
+              <p id="pf-sex-error" className="text-xs text-destructive">
+                Please select a sex. Use "Unknown" if it isn't recorded.
+              </p>
+            )}
           </Field>
+
 
           <Field label="Hospital number">
             <Input id="pf-hospital_number" value={values.hospital_number} onChange={(e) => set("hospital_number", e.target.value)} />
@@ -541,7 +553,7 @@ export function PatientForm({
 
       <div className="flex justify-end gap-2 border-t pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={submitting || tepDetailsMissing}>{submitting ? "Saving…" : submitLabel}</Button>
+        <Button type="submit" disabled={submitting || tepDetailsMissing || sexMissing}>{submitting ? "Saving…" : submitLabel}</Button>
       </div>
     </form>
   );
