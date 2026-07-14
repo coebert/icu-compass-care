@@ -10,8 +10,36 @@ import {
   type PatientStatus,
 } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
+import { normalizeBed } from "@/lib/icu-beds";
 
-
+// Reject bed collisions before writing so two active patients can't share a
+// bed via the form, drag-and-drop, or the bridge write path. `excludeId` skips
+// the patient being edited so re-saving their own row doesn't self-conflict.
+async function assertBedFree(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  bed: string,
+  excludeId: string | null,
+): Promise<void> {
+  const target = normalizeBed(bed);
+  if (!target) return;
+  let q = supabase
+    .from("patients")
+    .select("id, full_name, hospital_number")
+    .eq("location_type", "icu")
+    .in("status", ["admitted", "referred"])
+    .ilike("bed", bed.trim());
+  if (excludeId) q = q.neq("id", excludeId);
+  const { data, error } = await q.limit(1);
+  if (error) throw safeDbError(error);
+  const other = data?.[0];
+  if (other) {
+    const who = other.full_name ?? other.hospital_number ?? "another patient";
+    throw new Error(
+      `Bed ${bed} is already occupied by ${who}. Move or discharge them first.`,
+    );
+  }
+}
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
