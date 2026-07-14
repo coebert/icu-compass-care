@@ -8,7 +8,7 @@ import { BedDouble, Home, MoveRight } from "lucide-react";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 import { updatePatient } from "@/lib/patients.functions";
 import { normalizeBed } from "@/lib/icu-beds";
-import { notify } from "@/lib/notify";
+import { toast } from "sonner";
 
 type MoveTarget =
   | { kind: "bed"; label: string }
@@ -62,15 +62,21 @@ export function MoveToBedMenu({
     onSuccess: (_res, target) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
       qc.invalidateQueries({ queryKey: ["patient", patientId] });
-      notify.success(
+      notify_success(
         target.kind === "bed"
           ? `Moved ${patientName} to Bed ${target.label}`
           : `${patientName} is now unassigned`,
       );
       onMoved?.();
     },
-    onError: (e: Error) => notify.destructive("Could not move patient", e.message),
+    onError: (e: Error) =>
+      toast.error("Could not move patient", { description: e.message, duration: 10000 }),
   });
+
+  function notify_success(msg: string) {
+    toast.success(msg);
+  }
+
 
   const currentKey = currentBed ? normalizeBed(currentBed) : null;
 
