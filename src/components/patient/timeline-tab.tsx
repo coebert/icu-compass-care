@@ -66,6 +66,7 @@ type TimelineEvent = {
   eventId?: string;
   eventType?: string;
   changedBy?: string | null;
+  sourceId?: string;
 };
 
 const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
