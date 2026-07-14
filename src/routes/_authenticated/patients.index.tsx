@@ -609,6 +609,12 @@ function PatientsBoard() {
           <DialogHeader>
             <DialogTitle>Add patient</DialogTitle>
           </DialogHeader>
+          <div className="mb-4">
+            <PreviousAdmissionBanner
+              values={form}
+              onApply={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            />
+          </div>
           <PatientForm
             values={form}
             onChange={setForm}
@@ -619,6 +625,7 @@ function PatientsBoard() {
           />
         </DialogContent>
       </Dialog>
+
     </div>
     </KeyInvestigationsContext.Provider>
     </AcuityContext.Provider>
