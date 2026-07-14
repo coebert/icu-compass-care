@@ -16,11 +16,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Share2, ShieldOff } from "lucide-react";
+import { Share2, ShieldOff, Trash2, AlertTriangle } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 
 type Patient = DomainPatient & Record<string, any>;
 
-export function StatusTab({ patient }: { patient: Patient }) {
+export function StatusTab({
+  patient,
+  onDelete,
+  isDeleting = false,
+}: {
+  patient: Patient;
+  onDelete?: () => void;
+  isDeleting?: boolean;
+}) {
   const qc = useQueryClient();
   const update = useServerFn(updatePatient);
   const [status, setStatus] = useState<string>(patient.status);
@@ -54,6 +63,7 @@ export function StatusTab({ patient }: { patient: Patient }) {
   });
 
   return (
+    <>
     <Card>
       <CardContent className="max-w-md space-y-4 p-6">
         <div
@@ -110,5 +120,52 @@ export function StatusTab({ patient }: { patient: Patient }) {
         </Button>
       </CardContent>
     </Card>
+    {onDelete && (
+      <Card className="mt-6 max-w-md border-destructive/40">
+        <CardContent className="space-y-3 p-6">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <h3 className="text-sm font-semibold uppercase tracking-wide">Danger zone</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Deleting a patient record is intended for test entries or duplicates created in
+            error. For real patients who have left the unit, change the status to{" "}
+            <span className="font-medium">discharged</span> or <span className="font-medium">died</span> above so the record and its
+            clinical history are retained for audit.
+          </p>
+          <ConfirmDestructive
+            title="Delete this patient record permanently?"
+            description={
+              <>
+                <p className="mb-2">
+                  This will permanently remove <span className="font-medium">{patient.display_name ?? "the patient"}</span>{" "}
+                  and every associated record:
+                </p>
+                <ul className="mb-2 list-disc pl-5 text-sm">
+                  <li>All observations, ventilation and fluid entries</li>
+                  <li>All lines and devices</li>
+                  <li>All investigations and microbiology results</li>
+                  <li>All specialty reviews and timeline events</li>
+                  <li>The full audit trail of who changed what and when</li>
+                </ul>
+                <p>
+                  This cannot be undone. To keep the record for review, use{" "}
+                  <span className="font-medium">discharged</span> or <span className="font-medium">died</span> status instead.
+                </p>
+              </>
+            }
+            confirmLabel="Delete permanently"
+            onConfirm={onDelete}
+            disabled={isDeleting}
+          >
+            <Button variant="destructive" className="gap-1.5" disabled={isDeleting}>
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? "Deleting…" : "Delete patient record"}
+            </Button>
+          </ConfirmDestructive>
+        </CardContent>
+      </Card>
+    )}
+    </>
   );
 }

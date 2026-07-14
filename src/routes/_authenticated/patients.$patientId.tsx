@@ -43,18 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { ArrowLeft, Pencil, Trash2, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
+import { ArrowLeft, Pencil, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
@@ -391,26 +380,6 @@ function PatientDetail() {
           >
             <Pencil className="h-4 w-4" /> Edit
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="gap-1.5 text-destructive">
-                <Trash2 className="h-4 w-4" /> Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this patient record?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes the record and all its investigations. To keep the
-                  record for review, change the status to discharged or died instead.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => deleteMut.mutate()}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       </div>
 
@@ -577,7 +546,11 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="status" className="mt-4">
-          <StatusTab patient={patient} />
+          <StatusTab
+            patient={patient}
+            onDelete={() => deleteMut.mutate()}
+            isDeleting={deleteMut.isPending}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">

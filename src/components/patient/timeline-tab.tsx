@@ -50,6 +50,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 
 type Patient = DomainPatient & Record<string, any>;
 type Investigation = DomainInvestigation & Record<string, any>;
@@ -729,14 +730,19 @@ function EventEditor({
             <span className="text-destructive">{validationError}</span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1 text-destructive"
-          onClick={onRemove}
+        <ConfirmDestructive
+          title="Delete this timeline event?"
+          description="Permanently removes this event from the patient timeline. This cannot be undone."
+          onConfirm={onRemove}
         >
-          <Trash2 className="h-3.5 w-3.5" /> Remove
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Remove
+          </Button>
+        </ConfirmDestructive>
       </div>
     </div>
   );

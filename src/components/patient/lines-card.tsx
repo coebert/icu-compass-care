@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Cable, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { fmtDate } from "@/lib/icu";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -123,15 +124,20 @@ function LineRow({ line, patientId }: { line: PatientLine; patientId: string }) 
             Remove
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => del.mutate()}
-          disabled={del.isPending}
-          aria-label="Delete record"
+        <ConfirmDestructive
+          title="Delete this line record?"
+          description={`Permanently removes the ${LINE_TYPE_LABEL[line.device_type as LineType] ?? line.device_type}${line.site ? ` (${line.site})` : ""} record. To keep it for review, mark it as removed instead.`}
+          onConfirm={() => del.mutate()}
         >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={del.isPending}
+            aria-label="Delete line record"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </ConfirmDestructive>
       </div>
     </div>
   );

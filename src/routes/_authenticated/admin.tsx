@@ -28,6 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Shield, ShieldOff, Eye, EyeOff, Share2, Pill } from "lucide-react";
+import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { toast } from "sonner";
 import { BridgeSecurityPanel } from "@/components/BridgeSecurityPanel";
 
@@ -142,17 +143,23 @@ function AdminPage() {
                   </div>
                   <Badge variant={isAdmin ? "default" : "secondary"}>{isAdmin ? "Admin" : "Clinician"}</Badge>
                   <div className="ml-auto flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() =>
+                    <ConfirmDestructive
+                      title={isAdmin ? "Revoke admin access?" : "Grant admin access?"}
+                      description={
+                        isAdmin
+                          ? `${s.display_name} will lose admin privileges (managing staff, roles, bed board, partner sharing) and become a regular clinician.`
+                          : `${s.display_name} will gain full admin privileges: managing staff accounts, changing anyone's role, editing the bed board, and enabling partner-app sharing. Only grant this to trusted colleagues.`
+                      }
+                      confirmLabel={isAdmin ? "Revoke admin" : "Grant admin"}
+                      onConfirm={() =>
                         roleMut.mutate({ user_id: s.id, role: isAdmin ? "clinician" : "admin" })
                       }
                     >
-                      {isAdmin ? <ShieldOff className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
-                      {isAdmin ? "Make clinician" : "Make admin"}
-                    </Button>
+                      <Button variant="outline" size="sm" className="gap-1.5">
+                        {isAdmin ? <ShieldOff className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                        {isAdmin ? "Make clinician" : "Make admin"}
+                      </Button>
+                    </ConfirmDestructive>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-destructive">

@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw, Undo2, X as XIcon } from "lucide-react";
 import { deriveSafetyFlags } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
@@ -91,6 +91,17 @@ function PatientsBoard() {
   // HTML5 drag events don't fire on touch, so we run a pointer-based drag:
   // long-press a card to pick it up, drag over a bed, lift to drop.
   const [touchOverBed, setTouchOverBed] = useState<string | null>(null);
+  type RecentMove = {
+    key: string;
+    at: number;
+    label: string;
+    previous: { id: string; bed: string | null; location_type: string }[];
+  };
+  const [recentMoves, setRecentMoves] = useState<RecentMove[]>([]);
+  const pushRecentMove = (m: RecentMove) =>
+    setRecentMoves((prev) => [m, ...prev.filter((r) => r.key !== m.key)].slice(0, 3));
+  const clearRecentMove = (key: string) =>
+    setRecentMoves((prev) => prev.filter((r) => r.key !== key));
   // Set true the moment a touch-drag ends so the card's click (which fires
   // after pointerup) doesn't navigate to the patient page.
   const suppressClickRef = useRef(false);
@@ -213,6 +224,14 @@ function PatientsBoard() {
             }
           : {}),
       });
+      if (previous && previous.length > 0) {
+        pushRecentMove({
+          key: `${previous.map((p) => p.id).join(",")}-${Date.now()}`,
+          at: Date.now(),
+          label: summary ?? "Bed move",
+          previous,
+        });
+      }
     },
     onError: (e: Error) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
@@ -586,6 +605,14 @@ function PatientsBoard() {
         )
       ) : (
         <div className="space-y-8">
+          <RecentMovesStrip
+            moves={recentMoves}
+            onRevert={(m) => {
+              undoMut.mutate(m.previous);
+              clearRecentMove(m.key);
+            }}
+            onDismiss={clearRecentMove}
+          />
           <BedBoard
             roster={bedRoster}
             bedOccupants={bedOccupants}
@@ -1334,6 +1361,59 @@ function Section({
         ))}
 
       </div>
+    </div>
+  );
+}
+
+type RecentMove = {
+  key: string;
+  at: number;
+  label: string;
+  previous: { id: string; bed: string | null; location_type: string }[];
+};
+
+function RecentMovesStrip({
+  moves,
+  onRevert,
+  onDismiss,
+}: {
+  moves: RecentMove[];
+  onRevert: (m: RecentMove) => void;
+  onDismiss: (key: string) => void;
+}) {
+  if (moves.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs">
+      <span className="font-medium text-muted-foreground">Recent bed moves:</span>
+      {moves.map((m) => {
+        const seconds = Math.max(1, Math.round((Date.now() - m.at) / 1000));
+        const ago = seconds < 60 ? `${seconds}s ago` : `${Math.round(seconds / 60)}m ago`;
+        return (
+          <div
+            key={m.key}
+            className="flex items-center gap-1 rounded-full border bg-background px-2 py-1"
+          >
+            <span className="truncate max-w-[16rem]">{m.label}</span>
+            <span className="text-muted-foreground">· {ago}</span>
+            <button
+              type="button"
+              onClick={() => onRevert(m)}
+              className="ml-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-primary hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Revert this bed move"
+            >
+              <Undo2 className="h-3 w-3" /> Revert
+            </button>
+            <button
+              type="button"
+              onClick={() => onDismiss(m.key)}
+              className="ml-0.5 inline-flex items-center rounded-full p-0.5 text-muted-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Dismiss from recent moves"
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
