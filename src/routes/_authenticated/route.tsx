@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History } from "lucide-react";
+import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History } from "lucide-react";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
@@ -123,6 +123,7 @@ function AuthenticatedLayout() {
           { to: "/reconcile", label: "Sync", icon: RefreshCw },
         ]
       : []),
+    { to: "/security-faq", label: "Security", icon: ShieldCheck },
     { to: "/settings", label: "My profile", icon: User },
   ];
 
