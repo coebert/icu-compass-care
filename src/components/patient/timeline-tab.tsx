@@ -80,7 +80,6 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
 
 export type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
 export const TIMELINE_FILTER_KEYS: FilterKey[] = ["scans", "procedures", "lines", "micro", "antibiotics"];
-type _FilterKeyAlias = FilterKey;
 
 const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
   { key: "scans", label: "Scans", icon: <Scan className="h-3.5 w-3.5" /> },
