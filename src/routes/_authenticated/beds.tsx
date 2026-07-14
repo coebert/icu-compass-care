@@ -41,6 +41,22 @@ function BedsAdminPage() {
     queryFn: () => list() as Promise<Bed[]>,
   });
 
+  const patientsFn = useServerFn(listPatients);
+  const { data: activePatients = [] } = useQuery({
+    queryKey: ["patients", "active"],
+    queryFn: () => patientsFn() as Promise<Array<Record<string, any>>>,
+  });
+
+  const occupancyByLabel = new Map<string, string[]>();
+  for (const p of activePatients) {
+    if (!p?.bed || (p.status !== "admitted" && p.status !== "referred")) continue;
+    const key = String(p.bed).trim().toUpperCase();
+    const list = occupancyByLabel.get(key) ?? [];
+    list.push(p.display_name ?? p.name ?? "Patient");
+    occupancyByLabel.set(key, list);
+  }
+  const occupantsFor = (label: string) => occupancyByLabel.get(label.trim().toUpperCase()) ?? [];
+
   const [draft, setDraft] = useState<Draft[]>([]);
   const [dirty, setDirty] = useState(false);
 
