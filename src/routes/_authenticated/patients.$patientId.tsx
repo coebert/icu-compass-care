@@ -48,8 +48,32 @@ import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
 
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
+import { TIMELINE_FILTER_KEYS, type FilterKey as TimelineFilterKey } from "@/components/patient/timeline-tab";
+
+const TAB_KEYS = [
+  "overview",
+  "observations",
+  "lines",
+  "escalation",
+  "nok",
+  "investigations",
+  "microbiology",
+  "reviews",
+  "timeline",
+  "status",
+  "history",
+] as const;
+
+const patientDetailSearchSchema = z.object({
+  tab: fallback(z.string(), "overview").default("overview"),
+  filter: fallback(z.string(), "").default(""),
+});
+
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
   component: PatientDetail,
+  validateSearch: zodValidator(patientDetailSearchSchema),
 });
 
 type Patient = DomainPatient & Record<string, any>;
@@ -66,6 +90,7 @@ const MISSING_FIELD_ANCHORS: Record<string, string> = {
 function PatientDetail() {
   const { patientId } = Route.useParams();
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const qc = useQueryClient();
   const get = useServerFn(getPatient);
   const update = useServerFn(updatePatient);
@@ -73,8 +98,26 @@ function PatientDetail() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<PatientFormValues | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const activeTab = (TAB_KEYS as readonly string[]).includes(search.tab) ? search.tab : "overview";
+  const setActiveTab = (tab: string) =>
+    navigate({
+      to: "/patients/$patientId",
+      params: { patientId },
+      search: (prev) => ({ ...prev, tab }),
+      replace: true,
+    });
+  const timelineFilters = search.filter
+    .split(",")
+    .filter((k): k is TimelineFilterKey => (TIMELINE_FILTER_KEYS as string[]).includes(k));
+  const setTimelineFilters = (next: TimelineFilterKey[]) =>
+    navigate({
+      to: "/patients/$patientId",
+      params: { patientId },
+      search: (prev) => ({ ...prev, filter: next.join(",") }),
+      replace: true,
+    });
   const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology"; id: string; seq: number } | null>(null);
+
 
   const { hasClinicalAccess, profile } = useClinicalAccess();
 
