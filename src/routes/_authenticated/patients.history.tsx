@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import {
   listHandoverVersions,
   getHandoverVersion,
@@ -27,9 +29,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Camera, FileDown, GitCompareArrows, History, Search, Sunrise, Sunset } from "lucide-react";
 
+const historySearchSchema = z.object({
+  q: fallback(z.string(), "").default(""),
+  from: fallback(z.string(), "").default(""),
+  to: fallback(z.string(), "").default(""),
+  shift: fallback(z.string(), "all").default("all"),
+  page: fallback(z.number().int(), 1).default(1),
+  versionId: fallback(z.string(), "").default(""),
+});
+
 export const Route = createFileRoute("/_authenticated/patients/history")({
   component: HandoverHistoryPage,
+  validateSearch: zodValidator(historySearchSchema),
 });
+
 
 function ShiftBadge({ shift }: { shift: "am" | "pm" }) {
   return shift === "am" ? (
