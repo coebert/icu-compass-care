@@ -44,6 +44,11 @@ import {
   Activity,
   Stethoscope,
   UserRound,
+  Scan,
+  Scissors,
+  GitBranch,
+  Pill,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,6 +77,55 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
+type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
+
+const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
+  { key: "scans", label: "Scans", icon: <Scan className="h-3.5 w-3.5" /> },
+  { key: "procedures", label: "Procedures", icon: <Scissors className="h-3.5 w-3.5" /> },
+  { key: "lines", label: "Lines", icon: <GitBranch className="h-3.5 w-3.5" /> },
+  { key: "micro", label: "Micro", icon: <Microscope className="h-3.5 w-3.5" /> },
+  { key: "antibiotics", label: "Antibiotics", icon: <Pill className="h-3.5 w-3.5" /> },
+];
+
+const SCAN_KEYWORDS = ["ct", "cxr", "x-ray", "xray", "ultrasound", "echo", "echocardiogram", "mri", "pet", "angiogram", "fluoroscopy", "dexa", "scan"];
+const ANTIBIOTIC_KEYWORDS = [
+  "antibiotic",
+  "antimicrobial",
+  "antibacterial",
+  "penicillin",
+  "cephalosporin",
+  "meropenem",
+  "vancomycin",
+  "gentamicin",
+  "amoxicillin",
+  "azithromycin",
+  "ciprofloxacin",
+  "metronidazole",
+  "flucloxacillin",
+  "co-amoxiclav",
+  "augmentin",
+  "tazocin",
+  "piptazobactam",
+];
+
+function matchesFilter(ev: TimelineEvent, filter: FilterKey): boolean {
+  const text = `${ev.title ?? ""} ${ev.detail ?? ""}`.toLowerCase();
+  switch (filter) {
+    case "scans":
+      return ev.kind === "investigation" && SCAN_KEYWORDS.some((k) => text.includes(k));
+    case "procedures":
+      return ev.kind === "event" && (ev.eventType === "Surgical procedure" || ev.eventType === "Tracheostomy");
+    case "lines":
+      return ev.kind === "event" && ev.eventType === "Line insertion";
+    case "micro":
+      return ev.kind === "microbiology";
+    case "antibiotics":
+      return (ev.kind === "event" && ev.eventType === "Antibiotics") || ANTIBIOTIC_KEYWORDS.some((k) => text.includes(k));
+    default:
+      return false;
+  }
+}
+
 export function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
   const qc = useQueryClient();
   const listInv = useServerFn(listInvestigations);
@@ -86,6 +140,7 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
   const [type, setType] = useState<string>(PATIENT_EVENT_TYPES[0]);
   const [description, setDescription] = useState("");
   const [eventAt, setEventAt] = useState<string>("");
+  const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
 
   const { data: investigations = [] } = useQuery({
     queryKey: ["investigations", patientId],
@@ -249,15 +304,20 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
+  const filteredEvents = useMemo(() => {
+    if (activeFilters.length === 0) return events;
+    return events.filter((ev) => activeFilters.some((f) => matchesFilter(ev, f)));
+  }, [events, activeFilters]);
+
   // Horizontal timeline reads left (oldest) to right (newest).
   const chronological = useMemo(
     () =>
-      [...events].sort((a, b) => {
+      [...filteredEvents].sort((a, b) => {
         const ta = a.at ? new Date(a.at).getTime() : 0;
         const tb = b.at ? new Date(b.at).getTime() : 0;
         return ta - tb;
       }),
-    [events],
+    [filteredEvents],
   );
 
   const [selected, setSelected] = useState<TimelineEvent | null>(null);
@@ -312,10 +372,46 @@ export function TimelineTab({ patient, patientId }: { patient: Patient; patientI
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {FILTERS.map((f) => {
+          const active = activeFilters.includes(f.key);
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() =>
+                setActiveFilters((prev) =>
+                  prev.includes(f.key) ? prev.filter((k) => k !== f.key) : [...prev, f.key],
+                )
+              }
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-accent"
+              }`}
+            >
+              {f.icon}
+              {f.label}
+            </button>
+          );
+        })}
+        {activeFilters.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setActiveFilters([])}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3 w-3" /> Clear
+          </button>
+        )}
+      </div>
+
       {chronological.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No timeline events recorded yet.
+            {activeFilters.length > 0
+              ? "No events match the selected filters."
+              : "No timeline events recorded yet."}
           </CardContent>
         </Card>
       ) : (
