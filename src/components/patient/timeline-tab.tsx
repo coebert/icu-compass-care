@@ -77,6 +77,55 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
+type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
+
+const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
+  { key: "scans", label: "Scans", icon: <Scan className="h-3.5 w-3.5" /> },
+  { key: "procedures", label: "Procedures", icon: <Scissors className="h-3.5 w-3.5" /> },
+  { key: "lines", label: "Lines", icon: <GitBranch className="h-3.5 w-3.5" /> },
+  { key: "micro", label: "Micro", icon: <Microscope className="h-3.5 w-3.5" /> },
+  { key: "antibiotics", label: "Antibiotics", icon: <Pill className="h-3.5 w-3.5" /> },
+];
+
+const SCAN_KEYWORDS = ["ct", "cxr", "x-ray", "xray", "ultrasound", "echo", "echocardiogram", "mri", "pet", "angiogram", "fluoroscopy", "dexa", "scan"];
+const ANTIBIOTIC_KEYWORDS = [
+  "antibiotic",
+  "antimicrobial",
+  "antibacterial",
+  "penicillin",
+  "cephalosporin",
+  "meropenem",
+  "vancomycin",
+  "gentamicin",
+  "amoxicillin",
+  "azithromycin",
+  "ciprofloxacin",
+  "metronidazole",
+  "flucloxacillin",
+  "co-amoxiclav",
+  "augmentin",
+  "tazocin",
+  "piptazobactam",
+];
+
+function matchesFilter(ev: TimelineEvent, filter: FilterKey): boolean {
+  const text = `${ev.title ?? ""} ${ev.detail ?? ""}`.toLowerCase();
+  switch (filter) {
+    case "scans":
+      return ev.kind === "investigation" && SCAN_KEYWORDS.some((k) => text.includes(k));
+    case "procedures":
+      return ev.kind === "event" && (ev.eventType === "Surgical procedure" || ev.eventType === "Tracheostomy");
+    case "lines":
+      return ev.kind === "event" && ev.eventType === "Line insertion";
+    case "micro":
+      return ev.kind === "microbiology";
+    case "antibiotics":
+      return (ev.kind === "event" && ev.eventType === "Antibiotics") || ANTIBIOTIC_KEYWORDS.some((k) => text.includes(k));
+    default:
+      return false;
+  }
+}
+
 export function TimelineTab({ patient, patientId }: { patient: Patient; patientId: string }) {
   const qc = useQueryClient();
   const listInv = useServerFn(listInvestigations);
