@@ -7,7 +7,9 @@ import {
 } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ShieldCheck, Info, AlertTriangle, BedDouble, Clock } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/security-faq")({
   head: () => ({
@@ -220,6 +222,55 @@ function SecurityFaqPage() {
                 </ul>
               </AccordionContent>
             </AccordionItem>
+
+            <AccordionItem value="legend">
+              <AccordionTrigger id="clinical-colour-legend">
+                What do the badge colours mean?
+              </AccordionTrigger>
+              <AccordionContent className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Badges across the app use a shared colour system so the same
+                  colour always signals the same kind of clinical importance.
+                </p>
+                <div className="grid gap-2">
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Badge variant="outline" className="gap-1 border-rose-400 text-rose-700 dark:text-rose-300">
+                      <AlertTriangle className="h-3 w-3" /> Rose
+                    </Badge>
+                    <div>
+                      <p className="font-medium text-foreground">Safety-critical</p>
+                      <p>Allergies, DNACPR, and other flags that must be seen before acting on the patient.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300">
+                      <BedDouble className="h-3 w-3" /> Amber
+                    </Badge>
+                    <div>
+                      <p className="font-medium text-foreground">Attention needed</p>
+                      <p>Isolation, deteriorating trend, side-room placement, or data outside the typical range.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Badge variant="secondary">Neutral</Badge>
+                    <div>
+                      <p className="font-medium text-foreground">Neutral state</p>
+                      <p>TEP, admission status, and other informational labels that don't require immediate action.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Badge variant="outline" className="gap-1 border-muted-foreground/40 text-muted-foreground">
+                      <Clock className="h-3 w-3" /> Muted
+                    </Badge>
+                    <div>
+                      <p className="font-medium text-foreground">Stale / historical</p>
+                      <p>Data that has not been updated recently, or timestamps from earlier admissions.</p>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
           </Accordion>
         </CardContent>
       </Card>
