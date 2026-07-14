@@ -240,7 +240,7 @@ function PatientDetail() {
       />
     );
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (isLoading) return <ListSkeleton rows={3} />;
   if (!patient)
     return (
       <div className="space-y-3">

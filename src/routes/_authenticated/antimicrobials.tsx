@@ -205,8 +205,9 @@ function AntimicrobialLibrary() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <RowSkeleton rows={6} />
       ) : filtered.length === 0 ? (
+
         <Card>
           <CardContent className="flex flex-col items-center gap-2 p-8 text-center">
             <Search className="h-8 w-8 text-muted-foreground" />

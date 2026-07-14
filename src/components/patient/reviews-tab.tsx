@@ -108,8 +108,9 @@ export function ReviewsTab({ patientId }: { patientId: string }) {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={3} />
       ) : reviews.length === 0 ? (
+
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             No specialty reviews recorded yet.

@@ -642,8 +642,9 @@ function PatientsBoard() {
 
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={5} />
       ) : search.trim() ? (
+
         filtered.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">

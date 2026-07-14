@@ -155,8 +155,9 @@ function SharingManager() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={4} />
       ) : filtered.length === 0 ? (
+
         <p className="text-sm text-muted-foreground">No patients found.</p>
       ) : (
         <div className="space-y-2">

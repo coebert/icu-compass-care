@@ -95,7 +95,7 @@ export function BridgeSecurityPanel() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {isLoading && <TextSkeleton />}
         {error && (
           <p className="text-sm text-destructive">
             {(error as Error).message || "Could not load security status."}

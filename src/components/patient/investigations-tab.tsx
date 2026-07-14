@@ -200,8 +200,9 @@ export function InvestigationsTab({
           Full history
         </h2>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <ListSkeleton rows={4} />
         ) : items.length === 0 ? (
+
           <p className="text-sm text-muted-foreground">No entries.</p>
         ) : (
           <div className="space-y-2">

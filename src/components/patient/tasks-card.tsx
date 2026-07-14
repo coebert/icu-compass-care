@@ -207,8 +207,9 @@ export function OutstandingTasks({ patientId, freeText }: { patientId: string; f
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <RowSkeleton rows={3} />
         ) : tasks.length === 0 ? (
+
           <p className="text-sm text-muted-foreground">No tasks yet.</p>
         ) : (
           <ul className="space-y-1.5">

@@ -32,7 +32,8 @@ export function RecentInvestigations({ patientId }: { patientId: string }) {
                 {category}
               </p>
               {isLoading ? (
-                <p className="mt-1 text-sm text-muted-foreground">Loading…</p>
+                <TextSkeleton className="mt-1" />
+
               ) : latest ? (
                 <>
                   <p className="mt-1 whitespace-pre-wrap text-sm">

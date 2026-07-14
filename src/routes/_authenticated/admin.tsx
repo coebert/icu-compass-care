@@ -128,8 +128,9 @@ function AdminPage() {
 
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton rows={4} />
       ) : (
+
         <div className="grid gap-3">
           {staff.map((s) => {
             const isAdmin = s.roles.includes("admin");
