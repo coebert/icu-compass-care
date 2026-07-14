@@ -6,6 +6,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { listPatients, createPatient, updatePatient } from "@/lib/patients.functions";
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
+import { PreviousAdmissionBanner } from "@/components/PreviousAdmissionBanner";
+
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
