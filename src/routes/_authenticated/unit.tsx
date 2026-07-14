@@ -477,13 +477,13 @@ function UnitDashboard() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <StatCard icon={BedDouble} label="ICU beds occupied" value={`${stats.occupied}${stats.totalBeds ? `/${stats.totalBeds}` : ""}`} />
-        <StatCard icon={Wind} label="Ventilated / resp support" value={stats.ventilated.length} />
-        <StatCard icon={HeartPulse} label="On vasoactives" value={stats.vasoactive.length} tone="warn" />
-        <StatCard icon={Droplets} label="On RRT" value={stats.rrt.length} tone="warn" />
+        <StatCard icon={Wind} label="Ventilated / resp support" value={stats.ventilated.length} preset="vent" />
+        <StatCard icon={HeartPulse} label="On vasoactives" value={stats.vasoactive.length} tone="warn" preset="vasoactive" />
+        <StatCard icon={Droplets} label="On RRT" value={stats.rrt.length} tone="warn" preset="rrt" />
         <StatCard icon={ClipboardList} label="Open tasks" value={openTasks.length} sub={`${taskStats.critical.length} critical`} tone={taskStats.critical.length ? "danger" : "default"} />
         <StatCard icon={Clock} label="Overdue tasks" value={taskStats.overdue.length} tone={taskStats.overdue.length ? "danger" : "default"} />
         <StatCard icon={Activity} label="Total active patients" value={active.length} />
-        <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} />
+        <StatCard icon={ShieldAlert} label="No resus/TEP decision" value={stats.noResus.length} tone={stats.noResus.length ? "danger" : "default"} preset="noresus" />
         <StatCard icon={HeartPulse} label="High acuity" value={highAcuity.length} tone={highAcuity.length ? "danger" : "default"} />
       </div>
 
