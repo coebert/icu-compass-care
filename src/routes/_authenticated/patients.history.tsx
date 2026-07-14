@@ -87,25 +87,36 @@ function HandoverHistoryPage() {
   }
 
 
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [shift, setShift] = useState<string>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const urlSearch = Route.useSearch();
+  const navigate = useNavigate();
+  type HistorySearch = z.infer<typeof historySearchSchema>;
+  const updateSearch = (patch: Partial<HistorySearch>) =>
+    navigate({
+      to: "/patients/history",
+      search: (prev: HistorySearch) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  const q = urlSearch.q;
+  const setQ = (v: string) => updateSearch({ q: v, page: 1 });
+  const from = urlSearch.from;
+  const setFrom = (v: string) => updateSearch({ from: v, page: 1 });
+  const to = urlSearch.to;
+  const setTo = (v: string) => updateSearch({ to: v, page: 1 });
+  const shift = urlSearch.shift;
+  const setShift = (v: string) => updateSearch({ shift: v, page: 1 });
+  const page = Math.max(1, urlSearch.page);
+  const setPage = (fn: (prev: number) => number) => updateSearch({ page: fn(page) });
+  const selectedId = urlSearch.versionId || null;
+  const setSelectedId = (id: string | null) => updateSearch({ versionId: id ?? "" });
   const pageSize = 25;
 
-  // Debounce the free-text box so we don't hit the server on every keystroke.
+  // Debounce the free-text query so we don't hit the server on every keystroke.
+  const [debouncedQ, setDebouncedQ] = useState(q);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q), 300);
     return () => clearTimeout(t);
   }, [q]);
 
-  // Reset to the first page whenever the filters change.
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedQ, from, to, shift]);
 
   const { data: pageData, isLoading, isFetching } = useQuery({
     queryKey: ["handover-versions", debouncedQ, from, to, shift, page],
