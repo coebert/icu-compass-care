@@ -124,6 +124,11 @@ export const patientInput = z.object({
   daily_goals: z.record(z.string(), z.boolean()).optional(),
   daily_goals_reviewed_at: z.string().optional().nullable(),
   daily_goals_reviewed_by: z.string().trim().max(200).optional().nullable(),
+  // "Ready for the ward" marker. The server auto-stamps wardable_at/by on
+  // transition; callers only need to send the boolean.
+  wardable: z.boolean().optional(),
+  wardable_at: zTimestampNullish.optional(),
+  wardable_by: z.string().trim().max(200).optional().nullable(),
 });
 
 // Structured (array/boolean) patient fields. The bridge schema uses this list so
