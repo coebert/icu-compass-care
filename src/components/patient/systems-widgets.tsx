@@ -205,7 +205,7 @@ export function EditableField({
           className="group mt-1 flex w-full items-start gap-2 rounded-md text-left hover:bg-muted/50"
         >
           <span className="flex-1 whitespace-pre-wrap text-sm">{value?.trim() ? value : "—"}</span>
-          <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+          <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
         </button>
       )}
     </div>
