@@ -34,7 +34,7 @@ import { AuditTab, RecentChangesRibbon } from "@/components/patient/history-tab"
 import { listInvestigations } from "@/lib/investigations.functions";
 import { listMicrobiology } from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
-import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
+import { DemographicsTab } from "@/components/patient/demographics-tab";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { missingCriticalFields } from "@/lib/handover-validation";
