@@ -36,6 +36,56 @@ export function usePatientFieldMutation(patientId: string) {
   });
 }
 
+/** Fades a "Saved" confirmation ~2.5s after the last successful save. */
+export function useSavedIndicator() {
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  const markSaved = () => {
+    setSavedAt(Date.now());
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setSavedAt(null), 2500);
+  };
+  const clear = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setSavedAt(null);
+  };
+  return { savedAt, markSaved, clear };
+}
+
+/** Inline status line: Saving… / Saved / error, sized to sit under a field. */
+export function FieldStatus({
+  mut,
+  savedAt,
+}: {
+  mut: UseMutationResult<unknown, unknown, unknown, unknown>;
+  savedAt: number | null;
+}) {
+  if (mut.isPending) {
+    return (
+      <p className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
+        <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+      </p>
+    );
+  }
+  if (mut.isError) {
+    const msg = (mut.error as { message?: string } | null)?.message ?? "Save failed";
+    return (
+      <p className="flex items-start gap-1 text-xs text-destructive" role="alert">
+        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /> {msg}
+      </p>
+    );
+  }
+  if (savedAt) {
+    return (
+      <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400" aria-live="polite">
+        <CheckCircle2 className="h-3 w-3" /> Saved
+      </p>
+    );
+  }
+  return null;
+}
+
 /** A labelled row of checkboxes bound to a set of options. */
 export function CheckboxOptionGroup({
   label,
