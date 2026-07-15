@@ -69,10 +69,24 @@ export async function writeAudit(
 // Field-level auditing for a defined set of patient columns. Each changed field
 // produces its own row capturing old/new value, the editing user, and a timestamp.
 const TRACKED_PATIENT_FIELDS: { column: string; label: string }[] = [
+  // Demographics — surfaced in the Demographics tab's edit history.
   { column: "full_name", label: "initials" },
   { column: "age", label: "age" },
   { column: "sex", label: "sex" },
   { column: "hospital_number", label: "hospital_number" },
+  { column: "weight_kg", label: "weight_kg" },
+  { column: "location_type", label: "location_type" },
+  { column: "ward", label: "ward" },
+  { column: "bed", label: "bed" },
+  { column: "status", label: "status" },
+  { column: "admission_date", label: "admission_date" },
+  { column: "discharge_date", label: "discharge_date" },
+  { column: "discharge_destination", label: "discharge_destination" },
+  { column: "date_of_death", label: "date_of_death" },
+  { column: "nok_name", label: "nok_name" },
+  { column: "nok_relationship", label: "nok_relationship" },
+  { column: "nok_contact", label: "nok_contact" },
+  { column: "nok_last_updated_by", label: "nok_last_updated_by" },
   // Clinical fields — surfaced in the "what changed" ribbon for the incoming team.
   { column: "current_admission", label: "current_admission" },
   { column: "current_management", label: "current_management" },
