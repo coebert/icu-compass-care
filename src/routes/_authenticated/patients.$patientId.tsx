@@ -404,6 +404,7 @@ function PatientDetail() {
         <div className="relative">
           <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="demographics">Demographics</TabsTrigger>
             <TabsTrigger value="observations">Observations</TabsTrigger>
             <TabsTrigger value="lines">Lines & devices</TabsTrigger>
             <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
