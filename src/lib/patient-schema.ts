@@ -12,28 +12,47 @@ import { zTimestampNullish } from "@/lib/datetime";
 // drift on data-shaping, while the differing validation strictness stays explicit.
 
 // Age must be a real number within a plausible clinical range; empty/null is rejected.
+// Error messages here MUST match the client-side messages in demographics-tab.tsx.
 export const ageSchema = z
   .union([z.number(), z.string().trim().min(1)], {
-    errorMap: () => ({ message: "Age is required" }),
+    errorMap: () => ({ message: "Age must be a whole number." }),
   })
   .pipe(
     z.coerce
-      .number({ invalid_type_error: "Age must be a valid number" })
-      .int("Age must be a whole number")
-      .min(0, "Age must be 0 or greater")
-      .max(130, "Age must be 130 or less"),
+      .number({ invalid_type_error: "Age must be a whole number." })
+      .int("Age must be a whole number.")
+      .min(0, "Age must be between 0 and 130.")
+      .max(130, "Age must be between 0 and 130."),
   );
 
+// Sex — fixed allow-list, matches the Demographics tab options.
+export const SEX_VALUES = ["male", "female", "other", "unknown"] as const;
+export const sexSchema = z.preprocess(
+  (v) => (v === "" || v === undefined ? null : v),
+  z
+    .enum(SEX_VALUES, {
+      errorMap: () => ({
+        message: `Invalid value. Choose one of: Female, Male, Other, Unknown.`,
+      }),
+    })
+    .nullable(),
+);
+
 export const patientInput = z.object({
-  full_name: z.string().trim().min(1).max(10),
-  hospital_number: z.string().trim().max(50).optional().nullable(),
+  full_name: z
+    .string({ required_error: "Initials / name is required." })
+    .trim()
+    .min(1, "Initials / name is required.")
+    .max(10, "Max 10 characters."),
+  hospital_number: z
+    .string()
+    .trim()
+    .max(50, "Max 50 characters.")
+    .regex(/^[A-Za-z0-9\-\s]*$/, "Letters, numbers and hyphens only.")
+    .optional()
+    .nullable(),
   age: ageSchema,
-  sex: z
-    .preprocess(
-      (v) => (v === "" || v === undefined ? null : v),
-      z.enum(["male", "female", "other", "unknown"]).nullable(),
-    )
-    .optional(),
+  sex: sexSchema.optional(),
 
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
