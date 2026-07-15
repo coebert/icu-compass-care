@@ -259,17 +259,10 @@ export function validatePatientState(
     }
   }
 
-  // Demographics — required on the effective row. Messages match the inline
-  // client validation in demographics-tab.tsx / systems-widgets.tsx.
-  if (isBlank(merged.full_name)) {
-    throw new Error("Initials / name is required.");
-  }
-  if (merged.age === null || merged.age === undefined || merged.age === "") {
-    throw new Error("Age is required.");
-  }
-  if (isBlank(merged.sex)) {
-    throw new Error("Sex is required.");
-  } else if (!SEX_VALUES.includes(merged.sex as (typeof SEX_VALUES)[number])) {
-    throw new Error("Invalid value. Choose one of: Female, Male, Other, Unknown.");
-  }
+  // Note: field-level demographics rules (initials/name, age, sex, hospital
+  // number, weight) are enforced by `patientInput` (create) and by its
+  // `.partial()` in `updatePatient` (which still validates the shape of any
+  // field explicitly present in the patch). We deliberately do NOT require
+  // these fields on the *merged* row here — existing rows may pre-date the
+  // rule and unrelated field edits must not fail because sex is still null.
 }
