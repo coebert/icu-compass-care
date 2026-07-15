@@ -55,6 +55,7 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             field="sex"
             label="Sex *"
             value={patient.sex}
+            required
             options={[
               { value: "female", label: "Female" },
               { value: "male", label: "Male" },
