@@ -230,9 +230,10 @@ export function EditableField({
       return;
     }
     const payload = next === "" ? null : coerce ? coerce(next) : next;
+    clear();
     mut.mutate(
       { [field]: payload },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); markSaved(); } },
     );
   };
 
