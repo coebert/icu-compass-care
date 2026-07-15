@@ -325,6 +325,7 @@ export function EditableSelect({
   allowClear?: boolean;
 }) {
   const mut = usePatientFieldMutation(patientId);
+  const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>("");
   const displayLabel = options.find((o) => o.value === value)?.label ?? (value?.trim() ? value : "—");
@@ -338,9 +339,10 @@ export function EditableSelect({
       setEditing(false);
       return;
     }
+    clear();
     mut.mutate(
       { [field]: next || null },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); markSaved(); } },
     );
   };
 
