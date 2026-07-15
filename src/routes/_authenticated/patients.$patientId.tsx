@@ -339,13 +339,13 @@ function PatientDetail() {
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 <span>Missing:</span>
                 {missingForHandover.map((label, i) => {
-                  const fieldId = MISSING_FIELD_ANCHORS[label];
+                  const canJump = Boolean(MISSING_FIELD_ANCHORS[label]);
                   return (
                     <span key={label} className="flex items-center">
-                      {fieldId ? (
+                      {canJump ? (
                         <button
                           type="button"
-                          onClick={() => openEditAndFocus(fieldId)}
+                          onClick={openDemographics}
                           className="font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
                         >
                           {label}
