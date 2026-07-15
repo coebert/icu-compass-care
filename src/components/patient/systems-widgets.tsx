@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { updatePatient } from "@/lib/patients.functions";
 
 export type SystemOption = { value: string; label: string };
@@ -34,6 +34,56 @@ export function usePatientFieldMutation(patientId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
     onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
   });
+}
+
+/** Fades a "Saved" confirmation ~2.5s after the last successful save. */
+export function useSavedIndicator() {
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  const markSaved = () => {
+    setSavedAt(Date.now());
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setSavedAt(null), 2500);
+  };
+  const clear = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setSavedAt(null);
+  };
+  return { savedAt, markSaved, clear };
+}
+
+/** Inline status line: Saving… / Saved / error, sized to sit under a field. */
+export function FieldStatus({
+  mut,
+  savedAt,
+}: {
+  mut: { isPending: boolean; isError: boolean; error: unknown };
+  savedAt: number | null;
+}) {
+  if (mut.isPending) {
+    return (
+      <p className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
+        <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+      </p>
+    );
+  }
+  if (mut.isError) {
+    const msg = (mut.error as { message?: string } | null)?.message ?? "Save failed";
+    return (
+      <p className="flex items-start gap-1 text-xs text-destructive" role="alert">
+        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /> {msg}
+      </p>
+    );
+  }
+  if (savedAt) {
+    return (
+      <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400" aria-live="polite">
+        <CheckCircle2 className="h-3 w-3" /> Saved
+      </p>
+    );
+  }
+  return null;
 }
 
 /** A labelled row of checkboxes bound to a set of options. */
@@ -151,6 +201,7 @@ export function EditableField({
   coerce?: (trimmed: string) => unknown;
 }) {
   const mut = usePatientFieldMutation(patientId);
+  const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -179,9 +230,10 @@ export function EditableField({
       return;
     }
     const payload = next === "" ? null : coerce ? coerce(next) : next;
+    clear();
     mut.mutate(
       { [field]: payload },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); markSaved(); } },
     );
   };
 
@@ -246,6 +298,7 @@ export function EditableField({
           <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
         </button>
       )}
+      <FieldStatus mut={mut} savedAt={savedAt} />
     </div>
   );
 }
@@ -272,6 +325,7 @@ export function EditableSelect({
   allowClear?: boolean;
 }) {
   const mut = usePatientFieldMutation(patientId);
+  const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>("");
   const displayLabel = options.find((o) => o.value === value)?.label ?? (value?.trim() ? value : "—");
@@ -285,9 +339,10 @@ export function EditableSelect({
       setEditing(false);
       return;
     }
+    clear();
     mut.mutate(
       { [field]: next || null },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); markSaved(); } },
     );
   };
 
@@ -323,6 +378,7 @@ export function EditableSelect({
           <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
         </button>
       )}
+      <FieldStatus mut={mut} savedAt={savedAt} />
     </div>
   );
 }
@@ -344,6 +400,7 @@ export function EditableDate({
   displayFormatter?: (v: string) => string;
 }) {
   const mut = usePatientFieldMutation(patientId);
+  const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -356,9 +413,10 @@ export function EditableDate({
       setEditing(false);
       return;
     }
+    clear();
     mut.mutate(
       { [field]: draft || null },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); markSaved(); } },
     );
   };
 
@@ -387,6 +445,7 @@ export function EditableDate({
           <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
         </button>
       )}
+      <FieldStatus mut={mut} savedAt={savedAt} />
     </div>
   );
 }
