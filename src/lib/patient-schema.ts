@@ -28,14 +28,14 @@ export const ageSchema = z
 // Sex — fixed allow-list, matches the Demographics tab options.
 export const SEX_VALUES = ["male", "female", "other", "unknown"] as const;
 export const sexSchema = z.preprocess(
-  (v) => (v === "" || v === undefined ? null : v),
-  z
-    .enum(SEX_VALUES, {
-      errorMap: () => ({
-        message: `Invalid value. Choose one of: Female, Male, Other, Unknown.`,
-      }),
-    })
-    .nullable(),
+  (v) => (v === "" || v === undefined || v === null ? undefined : v),
+  z.enum(SEX_VALUES, {
+    errorMap: () => ({
+      message: "Invalid value. Choose one of: Female, Male, Other, Unknown.",
+    }),
+  }),
+  { errorMap: () => ({ message: "Sex is required." }),
+  } as never,
 );
 
 export const patientInput = z.object({
@@ -52,7 +52,7 @@ export const patientInput = z.object({
     .optional()
     .nullable(),
   age: ageSchema,
-  sex: sexSchema.optional(),
+  sex: sexSchema,
 
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
