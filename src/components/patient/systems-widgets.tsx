@@ -220,3 +220,145 @@ export function EditableField({
   );
 }
 
+/**
+ * Inline-editable select bound to a single patient column. Same click-to-edit
+ * pattern as EditableField but for enum values (sex, status, location).
+ */
+export function EditableSelect({
+  patientId,
+  field,
+  label,
+  value,
+  options,
+  placeholder,
+  allowClear,
+}: {
+  patientId: string;
+  field: string;
+  label: string;
+  value?: string | null;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  allowClear?: boolean;
+}) {
+  const mut = usePatientFieldMutation(patientId);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string>("");
+  const displayLabel = options.find((o) => o.value === value)?.label ?? (value?.trim() ? value : "—");
+
+  const start = () => {
+    setDraft(value ?? "");
+    setEditing(true);
+  };
+  const save = (next: string) => {
+    if (next === (value ?? "")) {
+      setEditing(false);
+      return;
+    }
+    mut.mutate(
+      { [field]: next || null },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      {editing ? (
+        <div className="mt-1 flex items-center gap-2">
+          <Select value={draft || undefined} onValueChange={(v) => { setDraft(v); save(v); }}>
+            <SelectTrigger className="h-9"><SelectValue placeholder={placeholder ?? "Select…"} /></SelectTrigger>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {allowClear && (
+            <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => save("")}>
+              Clear
+            </Button>
+          )}
+          <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={start}
+          className="group mt-1 flex w-full items-start gap-2 rounded-md text-left hover:bg-muted/50"
+        >
+          <span className="flex-1 text-sm">{displayLabel}</span>
+          <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Inline-editable date field (yyyy-MM-dd) bound to a single patient column.
+ */
+export function EditableDate({
+  patientId,
+  field,
+  label,
+  value,
+  displayFormatter,
+}: {
+  patientId: string;
+  field: string;
+  label: string;
+  value?: string | null;
+  displayFormatter?: (v: string) => string;
+}) {
+  const mut = usePatientFieldMutation(patientId);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const start = () => {
+    setDraft(value ? value.slice(0, 10) : "");
+    setEditing(true);
+  };
+  const save = () => {
+    if ((draft || "") === (value?.slice(0, 10) ?? "")) {
+      setEditing(false);
+      return;
+    }
+    mut.mutate(
+      { [field]: draft || null },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
+
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      {editing ? (
+        <div className="mt-1 flex items-center gap-2">
+          <DatePicker value={draft} onChange={setDraft} />
+          <Button type="button" size="sm" className="h-8" onClick={save} disabled={mut.isPending}>
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={start}
+          className="group mt-1 flex w-full items-start gap-2 rounded-md text-left hover:bg-muted/50"
+        >
+          <span className="flex-1 text-sm">
+            {value?.trim() ? (displayFormatter ? displayFormatter(value) : value.slice(0, 10)) : "—"}
+          </span>
+          <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+
