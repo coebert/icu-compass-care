@@ -30,7 +30,6 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             placeholder="Select sex…"
           />
           <EditableField patientId={patientId} field="weight_kg" label="Weight (kg)" value={patient.weight_kg != null ? String(patient.weight_kg) : ""} placeholder="e.g. 78" />
-          <EditableField patientId={patientId} field="nhs_number" label="NHS number" value={(patient as Record<string, unknown>).nhs_number as string | null} />
         </CardContent>
       </Card>
 
