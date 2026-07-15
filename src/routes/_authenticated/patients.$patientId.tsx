@@ -34,7 +34,7 @@ import { AuditTab, RecentChangesRibbon } from "@/components/patient/history-tab"
 import { listInvestigations } from "@/lib/investigations.functions";
 import { listMicrobiology } from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
-import { PatientForm, toFormValues, type PatientFormValues } from "@/components/PatientForm";
+import { DemographicsTab } from "@/components/patient/demographics-tab";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { missingCriticalFields } from "@/lib/handover-validation";
@@ -43,8 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Pencil, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
@@ -57,6 +56,7 @@ import { TIMELINE_FILTER_KEYS, type FilterKey as TimelineFilterKey } from "@/com
 
 const TAB_KEYS = [
   "overview",
+  "demographics",
   "observations",
   "lines",
   "escalation",
@@ -99,8 +99,6 @@ function PatientDetail() {
   const update = useServerFn(updatePatient);
   const del = useServerFn(deletePatient);
 
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<PatientFormValues | null>(null);
   type SearchShape = z.infer<typeof patientDetailSearchSchema>;
   const activeTab = (TAB_KEYS as readonly string[]).includes(search.tab) ? search.tab : "overview";
   const setActiveTab = (tab: string) =>
@@ -134,27 +132,6 @@ function PatientDetail() {
 
   const conflict = useConflictDialog();
 
-  const updateMut = useMutation({
-    mutationFn: (v: PatientFormValues) =>
-      update({ data: { id: patientId, expected_updated_at: patient?.updated_at, ...v } as never }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["patient", patientId] });
-      qc.invalidateQueries({ queryKey: ["patients"] });
-      qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
-      setEditing(false);
-      toast.success("Patient updated");
-    },
-    onError: (e: Error) => {
-      if (
-        conflict.showConflict(e, {
-          invalidateKeys: [["patient", patientId], ["patients"], ["patient-audit", patientId]],
-        })
-      ) {
-        return;
-      }
-      toast.error("Update failed", { description: e.message });
-    },
-  });
 
 
   // Admin-only: mark this single patient as shared / not shared with the partner
@@ -263,18 +240,10 @@ function PatientDetail() {
 
   const missingForHandover = missingCriticalFields(patient);
 
-  // Open the edit dialog and jump straight to a specific form field so the user
-  // can fix a missing value in one click. The timeout lets the dialog mount
-  // before we scroll/focus the target input.
-  const openEditAndFocus = (fieldId: string) => {
-    setForm(toFormValues(patient));
-    setEditing(true);
-    setTimeout(() => {
-      const el = document.getElementById(fieldId) as HTMLElement | null;
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      el?.focus();
-    }, 150);
-  };
+  // Missing-field warnings now deep-link to the Demographics tab instead of an
+  // edit dialog; each label maps to a tab where the field is editable inline.
+  const openDemographics = () => setActiveTab("demographics");
+
 
   return (
     <div className="space-y-6">
@@ -371,13 +340,13 @@ function PatientDetail() {
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                 <span>Missing:</span>
                 {missingForHandover.map((label, i) => {
-                  const fieldId = MISSING_FIELD_ANCHORS[label];
+                  const canJump = Boolean(MISSING_FIELD_ANCHORS[label]);
                   return (
                     <span key={label} className="flex items-center">
-                      {fieldId ? (
+                      {canJump ? (
                         <button
                           type="button"
-                          onClick={() => openEditAndFocus(fieldId)}
+                          onClick={openDemographics}
                           className="font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
                         >
                           {label}
@@ -427,23 +396,15 @@ function PatientDetail() {
               </ul>
             )}
           </div>
-          <Button
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => {
-              setForm(toFormValues(patient));
-              setEditing(true);
-            }}
-          >
-            <Pencil className="h-4 w-4" /> Edit
-          </Button>
         </div>
       </div>
+
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="relative">
           <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="demographics">Demographics</TabsTrigger>
             <TabsTrigger value="observations">Observations</TabsTrigger>
             <TabsTrigger value="lines">Lines & devices</TabsTrigger>
             <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
@@ -480,6 +441,12 @@ function PatientDetail() {
         <TabsContent value="lines" className="mt-4 space-y-4">
           <LinesCard patientId={patientId} />
         </TabsContent>
+
+        <TabsContent value="demographics" className="mt-4 space-y-4">
+          <DemographicsTab patient={patient} />
+        </TabsContent>
+
+
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />
@@ -627,21 +594,6 @@ function PatientDetail() {
 
       </Tabs>
 
-      <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit patient</DialogTitle></DialogHeader>
-          {form && (
-            <PatientForm
-              values={form}
-              onChange={setForm}
-              onSubmit={() => updateMut.mutate(form)}
-              onCancel={() => setEditing(false)}
-              submitting={updateMut.isPending}
-              submitLabel="Save changes"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
       {conflict.dialog}
     </div>
 
