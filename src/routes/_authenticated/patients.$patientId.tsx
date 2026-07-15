@@ -56,6 +56,7 @@ import { TIMELINE_FILTER_KEYS, type FilterKey as TimelineFilterKey } from "@/com
 
 const TAB_KEYS = [
   "overview",
+  "demographics",
   "observations",
   "lines",
   "escalation",
