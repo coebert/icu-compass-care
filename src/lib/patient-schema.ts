@@ -11,19 +11,27 @@ import { zTimestampNullish } from "@/lib/datetime";
 // pure helpers (`clean`, `PATIENT_ARRAY_FIELDS`) shared so the two paths cannot
 // drift on data-shaping, while the differing validation strictness stays explicit.
 
-// Age must be a real number within a plausible clinical range; empty/null is rejected.
-// Error messages here MUST match the client-side messages in demographics-tab.tsx.
-export const ageSchema = z
-  .union([z.number(), z.string().trim().min(1)], {
-    errorMap: () => ({ message: "Age must be a whole number." }),
-  })
-  .pipe(
-    z.coerce
-      .number({ invalid_type_error: "Age must be a whole number." })
-      .int("Age must be a whole number.")
-      .min(0, "Age must be between 0 and 130.")
-      .max(130, "Age must be between 0 and 130."),
-  );
+// Age — client rules: required, whole number, 0-130. Server messages MUST
+// match the strings in `src/components/patient/demographics-tab.tsx`.
+export const ageSchema = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : v),
+  z
+    .union([z.number(), z.string().trim().min(1)], {
+      errorMap: (issue, ctx) => {
+        if (issue.code === "invalid_type" && ctx.data === undefined) {
+          return { message: "Age is required." };
+        }
+        return { message: "Age must be a whole number." };
+      },
+    })
+    .pipe(
+      z.coerce
+        .number({ invalid_type_error: "Age must be a whole number." })
+        .int("Age must be a whole number.")
+        .min(0, "Age must be between 0 and 130.")
+        .max(130, "Age must be between 0 and 130."),
+    ),
+);
 
 // Sex — fixed allow-list, matches the Demographics tab options.
 export const SEX_VALUES = ["male", "female", "other", "unknown"] as const;
