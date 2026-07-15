@@ -98,8 +98,6 @@ function PatientDetail() {
   const update = useServerFn(updatePatient);
   const del = useServerFn(deletePatient);
 
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<PatientFormValues | null>(null);
   type SearchShape = z.infer<typeof patientDetailSearchSchema>;
   const activeTab = (TAB_KEYS as readonly string[]).includes(search.tab) ? search.tab : "overview";
   const setActiveTab = (tab: string) =>
