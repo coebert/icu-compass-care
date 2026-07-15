@@ -134,6 +134,9 @@ export function EditableField({
   value,
   multiline,
   placeholder,
+  required,
+  validate,
+  coerce,
 }: {
   patientId: string;
   field: string;
@@ -141,14 +144,27 @@ export function EditableField({
   value?: string | null;
   multiline?: boolean;
   placeholder?: string;
+  required?: boolean;
+  /** Return an error message to block save, or null when valid. */
+  validate?: (trimmed: string) => string | null;
+  /** Transform the trimmed string into the payload value (e.g. Number). */
+  coerce?: (trimmed: string) => unknown;
 }) {
   const mut = usePatientFieldMutation(patientId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const start = () => {
     setDraft(value ?? "");
+    setError(null);
     setEditing(true);
+  };
+
+  const runValidation = (next: string): string | null => {
+    if (required && next === "") return `${label.replace(/\s*\*$/, "")} is required.`;
+    if (validate) return validate(next);
+    return null;
   };
 
   const save = () => {
@@ -157,10 +173,21 @@ export function EditableField({
       setEditing(false);
       return;
     }
+    const err = runValidation(next);
+    if (err) {
+      setError(err);
+      return;
+    }
+    const payload = next === "" ? null : coerce ? coerce(next) : next;
     mut.mutate(
-      { [field]: next || null },
+      { [field]: payload },
       { onSuccess: () => setEditing(false) },
     );
+  };
+
+  const onChange = (v: string) => {
+    setDraft(v);
+    if (error) setError(runValidation(v.trim()));
   };
 
   return (
@@ -174,7 +201,8 @@ export function EditableField({
               value={draft}
               placeholder={placeholder}
               disabled={mut.isPending}
-              onChange={(e) => setDraft(e.target.value)}
+              aria-invalid={!!error}
+              onChange={(e) => onChange(e.target.value)}
               rows={3}
             />
           ) : (
@@ -183,13 +211,15 @@ export function EditableField({
               value={draft}
               placeholder={placeholder}
               disabled={mut.isPending}
-              onChange={(e) => setDraft(e.target.value)}
+              aria-invalid={!!error}
+              onChange={(e) => onChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") save();
                 if (e.key === "Escape") setEditing(false);
               }}
             />
           )}
+          {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex gap-2">
             <Button type="button" size="sm" className="h-8" disabled={mut.isPending} onClick={save}>
               <Check className="mr-1 h-4 w-4" /> Save

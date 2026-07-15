@@ -13,9 +13,42 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
     <div className="space-y-4">
       <Card>
         <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
-          <EditableField patientId={patientId} field="full_name" label="Initials / name *" value={patient.full_name} placeholder="e.g. J.S." />
-          <EditableField patientId={patientId} field="hospital_number" label="Hospital number" value={patient.hospital_number} />
-          <EditableField patientId={patientId} field="age" label="Age *" value={patient.age != null ? String(patient.age) : ""} placeholder="e.g. 58" />
+          <EditableField
+            patientId={patientId}
+            field="full_name"
+            label="Initials / name *"
+            value={patient.full_name}
+            placeholder="e.g. J.S."
+            required
+            validate={(v) => (v.length > 10 ? "Max 10 characters." : null)}
+          />
+          <EditableField
+            patientId={patientId}
+            field="hospital_number"
+            label="Hospital number"
+            value={patient.hospital_number}
+            validate={(v) => {
+              if (v === "") return null;
+              if (v.length > 50) return "Max 50 characters.";
+              if (!/^[A-Za-z0-9\-\s]+$/.test(v)) return "Letters, numbers and hyphens only.";
+              return null;
+            }}
+          />
+          <EditableField
+            patientId={patientId}
+            field="age"
+            label="Age *"
+            value={patient.age != null ? String(patient.age) : ""}
+            placeholder="e.g. 58"
+            required
+            validate={(v) => {
+              if (!/^\d+$/.test(v)) return "Age must be a whole number.";
+              const n = Number(v);
+              if (n < 0 || n > 130) return "Age must be between 0 and 130.";
+              return null;
+            }}
+            coerce={(v) => Number(v)}
+          />
           <EditableSelect
             patientId={patientId}
             field="sex"
@@ -29,7 +62,21 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             ]}
             placeholder="Select sex…"
           />
-          <EditableField patientId={patientId} field="weight_kg" label="Weight (kg)" value={patient.weight_kg != null ? String(patient.weight_kg) : ""} placeholder="e.g. 78" />
+          <EditableField
+            patientId={patientId}
+            field="weight_kg"
+            label="Weight (kg)"
+            value={patient.weight_kg != null ? String(patient.weight_kg) : ""}
+            placeholder="e.g. 78"
+            validate={(v) => {
+              if (v === "") return null;
+              const n = Number(v);
+              if (!Number.isFinite(n)) return "Weight must be a valid number.";
+              if (n < 0 || n > 600) return "Weight must be between 0 and 600 kg.";
+              return null;
+            }}
+            coerce={(v) => Number(v)}
+          />
         </CardContent>
       </Card>
 
