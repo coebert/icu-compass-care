@@ -131,27 +131,6 @@ function PatientDetail() {
 
   const conflict = useConflictDialog();
 
-  const updateMut = useMutation({
-    mutationFn: (v: PatientFormValues) =>
-      update({ data: { id: patientId, expected_updated_at: patient?.updated_at, ...v } as never }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["patient", patientId] });
-      qc.invalidateQueries({ queryKey: ["patients"] });
-      qc.invalidateQueries({ queryKey: ["patient-audit", patientId] });
-      setEditing(false);
-      toast.success("Patient updated");
-    },
-    onError: (e: Error) => {
-      if (
-        conflict.showConflict(e, {
-          invalidateKeys: [["patient", patientId], ["patients"], ["patient-audit", patientId]],
-        })
-      ) {
-        return;
-      }
-      toast.error("Update failed", { description: e.message });
-    },
-  });
 
 
   // Admin-only: mark this single patient as shared / not shared with the partner
