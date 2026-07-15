@@ -586,21 +586,6 @@ function PatientDetail() {
 
       </Tabs>
 
-      <Dialog open={editing} onOpenChange={setEditing}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit patient</DialogTitle></DialogHeader>
-          {form && (
-            <PatientForm
-              values={form}
-              onChange={setForm}
-              onSubmit={() => updateMut.mutate(form)}
-              onCancel={() => setEditing(false)}
-              submitting={updateMut.isPending}
-              submitLabel="Save changes"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
       {conflict.dialog}
     </div>
 
