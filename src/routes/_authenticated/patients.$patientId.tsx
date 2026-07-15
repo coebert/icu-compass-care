@@ -442,6 +442,12 @@ function PatientDetail() {
           <LinesCard patientId={patientId} />
         </TabsContent>
 
+        <TabsContent value="demographics" className="mt-4 space-y-4">
+          <DemographicsTab patient={patient} />
+        </TabsContent>
+
+
+
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />
           <RecentChangesRibbon patientId={patientId} />
