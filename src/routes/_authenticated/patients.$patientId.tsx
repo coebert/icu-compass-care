@@ -395,18 +395,9 @@ function PatientDetail() {
               </ul>
             )}
           </div>
-          <Button
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => {
-              setForm(toFormValues(patient));
-              setEditing(true);
-            }}
-          >
-            <Pencil className="h-4 w-4" /> Edit
-          </Button>
         </div>
       </div>
+
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="relative">
