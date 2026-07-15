@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { updatePatient } from "@/lib/patients.functions";
 
 export type SystemOption = { value: string; label: string };
