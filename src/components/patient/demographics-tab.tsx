@@ -128,6 +128,8 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
           <EditableField patientId={patientId} field="nok_last_updated_by" label="Last spoken to by (staff)" value={patient.nok_last_updated_by} />
         </CardContent>
       </Card>
+
+      <DemographicsHistory patientId={patientId} />
     </div>
   );
 }
