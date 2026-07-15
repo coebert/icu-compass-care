@@ -58,7 +58,7 @@ export function FieldStatus({
   mut,
   savedAt,
 }: {
-  mut: UseMutationResult<unknown, unknown, unknown, unknown>;
+  mut: { isPending: boolean; isError: boolean; error: unknown };
   savedAt: number | null;
 }) {
   if (mut.isPending) {
