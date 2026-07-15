@@ -201,6 +201,7 @@ export function EditableField({
   coerce?: (trimmed: string) => unknown;
 }) {
   const mut = usePatientFieldMutation(patientId);
+  const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
