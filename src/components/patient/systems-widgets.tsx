@@ -400,6 +400,7 @@ export function EditableDate({
   displayFormatter?: (v: string) => string;
 }) {
   const mut = usePatientFieldMutation(patientId);
+  const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
@@ -412,9 +413,10 @@ export function EditableDate({
       setEditing(false);
       return;
     }
+    clear();
     mut.mutate(
       { [field]: draft || null },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); markSaved(); } },
     );
   };
 
