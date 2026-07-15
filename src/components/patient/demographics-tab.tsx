@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { EditableField, EditableSelect, EditableDate } from "@/components/patient/systems-widgets";
+import { DemographicsHistory } from "@/components/patient/demographics-history";
 import { fmtDate } from "@/lib/icu";
 import type { Patient } from "@/lib/domain-types";
 
