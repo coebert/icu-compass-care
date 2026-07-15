@@ -318,6 +318,7 @@ export function EditableSelect({
   options,
   placeholder,
   allowClear,
+  required,
 }: {
   patientId: string;
   field: string;
@@ -326,22 +327,39 @@ export function EditableSelect({
   options: { value: string; label: string }[];
   placeholder?: string;
   allowClear?: boolean;
+  /** When true, an empty value is rejected and the "Clear" button is suppressed. */
+  required?: boolean;
 }) {
   const mut = usePatientFieldMutation(patientId);
   const { savedAt, markSaved, clear } = useSavedIndicator();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const allowed = options.map((o) => o.value);
   const displayLabel = options.find((o) => o.value === value)?.label ?? (value?.trim() ? value : "—");
+  const currentValueValid = value == null || value === "" || allowed.includes(value);
 
   const start = () => {
     setDraft(value ?? "");
+    setError(null);
     setEditing(true);
   };
+
   const save = (next: string) => {
     if (next === (value ?? "")) {
       setEditing(false);
       return;
     }
+    if (next === "") {
+      if (required) {
+        setError(`${label.replace(/\s*\*$/, "")} is required.`);
+        return;
+      }
+    } else if (!allowed.includes(next)) {
+      setError(`Invalid value. Choose one of: ${options.map((o) => o.label).join(", ")}.`);
+      return;
+    }
+    setError(null);
     clear();
     mut.mutate(
       { [field]: next || null },
@@ -353,23 +371,28 @@ export function EditableSelect({
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       {editing ? (
-        <div className="mt-1 flex items-center gap-2">
-          <Select value={draft || undefined} onValueChange={(v) => { setDraft(v); save(v); }}>
-            <SelectTrigger className="h-9"><SelectValue placeholder={placeholder ?? "Select…"} /></SelectTrigger>
-            <SelectContent>
-              {options.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {allowClear && (
-            <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => save("")}>
-              Clear
+        <div className="mt-1 space-y-2">
+          <div className="flex items-center gap-2">
+            <Select value={draft || undefined} onValueChange={(v) => { setDraft(v); save(v); }}>
+              <SelectTrigger className="h-9" aria-invalid={!!error}>
+                <SelectValue placeholder={placeholder ?? "Select…"} />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {allowClear && !required && (
+              <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => save("")}>
+                Clear
+              </Button>
+            )}
+            <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
+              <X className="h-4 w-4" />
             </Button>
-          )}
-          <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
       ) : (
         <button
@@ -380,6 +403,14 @@ export function EditableSelect({
           <span className="flex-1 text-sm">{displayLabel}</span>
           <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100 md:opacity-0" />
         </button>
+      )}
+      {!editing && required && (value == null || value === "") && (
+        <p className="mt-1 text-xs text-destructive">This field is required.</p>
+      )}
+      {!editing && !currentValueValid && (
+        <p className="mt-1 text-xs text-destructive">
+          Stored value "{value}" is not one of the allowed options; please pick a valid one.
+        </p>
       )}
       <FieldStatus mut={mut} savedAt={savedAt} />
     </div>
