@@ -113,8 +113,15 @@ export const patientInput = z.object({
     .preprocess(
       (v) => (v === "" || v === null || v === undefined ? null : v),
       z
-        .union([z.number(), z.string().trim().min(1)])
-        .pipe(z.coerce.number().min(0).max(600))
+        .union([z.number(), z.string().trim().min(1)], {
+          errorMap: () => ({ message: "Weight must be a valid number." }),
+        })
+        .pipe(
+          z.coerce
+            .number({ invalid_type_error: "Weight must be a valid number." })
+            .min(0, "Weight must be between 0 and 600 kg.")
+            .max(600, "Weight must be between 0 and 600 kg."),
+        )
         .nullable(),
     )
     .optional(),
