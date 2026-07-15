@@ -31,7 +31,10 @@ export function usePatientFieldMutation(patientId: string) {
   return useMutation({
     mutationFn: (patch: Record<string, unknown>) =>
       update({ data: { id: patientId, ...patch } as never }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["patient", patientId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", patientId] });
+      qc.invalidateQueries({ queryKey: ["patient-field-changes", patientId] });
+    },
     onError: (e: any) => toast.error(e?.message ?? "Failed to save"),
   });
 }
