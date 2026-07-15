@@ -1,0 +1,1 @@
+ALTER TABLE public.patient_field_changes DROP CONSTRAINT IF EXISTS patient_field_changes_field_name_check;
