@@ -109,6 +109,25 @@ export const updatePatient = createServerFn({ method: "POST" })
       expected_updated_at?: string;
     } & Record<string, unknown>;
 
+    // Defense-in-depth: reject explicit demographic "clears" that the inline
+    // required-field client validation is meant to block, so an attacker can't
+    // bypass the UI by posting the field as null.
+    if (Object.prototype.hasOwnProperty.call(rest, "sex") && rest.sex == null) {
+      throw new Error("Sex is required.");
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(rest, "full_name") &&
+      (rest.full_name == null || String(rest.full_name).trim() === "")
+    ) {
+      throw new Error("Initials / name is required.");
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(rest, "age") &&
+      (rest.age === null || rest.age === undefined || rest.age === "")
+    ) {
+      throw new Error("Age is required.");
+    }
+
     // Load current row for conflict detection + audit "before" snapshot.
     const { data: current, error: readErr } = await context.supabase
       .from("patients")

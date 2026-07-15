@@ -11,29 +11,59 @@ import { zTimestampNullish } from "@/lib/datetime";
 // pure helpers (`clean`, `PATIENT_ARRAY_FIELDS`) shared so the two paths cannot
 // drift on data-shaping, while the differing validation strictness stays explicit.
 
-// Age must be a real number within a plausible clinical range; empty/null is rejected.
-export const ageSchema = z
-  .union([z.number(), z.string().trim().min(1)], {
-    errorMap: () => ({ message: "Age is required" }),
-  })
-  .pipe(
-    z.coerce
-      .number({ invalid_type_error: "Age must be a valid number" })
-      .int("Age must be a whole number")
-      .min(0, "Age must be 0 or greater")
-      .max(130, "Age must be 130 or less"),
-  );
+// Age — client rules: required, whole number, 0-130. Server messages MUST
+// match the strings in `src/components/patient/demographics-tab.tsx`.
+export const ageSchema = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : v),
+  z
+    .union([z.number(), z.string().trim().min(1)], {
+      errorMap: (issue, ctx) => {
+        if (issue.code === "invalid_type" && ctx.data === undefined) {
+          return { message: "Age is required." };
+        }
+        return { message: "Age must be a whole number." };
+      },
+    })
+    .pipe(
+      z.coerce
+        .number({ invalid_type_error: "Age must be a whole number." })
+        .int("Age must be a whole number.")
+        .min(0, "Age must be between 0 and 130.")
+        .max(130, "Age must be between 0 and 130."),
+    ),
+);
+
+// Sex — fixed allow-list, matches the Demographics tab options.
+export const SEX_VALUES = ["male", "female", "other", "unknown"] as const;
+export const sexSchema = z.preprocess(
+  (v) => (v === "" || v === null ? undefined : v),
+  z.enum(SEX_VALUES, {
+    errorMap: (issue, ctx) => {
+      if (issue.code === "invalid_type" && ctx.data === undefined) {
+        return { message: "Sex is required." };
+      }
+      return {
+        message: "Invalid value. Choose one of: Female, Male, Other, Unknown.",
+      };
+    },
+  }),
+);
 
 export const patientInput = z.object({
-  full_name: z.string().trim().min(1).max(10),
-  hospital_number: z.string().trim().max(50).optional().nullable(),
+  full_name: z
+    .string({ required_error: "Initials / name is required." })
+    .trim()
+    .min(1, "Initials / name is required.")
+    .max(10, "Max 10 characters."),
+  hospital_number: z
+    .string()
+    .trim()
+    .max(50, "Max 50 characters.")
+    .regex(/^[A-Za-z0-9\-\s]*$/, "Letters, numbers and hyphens only.")
+    .optional()
+    .nullable(),
   age: ageSchema,
-  sex: z
-    .preprocess(
-      (v) => (v === "" || v === undefined ? null : v),
-      z.enum(["male", "female", "other", "unknown"]).nullable(),
-    )
-    .optional(),
+  sex: sexSchema,
 
   location_type: z.enum(["icu", "outlier"]),
   ward: z.string().trim().max(100).optional().nullable(),
@@ -94,8 +124,15 @@ export const patientInput = z.object({
     .preprocess(
       (v) => (v === "" || v === null || v === undefined ? null : v),
       z
-        .union([z.number(), z.string().trim().min(1)])
-        .pipe(z.coerce.number().min(0).max(600))
+        .union([z.number(), z.string().trim().min(1)], {
+          errorMap: () => ({ message: "Weight must be a valid number." }),
+        })
+        .pipe(
+          z.coerce
+            .number({ invalid_type_error: "Weight must be a valid number." })
+            .min(0, "Weight must be between 0 and 600 kg.")
+            .max(600, "Weight must be between 0 and 600 kg."),
+        )
         .nullable(),
     )
     .optional(),
@@ -229,4 +266,11 @@ export function validatePatientState(
       throw new Error("A date of death is required to mark a patient as died.");
     }
   }
+
+  // Note: field-level demographics rules (initials/name, age, sex, hospital
+  // number, weight) are enforced by `patientInput` (create) and by its
+  // `.partial()` in `updatePatient` (which still validates the shape of any
+  // field explicitly present in the patch). We deliberately do NOT require
+  // these fields on the *merged* row here — existing rows may pre-date the
+  // rule and unrelated field edits must not fail because sex is still null.
 }
