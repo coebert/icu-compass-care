@@ -255,4 +255,18 @@ export function validatePatientState(
       throw new Error("A date of death is required to mark a patient as died.");
     }
   }
+
+  // Demographics — required on the effective row. Messages match the inline
+  // client validation in demographics-tab.tsx / systems-widgets.tsx.
+  if (isBlank(merged.full_name)) {
+    throw new Error("Initials / name is required.");
+  }
+  if (merged.age === null || merged.age === undefined || merged.age === "") {
+    throw new Error("Age is required.");
+  }
+  if (isBlank(merged.sex)) {
+    throw new Error("Sex is required.");
+  } else if (!SEX_VALUES.includes(merged.sex as (typeof SEX_VALUES)[number])) {
+    throw new Error("Invalid value. Choose one of: Female, Male, Other, Unknown.");
+  }
 }
