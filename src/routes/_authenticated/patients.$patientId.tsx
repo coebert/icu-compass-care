@@ -239,18 +239,10 @@ function PatientDetail() {
 
   const missingForHandover = missingCriticalFields(patient);
 
-  // Open the edit dialog and jump straight to a specific form field so the user
-  // can fix a missing value in one click. The timeout lets the dialog mount
-  // before we scroll/focus the target input.
-  const openEditAndFocus = (fieldId: string) => {
-    setForm(toFormValues(patient));
-    setEditing(true);
-    setTimeout(() => {
-      const el = document.getElementById(fieldId) as HTMLElement | null;
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      el?.focus();
-    }, 150);
-  };
+  // Missing-field warnings now deep-link to the Demographics tab instead of an
+  // edit dialog; each label maps to a tab where the field is editable inline.
+  const openDemographics = () => setActiveTab("demographics");
+
 
   return (
     <div className="space-y-6">
