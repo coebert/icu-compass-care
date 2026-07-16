@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EditableField, EditableSelect, EditableDate } from "@/components/patient/systems-widgets";
 import { DemographicsHistory } from "@/components/patient/demographics-history";
 import { fmtDate } from "@/lib/icu";
-import { computeBmi, bmiCategory, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
+import { computeBmi, bmiCategory, formatBmiValue, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
 import type { Patient } from "@/lib/domain-types";
 
 // BMI category tone follows WHO adult classification. The label itself is
@@ -37,7 +37,7 @@ function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: n
     <div className="rounded-md border p-3 text-sm">
       <div className="font-medium">BMI</div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums">{bmi}</span>
+        <span className="text-2xl font-semibold tabular-nums">{formatBmiValue(bmi)}</span>
         <span className="text-muted-foreground">kg/m²</span>
       </div>
       {outOfRange ? (
