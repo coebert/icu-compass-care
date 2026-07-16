@@ -917,6 +917,7 @@ export type Database = {
           dnacpr_decision: boolean
           dnacpr_details: string | null
           full_name: string
+          height_m: number | null
           hospital_number: string | null
           id: string
           isolation_required: boolean
@@ -986,6 +987,7 @@ export type Database = {
           dnacpr_decision?: boolean
           dnacpr_details?: string | null
           full_name: string
+          height_m?: number | null
           hospital_number?: string | null
           id?: string
           isolation_required?: boolean
@@ -1055,6 +1057,7 @@ export type Database = {
           dnacpr_decision?: boolean
           dnacpr_details?: string | null
           full_name?: string
+          height_m?: number | null
           hospital_number?: string | null
           id?: string
           isolation_required?: boolean
