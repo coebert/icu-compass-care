@@ -19,6 +19,7 @@ const DEMOGRAPHIC_LABELS: Record<string, string> = {
   weight_kg: "Weight (kg)",
   height_m: "Height (m)",
   bmi: "BMI",
+  ibw: "Ideal body weight",
   location_type: "Location",
   ward: "Ward",
   bed: "Bed",

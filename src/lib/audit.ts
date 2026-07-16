@@ -2,7 +2,14 @@
 // from server-function modules that are part of the client module graph.
 // It is only ever CALLED inside server handlers, with a Supabase client passed in.
 
-import { formatBmiSummary } from "@/lib/patient-schema";
+import { formatBmiSummary, computeIbw, formatIbwValue } from "@/lib/patient-schema";
+
+function formatIbwAudit(heightM: unknown, sex: unknown): string | null {
+  const ibw = computeIbw(heightM, sex);
+  if (ibw == null) return null;
+  const s = typeof sex === "string" && (sex === "male" || sex === "female") ? sex : "averaged";
+  return `${formatIbwValue(ibw)} kg (Devine, ${s})`;
+}
 
 export type AuditEntity = "patients" | "investigations" | "referrals" | "microbiology";
 export type AuditAction = "insert" | "update" | "delete";
@@ -156,6 +163,24 @@ export async function writePatientFieldChanges(
         field_name: "bmi",
         old_value: oldBmi,
         new_value: newBmi,
+        changed_by: params.actor.id ?? null,
+        changed_by_email: params.actor.email ?? null,
+      });
+    }
+  }
+  // Synthesize a derived IBW row when height or sex changed, so the
+  // Demographics edit history captures the resulting Devine ideal body
+  // weight (used for ventilator tidal-volume estimates) alongside the raw
+  // height/sex entries.
+  if (before.height_m !== after.height_m || before.sex !== after.sex) {
+    const oldIbw = formatIbwAudit(before.height_m, before.sex);
+    const newIbw = formatIbwAudit(after.height_m, after.sex);
+    if (oldIbw !== newIbw) {
+      rows.push({
+        patient_id: params.patientId,
+        field_name: "ibw",
+        old_value: oldIbw,
+        new_value: newIbw,
         changed_by: params.actor.id ?? null,
         changed_by_email: params.actor.email ?? null,
       });
