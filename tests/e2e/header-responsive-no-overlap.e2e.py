@@ -172,18 +172,30 @@ def check_header(page, vp, route):
     # ---- 3. NO OVERLAP between the top-level header regions ----
     # The header row has three siblings inside its container:
     #   [brand link] [nav] [right-hand action cluster]
-    # We locate them structurally rather than by text so this test doesn't
-    # need to know which labels the current breakpoint chose to hide.
-    brand = header.locator("a[href='/patients']").first
-    nav = header.locator("nav").first
-    # The right-hand cluster is the last direct child div of the inner row.
-    right_cluster = header.locator(
-        "xpath=.//header//div[1]/div[last()]"
-    ).first
-
-    brand_box = brand.bounding_box()
-    nav_box = nav.bounding_box()
-    right_box = right_cluster.bounding_box()
+    # We measure them structurally via the DOM (first child = brand, the
+    # <nav>, last child = right cluster) so the test doesn't need to know
+    # which labels the current breakpoint chose to hide.
+    region_boxes = page.evaluate(
+        """() => {
+          const header = document.querySelector('header');
+          if (!header) return null;
+          const inner = header.firstElementChild;
+          if (!inner) return null;
+          const brand = inner.querySelector("a[href='/patients']");
+          const nav = inner.querySelector('nav');
+          const right = inner.lastElementChild;
+          const pick = (el) => {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return { x: r.x, y: r.y, width: r.width, height: r.height };
+          };
+          return { brand: pick(brand), nav: pick(nav), right: pick(right) };
+        }"""
+    )
+    assert region_boxes is not None, f"{tag}: could not measure header regions"
+    brand_box = region_boxes["brand"]
+    nav_box = region_boxes["nav"]
+    right_box = region_boxes["right"]
 
     for label, box in (
         ("brand", brand_box),
@@ -191,6 +203,7 @@ def check_header(page, vp, route):
         ("right cluster", right_box),
     ):
         assert box is not None, f"{tag}: {label} region missing a bounding box"
+
 
     assert not rects_overlap(brand_box, nav_box), (
         f"{tag}: brand link overlaps nav (brand={brand_box}, nav={nav_box})"
