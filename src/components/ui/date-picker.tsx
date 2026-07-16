@@ -200,7 +200,7 @@ export function DateTimePicker({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2 sm:flex-row", className)}>
+    <div className={cn("flex w-full min-w-0 flex-col gap-2 sm:flex-row", className)}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -209,7 +209,7 @@ export function DateTimePicker({
             variant="outline"
             disabled={disabled}
             className={cn(
-              "flex-1 justify-start text-left font-normal",
+              "w-full min-w-0 flex-1 justify-start overflow-hidden text-left font-normal",
               !selected && "text-muted-foreground",
             )}
           >
@@ -237,7 +237,7 @@ export function DateTimePicker({
         disabled={disabled}
         value={timeValue}
         onChange={(t) => emit(selected ?? new Date(), t)}
-        className="sm:w-32"
+        className={cn("w-full min-w-0 sm:w-24", "sm:shrink-0")}
       />
     </div>
   );
