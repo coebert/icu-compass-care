@@ -301,6 +301,16 @@ export function validatePatientState(
     }
   }
 
+  // BMI sanity check — only when both weight and height are present on the
+  // merged row. This catches unit mix-ups (e.g. height entered in cm) that
+  // pass the individual field bounds.
+  const bmi = computeBmi(merged.weight_kg, merged.height_m);
+  if (bmi != null && (bmi < BMI_MIN || bmi > BMI_MAX)) {
+    throw new Error(
+      `Weight and height give an implausible BMI of ${bmi} kg/m² (expected ${BMI_MIN}–${BMI_MAX}). Please check the values — height must be in metres, not centimetres.`,
+    );
+  }
+
   // Note: field-level demographics rules (initials/name, age, sex, hospital
   // number, weight) are enforced by `patientInput` (create) and by its
   // `.partial()` in `updatePatient` (which still validates the shape of any
