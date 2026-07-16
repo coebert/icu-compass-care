@@ -282,6 +282,27 @@ export function formatBmiSummary(weightKg: unknown, heightM: unknown): string | 
   return `${formatBmiValue(bmi)} kg/m² (${bmiCategory(bmi)})`;
 }
 
+/** Devine formula ideal body weight (kg) from height and sex. Returns null if
+ * height is missing/invalid. For `other`/`unknown`/missing sex we average the
+ * male and female formulae so an IBW is still available for ventilator tidal-
+ * volume estimates, which is the main ICU use case. Rounded to 1 dp. */
+export function computeIbw(heightM: unknown, sex: unknown): number | null {
+  const h = typeof heightM === "string" ? Number(heightM) : (heightM as number | null | undefined);
+  if (h == null || !Number.isFinite(h) || h <= 0) return null;
+  const inches = h * 39.3700787;
+  const over60 = Math.max(0, inches - 60);
+  const male = 50 + 2.3 * over60;
+  const female = 45.5 + 2.3 * over60;
+  const s = typeof sex === "string" ? sex : null;
+  const ibw = s === "male" ? male : s === "female" ? female : (male + female) / 2;
+  return Math.round(ibw * 10) / 10;
+}
+
+/** IBW formatted to 1 dp for display. */
+export function formatIbwValue(ibw: number): string {
+  return ibw.toFixed(1);
+}
+
 
 // Server-side guard for status lifecycle + per-status required fields.
 // `merged` is the full effective row after the write (current row overlaid with
