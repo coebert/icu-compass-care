@@ -2,7 +2,56 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EditableField, EditableSelect, EditableDate } from "@/components/patient/systems-widgets";
 import { DemographicsHistory } from "@/components/patient/demographics-history";
 import { fmtDate } from "@/lib/icu";
+import { computeBmi, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
 import type { Patient } from "@/lib/domain-types";
+
+// BMI category labels follow WHO adult classification. Shown alongside the
+// numeric value so clinicians get context at a glance. The server enforces
+// a wider sanity range (BMI_MIN..BMI_MAX) and rejects the save if breached.
+function bmiCategory(bmi: number): { label: string; tone: string } {
+  if (bmi < 18.5) return { label: "Underweight", tone: "text-amber-600" };
+  if (bmi < 25) return { label: "Healthy weight", tone: "text-emerald-600" };
+  if (bmi < 30) return { label: "Overweight", tone: "text-amber-600" };
+  if (bmi < 40) return { label: "Obese", tone: "text-orange-600" };
+  return { label: "Severely obese", tone: "text-red-600" };
+}
+
+// Read-only BMI panel driven by the saved weight_kg/height_m values. Updates
+// automatically whenever either field is persisted. Also surfaces the same
+// out-of-range warning that the server would reject on save, so staff see it
+// before attempting an update rather than as a save error.
+function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: number | null }) {
+  const bmi = computeBmi(weightKg, heightM);
+  if (bmi == null) {
+    return (
+      <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        <div className="font-medium text-foreground">BMI</div>
+        <div>Enter both weight and height to calculate.</div>
+      </div>
+    );
+  }
+  const outOfRange = bmi < BMI_MIN || bmi > BMI_MAX;
+  const cat = bmiCategory(bmi);
+  return (
+    <div className="rounded-md border p-3 text-sm">
+      <div className="font-medium">BMI</div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="text-2xl font-semibold tabular-nums">{bmi}</span>
+        <span className="text-muted-foreground">kg/m²</span>
+      </div>
+      {outOfRange ? (
+        <div className="mt-1 text-destructive">
+          Implausible BMI (expected {BMI_MIN}–{BMI_MAX}). Check that height is in metres.
+        </div>
+      ) : (
+        <div className={`mt-1 ${cat.tone}`}>{cat.label}</div>
+      )}
+    </div>
+  );
+}
+
+
+
 
 // All patient identity / location / lifecycle fields, edited inline (no dialog).
 // Everything routes through the same updatePatient server fn as the systems
@@ -94,6 +143,7 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             }}
             coerce={(v) => Number(v)}
           />
+          <BmiReadout weightKg={patient.weight_kg} heightM={patient.height_m} />
         </CardContent>
       </Card>
 
