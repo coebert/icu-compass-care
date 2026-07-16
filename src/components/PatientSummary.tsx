@@ -102,7 +102,7 @@ export function PatientMetaLine({
   const sexLabel = formatSexLong(patient.sex);
   const bmiLabel = formatBmiSummary(patient.weight_kg, patient.height_m);
   const ibw = computeIbw(patient.height_m, patient.sex);
-  const ibwLabel = ibw != null ? `IBW ${formatIbwValue(ibw)} kg` : null;
+  const ibwLabel = ibw != null ? `IBW ${formatIbwValue(ibw)} kg` : "IBW —";
   const segments: (string | null | undefined | false)[] = [
     ...leading,
     showHospitalNumber ? formatHospitalNumber(patient.hospital_number) : null,

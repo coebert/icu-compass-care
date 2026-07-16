@@ -81,7 +81,7 @@ function BmiReadout({
               </div>
             </>
           ) : (
-            <div className="mt-1 text-muted-foreground">Enter height to calculate.</div>
+            <div className="mt-1 text-muted-foreground">Enter height and sex to calculate.</div>
           )}
         </div>
       </div>
