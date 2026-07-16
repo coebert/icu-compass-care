@@ -14,7 +14,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon } from "lucide-react";
+import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon, Menu } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { CommandMenu } from "@/components/CommandMenu";
@@ -45,6 +52,7 @@ function AuthenticatedLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [hydrated, setHydrated] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
@@ -150,11 +158,62 @@ function AuthenticatedLayout() {
     <div className="min-h-screen bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
+          {/* Hamburger — only on small screens (<md). At md+ the inline nav
+              has room for icon-only links, so the sheet trigger is hidden. */}
+          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 md:hidden"
+                aria-label="Open navigation menu"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0">
+              <SheetHeader className="border-b p-4">
+                <SheetTitle className="flex items-center gap-2">
+                  <HeartPulse className="h-5 w-5 text-primary" />
+                  ICU Handover
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 p-2" aria-label="Primary">
+                {navItems.map((item) => {
+                  const matches = navItems.filter(
+                    (n) => pathname === n.to || pathname.startsWith(n.to + "/"),
+                  );
+                  const best = matches.reduce(
+                    (a, b) => (b.to.length > a.to.length ? b : a),
+                    { to: "" } as { to: string },
+                  );
+                  const active = best.to === item.to;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileNavOpen(false)}
+                    >
+                      <Button
+                        variant={active ? "secondary" : "ghost"}
+                        className="w-full justify-start gap-2"
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
           <Link to="/patients" className="flex shrink-0 items-center gap-2 font-semibold">
             <HeartPulse className="h-5 w-5 text-primary" />
             <span className="hidden whitespace-nowrap sm:inline">ICU Handover</span>
           </Link>
-          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {/* Inline nav — hidden on small screens (the hamburger takes over). */}
+          <nav className="hidden min-w-0 flex-1 items-center gap-1 md:flex" aria-label="Primary">
             {navItems.map((item) => {
               // Pick the most specific matching nav item so e.g. /patients/history
               // highlights "History" rather than also lighting up "Patients".
@@ -172,13 +231,12 @@ function AuthenticatedLayout() {
                     variant={active ? "secondary" : "ghost"}
                     size="sm"
                     aria-label={item.label}
-                    className="h-11 shrink-0 gap-1.5 sm:h-9"
+                    className="h-9 shrink-0 gap-1.5"
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
                   </Button>
                 </Link>
-
               );
             })}
           </nav>
@@ -204,6 +262,7 @@ function AuthenticatedLayout() {
           </div>
         </div>
       </header>
+
       <main className="mx-auto max-w-7xl px-4 py-6">
 
         <Outlet />
