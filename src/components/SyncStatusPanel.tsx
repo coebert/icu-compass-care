@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 function relTime(iso: string | null): string {
   if (!iso) return "never";
@@ -56,7 +57,12 @@ export function SyncStatusPanel({
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["sync-status"],
-    queryFn: () => fetchStatus() as Promise<SyncStatus>,
+    queryFn: async () => {
+      // Skip during sign-out: no session → no bearer → server fn 401s.
+      const { data: s } = await supabase.auth.getSession();
+      if (!s.session) return null as unknown as SyncStatus;
+      return fetchStatus() as Promise<SyncStatus>;
+    },
     retry: false,
     refetchInterval: 60_000,
   });

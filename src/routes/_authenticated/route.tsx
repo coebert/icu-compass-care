@@ -110,7 +110,17 @@ function AuthenticatedLayout() {
     return () => window.clearInterval(id);
   }, [hydrated, signOut]);
 
-  const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
+  const { data: profile } = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => {
+      // Guard against the brief window during sign-out where the query cache is
+      // cleared before the layout unmounts: without a session, the bearer
+      // attacher sends no Authorization header and the server fn 401s.
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return null;
+      return me();
+    },
+  });
 
   const deviceEnrolled = !!profile?.userId && deviceHasPasskey(profile.userId);
   const locked = deviceEnrolled && !unlocked;
