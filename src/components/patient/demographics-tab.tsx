@@ -2,7 +2,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EditableField, EditableSelect, EditableDate } from "@/components/patient/systems-widgets";
 import { DemographicsHistory } from "@/components/patient/demographics-history";
 import { fmtDate } from "@/lib/icu";
-import { computeBmi, bmiCategory, formatBmiValue, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
+import {
+  computeBmi,
+  bmiCategory,
+  formatBmiValue,
+  computeIbw,
+  formatIbwValue,
+  BMI_MIN,
+  BMI_MAX,
+} from "@/lib/patient-schema";
 import type { Patient } from "@/lib/domain-types";
 
 // BMI category tone follows WHO adult classification. The label itself is
@@ -20,12 +28,21 @@ function bmiTone(bmi: number): string {
 // automatically whenever either field is persisted. Also surfaces the same
 // out-of-range warning that the server would reject on save, so staff see it
 // before attempting an update rather than as a save error.
-function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: number | null }) {
+function BmiReadout({
+  weightKg,
+  heightM,
+  sex,
+}: {
+  weightKg: number | null;
+  heightM: number | null;
+  sex: string | null;
+}) {
   const bmi = computeBmi(weightKg, heightM);
+  const ibw = computeIbw(heightM, sex);
   if (bmi == null) {
     return (
       <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-        <div className="font-medium text-foreground">BMI</div>
+        <div className="font-medium text-foreground">BMI &amp; ideal body weight</div>
         <div>Enter both weight and height to calculate.</div>
       </div>
     );
@@ -33,20 +50,41 @@ function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: n
   const outOfRange = bmi < BMI_MIN || bmi > BMI_MAX;
   const label = bmiCategory(bmi);
   const tone = bmiTone(bmi);
+  const ibwSexNote = sex === "male" || sex === "female" ? null : "averaged (sex not specified)";
   return (
     <div className="rounded-md border p-3 text-sm">
-      <div className="font-medium">BMI</div>
-      <div className="mt-1 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums">{formatBmiValue(bmi)}</span>
-        <span className="text-muted-foreground">kg/m²</span>
-      </div>
-      {outOfRange ? (
-        <div className="mt-1 text-destructive">
-          Implausible BMI (expected {BMI_MIN}–{BMI_MAX}). Check that height is in metres.
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <div className="font-medium">BMI</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-2xl font-semibold tabular-nums">{formatBmiValue(bmi)}</span>
+            <span className="text-muted-foreground">kg/m²</span>
+          </div>
+          {outOfRange ? (
+            <div className="mt-1 text-destructive">
+              Implausible BMI (expected {BMI_MIN}–{BMI_MAX}). Check that height is in metres.
+            </div>
+          ) : (
+            <div className={`mt-1 ${tone}`}>{label}</div>
+          )}
         </div>
-      ) : (
-        <div className={`mt-1 ${tone}`}>{label}</div>
-      )}
+        <div>
+          <div className="font-medium">Ideal body weight</div>
+          {ibw != null ? (
+            <>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-semibold tabular-nums">{formatIbwValue(ibw)}</span>
+                <span className="text-muted-foreground">kg</span>
+              </div>
+              <div className="mt-1 text-muted-foreground">
+                Devine formula{ibwSexNote ? ` · ${ibwSexNote}` : ""}
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-muted-foreground">Enter height to calculate.</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -144,7 +182,7 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             }}
             coerce={(v) => Number(v)}
           />
-          <BmiReadout weightKg={patient.weight_kg} heightM={patient.height_m} />
+          <BmiReadout weightKg={patient.weight_kg} heightM={patient.height_m} sex={patient.sex} />
         </CardContent>
       </Card>
 
