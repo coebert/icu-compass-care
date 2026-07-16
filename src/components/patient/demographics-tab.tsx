@@ -2,18 +2,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EditableField, EditableSelect, EditableDate } from "@/components/patient/systems-widgets";
 import { DemographicsHistory } from "@/components/patient/demographics-history";
 import { fmtDate } from "@/lib/icu";
-import { computeBmi, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
+import { computeBmi, bmiCategory, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
 import type { Patient } from "@/lib/domain-types";
 
-// BMI category labels follow WHO adult classification. Shown alongside the
-// numeric value so clinicians get context at a glance. The server enforces
-// a wider sanity range (BMI_MIN..BMI_MAX) and rejects the save if breached.
-function bmiCategory(bmi: number): { label: string; tone: string } {
-  if (bmi < 18.5) return { label: "Underweight", tone: "text-amber-600" };
-  if (bmi < 25) return { label: "Healthy weight", tone: "text-emerald-600" };
-  if (bmi < 30) return { label: "Overweight", tone: "text-amber-600" };
-  if (bmi < 40) return { label: "Obese", tone: "text-orange-600" };
-  return { label: "Severely obese", tone: "text-red-600" };
+// BMI category tone follows WHO adult classification. The label itself is
+// centralised in `bmiCategory` (src/lib/patient-schema.ts) so summary,
+// audit history, and this readout stay in sync.
+function bmiTone(bmi: number): string {
+  if (bmi < 18.5) return "text-amber-600";
+  if (bmi < 25) return "text-emerald-600";
+  if (bmi < 30) return "text-amber-600";
+  if (bmi < 40) return "text-orange-600";
+  return "text-red-600";
 }
 
 // Read-only BMI panel driven by the saved weight_kg/height_m values. Updates
@@ -31,7 +31,8 @@ function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: n
     );
   }
   const outOfRange = bmi < BMI_MIN || bmi > BMI_MAX;
-  const cat = bmiCategory(bmi);
+  const label = bmiCategory(bmi);
+  const tone = bmiTone(bmi);
   return (
     <div className="rounded-md border p-3 text-sm">
       <div className="font-medium">BMI</div>
@@ -44,7 +45,7 @@ function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: n
           Implausible BMI (expected {BMI_MIN}–{BMI_MAX}). Check that height is in metres.
         </div>
       ) : (
-        <div className={`mt-1 ${cat.tone}`}>{cat.label}</div>
+        <div className={`mt-1 ${tone}`}>{label}</div>
       )}
     </div>
   );
