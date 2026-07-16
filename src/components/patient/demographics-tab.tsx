@@ -2,7 +2,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EditableField, EditableSelect, EditableDate } from "@/components/patient/systems-widgets";
 import { DemographicsHistory } from "@/components/patient/demographics-history";
 import { fmtDate } from "@/lib/icu";
+import { computeBmi, BMI_MIN, BMI_MAX } from "@/lib/patient-schema";
 import type { Patient } from "@/lib/domain-types";
+
+// BMI category labels follow WHO adult classification. Shown alongside the
+// numeric value so clinicians get context at a glance. The server enforces
+// a wider sanity range (BMI_MIN..BMI_MAX) and rejects the save if breached.
+function bmiCategory(bmi: number): { label: string; tone: string } {
+  if (bmi < 18.5) return { label: "Underweight", tone: "text-amber-600" };
+  if (bmi < 25) return { label: "Healthy weight", tone: "text-emerald-600" };
+  if (bmi < 30) return { label: "Overweight", tone: "text-amber-600" };
+  if (bmi < 40) return { label: "Obese", tone: "text-orange-600" };
+  return { label: "Severely obese", tone: "text-red-600" };
+}
+
 
 // All patient identity / location / lifecycle fields, edited inline (no dialog).
 // Everything routes through the same updatePatient server fn as the systems
