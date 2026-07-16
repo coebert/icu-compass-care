@@ -107,6 +107,7 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             }}
             coerce={(v) => Number(v)}
           />
+          <BmiReadout weightKg={patient.weight_kg} heightM={patient.height_m} />
         </CardContent>
       </Card>
 
