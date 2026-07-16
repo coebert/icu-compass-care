@@ -241,6 +241,24 @@ function isBlank(v: unknown): boolean {
   return v === undefined || v === null || (typeof v === "string" && v.trim() === "");
 }
 
+// BMI sanity range. Records outside this window are almost certainly a
+// data-entry mistake (mismatched units, decimal error) rather than a real
+// patient, so we reject the save and force the user to re-check weight/height.
+export const BMI_MIN = 5;
+export const BMI_MAX = 150;
+
+/** Returns BMI in kg/m² rounded to 1dp, or null if either input is missing/invalid. */
+export function computeBmi(weightKg: unknown, heightM: unknown): number | null {
+  const w = typeof weightKg === "string" ? Number(weightKg) : (weightKg as number | null | undefined);
+  const h = typeof heightM === "string" ? Number(heightM) : (heightM as number | null | undefined);
+  if (w == null || h == null) return null;
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return null;
+  if (w <= 0 || h <= 0) return null;
+  const bmi = w / (h * h);
+  return Math.round(bmi * 10) / 10;
+}
+
+
 // Server-side guard for status lifecycle + per-status required fields.
 // `merged` is the full effective row after the write (current row overlaid with
 // the incoming changes for updates, or the incoming payload for creates).
