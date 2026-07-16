@@ -200,7 +200,7 @@ export function DateTimePicker({
   }
 
   return (
-    <div className={cn("flex flex-col gap-2 sm:flex-row", className)}>
+    <div className={cn("flex w-full min-w-0 flex-col gap-2 sm:flex-row", className)}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
