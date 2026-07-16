@@ -209,7 +209,7 @@ export function DateTimePicker({
             variant="outline"
             disabled={disabled}
             className={cn(
-              "flex-1 justify-start text-left font-normal",
+              "w-full min-w-0 flex-1 justify-start overflow-hidden text-left font-normal",
               !selected && "text-muted-foreground",
             )}
           >
