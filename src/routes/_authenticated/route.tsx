@@ -149,12 +149,12 @@ function AuthenticatedLayout() {
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-          <Link to="/patients" className="flex items-center gap-2 font-semibold">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
+          <Link to="/patients" className="flex shrink-0 items-center gap-2 font-semibold">
             <HeartPulse className="h-5 w-5 text-primary" />
-            <span className="hidden sm:inline">ICU Handover</span>
+            <span className="hidden whitespace-nowrap sm:inline">ICU Handover</span>
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
             {navItems.map((item) => {
               // Pick the most specific matching nav item so e.g. /patients/history
               // highlights "History" rather than also lighting up "Patients".
@@ -172,10 +172,10 @@ function AuthenticatedLayout() {
                     variant={active ? "secondary" : "ghost"}
                     size="sm"
                     aria-label={item.label}
-                    className="h-11 gap-1.5 sm:h-9"
+                    className="h-11 shrink-0 gap-1.5 sm:h-9"
                   >
-                    <item.icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
                   </Button>
                 </Link>
 
@@ -183,28 +183,29 @@ function AuthenticatedLayout() {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <SyncStatusPanel
               className="hidden sm:inline-flex"
               isAdmin={profile?.isAdmin ?? false}
             />
-            <span className="hidden text-sm text-muted-foreground md:inline">
+            <span className="hidden max-w-[10rem] truncate whitespace-nowrap text-sm text-muted-foreground xl:inline">
               {profile?.profile?.display_name ?? profile?.email}
             </span>
             {deviceEnrolled && (
-              <Button variant="outline" size="sm" onClick={lockNow} className="gap-1.5" aria-label="Lock session">
+              <Button variant="outline" size="sm" onClick={lockNow} className="shrink-0 gap-1.5" aria-label="Lock session">
                 <Lock className="h-4 w-4" />
-                <span className="hidden sm:inline">Lock now</span>
+                <span className="hidden whitespace-nowrap lg:inline">Lock now</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => void signOut()} className="gap-1.5" aria-label="Sign out">
+            <Button variant="outline" size="sm" onClick={() => void signOut()} className="shrink-0 gap-1.5" aria-label="Sign out">
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden whitespace-nowrap lg:inline">Sign out</span>
             </Button>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-4 py-6">
+
         <Outlet />
       </main>
       <CommandMenu />
