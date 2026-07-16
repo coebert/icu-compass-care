@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { formatBmiSummary } from "@/lib/patient-schema";
+import { formatBmiSummary, computeIbw, formatIbwValue } from "@/lib/patient-schema";
 
 /**
  * Shared patient identity primitives so initials, age, and hospital number
@@ -101,12 +101,15 @@ export function PatientMetaLine({
 }) {
   const sexLabel = formatSexLong(patient.sex);
   const bmiLabel = formatBmiSummary(patient.weight_kg, patient.height_m);
+  const ibw = computeIbw(patient.height_m, patient.sex);
+  const ibwLabel = ibw != null ? `IBW ${formatIbwValue(ibw)} kg` : null;
   const segments: (string | null | undefined | false)[] = [
     ...leading,
     showHospitalNumber ? formatHospitalNumber(patient.hospital_number) : null,
     showAge ? `Age ${patient.age != null ? patient.age : "—"}` : null,
     sexLabel,
     bmiLabel ? `BMI ${bmiLabel}` : null,
+    ibwLabel,
     ...trailing,
   ];
 
