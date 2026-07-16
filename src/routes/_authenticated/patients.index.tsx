@@ -1385,7 +1385,7 @@ function BedBoard({
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             ICU · no bed assigned ({unassigned.length})
           </p>
-          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
             {unassigned.map((p) => (
               <PatientHoverCard key={p.id} p={p}>
