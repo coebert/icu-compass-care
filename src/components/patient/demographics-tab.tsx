@@ -160,9 +160,10 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             placeholder="e.g. 78"
             validate={(v) => {
               if (v === "") return null;
+              if (!/^-?\d+(\.\d+)?$/.test(v)) return "Weight must be a valid number.";
               const n = Number(v);
               if (!Number.isFinite(n)) return "Weight must be a valid number.";
-              if (n < 0 || n > 600) return "Weight must be between 0 and 600 kg.";
+              if (n < 1 || n > 600) return "Weight must be between 1 and 600 kg.";
               return null;
             }}
             coerce={(v) => Number(v)}
@@ -175,9 +176,11 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             placeholder="e.g. 1.75"
             validate={(v) => {
               if (v === "") return null;
+              if (!/^-?\d+(\.\d+)?$/.test(v)) return "Height must be a valid number.";
               const n = Number(v);
               if (!Number.isFinite(n)) return "Height must be a valid number.";
-              if (n < 0 || n > 3) return "Height must be between 0 and 3 m.";
+              if (n < 0.3 || n > 2.5)
+                return "Height must be between 0.3 and 2.5 m (enter metres, not centimetres).";
               return null;
             }}
             coerce={(v) => Number(v)}
