@@ -79,6 +79,21 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             }}
             coerce={(v) => Number(v)}
           />
+          <EditableField
+            patientId={patientId}
+            field="height_m"
+            label="Height (m)"
+            value={patient.height_m != null ? String(patient.height_m) : ""}
+            placeholder="e.g. 1.75"
+            validate={(v) => {
+              if (v === "") return null;
+              const n = Number(v);
+              if (!Number.isFinite(n)) return "Height must be a valid number.";
+              if (n < 0 || n > 3) return "Height must be between 0 and 3 m.";
+              return null;
+            }}
+            coerce={(v) => Number(v)}
+          />
         </CardContent>
       </Card>
 
