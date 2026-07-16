@@ -1266,7 +1266,7 @@ function BedBoard({
           Drag a patient card onto a bed to move them. On a tablet or phone, press and hold a card, then drag.
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {roster.map((slot) => {
           const bed = slot.label;
           const label = slot.is_side_room ? `Side room ${bed}` : `Bed ${bed}`;
@@ -1320,7 +1320,7 @@ function BedBoard({
           );
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`space-y-2 rounded-lg transition-shadow ${validRing}`}>
+              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`flex h-full min-h-[240px] flex-col gap-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
@@ -1358,7 +1358,7 @@ function BedBoard({
               data-bed={bed}
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
+              className={`group flex h-full min-h-[240px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
               <span className={`flex items-center gap-1.5 text-xs font-semibold ${slot.is_side_room ? "text-amber-900 dark:text-amber-200" : "text-muted-foreground"}`}>
                 {slot.is_side_room && <DoorClosed className="h-3.5 w-3.5" aria-hidden />}
@@ -1385,7 +1385,8 @@ function BedBoard({
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             ICU · no bed assigned ({unassigned.length})
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
             {unassigned.map((p) => (
               <PatientHoverCard key={p.id} p={p}>
                 <DraggablePatientLink
