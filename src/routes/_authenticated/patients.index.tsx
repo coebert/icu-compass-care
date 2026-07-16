@@ -894,7 +894,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   const name = p.full_name ?? "this patient";
   const showMove = p.status === "admitted" || p.status === "referred";
   return (
-    <CardContent className="space-y-2 p-4">
+    <CardContent className="min-h-0 flex-1 space-y-2 overflow-hidden p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <PatientName patient={p} showAge />
