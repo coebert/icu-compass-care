@@ -1335,7 +1335,7 @@ function BedBoard({
                       onTouchDragStart={onTouchDragStart}
                       suppressClickRef={suppressClickRef}
                     >
-                      <Card className={`h-full transition-colors hover:border-primary/50 ${slot.is_side_room ? "border-amber-500/40" : ""} ${isOver ? overRing : ""}`}>
+                      <Card className={`flex h-[260px] flex-col overflow-hidden transition-colors hover:border-primary/50 ${slot.is_side_room ? "border-amber-500/40" : ""} ${isOver ? overRing : ""}`}>
                         <div className={`flex items-center border-b px-4 py-1.5 text-xs font-semibold ${sideRoomHeader}`}>
                           <HeaderLabel />
                         </div>
