@@ -1396,7 +1396,7 @@ function BedBoard({
                   onTouchDragStart={onTouchDragStart}
                   suppressClickRef={suppressClickRef}
                 >
-                  <Card className="h-full transition-colors hover:border-primary/50">
+                  <Card className="flex h-[260px] flex-col overflow-hidden transition-colors hover:border-primary/50">
                     <PatientCardBody p={p} />
                   </Card>
                 </DraggablePatientLink>
