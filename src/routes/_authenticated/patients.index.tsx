@@ -1358,7 +1358,7 @@ function BedBoard({
               data-bed={bed}
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
+              className={`group flex h-full min-h-[240px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
               <span className={`flex items-center gap-1.5 text-xs font-semibold ${slot.is_side_room ? "text-amber-900 dark:text-amber-200" : "text-muted-foreground"}`}>
                 {slot.is_side_room && <DoorClosed className="h-3.5 w-3.5" aria-hidden />}
