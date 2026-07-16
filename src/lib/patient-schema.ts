@@ -258,6 +258,22 @@ export function computeBmi(weightKg: unknown, heightM: unknown): number | null {
   return Math.round(bmi * 10) / 10;
 }
 
+/** WHO adult BMI classification for a given BMI value. */
+export function bmiCategory(bmi: number): string {
+  if (bmi < 18.5) return "Underweight";
+  if (bmi < 25) return "Healthy weight";
+  if (bmi < 30) return "Overweight";
+  if (bmi < 40) return "Obese";
+  return "Severely obese";
+}
+
+/** BMI + WHO category formatted for meta lines and audit history. */
+export function formatBmiSummary(weightKg: unknown, heightM: unknown): string | null {
+  const bmi = computeBmi(weightKg, heightM);
+  if (bmi == null) return null;
+  return `${bmi} kg/m² (${bmiCategory(bmi)})`;
+}
+
 
 // Server-side guard for status lifecycle + per-status required fields.
 // `merged` is the full effective row after the write (current row overlaid with
