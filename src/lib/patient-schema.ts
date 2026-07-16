@@ -267,11 +267,19 @@ export function bmiCategory(bmi: number): string {
   return "Severely obese";
 }
 
+/** BMI formatted to a fixed 1 decimal place — the same precision the server
+ * uses in validation, audit values, and range checks. Always use this helper
+ * for display so the numeric value shown never differs from what is stored /
+ * evaluated on the server (e.g. 24 → "24.0", 24.35 → "24.4"). */
+export function formatBmiValue(bmi: number): string {
+  return bmi.toFixed(1);
+}
+
 /** BMI + WHO category formatted for meta lines and audit history. */
 export function formatBmiSummary(weightKg: unknown, heightM: unknown): string | null {
   const bmi = computeBmi(weightKg, heightM);
   if (bmi == null) return null;
-  return `${bmi} kg/m² (${bmiCategory(bmi)})`;
+  return `${formatBmiValue(bmi)} kg/m² (${bmiCategory(bmi)})`;
 }
 
 
