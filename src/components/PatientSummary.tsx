@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatBmiSummary } from "@/lib/patient-schema";
 
 /**
  * Shared patient identity primitives so initials, age, and hospital number
@@ -13,6 +14,8 @@ export type PatientSummaryData = {
   age?: number | null;
   sex?: string | null;
   hospital_number?: string | null;
+  weight_kg?: number | null;
+  height_m?: number | null;
 };
 
 export function formatInitials(patient: PatientSummaryData): string {
@@ -97,11 +100,13 @@ export function PatientMetaLine({
   className?: string;
 }) {
   const sexLabel = formatSexLong(patient.sex);
+  const bmiLabel = formatBmiSummary(patient.weight_kg, patient.height_m);
   const segments: (string | null | undefined | false)[] = [
     ...leading,
     showHospitalNumber ? formatHospitalNumber(patient.hospital_number) : null,
     showAge ? `Age ${patient.age != null ? patient.age : "—"}` : null,
     sexLabel,
+    bmiLabel ? `BMI ${bmiLabel}` : null,
     ...trailing,
   ];
 

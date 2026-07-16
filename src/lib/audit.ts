@@ -2,6 +2,8 @@
 // from server-function modules that are part of the client module graph.
 // It is only ever CALLED inside server handlers, with a Supabase client passed in.
 
+import { formatBmiSummary } from "@/lib/patient-schema";
+
 export type AuditEntity = "patients" | "investigations" | "referrals" | "microbiology";
 export type AuditAction = "insert" | "update" | "delete";
 export type AuditSource = "app" | "bridge";
@@ -142,6 +144,23 @@ export async function writePatientFieldChanges(
       },
     ];
   });
+  // Synthesize a derived BMI row when weight or height changed, so the
+  // Demographics edit history shows the resulting BMI + WHO category change
+  // alongside the raw weight/height entries.
+  if (before.weight_kg !== after.weight_kg || before.height_m !== after.height_m) {
+    const oldBmi = formatBmiSummary(before.weight_kg, before.height_m);
+    const newBmi = formatBmiSummary(after.weight_kg, after.height_m);
+    if (oldBmi !== newBmi) {
+      rows.push({
+        patient_id: params.patientId,
+        field_name: "bmi",
+        old_value: oldBmi,
+        new_value: newBmi,
+        changed_by: params.actor.id ?? null,
+        changed_by_email: params.actor.email ?? null,
+      });
+    }
+  }
   if (rows.length === 0) return;
   try {
     await client.from("patient_field_changes").insert(rows);

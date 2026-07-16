@@ -31,7 +31,8 @@ function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: n
     );
   }
   const outOfRange = bmi < BMI_MIN || bmi > BMI_MAX;
-  const cat = bmiCategory(bmi);
+  const label = bmiCategory(bmi);
+  const tone = bmiTone(bmi);
   return (
     <div className="rounded-md border p-3 text-sm">
       <div className="font-medium">BMI</div>
@@ -44,7 +45,7 @@ function BmiReadout({ weightKg, heightM }: { weightKg: number | null; heightM: n
           Implausible BMI (expected {BMI_MIN}–{BMI_MAX}). Check that height is in metres.
         </div>
       ) : (
-        <div className={`mt-1 ${cat.tone}`}>{cat.label}</div>
+        <div className={`mt-1 ${tone}`}>{label}</div>
       )}
     </div>
   );
