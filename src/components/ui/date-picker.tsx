@@ -237,7 +237,7 @@ export function DateTimePicker({
         disabled={disabled}
         value={timeValue}
         onChange={(t) => emit(selected ?? new Date(), t)}
-        className="sm:w-32"
+        className={cn("w-full min-w-0 sm:w-24", "sm:shrink-0")}
       />
     </div>
   );
