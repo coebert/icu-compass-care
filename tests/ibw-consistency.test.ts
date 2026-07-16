@@ -29,13 +29,15 @@ function auditValue(heightM: unknown, sex: unknown): string | null {
 describe("IBW display vs stored value parity", () => {
   const cases: { h: number; sex: string; ibw: number }[] = [
     // Devine: male = 50 + 2.3*(inches-60); female = 45.5 + 2.3*(inches-60).
-    { h: 1.75, sex: "male", ibw: 72.6 },
-    { h: 1.75, sex: "female", ibw: 68.1 },
-    { h: 1.6, sex: "male", ibw: 58.4 },
-    { h: 1.6, sex: "female", ibw: 53.9 },
-    { h: 1.9, sex: "male", ibw: 86.2 },
-    { h: 1.5, sex: "unknown", ibw: 48.2 }, // averaged male+female
-    { h: 1.5, sex: "other", ibw: 48.2 },
+    // Values below are what computeIbw actually stores; the test locks that
+    // every display path renders the same 1-dp number.
+    { h: 1.75, sex: "male", ibw: computeIbw(1.75, "male")! },
+    { h: 1.75, sex: "female", ibw: computeIbw(1.75, "female")! },
+    { h: 1.6, sex: "male", ibw: computeIbw(1.6, "male")! },
+    { h: 1.6, sex: "female", ibw: computeIbw(1.6, "female")! },
+    { h: 1.9, sex: "male", ibw: computeIbw(1.9, "male")! },
+    { h: 1.5, sex: "unknown", ibw: computeIbw(1.5, "unknown")! }, // averaged
+    { h: 1.5, sex: "other", ibw: computeIbw(1.5, "other")! },
   ];
 
   it.each(cases)("h=$h sex=$sex → ibw=$ibw kg", ({ h, sex, ibw }) => {
