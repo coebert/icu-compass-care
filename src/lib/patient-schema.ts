@@ -136,6 +136,22 @@ export const patientInput = z.object({
         .nullable(),
     )
     .optional(),
+  height_m: z
+    .preprocess(
+      (v) => (v === "" || v === null || v === undefined ? null : v),
+      z
+        .union([z.number(), z.string().trim().min(1)], {
+          errorMap: () => ({ message: "Height must be a valid number." }),
+        })
+        .pipe(
+          z.coerce
+            .number({ invalid_type_error: "Height must be a valid number." })
+            .min(0, "Height must be between 0 and 3 m.")
+            .max(3, "Height must be between 0 and 3 m."),
+        )
+        .nullable(),
+    )
+    .optional(),
   allergies: z.preprocess(
     (v) =>
       Array.isArray(v)

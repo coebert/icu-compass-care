@@ -17,6 +17,7 @@ const DEMOGRAPHIC_LABELS: Record<string, string> = {
   sex: "Sex",
   hospital_number: "Hospital number",
   weight_kg: "Weight (kg)",
+  height_m: "Height (m)",
   location_type: "Location",
   ward: "Ward",
   bed: "Bed",

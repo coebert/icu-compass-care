@@ -75,6 +75,7 @@ const TRACKED_PATIENT_FIELDS: { column: string; label: string }[] = [
   { column: "sex", label: "sex" },
   { column: "hospital_number", label: "hospital_number" },
   { column: "weight_kg", label: "weight_kg" },
+  { column: "height_m", label: "height_m" },
   { column: "location_type", label: "location_type" },
   { column: "ward", label: "ward" },
   { column: "bed", label: "bed" },

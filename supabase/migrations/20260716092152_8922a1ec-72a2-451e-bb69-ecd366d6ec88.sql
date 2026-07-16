@@ -1,0 +1,1 @@
+ALTER TABLE public.patients ADD COLUMN height_m numeric;
