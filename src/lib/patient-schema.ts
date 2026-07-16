@@ -130,8 +130,9 @@ export const patientInput = z.object({
         .pipe(
           z.coerce
             .number({ invalid_type_error: "Weight must be a valid number." })
-            .min(0, "Weight must be between 0 and 600 kg.")
-            .max(600, "Weight must be between 0 and 600 kg."),
+            .finite("Weight must be a valid number.")
+            .min(1, "Weight must be between 1 and 600 kg.")
+            .max(600, "Weight must be between 1 and 600 kg."),
         )
         .nullable(),
     )
@@ -146,8 +147,9 @@ export const patientInput = z.object({
         .pipe(
           z.coerce
             .number({ invalid_type_error: "Height must be a valid number." })
-            .min(0, "Height must be between 0 and 3 m.")
-            .max(3, "Height must be between 0 and 3 m."),
+            .finite("Height must be a valid number.")
+            .min(0.3, "Height must be between 0.3 and 2.5 m (enter metres, not centimetres).")
+            .max(2.5, "Height must be between 0.3 and 2.5 m (enter metres, not centimetres)."),
         )
         .nullable(),
     )
