@@ -894,7 +894,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
   const name = p.full_name ?? "this patient";
   const showMove = p.status === "admitted" || p.status === "referred";
   return (
-    <CardContent className="space-y-2 p-4">
+    <CardContent className="min-h-0 flex-1 space-y-2 overflow-hidden p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <PatientName patient={p} showAge />
@@ -1266,7 +1266,7 @@ function BedBoard({
           Drag a patient card onto a bed to move them. On a tablet or phone, press and hold a card, then drag.
         </p>
       )}
-      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {roster.map((slot) => {
           const bed = slot.label;
           const label = slot.is_side_room ? `Side room ${bed}` : `Bed ${bed}`;
@@ -1320,7 +1320,7 @@ function BedBoard({
           );
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`flex h-full min-h-[240px] flex-col gap-2 rounded-lg transition-shadow ${validRing}`}>
+              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`flex flex-col gap-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
@@ -1335,7 +1335,7 @@ function BedBoard({
                       onTouchDragStart={onTouchDragStart}
                       suppressClickRef={suppressClickRef}
                     >
-                      <Card className={`h-full transition-colors hover:border-primary/50 ${slot.is_side_room ? "border-amber-500/40" : ""} ${isOver ? overRing : ""}`}>
+                      <Card className={`flex h-[260px] flex-col overflow-hidden transition-colors hover:border-primary/50 ${slot.is_side_room ? "border-amber-500/40" : ""} ${isOver ? overRing : ""}`}>
                         <div className={`flex items-center border-b px-4 py-1.5 text-xs font-semibold ${sideRoomHeader}`}>
                           <HeaderLabel />
                         </div>
@@ -1358,7 +1358,7 @@ function BedBoard({
               data-bed={bed}
               onClick={() => onAddToBed(bed)}
               {...dropHandlers}
-              className={`group flex h-full min-h-[240px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
+              className={`group flex h-[260px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed p-4 text-center transition-colors ${emptySideRoom} ${dragging && ineligible ? "opacity-50" : ""} ${validTarget && !isOver ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30 ring-offset-1 ring-offset-background" : ""} ${isOver ? (ineligible ? "border-destructive bg-destructive/10 ring-2 ring-destructive/40" : "border-primary bg-primary/10 ring-2 ring-primary/40") : ""}`}
             >
               <span className={`flex items-center gap-1.5 text-xs font-semibold ${slot.is_side_room ? "text-amber-900 dark:text-amber-200" : "text-muted-foreground"}`}>
                 {slot.is_side_room && <DoorClosed className="h-3.5 w-3.5" aria-hidden />}
@@ -1385,7 +1385,7 @@ function BedBoard({
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             ICU · no bed assigned ({unassigned.length})
           </p>
-          <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
             {unassigned.map((p) => (
               <PatientHoverCard key={p.id} p={p}>
@@ -1396,7 +1396,7 @@ function BedBoard({
                   onTouchDragStart={onTouchDragStart}
                   suppressClickRef={suppressClickRef}
                 >
-                  <Card className="h-full transition-colors hover:border-primary/50">
+                  <Card className="flex h-[260px] flex-col overflow-hidden transition-colors hover:border-primary/50">
                     <PatientCardBody p={p} />
                   </Card>
                 </DraggablePatientLink>
