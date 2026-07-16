@@ -1320,7 +1320,7 @@ function BedBoard({
           );
           if (occupants.length > 0) {
             return (
-              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`flex h-full min-h-[240px] flex-col gap-2 rounded-lg transition-shadow ${validRing}`}>
+              <div key={slot.id} data-bed={bed} {...dropHandlers} className={`flex flex-col gap-2 rounded-lg transition-shadow ${validRing}`}>
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
