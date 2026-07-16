@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { formatBmiSummary } from "@/lib/patient-schema";
+import { formatBmiSummary, computeIbw, formatIbwValue } from "@/lib/patient-schema";
 
 /**
  * Shared patient identity primitives so initials, age, and hospital number
