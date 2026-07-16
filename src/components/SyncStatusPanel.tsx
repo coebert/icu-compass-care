@@ -107,19 +107,19 @@ export function SyncStatusPanel({
 
   return (
     <TooltipProvider>
-      <div className={cn("inline-flex items-center gap-2", className)}>
+      <div className={cn("inline-flex shrink-0 items-center gap-2 whitespace-nowrap", className)}>
         <Tooltip>
           <TooltipTrigger asChild>
             <span
               className={cn(
-                "inline-flex cursor-default items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
+                "inline-flex cursor-default items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs",
                 hasError ? "border-destructive/40 text-destructive" : "text-muted-foreground",
               )}
             >
               {hasError ? (
-                <AlertTriangle className="h-3.5 w-3.5" />
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
               )}
               {badgeLabel} {badgeTime}
             </span>
