@@ -95,6 +95,20 @@ export function ScanChartDialog({
     if (fileInput.current) fileInput.current.value = "";
   };
 
+  // Re-scan: drop extracted values and any in-memory page bytes, return to the
+  // file picker for a fresh capture. Nothing is persisted to the app at this
+  // point (images are only ever held in component state), so clearing state is
+  // sufficient to guarantee no image survives.
+  const rescan = () => {
+    setExtraction(null);
+    setRedactPages([]);
+    setError(null);
+    setPageCount(0);
+    setSelectedPatientId(patientId);
+    if (fileInput.current) fileInput.current.value = "";
+    setStage("pick");
+  };
+
   const extractMut = useMutation({
     mutationFn: async (pagesToSend: RedactionPage[]) => {
       // Bake redactions into each page BEFORE handing bytes to the server fn.
