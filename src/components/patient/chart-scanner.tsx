@@ -492,7 +492,7 @@ function ReviewPanel({
           Detailed review — every extracted value with predicted ranges
         </summary>
         <div className="mt-3">
-          <ChartReviewSheet extraction={extraction} lowConf={lowConf} />
+          <ChartReviewSheet extraction={extraction} lowConf={lowConf} onChange={onChange} />
         </div>
       </details>
 
