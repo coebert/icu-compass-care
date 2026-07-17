@@ -101,7 +101,7 @@ export function ScanChartDialog({
     setRedactPages([]);
     setExtraction(null);
     setError(null);
-    setSelectedPatientId(patientId);
+    setSelectedPatientId(patientId ?? "");
     if (fileInput.current) fileInput.current.value = "";
   };
 
@@ -114,7 +114,7 @@ export function ScanChartDialog({
     setRedactPages([]);
     setError(null);
     setPageCount(0);
-    setSelectedPatientId(patientId);
+    setSelectedPatientId(patientId ?? "");
     if (fileInput.current) fileInput.current.value = "";
     setStage("pick");
   };
