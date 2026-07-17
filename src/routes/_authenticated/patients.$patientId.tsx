@@ -646,16 +646,31 @@ function todayISO(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-function OverviewChartCard({ patientId }: { patientId: string }) {
+function OverviewChartCard({ patientId, initialDate, onDateChange }: { patientId: string; initialDate?: string; onDateChange?: (date: string) => void }) {
   const listDays = useServerFn(listChartDays);
-  const [expanded, setExpanded] = useState(false);
-  const [date, setDate] = useState<string>(() => {
+  const [expanded, setExpanded] = useState(!!initialDate);
+  const [date, setDateState] = useState<string>(() => {
+    if (initialDate) return initialDate;
     const d = new Date();
     const m = `${d.getMonth() + 1}`.padStart(2, "0");
     const day = `${d.getDate()}`.padStart(2, "0");
     return `${d.getFullYear()}-${m}-${day}`;
   });
   const [chartKey, setChartKey] = useState(0);
+  const setDate = (updater: string | ((prev: string) => string)) => {
+    setDateState((prev) => {
+      const next = typeof updater === "function" ? (updater as (p: string) => string)(prev) : updater;
+      return next;
+    });
+  };
+  useEffect(() => {
+    if (initialDate && initialDate !== date) {
+      setDateState(initialDate);
+      setExpanded(true);
+      setChartKey((k) => k + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDate]);
 
   const daysQ = useQuery({
     queryKey: ["chart-days-overview", patientId],
@@ -663,9 +678,10 @@ function OverviewChartCard({ patientId }: { patientId: string }) {
   });
 
   const open = (d: string) => {
-    setDate(d);
+    setDateState(d);
     setExpanded(true);
     setChartKey((k) => k + 1);
+    onDateChange?.(d);
   };
 
   const recent = (daysQ.data ?? []).slice(0, 8);
