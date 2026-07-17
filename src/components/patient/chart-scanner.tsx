@@ -155,17 +155,19 @@ export function ScanChartDialog({
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-4 w-4" /> Scan Radnor chart — {chartDate}
           </DialogTitle>
           <DialogDescription>
-            The photo is sent to the extractor and immediately discarded. Only the
-            structured values below are stored, and only hospital number and initials
-            identify the patient.
+            You will be asked to blur out the patient name and date of birth before the
+            image is sent for extraction. The photo is discarded immediately after; only
+            the structured values are stored, and only hospital number and initials
+            identify the record.
           </DialogDescription>
         </DialogHeader>
+
 
         {stage === "pick" && (
           <div className="space-y-4">
