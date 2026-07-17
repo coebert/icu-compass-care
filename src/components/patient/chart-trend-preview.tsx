@@ -97,11 +97,18 @@ const SERIES: Series[] = [
   },
 ];
 
-export function ChartTrendPreview({ extraction }: { extraction: ChartExtraction }) {
+export function ChartTrendPreview({
+  extraction,
+  lowConf,
+}: {
+  extraction: ChartExtraction;
+  lowConf?: Set<string>;
+}) {
   const byHour = new Map<number, Record<string, number | null>>();
   for (const row of extraction.hourly) {
     byHour.set(row.hour, row as unknown as Record<string, number | null>);
   }
+  const lc = lowConf ?? new Set<string>();
 
   return (
     <div className="space-y-3">
@@ -110,18 +117,19 @@ export function ChartTrendPreview({ extraction }: { extraction: ChartExtraction 
           24h Chart preview
         </p>
         <p className="text-[11px] text-muted-foreground">
-          Green band = typical adult ICU range. Gaps = no value extracted.
+          Hover or tap any point to inspect the extracted value, hour, and OCR confidence.
         </p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {SERIES.map((s) => (
-          <Sparkline key={s.key} series={s} byHour={byHour} />
+          <Sparkline key={s.key} series={s} byHour={byHour} lowConf={lc} />
         ))}
       </div>
       <BalanceStrip byHour={byHour} />
     </div>
   );
 }
+
 
 function Sparkline({
   series,
