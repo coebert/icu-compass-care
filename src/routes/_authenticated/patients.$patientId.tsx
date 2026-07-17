@@ -75,6 +75,7 @@ const TAB_KEYS = [
 const patientDetailSearchSchema = z.object({
   tab: fallback(z.string(), "overview").default("overview"),
   filter: fallback(z.string(), "").default(""),
+  chartDate: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
