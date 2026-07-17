@@ -62,6 +62,8 @@ export const chartExtractionSchema = z.object({
     })
     .default({}),
   notes: z.string().nullish(),
+  overall_confidence: z.number().min(0).max(1).nullish(),
+  low_confidence: z.array(z.string()).default([]),
 });
 
 export type ChartExtraction = z.infer<typeof chartExtractionSchema>;
@@ -82,7 +84,18 @@ Rules:
 - Vitals: read the hourly grid (HR, SBP/DBP, MAP, CVP, SpO2, EtCO2, RR, Temp, GCS) into the matching hourly row.
 - Ventilation: mode, PEEP, FiO2 (as fraction 0-1), pressure support, tidal volume, minute volume, peak pressure.
 
+Confidence reporting (REQUIRED):
+- overall_confidence: your overall confidence 0-1 that the whole extraction is correct.
+- low_confidence: an array of dotted field paths you are uncertain about (illegible handwriting, ambiguous digits, smudges, unclear ticks). Use these path formats:
+    "hospital_number", "initials", "chart_date", "balance_24h_ml", "notes"
+    "assessments.<system>"  e.g. "assessments.resp"
+    "hourly[<hour>].<field>"  e.g. "hourly[13].hr", "hourly[7].sbp"
+    "investigations[<index>].<field>"  e.g. "investigations[2].findings"
+    "microbiology[<index>].<field>"
+- Prefer a null value + a low_confidence entry over a guessed value. Only list paths whose returned value is questionable.
+
 Return strictly valid JSON with no prose, no code fences.`;
+
 
 export const extractChart = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
