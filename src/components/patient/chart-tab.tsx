@@ -363,11 +363,13 @@ function ChartGrid({
   cols,
   hourly,
   onSave,
+  readOnly = false,
 }: {
   title: string;
   cols: ColDef[];
   hourly: HourlyRow[];
   onSave: (hour: number, key: keyof HourlyCell, value: string, col: ColDef) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -404,8 +406,10 @@ function ChartGrid({
                         step={isText ? undefined : (c.step ?? "1")}
                         inputMode={isText ? undefined : c.step ? "decimal" : "numeric"}
                         maxLength={isText ? 200 : undefined}
+                        readOnly={readOnly}
                         defaultValue={raw == null ? "" : String(raw)}
                         onBlur={(e) => {
+                          if (readOnly) return;
                           const current = raw == null ? "" : String(raw);
                           if (e.currentTarget.value !== current) {
                             onSave(row.hour, c.key, e.currentTarget.value, c);
@@ -413,7 +417,7 @@ function ChartGrid({
                         }}
                         className={`h-8 w-full bg-transparent px-2 outline-none focus:bg-accent/40 ${
                           isText ? "min-w-24" : "min-w-16 tabular-nums"
-                        }`}
+                        } ${readOnly ? "cursor-default" : ""}`}
                         aria-label={`${c.label} at hour ${row.hour}`}
                       />
                     </td>
