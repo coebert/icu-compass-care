@@ -213,8 +213,8 @@ export const extractChart = createServerFn({ method: "POST" })
     await context.supabase
       .from("audit_log")
       .insert({
-        entity: "patients",
-        entity_id: data.patientId,
+        entity: data.patientId ? "patients" : "chart_scan",
+        entity_id: data.patientId ?? null,
         action: "update",
         user_id: context.userId,
         diff: {
