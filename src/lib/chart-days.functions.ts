@@ -79,7 +79,9 @@ export const getChartDay = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { data: day, error } = await context.supabase
       .from("chart_days")
-      .select("id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at")
+      .select(
+        "id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at, archived_at, archived_by, archive_reason",
+      )
       .eq("patient_id", data.patientId)
       .eq("chart_date", data.chartDate)
       .maybeSingle();
