@@ -208,7 +208,7 @@ export function ChartRedactor({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1">
           <Button
             size="sm"
@@ -255,6 +255,89 @@ export function ChartRedactor({
           </Button>
         </div>
       </div>
+
+      {/* Per-page confirmation — extraction is blocked until both are ticked
+          on every page. */}
+      <div
+        className={`rounded border p-2 text-xs ${
+          page.boxes.length === 0
+            ? "border-amber-500/50 bg-amber-500/5"
+            : page.nameConfirmed && page.dobConfirmed
+              ? "border-emerald-500/50 bg-emerald-500/5"
+              : "border-amber-500/50 bg-amber-500/5"
+        }`}
+      >
+        <p className="mb-1 font-medium">Confirm redaction on this page</p>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={page.nameConfirmed}
+              disabled={page.boxes.length === 0}
+              onChange={(e) => updatePage((p) => ({ ...p, nameConfirmed: e.target.checked }))}
+            />
+            <span>Patient <strong>name</strong> is fully covered</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={page.dobConfirmed}
+              disabled={page.boxes.length === 0}
+              onChange={(e) => updatePage((p) => ({ ...p, dobConfirmed: e.target.checked }))}
+            />
+            <span>Patient <strong>date of birth</strong> is fully covered</span>
+          </label>
+        </div>
+        {page.boxes.length === 0 && (
+          <p className="mt-1 text-muted-foreground">
+            Draw at least one black box before confirming.
+          </p>
+        )}
+      </div>
+
+      {/* Per-page overview strip — each page shows its coverage status. */}
+      <div>
+        <p className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">
+          Redaction coverage per page
+        </p>
+        <ol className="flex flex-wrap gap-1">
+          {pages.map((p, i) => {
+            const s = pageCoverageStatus(p);
+            const isCurrent = i === idx;
+            const tone = s.ready
+              ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+              : "border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300";
+            return (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] ${tone} ${
+                    isCurrent ? "ring-2 ring-primary" : ""
+                  }`}
+                  aria-label={`Page ${i + 1}: ${s.ready ? "ready" : "needs confirmation"}`}
+                >
+                  {s.ready ? (
+                    <Check className="h-3 w-3" />
+                  ) : (
+                    <AlertTriangle className="h-3 w-3" />
+                  )}
+                  <span className="font-medium">P{i + 1}</span>
+                  <span className="tabular-nums opacity-70">
+                    {s.boxes}b · {s.nameConfirmed ? "N" : "n"}
+                    {s.dobConfirmed ? "D" : "d"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Legend: <strong>b</strong> = boxes drawn · <strong>N</strong>/<strong>D</strong> capital = name/DOB confirmed.
+          Every page must be green before you can send.
+        </p>
+      </div>
     </div>
   );
 }
+
