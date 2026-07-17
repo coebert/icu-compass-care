@@ -392,6 +392,15 @@ function ReviewPanel({
         flagged={balanceLow}
       />
 
+      <details className="rounded border p-3" open>
+        <summary className="cursor-pointer text-sm font-medium">
+          Detailed review — every extracted value with predicted ranges
+        </summary>
+        <div className="mt-3">
+          <ChartReviewSheet extraction={extraction} lowConf={lowConf} />
+        </div>
+      </details>
+
       {totalLow > 0 && (
         <details className="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-xs" open>
           <summary className="cursor-pointer text-sm font-medium text-amber-700 dark:text-amber-400">
