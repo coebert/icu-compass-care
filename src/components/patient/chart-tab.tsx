@@ -275,7 +275,9 @@ export function ChartTab({ patientId }: { patientId: string }) {
                   title={group.title}
                   cols={group.cols}
                   hourly={hourly}
+                  readOnly={!!day.archived_at}
                   onSave={(hour, key, valueStr, col) => {
+                    if (day.archived_at) return;
                     const trimmed = valueStr.trim();
                     let next: string | number | null;
                     if (col.type === "text") {
@@ -297,7 +299,6 @@ export function ChartTab({ patientId }: { patientId: string }) {
                     void _h;
                     cellMut.mutate({ chartDayId: day.id, hour, patch: rest as HourlyCell });
                   }}
-
                 />
               ))}
 
@@ -305,7 +306,7 @@ export function ChartTab({ patientId }: { patientId: string }) {
                 <Label htmlFor="chart-notes" className="text-xs">Nursing notes / summary</Label>
                 <NotesEditor
                   initial={day.notes ?? ""}
-                  disabled={notesMut.isPending}
+                  disabled={notesMut.isPending || !!day.archived_at}
                   onSave={(next) =>
                     notesMut.mutate({ id: day.id, notes: next.trim() ? next : null })
                   }
