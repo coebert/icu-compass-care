@@ -23,10 +23,13 @@ type HourlyRow = HourlyCell & { hour: number };
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 // Column groups shown in the digital replica of the paper chart.
-const COL_GROUPS: {
-  title: string;
-  cols: { key: keyof HourlyCell; label: string; step?: string }[];
-}[] = [
+type ColDef = {
+  key: keyof HourlyCell;
+  label: string;
+  step?: string;
+  type?: "number" | "text";
+};
+const COL_GROUPS: { title: string; cols: ColDef[] }[] = [
   {
     title: "Vitals",
     cols: [
@@ -45,12 +48,22 @@ const COL_GROUPS: {
   {
     title: "Ventilation",
     cols: [
+      { key: "vent_mode", label: "Mode", type: "text" },
       { key: "peep", label: "PEEP" },
       { key: "fio2", label: "FiO₂", step: "0.01" },
       { key: "p_support", label: "PS" },
       { key: "tv", label: "TV" },
       { key: "mv", label: "MV", step: "0.1" },
       { key: "peak_pressure", label: "Ppeak" },
+    ],
+  },
+  {
+    title: "Neuro / assessment",
+    cols: [
+      { key: "cam_icu", label: "CAM-ICU", type: "text" },
+      { key: "pupils_l", label: "Pupils L", type: "text" },
+      { key: "pupils_r", label: "Pupils R", type: "text" },
+      { key: "bowels", label: "Bowels", type: "text" },
     ],
   },
   {
@@ -61,12 +74,14 @@ const COL_GROUPS: {
       { key: "ng_aspirate_ml", label: "NG asp" },
       { key: "ng_free_ml", label: "NG free" },
       { key: "urine_ml", label: "Urine" },
+      { key: "target_removal_ml", label: "Target rem" },
       { key: "actual_removal_ml", label: "Removal" },
       { key: "hourly_balance_ml", label: "Hr bal" },
       { key: "cumulative_balance_ml", label: "Cum bal" },
     ],
   },
 ];
+
 
 function todayISO(): string {
   const d = new Date();
