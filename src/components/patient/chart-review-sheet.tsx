@@ -1,5 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import type { ChartExtraction } from "@/lib/chart-extract.functions";
+import { ChartTrendPreview } from "@/components/patient/chart-trend-preview";
+
 
 /**
  * Detailed pre-commit review of an extracted Radnor chart. Shows every value
@@ -122,7 +124,10 @@ export function ChartReviewSheet({
         </span>
       </div>
 
+      <ChartTrendPreview extraction={extraction} />
+
       <VitalsTable rows={rows} keys={vitalKeys} ranges={HOURLY_RANGES} lowConf={lowConf} title="Vitals" />
+
 
       {hasAny(rows, ventKeys) && (
         <VitalsTable rows={rows} keys={ventKeys} ranges={VENT_RANGES} lowConf={lowConf} title="Ventilation" />
