@@ -186,12 +186,20 @@ function Sparkline({
     : null;
 
 
+  const activeX = active ? xForHour(active.h) : null;
+  const popoverOnRight = activeX != null && activeX < W / 2;
+
   return (
-    <div className="rounded border p-2">
+    <div className="relative rounded border p-2">
       <div className="mb-1 flex items-baseline justify-between text-xs">
         <span className="font-medium">
           {series.label}
           {series.unit ? <span className="ml-1 text-muted-foreground">{series.unit}</span> : null}
+          {bandStr && (
+            <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+              typical {bandStr}
+            </span>
+          )}
         </span>
         <span className="font-mono tabular-nums text-muted-foreground">
           {lastVal == null
@@ -201,102 +209,203 @@ function Sparkline({
               : String(lastVal)}
         </span>
       </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label={`${series.label} over 24 hours`}
-        className="h-[74px] w-full"
-      >
-        {/* target band */}
-        {series.bands?.map((b, i) => (
-          <rect
-            key={i}
-            x={padL}
-            y={yForVal(b.hi)}
-            width={innerW}
-            height={Math.max(1, yForVal(b.lo) - yForVal(b.hi))}
-            fill="hsl(150 60% 45% / 0.12)"
-          />
-        ))}
-        {/* y-axis labels */}
-        <text x={4} y={padT + 6} className="fill-muted-foreground" fontSize="9">
-          {series.precision != null ? series.yMax.toFixed(series.precision) : series.yMax}
-        </text>
-        <text x={4} y={H - padB + 3} className="fill-muted-foreground" fontSize="9">
-          {series.precision != null ? series.yMin.toFixed(series.precision) : series.yMin}
-        </text>
-        {/* x-axis hour ticks (0, 6, 12, 18) */}
-        {[0, 6, 12, 18, 23].map((h) => (
-          <g key={h}>
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-label={`${series.label} over 24 hours`}
+          className="h-[74px] w-full"
+          onMouseLeave={() => setActiveHour(null)}
+        >
+          {/* target band */}
+          {series.bands?.map((b, i) => (
+            <rect
+              key={i}
+              x={padL}
+              y={yForVal(b.hi)}
+              width={innerW}
+              height={Math.max(1, yForVal(b.lo) - yForVal(b.hi))}
+              fill="hsl(150 60% 45% / 0.12)"
+            />
+          ))}
+          {/* y-axis labels */}
+          <text x={4} y={padT + 6} className="fill-muted-foreground" fontSize="9">
+            {series.precision != null ? series.yMax.toFixed(series.precision) : series.yMax}
+          </text>
+          <text x={4} y={H - padB + 3} className="fill-muted-foreground" fontSize="9">
+            {series.precision != null ? series.yMin.toFixed(series.precision) : series.yMin}
+          </text>
+          {/* x-axis hour ticks (0, 6, 12, 18) */}
+          {[0, 6, 12, 18, 23].map((h) => (
+            <g key={h}>
+              <line
+                x1={xForHour(h)}
+                x2={xForHour(h)}
+                y1={padT}
+                y2={H - padB}
+                stroke="currentColor"
+                strokeOpacity={0.08}
+              />
+              <text
+                x={xForHour(h)}
+                y={H - 3}
+                textAnchor="middle"
+                className="fill-muted-foreground"
+                fontSize="8"
+              >
+                {String(h).padStart(2, "0")}
+              </text>
+            </g>
+          ))}
+          {/* line */}
+          {d && (
+            <path d={d} fill="none" stroke={series.stroke} strokeWidth={1.5} strokeLinejoin="round" />
+          )}
+          {/* active hour guide */}
+          {active && (
             <line
-              x1={xForHour(h)}
-              x2={xForHour(h)}
+              x1={xForHour(active.h)}
+              x2={xForHour(active.h)}
               y1={padT}
               y2={H - padB}
               stroke="currentColor"
-              strokeOpacity={0.08}
+              strokeOpacity={0.35}
+              strokeDasharray="2 2"
             />
-            <text
-              x={xForHour(h)}
-              y={H - 3}
-              textAnchor="middle"
-              className="fill-muted-foreground"
-              fontSize="8"
-            >
-              {String(h).padStart(2, "0")}
-            </text>
-          </g>
-        ))}
-        {/* line */}
-        {d && (
-          <path d={d} fill="none" stroke={series.stroke} strokeWidth={1.5} strokeLinejoin="round" />
-        )}
-        {/* points */}
-        {points.map((p) => {
-          const label = `${String(p.h).padStart(2, "0")}:00 — ${
-            series.precision != null ? p.v.toFixed(series.precision) : p.v
-          }${series.unit ?? ""}`;
-          const titleText = p.oor
-            ? `${label} (outside typical) — click to jump to ${series.label} at ${String(p.h).padStart(2, "0")}:00`
-            : label;
-          return (
-            <g key={p.h}>
-              <circle
-                cx={xForHour(p.h)}
-                cy={yForVal(p.v)}
-                r={p.oor ? 2.5 : 1.6}
-                fill={p.oor ? "hsl(30 90% 55%)" : series.stroke}
-                stroke={p.oor ? "hsl(30 90% 40%)" : "none"}
-                strokeWidth={p.oor ? 0.75 : 0}
-              />
-              {p.oor && (
+          )}
+          {/* points */}
+          {points.map((p) => {
+            const isActive = active?.h === p.h;
+            const r = isActive ? 3.2 : p.oor ? 2.5 : 1.6;
+            return (
+              <g key={p.h}>
                 <circle
                   cx={xForHour(p.h)}
                   cy={yForVal(p.v)}
-                  r={8}
+                  r={r}
+                  fill={p.oor ? "hsl(30 90% 55%)" : series.stroke}
+                  stroke={p.oor ? "hsl(30 90% 40%)" : isActive ? "hsl(var(--primary))" : "none"}
+                  strokeWidth={isActive ? 1 : p.oor ? 0.75 : 0}
+                />
+                {/* Larger invisible hit target for hover/click/keyboard */}
+                <circle
+                  cx={xForHour(p.h)}
+                  cy={yForVal(p.v)}
+                  r={9}
                   fill="transparent"
                   className="cursor-pointer focus:outline-none"
-                  onClick={() => focusChartCell(p.h, series.key)}
+                  onMouseEnter={() => setActiveHour(p.h)}
+                  onFocus={() => setActiveHour(p.h)}
+                  onBlur={() => setActiveHour((h) => (h === p.h ? null : h))}
+                  onClick={() => setActiveHour((h) => (h === p.h ? null : p.h))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       focusChartCell(p.h, series.key);
+                    } else if (e.key === "Escape") {
+                      setActiveHour(null);
                     }
                   }}
                   role="button"
                   tabIndex={0}
-                  aria-label={titleText}
+                  aria-label={`${series.label} at ${String(p.h).padStart(2, "0")}:00 — ${
+                    series.precision != null ? p.v.toFixed(series.precision) : p.v
+                  }${series.unit ?? ""}${p.uncertain ? ", OCR uncertain" : ""}${
+                    p.oor ? ", outside typical range" : ""
+                  }. Enter to jump to detailed cell.`}
                 />
-              )}
-              <title>{titleText}</title>
-            </g>
-          );
-        })}
-
-      </svg>
+              </g>
+            );
+          })}
+        </svg>
+        {active && (
+          <PointPopover
+            series={series}
+            point={active}
+            bandStr={bandStr}
+            side={popoverOnRight ? "right" : "left"}
+            onJump={() => focusChartCell(active.h, series.key)}
+            onClose={() => setActiveHour(null)}
+          />
+        )}
+      </div>
     </div>
   );
 }
+
+function PointPopover({
+  series,
+  point,
+  bandStr,
+  side,
+  onJump,
+  onClose,
+}: {
+  series: Series;
+  point: { h: number; v: number; oor: boolean; uncertain: boolean };
+  bandStr: string | null;
+  side: "left" | "right";
+  onJump: () => void;
+  onClose: () => void;
+}) {
+  const valueStr = series.precision != null ? point.v.toFixed(series.precision) : String(point.v);
+  return (
+    <div
+      role="dialog"
+      aria-label={`${series.label} value details`}
+      className={`absolute top-1 z-20 w-52 rounded-md border bg-popover p-2 text-xs shadow-md ${
+        side === "right" ? "right-2" : "left-2"
+      }`}
+    >
+      <div className="mb-1 flex items-center justify-between">
+        <span className="font-medium">
+          {series.label} · {String(point.h).padStart(2, "0")}:00
+        </span>
+        <button
+          type="button"
+          className="rounded px-1 text-muted-foreground hover:bg-muted"
+          onClick={onClose}
+          aria-label="Close inspector"
+        >
+          ×
+        </button>
+      </div>
+      <div className="font-mono text-base tabular-nums">
+        {valueStr}
+        {series.unit && <span className="ml-1 text-xs text-muted-foreground">{series.unit}</span>}
+      </div>
+      {bandStr && (
+        <div className="mt-0.5 text-[11px] text-muted-foreground">
+          typical {bandStr}
+        </div>
+      )}
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {point.uncertain ? (
+          <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-1.5 py-0 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            OCR uncertain
+          </span>
+        ) : (
+          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+            OCR confident
+          </span>
+        )}
+        {point.oor && (
+          <span className="rounded-full border border-orange-500/50 bg-orange-500/10 px-1.5 py-0 text-[10px] font-medium text-orange-700 dark:text-orange-400">
+            outside typical
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onJump}
+        className="mt-2 w-full rounded border bg-background px-2 py-1 text-[11px] font-medium hover:bg-muted"
+      >
+        Jump to detailed row →
+      </button>
+    </div>
+  );
+}
+
 
 function BalanceStrip({
   byHour,
