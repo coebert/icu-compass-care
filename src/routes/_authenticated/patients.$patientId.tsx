@@ -36,6 +36,7 @@ import { listMicrobiology } from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { DemographicsTab } from "@/components/patient/demographics-tab";
 import { ChartTab } from "@/components/patient/chart-tab";
+import { listChartDays } from "@/lib/chart-days.functions";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { missingCriticalFields } from "@/lib/handover-validation";
