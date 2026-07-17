@@ -518,7 +518,7 @@ function ReviewPanel({
         selectedPatientId={selectedPatientId}
         openedFromPatientId={openedFromPatientId}
         onSelectPatient={onSelectPatient}
-        defaultOpen={stickerMismatch}
+        defaultOpen={stickerMismatch || !openedFromPatientId}
       />
 
       {stickerMismatch && !manuallyReassigned && (
