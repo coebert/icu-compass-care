@@ -221,17 +221,26 @@ export function ChartTab({ patientId }: { patientId: string }) {
                 Start blank chart
               </Button>
             )}
-            {day && (
+            {day && !day.archived_at && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  if (confirm("Delete this whole chart day?")) deleteMut.mutate(day.id);
-                }}
-                className="gap-1 text-destructive"
-                aria-label="Delete chart day"
+                onClick={() => setArchiveOpen(true)}
+                className="gap-1"
+                aria-label="Archive chart day"
               >
-                <Trash2 className="h-4 w-4" /> Delete day
+                <Archive className="h-4 w-4" /> Archive day
+              </Button>
+            )}
+            {day?.archived_at && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => restoreMut.mutate(day.id)}
+                disabled={restoreMut.isPending}
+                className="gap-1"
+              >
+                <RotateCcw className="h-4 w-4" /> Restore
               </Button>
             )}
           </div>
