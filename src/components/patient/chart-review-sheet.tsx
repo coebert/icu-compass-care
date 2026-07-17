@@ -403,7 +403,9 @@ function VitalsTable({
                   return (
                     <td
                       key={k}
-                      className={`px-1 py-0.5 text-center tabular-nums ${cellClass(sev)} ${
+                      id={`chart-cell-${row.hour}-${k}`}
+                      data-chart-cell="1"
+                      className={`scroll-mt-24 px-1 py-0.5 text-center tabular-nums transition-shadow ${cellClass(sev)} ${
                         uncertain ? "outline outline-1 outline-amber-500/60" : ""
                       }`}
                       title={title}
