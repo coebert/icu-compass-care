@@ -28,6 +28,7 @@ import {
   loadPage,
   type RedactionPage,
 } from "@/components/patient/chart-redactor";
+import { LiveCameraCapture } from "@/components/patient/live-camera-capture";
 
 
 
