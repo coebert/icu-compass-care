@@ -229,6 +229,13 @@ export function ChartReviewSheet({
         </span>
       </div>
 
+      {onChange && (
+        <HourOffsetControl
+          extraction={extraction}
+          onChange={onChange}
+        />
+      )}
+
       <ChartTrendPreview extraction={extraction} />
 
       <VitalsTable
