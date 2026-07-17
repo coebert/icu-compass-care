@@ -440,7 +440,20 @@ function ReviewPanel({
         onSelectPatient={onSelectPatient}
         openedFromPatientId={openedFromPatientId}
         hasStickerFields={!!(extraction.hospital_number || extraction.initials)}
+        extractedMrn={extraction.hospital_number ?? null}
+        extractedInitials={extraction.initials ?? null}
+        onAutoFill={(mrn, initials) =>
+          onChange({
+            ...extraction,
+            hospital_number: mrn,
+            initials: initials,
+            low_confidence: (extraction.low_confidence ?? []).filter(
+              (p) => p !== "hospital_number" && p !== "initials",
+            ),
+          })
+        }
       />
+
 
       <ManualPatientPicker
         selectedPatientId={selectedPatientId}
