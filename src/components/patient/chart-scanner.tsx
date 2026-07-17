@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
@@ -10,9 +10,17 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Camera, X, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Loader2, Camera, X, ShieldCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { extractChart, commitChart, type ChartExtraction } from "@/lib/chart-extract.functions";
+import {
+  extractChart,
+  commitChart,
+  matchPatientBySticker,
+  type ChartExtraction,
+  type MatchCandidate,
+} from "@/lib/chart-extract.functions";
+import { fmtDate } from "@/lib/icu";
+
 
 // Client-side downscale to ≤2000px longest edge, JPEG 0.85. Also strips EXIF
 // (canvas re-encode discards metadata) so no GPS is uploaded with the photo.
