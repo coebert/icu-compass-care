@@ -31,11 +31,14 @@ export function occupantView(p: BridgePatient) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function buildBridgeBedBoard(supabaseAdmin: any) {
-  // Active ICU patients are the only ones that occupy beds.
+  // Active ICU patients are the only ones that occupy beds. We only expose
+  // patients an admin has explicitly approved for cross-project sharing —
+  // matching the governance gate used by every other bridge PHI feed.
   const { data, error } = await supabaseAdmin
     .from("patients")
     .select("*")
     .eq("location_type", "icu")
+    .eq("shared_with_partner", true)
     .in("status", ["admitted", "referred"])
     .order("updated_at", { ascending: false });
   if (error) throw error;
