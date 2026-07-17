@@ -440,7 +440,20 @@ function ReviewPanel({
         onSelectPatient={onSelectPatient}
         openedFromPatientId={openedFromPatientId}
         hasStickerFields={!!(extraction.hospital_number || extraction.initials)}
+        extractedMrn={extraction.hospital_number ?? null}
+        extractedInitials={extraction.initials ?? null}
+        onAutoFill={(mrn, initials) =>
+          onChange({
+            ...extraction,
+            hospital_number: mrn,
+            initials: initials,
+            low_confidence: (extraction.low_confidence ?? []).filter(
+              (p) => p !== "hospital_number" && p !== "initials",
+            ),
+          })
+        }
       />
+
 
       <ManualPatientPicker
         selectedPatientId={selectedPatientId}
@@ -588,6 +601,9 @@ function StickerMatchPanel({
   onSelectPatient,
   openedFromPatientId,
   hasStickerFields,
+  extractedMrn,
+  extractedInitials,
+  onAutoFill,
 }: {
   loading: boolean;
   candidates: MatchCandidate[];
@@ -596,6 +612,9 @@ function StickerMatchPanel({
   onSelectPatient: (id: string) => void;
   openedFromPatientId: string;
   hasStickerFields: boolean;
+  extractedMrn: string | null;
+  extractedInitials: string | null;
+  onAutoFill: (mrn: string | null, initials: string | null) => void;
 }) {
   if (!hasStickerFields) {
     return (
@@ -647,45 +666,191 @@ function StickerMatchPanel({
       <p className="flex items-center gap-2 font-medium text-destructive">
         <AlertTriangle className="h-4 w-4" /> Sticker does NOT match the current patient
       </p>
-      {primary && (
-        <>
-          <p className="mt-2 text-xs">The sticker looks like:</p>
-          <button
-            type="button"
-            onClick={() => onSelectPatient(primary.id)}
-            className="mt-1 block w-full rounded border border-transparent px-2 py-1 text-left hover:border-destructive/40 hover:bg-background/60"
-            title="File the chart against this patient instead"
-          >
-            <CandidateLine c={primary} />
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Click to file against this patient
-            </span>
-          </button>
-        </>
-      )}
-      {candidates.length > 1 && (
-        <ul className="mt-2 space-y-1 text-xs">
-          {candidates.slice(1).map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => onSelectPatient(c.id)}
-                className="block w-full rounded border border-transparent px-2 py-1 text-left hover:border-destructive/40 hover:bg-background/60"
-              >
-                <CandidateLine c={c} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="mt-2 text-xs text-muted-foreground">
-        Reassign to the correct patient above or via the picker below, or tick the
-        override box if you are certain the sticker is wrong for
-        {selectedPatientId === openedFromPatientId ? " this patient." : " your selection."}
+      <p className="mt-1 text-xs text-muted-foreground">
+        {candidates.length === 1
+          ? "One candidate patient matches — compare the sticker to the record below."
+          : `${candidates.length} candidate patients match — compare each side-by-side and pick the correct one.`}
+      </p>
+      <ul className="mt-3 space-y-3">
+        {candidates.map((c, idx) => (
+          <li key={c.id}>
+            <CandidateCompareCard
+              candidate={c}
+              isPrimary={idx === 0 && !!primary && c.id === primary.id}
+              extractedMrn={extractedMrn}
+              extractedInitials={extractedInitials}
+              onSelect={() => onSelectPatient(c.id)}
+              onAutoFill={() =>
+                onAutoFill(c.hospital_number ?? null, deriveInitials(c.full_name))
+              }
+            />
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs text-muted-foreground">
+        <span className="font-medium">File against this patient</span> commits the chart
+        to that record. <span className="font-medium">Auto-fill from record</span> keeps
+        the current patient but overwrites the extracted MRN/initials with values from
+        the chosen record — use it when the OCR read the sticker wrong.
+        {selectedPatientId === openedFromPatientId
+          ? " Or tick the override box below if the sticker is wrong for this patient."
+          : " Or tick the override box below if the sticker is wrong for your selection."}
       </p>
     </div>
   );
 }
+
+function deriveInitials(fullName: string | null): string | null {
+  if (!fullName) return null;
+  const s = fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 3);
+  return s || null;
+}
+
+function normaliseMrn(v: string | null): string {
+  return (v ?? "").replace(/[-\s]/g, "").toUpperCase();
+}
+
+function CandidateCompareCard({
+  candidate,
+  isPrimary,
+  extractedMrn,
+  extractedInitials,
+  onSelect,
+  onAutoFill,
+}: {
+  candidate: MatchCandidate;
+  isPrimary: boolean;
+  extractedMrn: string | null;
+  extractedInitials: string | null;
+  onSelect: () => void;
+  onAutoFill: () => void;
+}) {
+  const recordInitials = deriveInitials(candidate.full_name);
+  const mrnMatch =
+    !!extractedMrn &&
+    !!candidate.hospital_number &&
+    normaliseMrn(extractedMrn) === normaliseMrn(candidate.hospital_number);
+  const initialsMatch =
+    !!extractedInitials &&
+    !!recordInitials &&
+    extractedInitials.toUpperCase() === recordInitials.toUpperCase();
+
+  const location = [candidate.ward, candidate.bed ? `Bed ${candidate.bed}` : null]
+    .filter(Boolean)
+    .join(" · ") || "—";
+  const demographics = [
+    candidate.age != null ? `${candidate.age}y` : null,
+    candidate.sex ? String(candidate.sex).slice(0, 1).toUpperCase() : null,
+    candidate.status,
+  ]
+    .filter(Boolean)
+    .join(" · ") || "—";
+
+  return (
+    <div className="rounded border bg-background/60 p-2">
+      {isPrimary && (
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Closest match
+        </p>
+      )}
+      <div className="overflow-hidden rounded border text-xs">
+        <table className="w-full table-fixed">
+          <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="w-24 px-2 py-1 text-left font-medium">Field</th>
+              <th className="px-2 py-1 text-left font-medium">Extracted (sticker)</th>
+              <th className="px-2 py-1 text-left font-medium">Patient record</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono">
+            <CompareRow
+              label="MRN"
+              extracted={extractedMrn ?? "—"}
+              record={candidate.hospital_number ?? "—"}
+              match={extractedMrn && candidate.hospital_number ? mrnMatch : null}
+            />
+            <CompareRow
+              label="Initials"
+              extracted={extractedInitials ?? "—"}
+              record={recordInitials ?? "—"}
+              match={extractedInitials && recordInitials ? initialsMatch : null}
+            />
+            <CompareRow label="Age / sex / status" extracted="—" record={demographics} match={null} />
+            <CompareRow label="Location" extracted="—" record={location} match={null} />
+            <CompareRow
+              label="Admitted"
+              extracted="—"
+              record={candidate.admission_date ? fmtDate(candidate.admission_date) : "—"}
+              match={null}
+            />
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onSelect}
+          className="rounded border border-destructive/50 bg-background px-2 py-1 text-xs font-medium hover:bg-destructive/10"
+        >
+          File against this patient
+        </button>
+        <button
+          type="button"
+          onClick={onAutoFill}
+          className="rounded border px-2 py-1 text-xs font-medium hover:bg-muted/60"
+          title="Overwrite the extracted MRN and initials with the values from this patient record"
+          disabled={mrnMatch && initialsMatch}
+        >
+          Auto-fill extracted MRN &amp; initials from record
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CompareRow({
+  label,
+  extracted,
+  record,
+  match,
+}: {
+  label: string;
+  extracted: string;
+  record: string;
+  match: boolean | null;
+}) {
+  const tone =
+    match === true
+      ? "bg-emerald-500/5"
+      : match === false
+        ? "bg-destructive/10"
+        : "";
+  return (
+    <tr className={`border-t ${tone}`}>
+      <td className="px-2 py-1 font-sans text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </td>
+      <td className="px-2 py-1 break-all">{extracted}</td>
+      <td className="px-2 py-1 break-all">
+        <span className="flex items-center gap-1">
+          {record}
+          {match === true && (
+            <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-label="matches sticker" />
+          )}
+          {match === false && (
+            <AlertTriangle className="h-3 w-3 text-destructive" aria-label="differs from sticker" />
+          )}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 
 function ManualPatientPicker({
   selectedPatientId,
