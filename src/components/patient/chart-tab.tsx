@@ -98,8 +98,8 @@ function todayISO(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-export function ChartTab({ patientId }: { patientId: string }) {
-  const [chartDate, setChartDate] = useState<string>(todayISO());
+export function ChartTab({ patientId, initialDate }: { patientId: string; initialDate?: string }) {
+  const [chartDate, setChartDate] = useState<string>(initialDate ?? todayISO());
   const [scanOpen, setScanOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
