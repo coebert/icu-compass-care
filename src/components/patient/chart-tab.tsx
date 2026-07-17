@@ -269,13 +269,37 @@ export function ChartTab({ patientId, initialDate }: { patientId: string; initia
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <Label htmlFor="chart-date" className="text-xs">Chart date</Label>
-              <Input
-                id="chart-date"
-                type="date"
-                value={chartDate}
-                onChange={(e) => setChartDate(e.target.value || todayISO())}
-                className="w-40"
-              />
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => setChartDate(shiftISODate(chartDate, -1))}
+                  aria-label="Previous day"
+                  title="Previous day"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="chart-date"
+                  type="date"
+                  value={chartDate}
+                  onChange={(e) => setChartDate(e.target.value || todayISO())}
+                  className="w-40"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => setChartDate(shiftISODate(chartDate, 1))}
+                  aria-label="Next day"
+                  title="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Button
               onClick={() => setScanOpen(true)}
