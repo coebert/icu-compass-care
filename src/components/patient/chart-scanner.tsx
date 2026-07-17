@@ -250,7 +250,12 @@ export function ScanChartDialog({
 
         {stage === "redact" && redactPages.length > 0 && (
           <div className="space-y-3">
-            <ChartRedactor pages={redactPages} onChange={setRedactPages} />
+            <ChartRedactor
+              pages={redactPages}
+              onChange={setRedactPages}
+              settings={redactSettings}
+              onSettingsChange={setRedactSettings}
+            />
             {error && (
               <p className="flex items-center gap-2 text-sm text-destructive">
                 <AlertTriangle className="h-4 w-4" /> {error}
