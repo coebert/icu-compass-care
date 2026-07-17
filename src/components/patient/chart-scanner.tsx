@@ -731,10 +731,13 @@ function StickerMatchPanel({
       </div>
     );
   }
+  const mismatchLabel = openedFromPatientId
+    ? "Sticker does NOT match the current patient"
+    : "Sticker does NOT match the selected patient";
   return (
     <div className="rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
       <p className="flex items-center gap-2 font-medium text-destructive">
-        <AlertTriangle className="h-4 w-4" /> Sticker does NOT match the current patient
+        <AlertTriangle className="h-4 w-4" /> {mismatchLabel}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
         {candidates.length === 1
@@ -762,9 +765,11 @@ function StickerMatchPanel({
         to that record. <span className="font-medium">Auto-fill from record</span> keeps
         the current patient but overwrites the extracted MRN/initials with values from
         the chosen record — use it when the OCR read the sticker wrong.
-        {selectedPatientId === openedFromPatientId
-          ? " Or tick the override box below if the sticker is wrong for this patient."
-          : " Or tick the override box below if the sticker is wrong for your selection."}
+        {openedFromPatientId
+          ? selectedPatientId === openedFromPatientId
+            ? " Or tick the override box below if the sticker is wrong for this patient."
+            : " Or tick the override box below if the sticker is wrong for your selection."
+          : " Or tick the override box below if the sticker is wrong for the selected patient."}
       </p>
     </div>
   );
