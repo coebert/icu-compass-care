@@ -929,7 +929,7 @@ function ManualPatientPicker({
   defaultOpen,
 }: {
   selectedPatientId: string;
-  openedFromPatientId: string;
+  openedFromPatientId?: string;
   onSelectPatient: (id: string) => void;
   defaultOpen: boolean;
 }) {
