@@ -80,6 +80,7 @@ export function ScanChartDialog({
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
   const [extraction, setExtraction] = useState<ChartExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [redactSettings, setRedactSettings] = useState<RedactionSettings>(DEFAULT_REDACTION_SETTINGS);
   // Which patient the chart will actually be filed against. Defaults to the
   // patient whose page opened the scanner but the reviewer can reassign it
   // via the manual picker in the review panel when the sticker doesn't match.
