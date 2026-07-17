@@ -361,11 +361,15 @@ function ReviewPanel({
 
   const candidates = matchQuery.data?.candidates ?? [];
   const primary: MatchCandidate | undefined = candidates[0];
-  const currentMatched = candidates.find((c) => c.id === currentPatientId);
-  const mismatched =
-    !!currentMatched === false && (extraction.hospital_number || extraction.initials);
+  const stickerMatchedSelected = candidates.some((c) => c.id === selectedPatientId);
+  const stickerMismatch =
+    !stickerMatchedSelected && !!(extraction.hospital_number || extraction.initials);
+  // When the reviewer has reassigned to a patient outside the current page,
+  // treat that as an explicit manual pick — no override checkbox needed.
+  const manuallyReassigned = selectedPatientId !== openedFromPatientId;
 
-  const canConfirm = !committing && (!mismatched || override);
+  const canConfirm =
+    !committing && (!stickerMismatch || manuallyReassigned || override);
 
   const totalLow = (extraction.low_confidence ?? []).length;
   const conf = extraction.overall_confidence;
