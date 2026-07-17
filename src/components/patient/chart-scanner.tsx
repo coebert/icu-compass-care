@@ -196,7 +196,7 @@ export function ScanChartDialog({
         {stage === "pick" && (
           <div className="space-y-4">
             <div className="rounded border border-dashed p-4 text-sm text-muted-foreground">
-              <p className="mb-2">Take a photo of each page of the paper chart (max 3 pages). You will blur the patient name and date of birth on the next screen before anything is sent to the extractor.</p>
+              <p className="mb-2">Capture each page of the paper chart (max 3 pages). The live camera grabs frames directly from the device — no photo is saved to your camera roll. You will blur the patient name and date of birth on the next screen before anything is sent to the extractor.</p>
               <p className="flex items-center gap-1 text-xs">
                 <ShieldCheck className="h-3.5 w-3.5" /> Image is not stored, uploaded to
                 any bucket, or logged.
@@ -211,18 +211,37 @@ export function ScanChartDialog({
               ref={fileInput}
               type="file"
               accept="image/*"
-              capture="environment"
               multiple
               className="hidden"
               onChange={(e) => onFiles(e.target.files)}
             />
             <Button
               className="w-full gap-2"
+              onClick={() => setStage("camera")}
+            >
+              <Camera className="h-4 w-4" /> Scan with live camera
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
               onClick={() => fileInput.current?.click()}
             >
-              <Camera className="h-4 w-4" /> Open camera / choose photos
+              Choose existing photo(s) instead
             </Button>
           </div>
+        )}
+
+        {stage === "camera" && (
+          <LiveCameraCapture
+            maxPages={3}
+            onCancel={() => setStage("pick")}
+            onDone={(pages) => {
+              setRedactPages(pages);
+              setPageCount(pages.length);
+              setError(null);
+              setStage("redact");
+            }}
+          />
         )}
 
         {stage === "redact" && redactPages.length > 0 && (
