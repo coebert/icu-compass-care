@@ -372,6 +372,52 @@ export function ChartRedactor({
         )}
       </div>
 
+      {showCompare && (
+        <div className="rounded border bg-muted/20 p-2">
+          <p className="mb-2 text-[11px] font-medium uppercase text-muted-foreground">
+            Original vs redacted output (page {idx + 1}) — this is exactly what the extractor
+            will receive
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <figure className="space-y-1">
+              <figcaption className="text-[11px] font-medium text-muted-foreground">
+                Original (stays on device)
+              </figcaption>
+              <div className="overflow-hidden rounded border bg-background">
+                <img
+                  src={page.originalDataUrl}
+                  alt={`Original page ${idx + 1}`}
+                  className="block h-auto w-full object-contain"
+                />
+              </div>
+            </figure>
+            <figure className="space-y-1">
+              <figcaption className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                Redacted (sent to extractor)
+                {baking && <span className="text-muted-foreground/70">rendering…</span>}
+              </figcaption>
+              <div className="overflow-hidden rounded border border-emerald-500/40 bg-background">
+                {bakedUrl ? (
+                  <img
+                    src={bakedUrl}
+                    alt={`Redacted preview of page ${idx + 1}`}
+                    className="block h-auto w-full object-contain"
+                  />
+                ) : (
+                  <div
+                    className="flex items-center justify-center bg-muted text-xs text-muted-foreground"
+                    style={{ aspectRatio: `${page.width} / ${page.height}` }}
+                  >
+                    {baking ? "Rendering preview…" : "Draw a box to see the redacted output."}
+                  </div>
+                )}
+              </div>
+            </figure>
+          </div>
+        </div>
+      )}
+
+
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1">
           <Button
