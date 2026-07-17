@@ -246,7 +246,23 @@ function ReviewPanel({
     (v) => typeof v === "string" && v.trim(),
   ).length;
 
+  const lowConf = new Set(extraction.low_confidence ?? []);
+  const isUncertain = (path: string) => lowConf.has(path);
+  const countLowIn = (prefix: string) =>
+    (extraction.low_confidence ?? []).filter(
+      (p) => p === prefix || p.startsWith(`${prefix}.`) || p.startsWith(`${prefix}[`),
+    ).length;
+  const hourlyLow = countLowIn("hourly");
+  const invLow = countLowIn("investigations");
+  const microLow = countLowIn("microbiology");
+  const assessLow = countLowIn("assessments");
+  const balanceLow = isUncertain("balance_24h_ml");
+
   const patch = (k: keyof ChartExtraction, v: unknown) => onChange({ ...extraction, [k]: v });
+  const clearUncertain = (path: string) => {
+    const next = (extraction.low_confidence ?? []).filter((p) => p !== path);
+    onChange({ ...extraction, low_confidence: next });
+  };
 
   const [override, setOverride] = useState(false);
   // Reset the "file anyway" override whenever the sticker fields change so a
@@ -281,24 +297,59 @@ function ReviewPanel({
 
   const canConfirm = !committing && (!mismatched || override);
 
+  const totalLow = (extraction.low_confidence ?? []).length;
+  const conf = extraction.overall_confidence;
+  const confPct = conf == null ? null : Math.round(conf * 100);
+  const confTone =
+    conf == null
+      ? "bg-muted text-muted-foreground"
+      : conf >= 0.85
+        ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
+        : conf >= 0.6
+          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/40"
+          : "bg-destructive/10 text-destructive border-destructive/40";
+
   return (
     <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className={`rounded-full border px-2 py-0.5 font-medium ${confTone}`}>
+          OCR confidence: {confPct == null ? "unknown" : `${confPct}%`}
+        </span>
+        <span className="text-muted-foreground">
+          {totalLow === 0
+            ? "No fields flagged as uncertain."
+            : `${totalLow} field${totalLow === 1 ? "" : "s"} flagged for review.`}
+        </span>
+      </div>
+
       <div className="rounded border p-3 text-sm">
         <p className="mb-2 font-medium">Patient (from chart sticker)</p>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs">
-            Initials
+            <span className="flex items-center gap-1">
+              Initials
+              {isUncertain("initials") && <UncertainBadge onClear={() => clearUncertain("initials")} />}
+            </span>
             <input
-              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+              className={`mt-1 w-full rounded border px-2 py-1 text-sm ${
+                isUncertain("initials") ? "border-amber-500/60 bg-amber-500/5" : ""
+              }`}
               value={extraction.initials ?? ""}
               maxLength={3}
               onChange={(e) => patch("initials", e.target.value.toUpperCase() || null)}
             />
           </label>
           <label className="text-xs">
-            Hospital number
+            <span className="flex items-center gap-1">
+              Hospital number
+              {isUncertain("hospital_number") && (
+                <UncertainBadge onClear={() => clearUncertain("hospital_number")} />
+              )}
+            </span>
             <input
-              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+              className={`mt-1 w-full rounded border px-2 py-1 text-sm ${
+                isUncertain("hospital_number") ? "border-amber-500/60 bg-amber-500/5" : ""
+              }`}
               value={extraction.hospital_number ?? ""}
               maxLength={50}
               onChange={(e) => patch("hospital_number", e.target.value || null)}
@@ -331,14 +382,48 @@ function ReviewPanel({
         </label>
       )}
 
-      <SummaryRow label="Hourly rows extracted" count={hourlyCount} />
-      <SummaryRow label="Investigations" count={invCount} />
-      <SummaryRow label="Microbiology results" count={microCount} />
-      <SummaryRow label="System assessments" count={assessCount} />
+      <SummaryRow label="Hourly rows extracted" count={hourlyCount} lowCount={hourlyLow} />
+      <SummaryRow label="Investigations" count={invCount} lowCount={invLow} />
+      <SummaryRow label="Microbiology results" count={microCount} lowCount={microLow} />
+      <SummaryRow label="System assessments" count={assessCount} lowCount={assessLow} />
       <SummaryRow
         label="24h fluid balance (mL)"
         text={extraction.balance_24h_ml != null ? String(extraction.balance_24h_ml) : "—"}
+        flagged={balanceLow}
       />
+
+      {totalLow > 0 && (
+        <details className="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-xs" open>
+          <summary className="cursor-pointer text-sm font-medium text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
+            Uncertain fields ({totalLow}) — review before saving
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {(extraction.low_confidence ?? []).map((p) => (
+              <li key={p} className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[11px]">{p}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {readByPath(extraction, p) ?? <em>(no value)</em>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => clearUncertain(p)}
+                    className="rounded border px-1.5 py-0.5 text-[10px] hover:bg-background"
+                    title="Mark this field as reviewed"
+                  >
+                    Mark reviewed
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Edit values in the sections above or in the chart/system tabs after saving.
+            Marking a field reviewed removes it from this list but does not change the value.
+          </p>
+        </details>
+      )}
 
       <details className="rounded border p-3 text-xs">
         <summary className="cursor-pointer text-sm font-medium">
@@ -367,6 +452,42 @@ function ReviewPanel({
     </div>
   );
 }
+
+function UncertainBadge({ onClear }: { onClear: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      title="Flagged as uncertain — click to mark reviewed"
+      className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-1.5 py-0 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+    >
+      <AlertTriangle className="h-3 w-3" /> uncertain
+    </button>
+  );
+}
+
+function readByPath(obj: ChartExtraction, path: string): string | null {
+  try {
+    // Supports: a, a.b, a[0], a[0].b
+    const parts = path.split(/\.|(?=\[)/g);
+    let cur: unknown = obj;
+    for (const raw of parts) {
+      if (cur == null) return null;
+      const m = raw.match(/^\[(\d+)\]$/);
+      if (m) {
+        cur = (cur as unknown[])[Number(m[1])];
+      } else {
+        cur = (cur as Record<string, unknown>)[raw];
+      }
+    }
+    if (cur == null || cur === "") return null;
+    const s = typeof cur === "object" ? JSON.stringify(cur) : String(cur);
+    return s.length > 60 ? `${s.slice(0, 57)}…` : s;
+  } catch {
+    return null;
+  }
+}
+
 
 function StickerMatchPanel({
   loading,
