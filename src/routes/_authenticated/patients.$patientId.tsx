@@ -504,7 +504,11 @@ function PatientDetail() {
             </CardContent>
           </Card>
 
-          <OverviewChartCard patientId={patientId} />
+          <OverviewChartCard
+            patientId={patientId}
+            initialDate={urlChartDate || undefined}
+            onDateChange={setChartDate}
+          />
 
         </TabsContent>
 
