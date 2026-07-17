@@ -258,11 +258,11 @@ export function ScanChartDialog({
                 Start over
               </Button>
               <Button
+                disabled={!isRedactionReady(redactPages)}
                 onClick={() => {
-                  const total = redactPages.reduce((n, p) => n + p.boxes.length, 0);
-                  if (total === 0) {
+                  if (!isRedactionReady(redactPages)) {
                     setError(
-                      "Please cover the patient name and date of birth on at least one page before sending.",
+                      "Every page must have at least one black box AND both 'name covered' and 'DOB covered' ticked before sending.",
                     );
                     return;
                   }
@@ -270,6 +270,11 @@ export function ScanChartDialog({
                   setStage("reading");
                   extractMut.mutate(redactPages);
                 }}
+                title={
+                  isRedactionReady(redactPages)
+                    ? "Send the redacted image to the extractor"
+                    : "Confirm name and DOB are covered on every page first"
+                }
               >
                 Send redacted image to extractor
               </Button>
