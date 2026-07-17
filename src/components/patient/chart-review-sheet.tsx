@@ -122,7 +122,10 @@ export function ChartReviewSheet({
         </span>
       </div>
 
+      <ChartTrendPreview extraction={extraction} />
+
       <VitalsTable rows={rows} keys={vitalKeys} ranges={HOURLY_RANGES} lowConf={lowConf} title="Vitals" />
+
 
       {hasAny(rows, ventKeys) && (
         <VitalsTable rows={rows} keys={ventKeys} ranges={VENT_RANGES} lowConf={lowConf} title="Ventilation" />
