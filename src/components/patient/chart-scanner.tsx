@@ -312,6 +312,7 @@ function ReviewPanel({
   onSelectPatient,
   onChange,
   onCancel,
+  onRescan,
   onConfirm,
   committing,
 }: {
@@ -321,6 +322,7 @@ function ReviewPanel({
   onSelectPatient: (id: string) => void;
   onChange: (e: ChartExtraction) => void;
   onCancel: () => void;
+  onRescan: () => void;
   onConfirm: () => void;
   committing: boolean;
 }) {
