@@ -488,6 +488,22 @@ function PatientDetail() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">24-hour chart</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <details className="group">
+                <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                  Show digital 24h chart (click to expand)
+                </summary>
+                <div className="mt-4">
+                  <ChartTab patientId={patientId} />
+                </div>
+              </details>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="escalation" className="mt-4">
