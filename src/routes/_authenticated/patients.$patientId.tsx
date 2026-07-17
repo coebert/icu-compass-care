@@ -58,6 +58,7 @@ const TAB_KEYS = [
   "overview",
   "demographics",
   "observations",
+  "chart",
   "lines",
   "escalation",
   "nok",
