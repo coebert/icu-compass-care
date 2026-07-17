@@ -183,9 +183,13 @@ export const extractChart = createServerFn({ method: "POST" })
         entity: "patients",
         entity_id: data.patientId,
         action: "update",
-        actor_id: context.userId,
-        source: "app",
-        summary: `chart-scan success: ${scrubbed.hourly.length} hourly rows, ${scrubbed.investigations.length} investigations`,
+        user_id: context.userId,
+        diff: {
+          chart_scan_success: {
+            hourly: scrubbed.hourly.length,
+            investigations: scrubbed.investigations.length,
+          },
+        },
       } as never);
 
     return { extraction: scrubbed };
