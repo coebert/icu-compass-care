@@ -236,7 +236,7 @@ export function ChartReviewSheet({
         />
       )}
 
-      <ChartTrendPreview extraction={extraction} />
+      <ChartTrendPreview extraction={extraction} lowConf={lowConf} />
 
       <VitalsTable
         rows={rows}
