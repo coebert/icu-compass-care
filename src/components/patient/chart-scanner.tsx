@@ -484,14 +484,3 @@ function SummaryRow({ label, count, text }: { label: string; count?: number; tex
     </div>
   );
 }
-
-function SummaryRow({ label, count, text }: { label: string; count?: number; text?: string }) {
-  return (
-    <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-      <span>{label}</span>
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
-        {text ?? String(count ?? 0)}
-      </span>
-    </div>
-  );
-}
