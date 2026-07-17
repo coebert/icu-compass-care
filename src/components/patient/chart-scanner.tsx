@@ -199,6 +199,38 @@ export function ScanChartDialog({
           </div>
         )}
 
+        {stage === "redact" && redactPages.length > 0 && (
+          <div className="space-y-3">
+            <ChartRedactor pages={redactPages} onChange={setRedactPages} />
+            {error && (
+              <p className="flex items-center gap-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4" /> {error}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button variant="ghost" size="sm" onClick={reset}>
+                Start over
+              </Button>
+              <Button
+                onClick={() => {
+                  const total = redactPages.reduce((n, p) => n + p.boxes.length, 0);
+                  if (total === 0) {
+                    setError(
+                      "Please cover the patient name and date of birth on at least one page before sending.",
+                    );
+                    return;
+                  }
+                  setError(null);
+                  setStage("reading");
+                  extractMut.mutate(redactPages);
+                }}
+              >
+                Send redacted image to extractor
+              </Button>
+            </div>
+          </div>
+        )}
+
         {stage === "reading" && (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -206,10 +238,11 @@ export function ScanChartDialog({
               Reading {pageCount} page{pageCount === 1 ? "" : "s"}…
             </p>
             <p className="text-xs text-muted-foreground">
-              The photo is being processed and will not be retained.
+              The redacted photo is being processed and will not be retained.
             </p>
           </div>
         )}
+
 
         {stage === "review" && extraction && (
           <ReviewPanel
