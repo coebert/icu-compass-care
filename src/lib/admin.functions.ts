@@ -12,12 +12,12 @@ export const listStaff = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const supabaseAdmin = await getAdmin();
-    const { data: profiles, error } = await context.supabase
+    const { data: profiles, error } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .order("display_name");
     if (error) throw safeDbError(error);
-    const { data: roles } = await context.supabase.from("user_roles").select("user_id, role");
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
     const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const emailById = new Map((authList?.users ?? []).map((u) => [u.id, u.email]));
     return (profiles ?? []).map((p) => ({
