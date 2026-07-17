@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { ChartExtraction } from "@/lib/chart-extract.functions";
+
 
 /**
  * Compact digital chart preview: a fixed 24-hour timeline showing sparklines
