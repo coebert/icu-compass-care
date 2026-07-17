@@ -62,19 +62,24 @@ async function fileToDownscaledDataUrl(file: File): Promise<string> {
   }
 }
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function ScanChartDialog({
   open,
   onOpenChange,
   patientId,
-  chartDate,
+  chartDate: chartDateProp,
   onCommitted,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  patientId: string;
-  chartDate: string;
+  patientId?: string;
+  chartDate?: string;
   onCommitted: () => void;
 }) {
+  const chartDate = chartDateProp ?? todayISO();
   const [stage, setStage] = useState<"pick" | "camera" | "redact" | "reading" | "review">("pick");
   const [pageCount, setPageCount] = useState(0);
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
@@ -82,9 +87,9 @@ export function ScanChartDialog({
   const [error, setError] = useState<string | null>(null);
   const [redactSettings, setRedactSettings] = useState<RedactionSettings>(DEFAULT_REDACTION_SETTINGS);
   // Which patient the chart will actually be filed against. Defaults to the
-  // patient whose page opened the scanner but the reviewer can reassign it
-  // via the manual picker in the review panel when the sticker doesn't match.
-  const [selectedPatientId, setSelectedPatientId] = useState(patientId);
+  // patient whose page opened the scanner, but when opened from the bed board
+  // the reviewer must pick a patient via the sticker match or manual picker.
+  const [selectedPatientId, setSelectedPatientId] = useState(patientId ?? "");
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const extractFn = useServerFn(extractChart);
