@@ -1000,7 +1000,7 @@ function ManualPatientPicker({
             );
           })}
         </ul>
-        {reassigned && (
+        {reassigned && openedFromPatientId && (
           <div className="flex items-center justify-between rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1 text-xs">
             <span>Chart will be filed against the selected patient, not the one you opened.</span>
             <button
