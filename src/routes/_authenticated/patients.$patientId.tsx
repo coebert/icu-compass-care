@@ -621,6 +621,13 @@ function shiftISODate(iso: string, delta: number): string {
   return `${dt.getUTCFullYear()}-${mm}-${dd}`;
 }
 
+function todayISO(): string {
+  const d = new Date();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function OverviewChartCard({ patientId }: { patientId: string }) {
   const listDays = useServerFn(listChartDays);
   const [expanded, setExpanded] = useState(false);
