@@ -171,11 +171,38 @@ export const updateChartDay = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deleteChartDay = createServerFn({ method: "POST" })
+export const archiveChartDay = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input: { id: string; reason: string }) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        reason: z.string().trim().min(3).max(500),
+      })
+      .parse(input),
+  )
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase.from("chart_days").delete().eq("id", data.id);
+    const { error } = await context.supabase
+      .from("chart_days")
+      .update({
+        archived_at: new Date().toISOString(),
+        archived_by: context.userId,
+        archive_reason: data.reason,
+      } as never)
+      .eq("id", data.id);
     if (error) throw safeDbError(error);
     return { ok: true };
   });
+
+export const unarchiveChartDay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("chart_days")
+      .update({ archived_at: null, archived_by: null, archive_reason: null } as never)
+      .eq("id", data.id);
+    if (error) throw safeDbError(error);
+    return { ok: true };
+  });
+
