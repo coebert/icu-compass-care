@@ -101,7 +101,11 @@ function todayISO(): string {
 export function ChartTab({ patientId, initialDate }: { patientId: string; initialDate?: string }) {
   const [chartDate, setChartDate] = useState<string>(initialDate ?? todayISO());
   const [scanOpen, setScanOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">("active");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [searchText, setSearchText] = useState<string>("");
+  const showArchived = statusFilter !== "active";
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
@@ -358,69 +362,142 @@ export function ChartTab({ patientId, initialDate }: { patientId: string; initia
 
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div>
-            <CardTitle className="text-base">Chart archive</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              All past 24-hour charts are retained. Click a date to view. Archived charts are read-only.
-            </p>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-base">Chart archive</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                All past 24-hour charts are retained. Click a date to view. Archived charts are read-only.
+              </p>
+            </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setShowArchived((v) => !v)}
-          >
-            {showArchived ? "Hide archived" : "Show archived"}
-          </Button>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Status</Label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as "active" | "archived" | "all")}
+                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              >
+                <option value="active">Active only</option>
+                <option value="archived">Archived only</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">From</Label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">To</Label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9" />
+            </div>
+            <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+              <Label className="text-[10px] uppercase text-muted-foreground">Search</Label>
+              <Input
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Reason, source, date…"
+                className="h-9"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 w-full"
+                onClick={() => {
+                  setStatusFilter("active");
+                  setFromDate("");
+                  setToDate("");
+                  setSearchText("");
+                }}
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {daysQ.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (daysQ.data?.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">No chart days recorded yet.</p>
-          ) : (
-            <ul className="divide-y text-sm">
-              {(daysQ.data ?? []).map((d) => (
-                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="text-left font-medium underline-offset-2 hover:underline"
-                      onClick={() => setChartDate(d.chart_date)}
-                    >
-                      {d.chart_date}
-                    </button>
-                    {d.archived_at && (
-                      <Badge variant="outline" className="gap-1 text-[10px]">
-                        <Archive className="h-3 w-3" /> Archived
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {d.source === "scan" ? "From scan" : "Manual"}
-                      {d.balance_24h_ml != null ? ` · 24h bal ${d.balance_24h_ml} mL` : ""}
-                    </span>
-                    {d.archived_at && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1 px-2 text-xs"
-                        onClick={() => restoreMut.mutate(d.id)}
-                        disabled={restoreMut.isPending}
-                      >
-                        <RotateCcw className="h-3 w-3" /> Restore
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          ) : (() => {
+            const q = searchText.trim().toLowerCase();
+            const filtered = (daysQ.data ?? []).filter((d) => {
+              if (statusFilter === "active" && d.archived_at) return false;
+              if (statusFilter === "archived" && !d.archived_at) return false;
+              if (fromDate && d.chart_date < fromDate) return false;
+              if (toDate && d.chart_date > toDate) return false;
+              if (q) {
+                const hay = [
+                  d.chart_date,
+                  d.source ?? "",
+                  d.archive_reason ?? "",
+                  d.archived_at ? "archived" : "active",
+                ].join(" ").toLowerCase();
+                if (!hay.includes(q)) return false;
+              }
+              return true;
+            });
+            if (filtered.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground">
+                  {(daysQ.data?.length ?? 0) === 0
+                    ? "No chart days recorded yet."
+                    : "No charts match the current filters."}
+                </p>
+              );
+            }
+            return (
+              <>
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  Showing {filtered.length} of {daysQ.data?.length ?? 0} chart{(daysQ.data?.length ?? 0) === 1 ? "" : "s"}
+                </p>
+                <ul className="divide-y text-sm">
+                  {filtered.map((d) => (
+                    <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="text-left font-medium underline-offset-2 hover:underline"
+                          onClick={() => setChartDate(d.chart_date)}
+                        >
+                          {d.chart_date}
+                        </button>
+                        {d.archived_at && (
+                          <Badge variant="outline" className="gap-1 text-[10px]">
+                            <Archive className="h-3 w-3" /> Archived
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {d.source === "scan" ? "From scan" : "Manual"}
+                          {d.balance_24h_ml != null ? ` · 24h bal ${d.balance_24h_ml} mL` : ""}
+                        </span>
+                        {d.archived_at && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-xs"
+                            onClick={() => restoreMut.mutate(d.id)}
+                            disabled={restoreMut.isPending}
+                          >
+                            <RotateCcw className="h-3 w-3" /> Restore
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
+
 
       <ScanChartDialog
         open={scanOpen}
