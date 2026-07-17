@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Undo2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { ShieldCheck, Undo2, ChevronLeft, ChevronRight, Trash2, Check, AlertTriangle } from "lucide-react";
 
 /**
- * Mandatory pre-upload redaction step. The user must drag at least one box
- * over the patient sticker to cover NAME and DATE OF BIRTH before the image
- * is passed to the AI extractor. Boxes are baked into the canvas as solid
- * black rectangles and the resulting JPEG data URL is what the server sees —
- * the original file is never uploaded.
+ * Mandatory pre-upload redaction step. For every page the reviewer must:
+ *   1. Drag at least one black box over the sticker, AND
+ *   2. Tick "Name covered" AND "DOB covered" to confirm the two mandatory
+ *      identifiers are no longer visible.
+ * Only then does the page count as "ready" — the parent uses `isRedactionReady`
+ * to gate the Send-to-extractor button. Boxes are baked into the canvas as
+ * solid black rectangles and the resulting JPEG data URL is what the server
+ * sees — the original file is never uploaded.
  */
 
 export type RedactionPage = {
@@ -15,6 +18,8 @@ export type RedactionPage = {
   width: number;
   height: number;
   boxes: { x: number; y: number; w: number; h: number }[]; // in image coordinates
+  nameConfirmed: boolean;
+  dobConfirmed: boolean;
 };
 
 export async function loadPage(dataUrl: string): Promise<RedactionPage> {
@@ -24,8 +29,34 @@ export async function loadPage(dataUrl: string): Promise<RedactionPage> {
     el.onerror = reject;
     el.src = dataUrl;
   });
-  return { originalDataUrl: dataUrl, width: img.width, height: img.height, boxes: [] };
+  return {
+    originalDataUrl: dataUrl,
+    width: img.width,
+    height: img.height,
+    boxes: [],
+    nameConfirmed: false,
+    dobConfirmed: false,
+  };
 }
+
+export function pageCoverageStatus(p: RedactionPage): {
+  ready: boolean;
+  boxes: number;
+  nameConfirmed: boolean;
+  dobConfirmed: boolean;
+} {
+  return {
+    ready: p.boxes.length > 0 && p.nameConfirmed && p.dobConfirmed,
+    boxes: p.boxes.length,
+    nameConfirmed: p.nameConfirmed,
+    dobConfirmed: p.dobConfirmed,
+  };
+}
+
+export function isRedactionReady(pages: RedactionPage[]): boolean {
+  return pages.length > 0 && pages.every((p) => pageCoverageStatus(p).ready);
+}
+
 
 export async function bakeRedactions(page: RedactionPage): Promise<string> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -113,7 +144,14 @@ export function ChartRedactor({
   };
   const onPointerUp = () => {
     if (drag.current && preview && preview.w > 8 && preview.h > 8) {
-      updatePage((p) => ({ ...p, boxes: [...p.boxes, preview] }));
+      updatePage((p) => ({
+        ...p,
+        boxes: [...p.boxes, preview],
+        // Adding a new box invalidates prior confirmations so the user
+        // re-checks that name+DOB are still fully covered.
+        nameConfirmed: false,
+        dobConfirmed: false,
+      }));
     }
     drag.current = null;
     setPreview(null);
@@ -177,7 +215,7 @@ export function ChartRedactor({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1">
           <Button
             size="sm"
@@ -210,7 +248,15 @@ export function ChartRedactor({
             size="sm"
             variant="ghost"
             disabled={page.boxes.length === 0}
-            onClick={() => updatePage((p) => ({ ...p, boxes: p.boxes.slice(0, -1) }))}
+            onClick={() =>
+              updatePage((p) => ({
+                ...p,
+                boxes: p.boxes.slice(0, -1),
+                // Any change to boxes invalidates prior confirmations.
+                nameConfirmed: false,
+                dobConfirmed: false,
+              }))
+            }
           >
             <Undo2 className="mr-1 h-3.5 w-3.5" /> Undo
           </Button>
@@ -218,12 +264,97 @@ export function ChartRedactor({
             size="sm"
             variant="ghost"
             disabled={page.boxes.length === 0}
-            onClick={() => updatePage((p) => ({ ...p, boxes: [] }))}
+            onClick={() =>
+              updatePage((p) => ({ ...p, boxes: [], nameConfirmed: false, dobConfirmed: false }))
+            }
           >
             <Trash2 className="mr-1 h-3.5 w-3.5" /> Clear
           </Button>
         </div>
       </div>
+
+      {/* Per-page confirmation — extraction is blocked until both are ticked
+          on every page. */}
+      <div
+        className={`rounded border p-2 text-xs ${
+          page.boxes.length === 0
+            ? "border-amber-500/50 bg-amber-500/5"
+            : page.nameConfirmed && page.dobConfirmed
+              ? "border-emerald-500/50 bg-emerald-500/5"
+              : "border-amber-500/50 bg-amber-500/5"
+        }`}
+      >
+        <p className="mb-1 font-medium">Confirm redaction on this page</p>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={page.nameConfirmed}
+              disabled={page.boxes.length === 0}
+              onChange={(e) => updatePage((p) => ({ ...p, nameConfirmed: e.target.checked }))}
+            />
+            <span>Patient <strong>name</strong> is fully covered</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={page.dobConfirmed}
+              disabled={page.boxes.length === 0}
+              onChange={(e) => updatePage((p) => ({ ...p, dobConfirmed: e.target.checked }))}
+            />
+            <span>Patient <strong>date of birth</strong> is fully covered</span>
+          </label>
+        </div>
+        {page.boxes.length === 0 && (
+          <p className="mt-1 text-muted-foreground">
+            Draw at least one black box before confirming.
+          </p>
+        )}
+      </div>
+
+      {/* Per-page overview strip — each page shows its coverage status. */}
+      <div>
+        <p className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">
+          Redaction coverage per page
+        </p>
+        <ol className="flex flex-wrap gap-1">
+          {pages.map((p, i) => {
+            const s = pageCoverageStatus(p);
+            const isCurrent = i === idx;
+            const tone = s.ready
+              ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+              : "border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300";
+            return (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] ${tone} ${
+                    isCurrent ? "ring-2 ring-primary" : ""
+                  }`}
+                  aria-label={`Page ${i + 1}: ${s.ready ? "ready" : "needs confirmation"}`}
+                >
+                  {s.ready ? (
+                    <Check className="h-3 w-3" />
+                  ) : (
+                    <AlertTriangle className="h-3 w-3" />
+                  )}
+                  <span className="font-medium">P{i + 1}</span>
+                  <span className="tabular-nums opacity-70">
+                    {s.boxes}b · {s.nameConfirmed ? "N" : "n"}
+                    {s.dobConfirmed ? "D" : "d"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Legend: <strong>b</strong> = boxes drawn · <strong>N</strong>/<strong>D</strong> capital = name/DOB confirmed.
+          Every page must be green before you can send.
+        </p>
+      </div>
     </div>
   );
 }
+
