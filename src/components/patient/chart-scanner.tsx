@@ -16,6 +16,7 @@ import {
   extractChart,
   commitChart,
   matchPatientBySticker,
+  searchPatientsForChart,
   type ChartExtraction,
   type MatchCandidate,
 } from "@/lib/chart-extract.functions";
