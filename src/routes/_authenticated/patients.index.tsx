@@ -636,6 +636,13 @@ function PatientsBoard() {
               <ClipboardCheck className="h-4 w-4" /> Handover mode
             </Link>
           </Button>
+          <Button
+            onClick={() => setScanOpen(true)}
+            className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
+            aria-label="Scan a Radnor chart"
+          >
+            <Camera className="h-4 w-4" /> Scan chart
+          </Button>
           <Button onClick={() => setOpen(true)} className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none">
             <Plus className="h-4 w-4" /> Add patient
           </Button>
