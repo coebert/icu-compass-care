@@ -752,6 +752,16 @@ function PatientsBoard() {
         </DialogContent>
       </Dialog>
 
+      <ScanChartDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onCommitted={() => {
+          qc.invalidateQueries({ queryKey: ["patients"] });
+          qc.invalidateQueries({ queryKey: ["latest-observations"] });
+          qc.invalidateQueries({ queryKey: ["latest-key-investigations"] });
+        }}
+      />
+
     </div>
     </KeyInvestigationsContext.Provider>
     </AcuityContext.Provider>
