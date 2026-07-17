@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw, Undo2, X as XIcon } from "lucide-react";
+import { Plus, Search, HeartPulse, AlertTriangle, ClipboardList, FileDown, BedDouble, Maximize2, Clock, ClipboardCheck, DoorClosed, Home, RefreshCw, Undo2, X as XIcon, Camera } from "lucide-react";
 import { deriveSafetyFlags, parseAllergies } from "@/lib/patient-safety";
 import { listLatestObservations } from "@/lib/observations.functions";
 import { listLatestKeyInvestigations } from "@/lib/investigations.functions";
@@ -33,6 +33,7 @@ type KeyInvestigation = { category: string; findings: string; result_at: string 
 const KeyInvestigationsContext = createContext<Map<string, KeyInvestigation>>(new Map());
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
+import { ScanChartDialog } from "@/components/patient/chart-scanner";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
@@ -125,6 +126,7 @@ function PatientsBoard() {
   const preset: PresetKey | "" = (urlSearch.preset in PRESETS ? (urlSearch.preset as PresetKey) : "");
   const clearPreset = () => updateBoardSearch({ preset: "" });
   const [open, setOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
 
@@ -634,6 +636,13 @@ function PatientsBoard() {
               <ClipboardCheck className="h-4 w-4" /> Handover mode
             </Link>
           </Button>
+          <Button
+            onClick={() => setScanOpen(true)}
+            className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none"
+            aria-label="Scan a Radnor chart"
+          >
+            <Camera className="h-4 w-4" /> Scan chart
+          </Button>
           <Button onClick={() => setOpen(true)} className="h-11 flex-1 gap-1.5 sm:h-10 sm:flex-none">
             <Plus className="h-4 w-4" /> Add patient
           </Button>
@@ -742,6 +751,16 @@ function PatientsBoard() {
           />
         </DialogContent>
       </Dialog>
+
+      <ScanChartDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onCommitted={() => {
+          qc.invalidateQueries({ queryKey: ["patients"] });
+          qc.invalidateQueries({ queryKey: ["latest-observations"] });
+          qc.invalidateQueries({ queryKey: ["latest-key-investigations"] });
+        }}
+      />
 
     </div>
     </KeyInvestigationsContext.Provider>

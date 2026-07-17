@@ -62,19 +62,24 @@ async function fileToDownscaledDataUrl(file: File): Promise<string> {
   }
 }
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function ScanChartDialog({
   open,
   onOpenChange,
   patientId,
-  chartDate,
+  chartDate: chartDateProp,
   onCommitted,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  patientId: string;
-  chartDate: string;
+  patientId?: string;
+  chartDate?: string;
   onCommitted: () => void;
 }) {
+  const chartDate = chartDateProp ?? todayISO();
   const [stage, setStage] = useState<"pick" | "camera" | "redact" | "reading" | "review">("pick");
   const [pageCount, setPageCount] = useState(0);
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
@@ -82,9 +87,9 @@ export function ScanChartDialog({
   const [error, setError] = useState<string | null>(null);
   const [redactSettings, setRedactSettings] = useState<RedactionSettings>(DEFAULT_REDACTION_SETTINGS);
   // Which patient the chart will actually be filed against. Defaults to the
-  // patient whose page opened the scanner but the reviewer can reassign it
-  // via the manual picker in the review panel when the sticker doesn't match.
-  const [selectedPatientId, setSelectedPatientId] = useState(patientId);
+  // patient whose page opened the scanner, but when opened from the bed board
+  // the reviewer must pick a patient via the sticker match or manual picker.
+  const [selectedPatientId, setSelectedPatientId] = useState(patientId ?? "");
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const extractFn = useServerFn(extractChart);
@@ -96,7 +101,7 @@ export function ScanChartDialog({
     setRedactPages([]);
     setExtraction(null);
     setError(null);
-    setSelectedPatientId(patientId);
+    setSelectedPatientId(patientId ?? "");
     if (fileInput.current) fileInput.current.value = "";
   };
 
@@ -109,7 +114,7 @@ export function ScanChartDialog({
     setRedactPages([]);
     setError(null);
     setPageCount(0);
-    setSelectedPatientId(patientId);
+    setSelectedPatientId(patientId ?? "");
     if (fileInput.current) fileInput.current.value = "";
     setStage("pick");
   };
@@ -351,7 +356,7 @@ function ReviewPanel({
   committing,
 }: {
   extraction: ChartExtraction;
-  openedFromPatientId: string;
+  openedFromPatientId?: string;
   selectedPatientId: string;
   onSelectPatient: (id: string) => void;
   onChange: (e: ChartExtraction) => void;
@@ -417,10 +422,13 @@ function ReviewPanel({
     !stickerMatchedSelected && !!(extraction.hospital_number || extraction.initials);
   // When the reviewer has reassigned to a patient outside the current page,
   // treat that as an explicit manual pick — no override checkbox needed.
-  const manuallyReassigned = selectedPatientId !== openedFromPatientId;
+  const manuallyReassigned = selectedPatientId !== (openedFromPatientId ?? "");
 
+  const hasSelectedPatient =
+    selectedPatientId.length > 0 &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedPatientId);
   const canConfirm =
-    !committing && (!stickerMismatch || manuallyReassigned || override);
+    !committing && hasSelectedPatient && (!stickerMismatch || manuallyReassigned || override);
 
   const totalLow = (extraction.low_confidence ?? []).length;
   const conf = extraction.overall_confidence;
@@ -510,7 +518,7 @@ function ReviewPanel({
         selectedPatientId={selectedPatientId}
         openedFromPatientId={openedFromPatientId}
         onSelectPatient={onSelectPatient}
-        defaultOpen={stickerMismatch}
+        defaultOpen={stickerMismatch || !openedFromPatientId}
       />
 
       {stickerMismatch && !manuallyReassigned && (
@@ -672,7 +680,7 @@ function StickerMatchPanel({
   primary: MatchCandidate | undefined;
   selectedPatientId: string;
   onSelectPatient: (id: string) => void;
-  openedFromPatientId: string;
+  openedFromPatientId?: string;
   hasStickerFields: boolean;
   extractedMrn: string | null;
   extractedInitials: string | null;
@@ -723,10 +731,13 @@ function StickerMatchPanel({
       </div>
     );
   }
+  const mismatchLabel = openedFromPatientId
+    ? "Sticker does NOT match the current patient"
+    : "Sticker does NOT match the selected patient";
   return (
     <div className="rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
       <p className="flex items-center gap-2 font-medium text-destructive">
-        <AlertTriangle className="h-4 w-4" /> Sticker does NOT match the current patient
+        <AlertTriangle className="h-4 w-4" /> {mismatchLabel}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
         {candidates.length === 1
@@ -754,9 +765,11 @@ function StickerMatchPanel({
         to that record. <span className="font-medium">Auto-fill from record</span> keeps
         the current patient but overwrites the extracted MRN/initials with values from
         the chosen record — use it when the OCR read the sticker wrong.
-        {selectedPatientId === openedFromPatientId
-          ? " Or tick the override box below if the sticker is wrong for this patient."
-          : " Or tick the override box below if the sticker is wrong for your selection."}
+        {openedFromPatientId
+          ? selectedPatientId === openedFromPatientId
+            ? " Or tick the override box below if the sticker is wrong for this patient."
+            : " Or tick the override box below if the sticker is wrong for your selection."
+          : " Or tick the override box below if the sticker is wrong for the selected patient."}
       </p>
     </div>
   );
@@ -921,7 +934,7 @@ function ManualPatientPicker({
   defaultOpen,
 }: {
   selectedPatientId: string;
-  openedFromPatientId: string;
+  openedFromPatientId?: string;
   onSelectPatient: (id: string) => void;
   defaultOpen: boolean;
 }) {
@@ -938,16 +951,18 @@ function ManualPatientPicker({
     enabled: debounced.length >= 2,
     staleTime: 15_000,
   });
-  const reassigned = selectedPatientId !== openedFromPatientId;
+  const reassigned =
+    !!openedFromPatientId && selectedPatientId !== openedFromPatientId;
   return (
     <details className="rounded border p-3 text-sm" open={defaultOpen || reassigned}>
       <summary className="cursor-pointer text-sm font-medium">
-        Assign to a different patient{reassigned ? " — reassigned" : ""}
+        {openedFromPatientId ? "Assign to a different patient" : "Assign to a patient"}
+        {reassigned ? " — reassigned" : ""}
       </summary>
       <div className="mt-3 space-y-2">
         <p className="text-xs text-muted-foreground">
           Search by name or hospital number. Selecting a patient files this chart
-          against that record instead of the one you opened the scanner from.
+          against that record{openedFromPatientId ? " instead of the one you opened the scanner from" : ""}.
         </p>
         <input
           value={q}
@@ -990,7 +1005,7 @@ function ManualPatientPicker({
             );
           })}
         </ul>
-        {reassigned && (
+        {reassigned && openedFromPatientId && (
           <div className="flex items-center justify-between rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1 text-xs">
             <span>Chart will be filed against the selected patient, not the one you opened.</span>
             <button

@@ -97,43 +97,63 @@ Confidence reporting (REQUIRED):
 Return strictly valid JSON with no prose, no code fences.`;
 
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export const extractChart = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { patientId: string; chartDate: string; pages: string[] }) =>
+  .inputValidator((input: { patientId?: string; chartDate?: string; pages: string[] }) =>
     z
       .object({
-        patientId: z.string().uuid(),
-        chartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        patientId: z.string().uuid().optional(),
+        chartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         pages: z.array(dataUrlSchema).min(1).max(MAX_PAGES),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    // Verify the patient exists and log a scan attempt (no image bytes).
-    const { data: patient, error: pe } = await context.supabase
-      .from("patients")
-      .select("id, hospital_number")
-      .eq("id", data.patientId)
-      .maybeSingle();
-    if (pe) throw safeDbError(pe);
-    if (!patient) throw new Error("Patient not found");
+    const chartDate = data.chartDate ?? todayISO();
 
-    await context.supabase
-      .from("audit_log")
-      .insert({
-        entity: "patients",
-        entity_id: data.patientId,
-        action: "update",
-        user_id: context.userId,
-        diff: { chart_scan: `attempt for ${data.chartDate} (${data.pages.length} page(s))` },
-      } as never);
+    // When opened from a patient page we verify the record and audit against it.
+    // When opened from the bed board without a pre-selected patient we still log
+    // the scan attempt, but with no entity_id so no patient is implied.
+    if (data.patientId) {
+      const { data: patient, error: pe } = await context.supabase
+        .from("patients")
+        .select("id, hospital_number")
+        .eq("id", data.patientId)
+        .maybeSingle();
+      if (pe) throw safeDbError(pe);
+      if (!patient) throw new Error("Patient not found");
+
+      await context.supabase
+        .from("audit_log")
+        .insert({
+          entity: "patients",
+          entity_id: data.patientId,
+          action: "update",
+          user_id: context.userId,
+          diff: { chart_scan: `attempt for ${chartDate} (${data.pages.length} page(s))` },
+        } as never);
+    } else {
+      await context.supabase
+        .from("audit_log")
+        .insert({
+          entity: "chart_scan",
+          entity_id: null,
+          action: "update",
+          user_id: context.userId,
+          diff: { chart_scan: `attempt for ${chartDate} (${data.pages.length} page(s))` },
+        } as never);
+    }
 
     const userContent: Array<
       { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
     > = [
       {
         type: "text",
-        text: `Extract the Radnor 24h chart for chart_date ${data.chartDate}. Return JSON only.`,
+        text: `Extract the Radnor 24h chart for chart_date ${chartDate}. Return JSON only.`,
       },
     ];
     for (const p of data.pages) {
@@ -157,8 +177,8 @@ export const extractChart = createServerFn({ method: "POST" })
       await context.supabase
         .from("audit_log")
         .insert({
-          entity: "patients",
-          entity_id: data.patientId,
+          entity: data.patientId ? "patients" : "chart_scan",
+          entity_id: data.patientId ?? null,
           action: "update",
           user_id: context.userId,
           diff: { chart_scan_failed: err instanceof Error ? err.message.slice(0, 200) : "unknown" },
@@ -193,8 +213,8 @@ export const extractChart = createServerFn({ method: "POST" })
     await context.supabase
       .from("audit_log")
       .insert({
-        entity: "patients",
-        entity_id: data.patientId,
+        entity: data.patientId ? "patients" : "chart_scan",
+        entity_id: data.patientId ?? null,
         action: "update",
         user_id: context.userId,
         diff: {
