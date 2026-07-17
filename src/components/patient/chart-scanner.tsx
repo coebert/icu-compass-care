@@ -72,7 +72,7 @@ export function ScanChartDialog({
   chartDate: string;
   onCommitted: () => void;
 }) {
-  const [stage, setStage] = useState<"pick" | "redact" | "reading" | "review">("pick");
+  const [stage, setStage] = useState<"pick" | "camera" | "redact" | "reading" | "review">("pick");
   const [pageCount, setPageCount] = useState(0);
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
   const [extraction, setExtraction] = useState<ChartExtraction | null>(null);
