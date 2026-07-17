@@ -331,8 +331,7 @@ export function ChartTab({ patientId }: { patientId: string }) {
 
       <Dialog open={fullscreen} onOpenChange={setFullscreen}>
         <DialogContent
-          className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:h-[100dvh] sm:max-w-none"
-          showCloseButton={false}
+          className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:h-[100dvh] sm:max-w-none [&>button.absolute]:hidden"
         >
           <DialogHeader className="flex flex-row items-center justify-between border-b bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
             <div className="min-w-0">
