@@ -144,7 +144,14 @@ export function ChartRedactor({
   };
   const onPointerUp = () => {
     if (drag.current && preview && preview.w > 8 && preview.h > 8) {
-      updatePage((p) => ({ ...p, boxes: [...p.boxes, preview] }));
+      updatePage((p) => ({
+        ...p,
+        boxes: [...p.boxes, preview],
+        // Adding a new box invalidates prior confirmations so the user
+        // re-checks that name+DOB are still fully covered.
+        nameConfirmed: false,
+        dobConfirmed: false,
+      }));
     }
     drag.current = null;
     setPreview(null);
