@@ -1,4 +1,5 @@
-import { AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import type { ChartExtraction } from "@/lib/chart-extract.functions";
 import { ChartTrendPreview } from "@/components/patient/chart-trend-preview";
 
@@ -227,6 +228,13 @@ export function ChartReviewSheet({
           Ranges are typical adult ICU ranges — amber = outside expected, rose = implausible.
         </span>
       </div>
+
+      {onChange && (
+        <HourOffsetControl
+          extraction={extraction}
+          onChange={onChange}
+        />
+      )}
 
       <ChartTrendPreview extraction={extraction} />
 
@@ -676,3 +684,105 @@ function UncertainPill() {
     </span>
   );
 }
+
+/**
+ * Shifts every hourly row's `hour` by a signed offset (wrap-around modulo 24)
+ * and re-numbers the matching low-confidence paths. Use this when the OCR
+ * lined the grid up to the wrong clock hour — e.g. the chart's 08:00 column
+ * was read as hour 7. Applying an offset commits immediately so the trend
+ * preview and downstream tables re-render.
+ */
+function HourOffsetControl({
+  extraction,
+  onChange,
+}: {
+  extraction: ChartExtraction;
+  onChange: (next: ChartExtraction) => void;
+}) {
+  const [pending, setPending] = useState(0);
+
+  const apply = (delta: number) => {
+    if (!delta) return;
+    const shift = ((delta % 24) + 24) % 24;
+    const hourly = extraction.hourly.map((row) => ({
+      ...row,
+      hour: ((row.hour + shift) % 24) as typeof row.hour,
+    }));
+    // Remap "hourly[<n>].<field>" paths in low_confidence to the new hour.
+    const low = (extraction.low_confidence ?? []).map((p) => {
+      const m = p.match(/^hourly\[(\d+)\]\.(.+)$/);
+      if (!m) return p;
+      const oldHour = Number(m[1]);
+      const newHour = (oldHour + shift) % 24;
+      return `hourly[${newHour}].${m[2]}`;
+    });
+    onChange({ ...extraction, hourly, low_confidence: low });
+    setPending(0);
+  };
+
+  const clamp = (n: number) => Math.max(-23, Math.min(23, Math.trunc(n)));
+  const sign = pending > 0 ? "+" : "";
+  const disabled = extraction.hourly.length === 0;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded border bg-muted/30 p-2 text-xs">
+      <span className="font-medium">Timeline offset</span>
+      <span className="text-muted-foreground">
+        Shift every hourly reading forward or back by whole hours (wraps 0–23) — use when the chart's clock column was read at the wrong hour.
+      </span>
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          className="rounded border px-2 py-1 hover:bg-background disabled:opacity-40"
+          onClick={() => setPending((v) => clamp(v - 1))}
+          disabled={disabled}
+          aria-label="Shift one hour earlier"
+          title="Shift one hour earlier"
+        >
+          <ArrowLeft className="h-3 w-3" />
+        </button>
+        <input
+          type="number"
+          min={-23}
+          max={23}
+          step={1}
+          value={pending}
+          disabled={disabled}
+          onChange={(e) => setPending(clamp(Number(e.target.value) || 0))}
+          className="w-14 rounded border px-2 py-1 text-center"
+          aria-label="Hour offset"
+        />
+        <button
+          type="button"
+          className="rounded border px-2 py-1 hover:bg-background disabled:opacity-40"
+          onClick={() => setPending((v) => clamp(v + 1))}
+          disabled={disabled}
+          aria-label="Shift one hour later"
+          title="Shift one hour later"
+        >
+          <ArrowRight className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          className="ml-1 rounded border bg-background px-2 py-1 font-medium hover:bg-muted disabled:opacity-40"
+          onClick={() => apply(pending)}
+          disabled={disabled || pending === 0}
+        >
+          Apply {sign}
+          {pending}h
+        </button>
+        <button
+          type="button"
+          className="rounded border px-2 py-1 hover:bg-background disabled:opacity-40"
+          onClick={() => setPending(0)}
+          disabled={pending === 0}
+          aria-label="Reset offset"
+          title="Reset offset"
+        >
+          <RotateCcw className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
