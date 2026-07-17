@@ -23,10 +23,13 @@ type HourlyRow = HourlyCell & { hour: number };
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 // Column groups shown in the digital replica of the paper chart.
-const COL_GROUPS: {
-  title: string;
-  cols: { key: keyof HourlyCell; label: string; step?: string }[];
-}[] = [
+type ColDef = {
+  key: keyof HourlyCell;
+  label: string;
+  step?: string;
+  type?: "number" | "text";
+};
+const COL_GROUPS: { title: string; cols: ColDef[] }[] = [
   {
     title: "Vitals",
     cols: [
@@ -45,12 +48,22 @@ const COL_GROUPS: {
   {
     title: "Ventilation",
     cols: [
+      { key: "vent_mode", label: "Mode", type: "text" },
       { key: "peep", label: "PEEP" },
       { key: "fio2", label: "FiO₂", step: "0.01" },
       { key: "p_support", label: "PS" },
       { key: "tv", label: "TV" },
       { key: "mv", label: "MV", step: "0.1" },
       { key: "peak_pressure", label: "Ppeak" },
+    ],
+  },
+  {
+    title: "Neuro / assessment",
+    cols: [
+      { key: "cam_icu", label: "CAM-ICU", type: "text" },
+      { key: "pupils_l", label: "Pupils L", type: "text" },
+      { key: "pupils_r", label: "Pupils R", type: "text" },
+      { key: "bowels", label: "Bowels", type: "text" },
     ],
   },
   {
@@ -61,12 +74,14 @@ const COL_GROUPS: {
       { key: "ng_aspirate_ml", label: "NG asp" },
       { key: "ng_free_ml", label: "NG free" },
       { key: "urine_ml", label: "Urine" },
+      { key: "target_removal_ml", label: "Target rem" },
       { key: "actual_removal_ml", label: "Removal" },
       { key: "hourly_balance_ml", label: "Hr bal" },
       { key: "cumulative_balance_ml", label: "Cum bal" },
     ],
   },
 ];
+
 
 function todayISO(): string {
   const d = new Date();
@@ -210,21 +225,29 @@ export function ChartTab({ patientId }: { patientId: string }) {
                   title={group.title}
                   cols={group.cols}
                   hourly={hourly}
-                  onSave={(hour, key, valueStr, step) => {
+                  onSave={(hour, key, valueStr, col) => {
                     const trimmed = valueStr.trim();
-                    const num =
-                      trimmed === "" ? null : step ? Number.parseFloat(trimmed) : Number.parseInt(trimmed, 10);
-                    if (num !== null && !Number.isFinite(num)) return;
+                    let next: string | number | null;
+                    if (col.type === "text") {
+                      next = trimmed === "" ? null : trimmed.slice(0, 200);
+                    } else {
+                      if (trimmed === "") {
+                        next = null;
+                      } else {
+                        const parsed = col.step
+                          ? Number.parseFloat(trimmed)
+                          : Number.parseInt(trimmed, 10);
+                        if (!Number.isFinite(parsed)) return;
+                        next = parsed;
+                      }
+                    }
                     const prev = hourly.find((r) => r.hour === hour) ?? { hour };
-                    const patch: HourlyCell = {
-                      ...prev,
-                      [key]: num,
-                    } as HourlyCell;
-                    // strip `hour` from patch
-                    const { hour: _h, ...rest } = { ...patch, hour } as HourlyCell & { hour: number };
+                    const patch = { ...prev, [key]: next } as HourlyCell & { hour: number };
+                    const { hour: _h, ...rest } = patch;
                     void _h;
                     cellMut.mutate({ chartDayId: day.id, hour, patch: rest as HourlyCell });
                   }}
+
                 />
               ))}
 
@@ -291,9 +314,9 @@ function ChartGrid({
   onSave,
 }: {
   title: string;
-  cols: { key: keyof HourlyCell; label: string; step?: string }[];
+  cols: ColDef[];
   hourly: HourlyRow[];
-  onSave: (hour: number, key: keyof HourlyCell, value: string, step: string | undefined) => void;
+  onSave: (hour: number, key: keyof HourlyCell, value: string, col: ColDef) => void;
 }) {
   return (
     <div>
@@ -321,21 +344,25 @@ function ChartGrid({
                   {`${row.hour}`.padStart(2, "0")}:00
                 </td>
                 {cols.map((c) => {
-                  const raw = row[c.key] as number | null | undefined;
+                  const raw = row[c.key] as number | string | null | undefined;
+                  const isText = c.type === "text";
                   return (
                     <td key={String(c.key)} className="border-l p-0">
                       <input
-                        type="number"
-                        step={c.step ?? "1"}
-                        inputMode={c.step ? "decimal" : "numeric"}
+                        type={isText ? "text" : "number"}
+                        step={isText ? undefined : (c.step ?? "1")}
+                        inputMode={isText ? undefined : c.step ? "decimal" : "numeric"}
+                        maxLength={isText ? 200 : undefined}
                         defaultValue={raw == null ? "" : String(raw)}
                         onBlur={(e) => {
                           const current = raw == null ? "" : String(raw);
                           if (e.currentTarget.value !== current) {
-                            onSave(row.hour, c.key, e.currentTarget.value, c.step);
+                            onSave(row.hour, c.key, e.currentTarget.value, c);
                           }
                         }}
-                        className="h-8 w-full min-w-16 bg-transparent px-2 tabular-nums outline-none focus:bg-accent/40"
+                        className={`h-8 w-full bg-transparent px-2 outline-none focus:bg-accent/40 ${
+                          isText ? "min-w-24" : "min-w-16 tabular-nums"
+                        }`}
                         aria-label={`${c.label} at hour ${row.hour}`}
                       />
                     </td>
@@ -343,6 +370,7 @@ function ChartGrid({
                 })}
               </tr>
             ))}
+
           </tbody>
         </table>
       </div>
