@@ -356,7 +356,7 @@ function ReviewPanel({
   committing,
 }: {
   extraction: ChartExtraction;
-  openedFromPatientId: string;
+  openedFromPatientId?: string;
   selectedPatientId: string;
   onSelectPatient: (id: string) => void;
   onChange: (e: ChartExtraction) => void;
