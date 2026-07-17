@@ -611,6 +611,16 @@ function PatientDetail() {
   );
 }
 
+function shiftISODate(iso: string, delta: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const mm = `${dt.getUTCMonth() + 1}`.padStart(2, "0");
+  const dd = `${dt.getUTCDate()}`.padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${mm}-${dd}`;
+}
+
 function OverviewChartCard({ patientId }: { patientId: string }) {
   const listDays = useServerFn(listChartDays);
   const [expanded, setExpanded] = useState(false);
