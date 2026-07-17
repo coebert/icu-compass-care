@@ -154,6 +154,34 @@ export function ChartRedactor({
   const [rendered, setRendered] = useState({ w: 0, h: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const [preview, setPreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [showCompare, setShowCompare] = useState(true);
+  const [bakedUrl, setBakedUrl] = useState<string | null>(null);
+  const [baking, setBaking] = useState(false);
+
+  // Re-bake the current page whenever boxes or settings change so the
+  // side-by-side preview reflects exactly what will be sent to the extractor.
+  useEffect(() => {
+    if (!page || !showCompare) {
+      setBakedUrl(null);
+      return;
+    }
+    let cancelled = false;
+    setBaking(true);
+    bakeRedactions(page, settings)
+      .then((url) => {
+        if (!cancelled) setBakedUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setBakedUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setBaking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, settings, showCompare]);
+
 
   useEffect(() => {
     const el = containerRef.current;
