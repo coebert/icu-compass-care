@@ -453,7 +453,11 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="chart" className="mt-4 space-y-4">
-          <ChartTab patientId={patientId} />
+          <ChartTab
+            patientId={patientId}
+            initialDate={urlChartDate || undefined}
+            onDateChange={setChartDate}
+          />
         </TabsContent>
 
         <TabsContent value="lines" className="mt-4 space-y-4">
