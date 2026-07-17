@@ -20,6 +20,7 @@ import {
   type MatchCandidate,
 } from "@/lib/chart-extract.functions";
 import { fmtDate } from "@/lib/icu";
+import { ChartReviewSheet } from "@/components/patient/chart-review-sheet";
 
 
 // Client-side downscale to ≤2000px longest edge, JPEG 0.85. Also strips EXIF
@@ -391,6 +392,15 @@ function ReviewPanel({
         text={extraction.balance_24h_ml != null ? String(extraction.balance_24h_ml) : "—"}
         flagged={balanceLow}
       />
+
+      <details className="rounded border p-3" open>
+        <summary className="cursor-pointer text-sm font-medium">
+          Detailed review — every extracted value with predicted ranges
+        </summary>
+        <div className="mt-3">
+          <ChartReviewSheet extraction={extraction} lowConf={lowConf} />
+        </div>
+      </details>
 
       {totalLow > 0 && (
         <details className="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-xs" open>
