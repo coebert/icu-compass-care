@@ -680,7 +680,7 @@ function StickerMatchPanel({
   primary: MatchCandidate | undefined;
   selectedPatientId: string;
   onSelectPatient: (id: string) => void;
-  openedFromPatientId: string;
+  openedFromPatientId?: string;
   hasStickerFields: boolean;
   extractedMrn: string | null;
   extractedInitials: string | null;
