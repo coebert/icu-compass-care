@@ -561,14 +561,25 @@ function ReviewPanel({
         any value from the chart / relevant tab after saving.
       </p>
 
-      <DialogFooter>
+      <DialogFooter className="gap-2 sm:justify-between">
         <Button variant="outline" onClick={onCancel} disabled={committing}>
           Discard
         </Button>
-        <Button onClick={onConfirm} disabled={!canConfirm} className="gap-2">
-          {committing && <Loader2 className="h-4 w-4 animate-spin" />}
-          Confirm &amp; save
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={onRescan}
+            disabled={committing}
+            className="gap-2"
+            title="Discard these extracted values and upload a new photo for the same 24h chart. No image is retained."
+          >
+            <Camera className="h-4 w-4" /> Re-scan
+          </Button>
+          <Button onClick={onConfirm} disabled={!canConfirm} className="gap-2">
+            {committing && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirm &amp; save
+          </Button>
+        </div>
       </DialogFooter>
     </div>
   );
