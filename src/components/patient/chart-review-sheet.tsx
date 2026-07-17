@@ -1,4 +1,5 @@
-import { AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import type { ChartExtraction } from "@/lib/chart-extract.functions";
 import { ChartTrendPreview } from "@/components/patient/chart-trend-preview";
 
