@@ -753,10 +753,9 @@ function StickerMatchPanel({
               extractedMrn={extractedMrn}
               extractedInitials={extractedInitials}
               onSelect={() => onSelectPatient(c.id)}
-              onAutoFill={() =>
-                onAutoFill(c.hospital_number ?? null, deriveInitials(c.full_name))
-              }
+              onAutoFill={onAutoFill}
             />
+
           </li>
         ))}
       </ul>
@@ -803,7 +802,8 @@ function CandidateCompareCard({
   extractedMrn: string | null;
   extractedInitials: string | null;
   onSelect: () => void;
-  onAutoFill: () => void;
+  onAutoFill: (mrn: string | null, initials: string | null) => void;
+
 }) {
   const recordInitials = deriveInitials(candidate.full_name);
   const mrnMatch =
@@ -843,18 +843,54 @@ function CandidateCompareCard({
             </tr>
           </thead>
           <tbody className="font-mono">
-            <CompareRow
-              label="MRN"
-              extracted={extractedMrn ?? "—"}
-              record={candidate.hospital_number ?? "—"}
-              match={extractedMrn && candidate.hospital_number ? mrnMatch : null}
-            />
-            <CompareRow
-              label="Initials"
-              extracted={extractedInitials ?? "—"}
-              record={recordInitials ?? "—"}
-              match={extractedInitials && recordInitials ? initialsMatch : null}
-            />
+            <tr className={`border-t ${mrnMatch ? "bg-emerald-500/5" : extractedMrn && candidate.hospital_number ? "bg-destructive/10" : ""}`}>
+              <td className="px-2 py-1 font-sans text-[10px] uppercase tracking-wide text-muted-foreground">MRN</td>
+              <td className="px-2 py-1">
+                <input
+                  className="w-full rounded border bg-background px-1.5 py-0.5 font-mono text-xs"
+                  value={extractedMrn ?? ""}
+                  maxLength={50}
+                  placeholder="—"
+                  aria-label="Edit extracted MRN"
+                  onChange={(e) => onAutoFill(e.target.value || null, extractedInitials)}
+                />
+              </td>
+              <td className="px-2 py-1 break-all">
+                <span className="flex items-center gap-1">
+                  {candidate.hospital_number ?? "—"}
+                  {extractedMrn && candidate.hospital_number && mrnMatch && (
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-label="matches sticker" />
+                  )}
+                  {extractedMrn && candidate.hospital_number && !mrnMatch && (
+                    <AlertTriangle className="h-3 w-3 text-destructive" aria-label="differs from sticker" />
+                  )}
+                </span>
+              </td>
+            </tr>
+            <tr className={`border-t ${initialsMatch ? "bg-emerald-500/5" : extractedInitials && recordInitials ? "bg-destructive/10" : ""}`}>
+              <td className="px-2 py-1 font-sans text-[10px] uppercase tracking-wide text-muted-foreground">Initials</td>
+              <td className="px-2 py-1">
+                <input
+                  className="w-full rounded border bg-background px-1.5 py-0.5 font-mono text-xs uppercase"
+                  value={extractedInitials ?? ""}
+                  maxLength={3}
+                  placeholder="—"
+                  aria-label="Edit extracted initials"
+                  onChange={(e) => onAutoFill(extractedMrn, e.target.value.toUpperCase() || null)}
+                />
+              </td>
+              <td className="px-2 py-1 break-all">
+                <span className="flex items-center gap-1">
+                  {recordInitials ?? "—"}
+                  {extractedInitials && recordInitials && initialsMatch && (
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600" aria-label="matches sticker" />
+                  )}
+                  {extractedInitials && recordInitials && !initialsMatch && (
+                    <AlertTriangle className="h-3 w-3 text-destructive" aria-label="differs from sticker" />
+                  )}
+                </span>
+              </td>
+            </tr>
             <CompareRow label="Age / sex / status" extracted="—" record={demographics} match={null} />
             <CompareRow label="Location" extracted="—" record={location} match={null} />
             <CompareRow
@@ -864,6 +900,7 @@ function CandidateCompareCard({
               match={null}
             />
           </tbody>
+
         </table>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
@@ -876,7 +913,7 @@ function CandidateCompareCard({
         </button>
         <button
           type="button"
-          onClick={onAutoFill}
+          onClick={() => onAutoFill(candidate.hospital_number ?? null, recordInitials)}
           className="rounded border px-2 py-1 text-xs font-medium hover:bg-muted/60"
           title="Overwrite the extracted MRN and initials with the values from this patient record"
           disabled={mrnMatch && initialsMatch}
