@@ -172,7 +172,7 @@ export function ScanChartDialog({
         {stage === "pick" && (
           <div className="space-y-4">
             <div className="rounded border border-dashed p-4 text-sm text-muted-foreground">
-              <p className="mb-2">Take a photo of each page of the paper chart (max 3 pages).</p>
+              <p className="mb-2">Take a photo of each page of the paper chart (max 3 pages). You will blur the patient name and date of birth on the next screen before anything is sent to the extractor.</p>
               <p className="flex items-center gap-1 text-xs">
                 <ShieldCheck className="h-3.5 w-3.5" /> Image is not stored, uploaded to
                 any bucket, or logged.
