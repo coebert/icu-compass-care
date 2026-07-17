@@ -95,6 +95,20 @@ export function ScanChartDialog({
     if (fileInput.current) fileInput.current.value = "";
   };
 
+  // Re-scan: drop extracted values and any in-memory page bytes, return to the
+  // file picker for a fresh capture. Nothing is persisted to the app at this
+  // point (images are only ever held in component state), so clearing state is
+  // sufficient to guarantee no image survives.
+  const rescan = () => {
+    setExtraction(null);
+    setRedactPages([]);
+    setError(null);
+    setPageCount(0);
+    setSelectedPatientId(patientId);
+    if (fileInput.current) fileInput.current.value = "";
+    setStage("pick");
+  };
+
   const extractMut = useMutation({
     mutationFn: async (pagesToSend: RedactionPage[]) => {
       // Bake redactions into each page BEFORE handing bytes to the server fn.
@@ -266,6 +280,7 @@ export function ScanChartDialog({
               reset();
               onOpenChange(false);
             }}
+            onRescan={rescan}
             onConfirm={() => commitMut.mutate(extraction)}
             committing={commitMut.isPending}
           />
@@ -297,6 +312,7 @@ function ReviewPanel({
   onSelectPatient,
   onChange,
   onCancel,
+  onRescan,
   onConfirm,
   committing,
 }: {
@@ -306,6 +322,7 @@ function ReviewPanel({
   onSelectPatient: (id: string) => void;
   onChange: (e: ChartExtraction) => void;
   onCancel: () => void;
+  onRescan: () => void;
   onConfirm: () => void;
   committing: boolean;
 }) {
@@ -544,14 +561,25 @@ function ReviewPanel({
         any value from the chart / relevant tab after saving.
       </p>
 
-      <DialogFooter>
+      <DialogFooter className="gap-2 sm:justify-between">
         <Button variant="outline" onClick={onCancel} disabled={committing}>
           Discard
         </Button>
-        <Button onClick={onConfirm} disabled={!canConfirm} className="gap-2">
-          {committing && <Loader2 className="h-4 w-4 animate-spin" />}
-          Confirm &amp; save
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={onRescan}
+            disabled={committing}
+            className="gap-2"
+            title="Discard these extracted values and upload a new photo for the same 24h chart. No image is retained."
+          >
+            <Camera className="h-4 w-4" /> Re-scan
+          </Button>
+          <Button onClick={onConfirm} disabled={!canConfirm} className="gap-2">
+            {committing && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirm &amp; save
+          </Button>
+        </div>
       </DialogFooter>
     </div>
   );
