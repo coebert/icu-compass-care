@@ -98,6 +98,16 @@ function todayISO(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+function shiftISODate(iso: string, delta: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const mm = `${dt.getUTCMonth() + 1}`.padStart(2, "0");
+  const dd = `${dt.getUTCDate()}`.padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${mm}-${dd}`;
+}
+
 export function ChartTab({ patientId, initialDate }: { patientId: string; initialDate?: string }) {
   const [chartDate, setChartDate] = useState<string>(initialDate ?? todayISO());
   const [scanOpen, setScanOpen] = useState(false);
