@@ -260,6 +260,166 @@ export type Database = {
         }
         Relationships: []
       }
+      chart_days: {
+        Row: {
+          balance_24h_ml: number | null
+          chart_date: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          source: Database["public"]["Enums"]["chart_source"]
+          updated_at: string
+        }
+        Insert: {
+          balance_24h_ml?: number | null
+          chart_date: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          source?: Database["public"]["Enums"]["chart_source"]
+          updated_at?: string
+        }
+        Update: {
+          balance_24h_ml?: number | null
+          chart_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          source?: Database["public"]["Enums"]["chart_source"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_days_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chart_hourly: {
+        Row: {
+          actual_removal_ml: number | null
+          bowels: string | null
+          cam_icu: string | null
+          chart_day_id: string
+          cumulative_balance_ml: number | null
+          cvp: number | null
+          dbp: number | null
+          etco2: number | null
+          fio2: number | null
+          flushes_ml: number | null
+          gcs: number | null
+          hour: number
+          hourly_balance_ml: number | null
+          hr: number | null
+          intake_ml: number | null
+          map: number | null
+          mv: number | null
+          ng_aspirate_ml: number | null
+          ng_free_ml: number | null
+          p_support: number | null
+          peak_pressure: number | null
+          peep: number | null
+          pupils_l: string | null
+          pupils_r: string | null
+          rr: number | null
+          sbp: number | null
+          spo2: number | null
+          target_removal_ml: number | null
+          temp: number | null
+          tv: number | null
+          updated_at: string
+          urine_ml: number | null
+          vent_mode: string | null
+        }
+        Insert: {
+          actual_removal_ml?: number | null
+          bowels?: string | null
+          cam_icu?: string | null
+          chart_day_id: string
+          cumulative_balance_ml?: number | null
+          cvp?: number | null
+          dbp?: number | null
+          etco2?: number | null
+          fio2?: number | null
+          flushes_ml?: number | null
+          gcs?: number | null
+          hour: number
+          hourly_balance_ml?: number | null
+          hr?: number | null
+          intake_ml?: number | null
+          map?: number | null
+          mv?: number | null
+          ng_aspirate_ml?: number | null
+          ng_free_ml?: number | null
+          p_support?: number | null
+          peak_pressure?: number | null
+          peep?: number | null
+          pupils_l?: string | null
+          pupils_r?: string | null
+          rr?: number | null
+          sbp?: number | null
+          spo2?: number | null
+          target_removal_ml?: number | null
+          temp?: number | null
+          tv?: number | null
+          updated_at?: string
+          urine_ml?: number | null
+          vent_mode?: string | null
+        }
+        Update: {
+          actual_removal_ml?: number | null
+          bowels?: string | null
+          cam_icu?: string | null
+          chart_day_id?: string
+          cumulative_balance_ml?: number | null
+          cvp?: number | null
+          dbp?: number | null
+          etco2?: number | null
+          fio2?: number | null
+          flushes_ml?: number | null
+          gcs?: number | null
+          hour?: number
+          hourly_balance_ml?: number | null
+          hr?: number | null
+          intake_ml?: number | null
+          map?: number | null
+          mv?: number | null
+          ng_aspirate_ml?: number | null
+          ng_free_ml?: number | null
+          p_support?: number | null
+          peak_pressure?: number | null
+          peep?: number | null
+          pupils_l?: string | null
+          pupils_r?: string | null
+          rr?: number | null
+          sbp?: number | null
+          spo2?: number | null
+          target_removal_ml?: number | null
+          temp?: number | null
+          tv?: number | null
+          updated_at?: string
+          urine_ml?: number | null
+          vent_mode?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_hourly_chart_day_id_fkey"
+            columns: ["chart_day_id"]
+            isOneToOne: false
+            referencedRelation: "chart_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handover_acknowledgements: {
         Row: {
           ack_by: string | null
@@ -1662,6 +1822,7 @@ export type Database = {
         | "ward_based"
         | "symptom_control"
         | "not_documented"
+      chart_source: "scan" | "manual"
       infection_status: "none" | "suspected" | "confirmed" | "unknown"
       patient_location: "icu" | "outlier"
       patient_sex: "male" | "female" | "other" | "unknown"
@@ -1839,6 +2000,7 @@ export const Constants = {
         "symptom_control",
         "not_documented",
       ],
+      chart_source: ["scan", "manual"],
       infection_status: ["none", "suspected", "confirmed", "unknown"],
       patient_location: ["icu", "outlier"],
       patient_sex: ["male", "female", "other", "unknown"],
