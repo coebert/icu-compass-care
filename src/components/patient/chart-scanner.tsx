@@ -280,6 +280,7 @@ export function ScanChartDialog({
               reset();
               onOpenChange(false);
             }}
+            onRescan={rescan}
             onConfirm={() => commitMut.mutate(extraction)}
             committing={commitMut.isPending}
           />
