@@ -621,6 +621,13 @@ function shiftISODate(iso: string, delta: number): string {
   return `${dt.getUTCFullYear()}-${mm}-${dd}`;
 }
 
+function todayISO(): string {
+  const d = new Date();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function OverviewChartCard({ patientId }: { patientId: string }) {
   const listDays = useServerFn(listChartDays);
   const [expanded, setExpanded] = useState(false);
@@ -681,6 +688,17 @@ function OverviewChartCard({ patientId }: { patientId: string }) {
             title="Next day"
           >
             <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 shrink-0"
+            onClick={() => open(todayISO())}
+            aria-label="Open today's chart"
+            title="Open today's chart"
+          >
+            Today
           </Button>
           <Button size="sm" variant="outline" onClick={() => open(date)}>
             Open
