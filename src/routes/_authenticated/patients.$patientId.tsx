@@ -609,3 +609,86 @@ function PatientDetail() {
 
   );
 }
+
+function OverviewChartCard({ patientId }: { patientId: string }) {
+  const listDays = useServerFn(listChartDays);
+  const [expanded, setExpanded] = useState(false);
+  const [date, setDate] = useState<string>(() => {
+    const d = new Date();
+    const m = `${d.getMonth() + 1}`.padStart(2, "0");
+    const day = `${d.getDate()}`.padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${day}`;
+  });
+  const [chartKey, setChartKey] = useState(0);
+
+  const daysQ = useQuery({
+    queryKey: ["chart-days-overview", patientId],
+    queryFn: () => listDays({ data: { patientId, includeArchived: true } }),
+  });
+
+  const open = (d: string) => {
+    setDate(d);
+    setExpanded(true);
+    setChartKey((k) => k + 1);
+  };
+
+  const recent = (daysQ.data ?? []).slice(0, 8);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="text-base">24-hour chart</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="overview-chart-date" className="text-xs text-muted-foreground">
+            Open date
+          </label>
+          <input
+            id="overview-chart-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-8 rounded border bg-background px-2 text-sm"
+          />
+          <Button size="sm" variant="outline" onClick={() => open(date)}>
+            Open
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {recent.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Recent:</span>
+            {recent.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => open(d.chart_date)}
+                className={`rounded border px-2 py-0.5 text-xs hover:bg-accent ${
+                  d.archived_at ? "border-amber-400/60 text-amber-800 dark:text-amber-200" : ""
+                }`}
+                title={d.archived_at ? "Archived" : "Active"}
+              >
+                {d.chart_date}
+                {d.archived_at ? " · archived" : ""}
+              </button>
+            ))}
+          </div>
+        )}
+        {expanded ? (
+          <div className="pt-2">
+            <ChartTab key={chartKey} patientId={patientId} initialDate={date} />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => setExpanded(true)}
+          >
+            Show digital 24h chart (click to expand)
+          </button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
