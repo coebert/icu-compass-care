@@ -45,7 +45,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
