@@ -241,7 +241,15 @@ export function ChartRedactor({
             size="sm"
             variant="ghost"
             disabled={page.boxes.length === 0}
-            onClick={() => updatePage((p) => ({ ...p, boxes: p.boxes.slice(0, -1) }))}
+            onClick={() =>
+              updatePage((p) => ({
+                ...p,
+                boxes: p.boxes.slice(0, -1),
+                // Any change to boxes invalidates prior confirmations.
+                nameConfirmed: false,
+                dobConfirmed: false,
+              }))
+            }
           >
             <Undo2 className="mr-1 h-3.5 w-3.5" /> Undo
           </Button>
@@ -249,7 +257,9 @@ export function ChartRedactor({
             size="sm"
             variant="ghost"
             disabled={page.boxes.length === 0}
-            onClick={() => updatePage((p) => ({ ...p, boxes: [] }))}
+            onClick={() =>
+              updatePage((p) => ({ ...p, boxes: [], nameConfirmed: false, dobConfirmed: false }))
+            }
           >
             <Trash2 className="mr-1 h-3.5 w-3.5" /> Clear
           </Button>
