@@ -436,12 +436,20 @@ function ReviewPanel({
         loading={matchQuery.isLoading}
         candidates={candidates}
         primary={primary}
-        currentPatientId={currentPatientId}
-        currentMatched={!!currentMatched}
+        selectedPatientId={selectedPatientId}
+        onSelectPatient={onSelectPatient}
+        openedFromPatientId={openedFromPatientId}
         hasStickerFields={!!(extraction.hospital_number || extraction.initials)}
       />
 
-      {mismatched && (
+      <ManualPatientPicker
+        selectedPatientId={selectedPatientId}
+        openedFromPatientId={openedFromPatientId}
+        onSelectPatient={onSelectPatient}
+        defaultOpen={stickerMismatch}
+      />
+
+      {stickerMismatch && !manuallyReassigned && (
         <label className="flex items-start gap-2 rounded border border-destructive/50 bg-destructive/5 p-3 text-xs">
           <input
             type="checkbox"
