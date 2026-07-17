@@ -4,7 +4,27 @@ import type { ChartExtraction } from "@/lib/chart-extract.functions";
  * Compact digital chart preview: a fixed 24-hour timeline showing sparklines
  * for the key vitals plus a fluid-balance strip, so timings and trends can be
  * eyeballed before the extraction is committed. Pure SVG — no chart lib.
+ *
+ * Out-of-range dots are clickable and scroll/focus the matching cell in the
+ * detailed review table below so the reviewer can jump straight to the value
+ * that needs confirmation.
  */
+
+function focusChartCell(hour: number, key: string) {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById(`chart-cell-${hour}-${key}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  const input = el.querySelector<HTMLInputElement>("input");
+  if (input) {
+    input.focus();
+    input.select();
+  }
+  const flashClasses = ["ring-2", "ring-primary", "ring-offset-1", "ring-offset-background"];
+  el.classList.add(...flashClasses);
+  window.setTimeout(() => el.classList.remove(...flashClasses), 1500);
+}
+
 
 type Series = {
   key: string;
