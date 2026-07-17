@@ -314,9 +314,9 @@ function ChartGrid({
   onSave,
 }: {
   title: string;
-  cols: { key: keyof HourlyCell; label: string; step?: string }[];
+  cols: ColDef[];
   hourly: HourlyRow[];
-  onSave: (hour: number, key: keyof HourlyCell, value: string, step: string | undefined) => void;
+  onSave: (hour: number, key: keyof HourlyCell, value: string, col: ColDef) => void;
 }) {
   return (
     <div>
@@ -344,21 +344,25 @@ function ChartGrid({
                   {`${row.hour}`.padStart(2, "0")}:00
                 </td>
                 {cols.map((c) => {
-                  const raw = row[c.key] as number | null | undefined;
+                  const raw = row[c.key] as number | string | null | undefined;
+                  const isText = c.type === "text";
                   return (
                     <td key={String(c.key)} className="border-l p-0">
                       <input
-                        type="number"
-                        step={c.step ?? "1"}
-                        inputMode={c.step ? "decimal" : "numeric"}
+                        type={isText ? "text" : "number"}
+                        step={isText ? undefined : (c.step ?? "1")}
+                        inputMode={isText ? undefined : c.step ? "decimal" : "numeric"}
+                        maxLength={isText ? 200 : undefined}
                         defaultValue={raw == null ? "" : String(raw)}
                         onBlur={(e) => {
                           const current = raw == null ? "" : String(raw);
                           if (e.currentTarget.value !== current) {
-                            onSave(row.hour, c.key, e.currentTarget.value, c.step);
+                            onSave(row.hour, c.key, e.currentTarget.value, c);
                           }
                         }}
-                        className="h-8 w-full min-w-16 bg-transparent px-2 tabular-nums outline-none focus:bg-accent/40"
+                        className={`h-8 w-full bg-transparent px-2 outline-none focus:bg-accent/40 ${
+                          isText ? "min-w-24" : "min-w-16 tabular-nums"
+                        }`}
                         aria-label={`${c.label} at hour ${row.hour}`}
                       />
                     </td>
@@ -366,6 +370,7 @@ function ChartGrid({
                 })}
               </tr>
             ))}
+
           </tbody>
         </table>
       </div>
