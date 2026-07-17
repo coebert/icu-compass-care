@@ -946,16 +946,18 @@ function ManualPatientPicker({
     enabled: debounced.length >= 2,
     staleTime: 15_000,
   });
-  const reassigned = selectedPatientId !== openedFromPatientId;
+  const reassigned =
+    !!openedFromPatientId && selectedPatientId !== openedFromPatientId;
   return (
     <details className="rounded border p-3 text-sm" open={defaultOpen || reassigned}>
       <summary className="cursor-pointer text-sm font-medium">
-        Assign to a different patient{reassigned ? " — reassigned" : ""}
+        {openedFromPatientId ? "Assign to a different patient" : "Assign to a patient"}
+        {reassigned ? " — reassigned" : ""}
       </summary>
       <div className="mt-3 space-y-2">
         <p className="text-xs text-muted-foreground">
           Search by name or hospital number. Selecting a patient files this chart
-          against that record instead of the one you opened the scanner from.
+          against that record{openedFromPatientId ? " instead of the one you opened the scanner from" : ""}.
         </p>
         <input
           value={q}
