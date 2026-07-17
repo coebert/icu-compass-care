@@ -126,6 +126,7 @@ function PatientsBoard() {
   const preset: PresetKey | "" = (urlSearch.preset in PRESETS ? (urlSearch.preset as PresetKey) : "");
   const clearPreset = () => updateBoardSearch({ preset: "" });
   const [open, setOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [form, setForm] = useState<PatientFormValues>(emptyPatient());
 
