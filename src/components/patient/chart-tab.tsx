@@ -104,6 +104,7 @@ export function ChartTab({ patientId }: { patientId: string }) {
   const [showArchived, setShowArchived] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
+  const [fullscreen, setFullscreen] = useState(false);
   const qc = useQueryClient();
 
   const getDay = useServerFn(getChartDay);
