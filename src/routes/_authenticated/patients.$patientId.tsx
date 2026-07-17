@@ -122,6 +122,15 @@ function PatientDetail() {
       search: (prev: SearchShape) => ({ ...prev, filter: next.join(",") }),
       replace: true,
     });
+  const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const urlChartDate = isoDateRe.test(search.chartDate) ? search.chartDate : "";
+  const setChartDate = (next: string) =>
+    navigate({
+      to: "/patients/$patientId",
+      params: { patientId },
+      search: (prev: SearchShape) => ({ ...prev, chartDate: next && isoDateRe.test(next) ? next : "" }),
+      replace: true,
+    });
 
   const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology"; id: string; seq: number } | null>(null);
 
