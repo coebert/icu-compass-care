@@ -317,32 +317,70 @@ export function ChartTab({ patientId }: { patientId: string }) {
         </CardContent>
       </Card>
 
-      {(daysQ.data?.length ?? 0) > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent chart days</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle className="text-base">Chart archive</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              All past 24-hour charts are retained. Click a date to view. Archived charts are read-only.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            {showArchived ? "Hide archived" : "Show archived"}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {daysQ.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (daysQ.data?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">No chart days recorded yet.</p>
+          ) : (
             <ul className="divide-y text-sm">
               {(daysQ.data ?? []).map((d) => (
-                <li key={d.id} className="flex items-center justify-between py-1.5">
-                  <button
-                    type="button"
-                    className="text-left underline-offset-2 hover:underline"
-                    onClick={() => setChartDate(d.chart_date)}
-                  >
-                    {d.chart_date}
-                  </button>
-                  <span className="text-xs text-muted-foreground">
-                    {d.source === "scan" ? "From scan" : "Manual"}
-                    {d.balance_24h_ml != null ? ` · 24h bal ${d.balance_24h_ml} mL` : ""}
-                  </span>
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-left font-medium underline-offset-2 hover:underline"
+                      onClick={() => setChartDate(d.chart_date)}
+                    >
+                      {d.chart_date}
+                    </button>
+                    {d.archived_at && (
+                      <Badge variant="outline" className="gap-1 text-[10px]">
+                        <Archive className="h-3 w-3" /> Archived
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {d.source === "scan" ? "From scan" : "Manual"}
+                      {d.balance_24h_ml != null ? ` · 24h bal ${d.balance_24h_ml} mL` : ""}
+                    </span>
+                    {d.archived_at && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs"
+                        onClick={() => restoreMut.mutate(d.id)}
+                        disabled={restoreMut.isPending}
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restore
+                      </Button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <ScanChartDialog
         open={scanOpen}
@@ -351,9 +389,46 @@ export function ChartTab({ patientId }: { patientId: string }) {
         chartDate={chartDate}
         onCommitted={() => {
           qc.invalidateQueries({ queryKey: dayQueryKey });
-          qc.invalidateQueries({ queryKey: daysQueryKey });
+          qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
         }}
       />
+
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive this 24-hour chart?</DialogTitle>
+            <DialogDescription>
+              The chart will become read-only but remain permanently retained for review. Provide a
+              short reason (e.g. superseded by rescan, entered in error, duplicate).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="archive-reason" className="text-xs">Reason (required, 3–500 chars)</Label>
+            <Textarea
+              id="archive-reason"
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="e.g. Rescanned after correction; original retained for audit."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setArchiveOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!day) return;
+                archiveMut.mutate({ id: day.id, reason: archiveReason.trim() });
+              }}
+              disabled={archiveMut.isPending || archiveReason.trim().length < 3}
+              className="gap-2"
+            >
+              {archiveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Archive chart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
