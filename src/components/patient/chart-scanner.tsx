@@ -120,10 +120,13 @@ export function ScanChartDialog({
 
   const commitMut = useMutation({
     mutationFn: (ex: ChartExtraction) =>
-      commitFn({ data: { patientId, chartDate, extraction: ex } }),
+      commitFn({ data: { patientId: selectedPatientId, chartDate, extraction: ex } }),
     onSuccess: (res) => {
+      const reassigned = selectedPatientId !== patientId;
       toast.success(
-        `Chart committed: ${res.observationsAdded} obs, ${res.investigationsAdded} investigations`,
+        `Chart committed: ${res.observationsAdded} obs, ${res.investigationsAdded} investigations${
+          reassigned ? " (filed against a different patient)" : ""
+        }`,
       );
       onCommitted();
       reset();
