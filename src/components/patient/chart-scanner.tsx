@@ -292,14 +292,18 @@ export function ScanChartDialog({
 
 function ReviewPanel({
   extraction,
-  currentPatientId,
+  openedFromPatientId,
+  selectedPatientId,
+  onSelectPatient,
   onChange,
   onCancel,
   onConfirm,
   committing,
 }: {
   extraction: ChartExtraction;
-  currentPatientId: string;
+  openedFromPatientId: string;
+  selectedPatientId: string;
+  onSelectPatient: (id: string) => void;
   onChange: (e: ChartExtraction) => void;
   onCancel: () => void;
   onConfirm: () => void;
