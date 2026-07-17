@@ -118,7 +118,7 @@ export function ScanChartDialog({
     mutationFn: async (pagesToSend: RedactionPage[]) => {
       // Bake redactions into each page BEFORE handing bytes to the server fn.
       const pages: string[] = [];
-      for (const p of pagesToSend) pages.push(await bakeRedactions(p));
+      for (const p of pagesToSend) pages.push(await bakeRedactions(p, redactSettings));
       try {
         const res = await extractFn({ data: { patientId, chartDate, pages } });
         return res;
