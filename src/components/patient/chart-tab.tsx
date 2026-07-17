@@ -101,7 +101,11 @@ function todayISO(): string {
 export function ChartTab({ patientId, initialDate }: { patientId: string; initialDate?: string }) {
   const [chartDate, setChartDate] = useState<string>(initialDate ?? todayISO());
   const [scanOpen, setScanOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">("active");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [searchText, setSearchText] = useState<string>("");
+  const showArchived = statusFilter !== "active";
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
