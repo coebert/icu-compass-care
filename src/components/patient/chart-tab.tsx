@@ -225,21 +225,29 @@ export function ChartTab({ patientId }: { patientId: string }) {
                   title={group.title}
                   cols={group.cols}
                   hourly={hourly}
-                  onSave={(hour, key, valueStr, step) => {
+                  onSave={(hour, key, valueStr, col) => {
                     const trimmed = valueStr.trim();
-                    const num =
-                      trimmed === "" ? null : step ? Number.parseFloat(trimmed) : Number.parseInt(trimmed, 10);
-                    if (num !== null && !Number.isFinite(num)) return;
+                    let next: string | number | null;
+                    if (col.type === "text") {
+                      next = trimmed === "" ? null : trimmed.slice(0, 200);
+                    } else {
+                      if (trimmed === "") {
+                        next = null;
+                      } else {
+                        const parsed = col.step
+                          ? Number.parseFloat(trimmed)
+                          : Number.parseInt(trimmed, 10);
+                        if (!Number.isFinite(parsed)) return;
+                        next = parsed;
+                      }
+                    }
                     const prev = hourly.find((r) => r.hour === hour) ?? { hour };
-                    const patch: HourlyCell = {
-                      ...prev,
-                      [key]: num,
-                    } as HourlyCell;
-                    // strip `hour` from patch
-                    const { hour: _h, ...rest } = { ...patch, hour } as HourlyCell & { hour: number };
+                    const patch = { ...prev, [key]: next } as HourlyCell & { hour: number };
+                    const { hour: _h, ...rest } = patch;
                     void _h;
                     cellMut.mutate({ chartDayId: day.id, hour, patch: rest as HourlyCell });
                   }}
+
                 />
               ))}
 
