@@ -21,6 +21,13 @@ import {
 } from "@/lib/chart-extract.functions";
 import { fmtDate } from "@/lib/icu";
 import { ChartReviewSheet } from "@/components/patient/chart-review-sheet";
+import {
+  ChartRedactor,
+  bakeRedactions,
+  loadPage,
+  type RedactionPage,
+} from "@/components/patient/chart-redactor";
+
 
 
 // Client-side downscale to ≤2000px longest edge, JPEG 0.85. Also strips EXIF
@@ -63,8 +70,9 @@ export function ScanChartDialog({
   chartDate: string;
   onCommitted: () => void;
 }) {
-  const [stage, setStage] = useState<"pick" | "reading" | "review">("pick");
+  const [stage, setStage] = useState<"pick" | "redact" | "reading" | "review">("pick");
   const [pageCount, setPageCount] = useState(0);
+  const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
   const [extraction, setExtraction] = useState<ChartExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -75,31 +83,32 @@ export function ScanChartDialog({
   const reset = () => {
     setStage("pick");
     setPageCount(0);
+    setRedactPages([]);
     setExtraction(null);
     setError(null);
     if (fileInput.current) fileInput.current.value = "";
   };
 
   const extractMut = useMutation({
-    mutationFn: async (files: File[]) => {
-      // Downscale — payload never leaves this closure until we hit the server fn.
+    mutationFn: async (pagesToSend: RedactionPage[]) => {
+      // Bake redactions into each page BEFORE handing bytes to the server fn.
       const pages: string[] = [];
-      for (const f of files) pages.push(await fileToDownscaledDataUrl(f));
+      for (const p of pagesToSend) pages.push(await bakeRedactions(p));
       try {
         const res = await extractFn({ data: { patientId, chartDate, pages } });
         return res;
       } finally {
-        // Belt-and-braces: drop the base64 strings from memory before returning.
         pages.length = 0;
       }
     },
     onSuccess: (res) => {
       setExtraction(res.extraction);
+      setRedactPages([]); // drop original data URLs from memory
       setStage("review");
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : "Extraction failed");
-      setStage("pick");
+      setStage("redact");
     },
   });
 
@@ -119,14 +128,24 @@ export function ScanChartDialog({
     },
   });
 
-  const onFiles = (list: FileList | null) => {
+  const onFiles = async (list: FileList | null) => {
     if (!list || list.length === 0) return;
     const files = Array.from(list).slice(0, 3);
     setPageCount(files.length);
     setError(null);
-    setStage("reading");
-    extractMut.mutate(files);
+    try {
+      const prepared: RedactionPage[] = [];
+      for (const f of files) {
+        const url = await fileToDownscaledDataUrl(f);
+        prepared.push(await loadPage(url));
+      }
+      setRedactPages(prepared);
+      setStage("redact");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not read image");
+    }
   };
+
 
   return (
     <Dialog
@@ -136,22 +155,24 @@ export function ScanChartDialog({
         onOpenChange(v);
       }}
     >
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-4 w-4" /> Scan Radnor chart — {chartDate}
           </DialogTitle>
           <DialogDescription>
-            The photo is sent to the extractor and immediately discarded. Only the
-            structured values below are stored, and only hospital number and initials
-            identify the patient.
+            You will be asked to blur out the patient name and date of birth before the
+            image is sent for extraction. The photo is discarded immediately after; only
+            the structured values are stored, and only hospital number and initials
+            identify the record.
           </DialogDescription>
         </DialogHeader>
+
 
         {stage === "pick" && (
           <div className="space-y-4">
             <div className="rounded border border-dashed p-4 text-sm text-muted-foreground">
-              <p className="mb-2">Take a photo of each page of the paper chart (max 3 pages).</p>
+              <p className="mb-2">Take a photo of each page of the paper chart (max 3 pages). You will blur the patient name and date of birth on the next screen before anything is sent to the extractor.</p>
               <p className="flex items-center gap-1 text-xs">
                 <ShieldCheck className="h-3.5 w-3.5" /> Image is not stored, uploaded to
                 any bucket, or logged.
@@ -180,6 +201,38 @@ export function ScanChartDialog({
           </div>
         )}
 
+        {stage === "redact" && redactPages.length > 0 && (
+          <div className="space-y-3">
+            <ChartRedactor pages={redactPages} onChange={setRedactPages} />
+            {error && (
+              <p className="flex items-center gap-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4" /> {error}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button variant="ghost" size="sm" onClick={reset}>
+                Start over
+              </Button>
+              <Button
+                onClick={() => {
+                  const total = redactPages.reduce((n, p) => n + p.boxes.length, 0);
+                  if (total === 0) {
+                    setError(
+                      "Please cover the patient name and date of birth on at least one page before sending.",
+                    );
+                    return;
+                  }
+                  setError(null);
+                  setStage("reading");
+                  extractMut.mutate(redactPages);
+                }}
+              >
+                Send redacted image to extractor
+              </Button>
+            </div>
+          </div>
+        )}
+
         {stage === "reading" && (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -187,10 +240,11 @@ export function ScanChartDialog({
               Reading {pageCount} page{pageCount === 1 ? "" : "s"}…
             </p>
             <p className="text-xs text-muted-foreground">
-              The photo is being processed and will not be retained.
+              The redacted photo is being processed and will not be retained.
             </p>
           </div>
         )}
+
 
         {stage === "review" && extraction && (
           <ReviewPanel
