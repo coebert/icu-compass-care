@@ -5,18 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Loader2, Archive, RotateCcw, Lock } from "lucide-react";
 import {
   ensureChartDay,
   getChartDay,
   listChartDays,
   upsertHourlyCell,
-  deleteChartDay,
+  archiveChartDay,
+  unarchiveChartDay,
   updateChartDay,
   type HourlyCell,
 } from "@/lib/chart-days.functions";
 import { ScanChartDialog } from "@/components/patient/chart-scanner";
+import { fmtDateTime } from "@/lib/icu";
+
 
 type HourlyRow = HourlyCell & { hour: number };
 
