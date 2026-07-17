@@ -753,10 +753,9 @@ function StickerMatchPanel({
               extractedMrn={extractedMrn}
               extractedInitials={extractedInitials}
               onSelect={() => onSelectPatient(c.id)}
-              onAutoFill={() =>
-                onAutoFill(c.hospital_number ?? null, deriveInitials(c.full_name))
-              }
+              onAutoFill={onAutoFill}
             />
+
           </li>
         ))}
       </ul>
