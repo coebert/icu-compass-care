@@ -134,9 +134,11 @@ export function ChartTrendPreview({
 function Sparkline({
   series,
   byHour,
+  lowConf,
 }: {
   series: Series;
   byHour: Map<number, Record<string, number | null>>;
+  lowConf: Set<string>;
 }) {
   const W = 320;
   const H = 74;
@@ -146,6 +148,7 @@ function Sparkline({
   const padB = 14;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
+  const [activeHour, setActiveHour] = useState<number | null>(null);
 
   const xForHour = (h: number) => padL + (h / 23) * innerW;
   const yForVal = (v: number) => {
@@ -157,7 +160,7 @@ function Sparkline({
   // Build path with gaps for missing hours.
   let d = "";
   let penDown = false;
-  const points: { h: number; v: number; oor: boolean }[] = [];
+  const points: { h: number; v: number; oor: boolean; uncertain: boolean }[] = [];
   for (let h = 0; h < 24; h += 1) {
     const raw = byHour.get(h)?.[series.key];
     if (raw == null || Number.isNaN(raw as number)) {
@@ -170,10 +173,18 @@ function Sparkline({
     d += `${penDown ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)} `;
     penDown = true;
     const oor = series.bands?.some((b) => v < b.lo || v > b.hi) ?? false;
-    points.push({ h, v, oor });
+    const uncertain = lowConf.has(`hourly[${h}].${series.key}`);
+    points.push({ h, v, oor, uncertain });
   }
 
   const lastVal = points.at(-1)?.v;
+  const active = activeHour == null ? null : points.find((p) => p.h === activeHour) ?? null;
+  const bandStr = series.bands?.[0]
+    ? `${series.precision != null ? series.bands[0].lo.toFixed(series.precision) : series.bands[0].lo}–${
+        series.precision != null ? series.bands[0].hi.toFixed(series.precision) : series.bands[0].hi
+      }${series.unit ?? ""}`
+    : null;
+
 
   return (
     <div className="rounded border p-2">
