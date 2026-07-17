@@ -111,9 +111,8 @@ export const extractChart = createServerFn({ method: "POST" })
         entity: "patients",
         entity_id: data.patientId,
         action: "update",
-        actor_id: context.userId,
-        source: "app",
-        summary: `chart-scan attempt for ${data.chartDate} (${data.pages.length} page(s))`,
+        user_id: context.userId,
+        diff: { chart_scan: `attempt for ${data.chartDate} (${data.pages.length} page(s))` },
       } as never);
 
     const userContent: Array<
