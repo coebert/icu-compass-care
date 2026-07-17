@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
@@ -10,9 +10,17 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Camera, X, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Loader2, Camera, X, ShieldCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { extractChart, commitChart, type ChartExtraction } from "@/lib/chart-extract.functions";
+import {
+  extractChart,
+  commitChart,
+  matchPatientBySticker,
+  type ChartExtraction,
+  type MatchCandidate,
+} from "@/lib/chart-extract.functions";
+import { fmtDate } from "@/lib/icu";
+
 
 // Client-side downscale to ≤2000px longest edge, JPEG 0.85. Also strips EXIF
 // (canvas re-encode discards metadata) so no GPS is uploaded with the photo.
@@ -186,6 +194,7 @@ export function ScanChartDialog({
         {stage === "review" && extraction && (
           <ReviewPanel
             extraction={extraction}
+            currentPatientId={patientId}
             onChange={setExtraction}
             onCancel={() => {
               reset();
@@ -217,12 +226,14 @@ export function ScanChartDialog({
 
 function ReviewPanel({
   extraction,
+  currentPatientId,
   onChange,
   onCancel,
   onConfirm,
   committing,
 }: {
   extraction: ChartExtraction;
+  currentPatientId: string;
   onChange: (e: ChartExtraction) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -236,6 +247,39 @@ function ReviewPanel({
   ).length;
 
   const patch = (k: keyof ChartExtraction, v: unknown) => onChange({ ...extraction, [k]: v });
+
+  const [override, setOverride] = useState(false);
+  // Reset the "file anyway" override whenever the sticker fields change so a
+  // fresh mismatch always re-arms the safety gate.
+  useEffect(() => {
+    setOverride(false);
+  }, [extraction.hospital_number, extraction.initials]);
+
+  const matchFn = useServerFn(matchPatientBySticker);
+  const matchQuery = useQuery({
+    queryKey: [
+      "sticker-match",
+      extraction.hospital_number ?? "",
+      extraction.initials ?? "",
+    ],
+    queryFn: () =>
+      matchFn({
+        data: {
+          hospital_number: extraction.hospital_number ?? null,
+          initials: extraction.initials ?? null,
+        },
+      }),
+    enabled: !!(extraction.hospital_number || extraction.initials),
+    staleTime: 30_000,
+  });
+
+  const candidates = matchQuery.data?.candidates ?? [];
+  const primary: MatchCandidate | undefined = candidates[0];
+  const currentMatched = candidates.find((c) => c.id === currentPatientId);
+  const mismatched =
+    !!currentMatched === false && (extraction.hospital_number || extraction.initials);
+
+  const canConfirm = !committing && (!mismatched || override);
 
   return (
     <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
@@ -262,6 +306,30 @@ function ReviewPanel({
           </label>
         </div>
       </div>
+
+      <StickerMatchPanel
+        loading={matchQuery.isLoading}
+        candidates={candidates}
+        primary={primary}
+        currentPatientId={currentPatientId}
+        currentMatched={!!currentMatched}
+        hasStickerFields={!!(extraction.hospital_number || extraction.initials)}
+      />
+
+      {mismatched && (
+        <label className="flex items-start gap-2 rounded border border-destructive/50 bg-destructive/5 p-3 text-xs">
+          <input
+            type="checkbox"
+            checked={override}
+            onChange={(e) => setOverride(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            I have checked the chart sticker and it does correspond to this patient
+            record. File anyway.
+          </span>
+        </label>
+      )}
 
       <SummaryRow label="Hourly rows extracted" count={hourlyCount} />
       <SummaryRow label="Investigations" count={invCount} />
@@ -291,13 +359,119 @@ function ReviewPanel({
         <Button variant="outline" onClick={onCancel} disabled={committing}>
           Discard
         </Button>
-        <Button onClick={onConfirm} disabled={committing} className="gap-2">
+        <Button onClick={onConfirm} disabled={!canConfirm} className="gap-2">
           {committing && <Loader2 className="h-4 w-4 animate-spin" />}
           Confirm &amp; save
         </Button>
       </DialogFooter>
     </div>
   );
+}
+
+function StickerMatchPanel({
+  loading,
+  candidates,
+  primary,
+  currentPatientId,
+  currentMatched,
+  hasStickerFields,
+}: {
+  loading: boolean;
+  candidates: MatchCandidate[];
+  primary: MatchCandidate | undefined;
+  currentPatientId: string;
+  currentMatched: boolean;
+  hasStickerFields: boolean;
+}) {
+  if (!hasStickerFields) {
+    return (
+      <div className="flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
+        <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+        <span>
+          No hospital number or initials were read from the sticker. Enter them above
+          so the app can confirm the chart belongs to this patient.
+        </span>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 rounded border p-3 text-xs text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Matching sticker to patient record…
+      </div>
+    );
+  }
+  if (currentMatched) {
+    const p = candidates.find((c) => c.id === currentPatientId)!;
+    return (
+      <div className="rounded border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
+        <p className="flex items-center gap-2 font-medium text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4" /> Matched patient
+        </p>
+        <CandidateLine c={p} />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Sticker corresponds to the patient record you are filing against.
+        </p>
+      </div>
+    );
+  }
+  if (!candidates.length) {
+    return (
+      <div className="rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
+        <p className="flex items-center gap-2 font-medium text-destructive">
+          <AlertTriangle className="h-4 w-4" /> No patient record matches this sticker
+        </p>
+        <p className="mt-1 text-xs">
+          Check the sticker values above, or add the patient in the app before filing
+          this chart.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
+      <p className="flex items-center gap-2 font-medium text-destructive">
+        <AlertTriangle className="h-4 w-4" /> Sticker does NOT match the current patient
+      </p>
+      {primary && (
+        <>
+          <p className="mt-2 text-xs">The sticker looks like:</p>
+          <CandidateLine c={primary} />
+        </>
+      )}
+      {candidates.length > 1 && (
+        <ul className="mt-2 space-y-1 text-xs">
+          {candidates.slice(1).map((c) => (
+            <li key={c.id}>
+              <CandidateLine c={c} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">
+        Open the correct patient and scan the chart from there, or tick the override
+        box below if you are certain the sticker is wrong.
+      </p>
+    </div>
+  );
+}
+
+function CandidateLine({ c }: { c: MatchCandidate }) {
+  const initials = (c.full_name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 3);
+  const bits: string[] = [];
+  if (c.hospital_number) bits.push(`MRN ${c.hospital_number}`);
+  if (initials) bits.push(`Initials ${initials}`);
+  if (c.age != null) bits.push(`${c.age}y`);
+  if (c.sex) bits.push(String(c.sex).slice(0, 1).toUpperCase());
+  if (c.ward || c.bed) bits.push(`${c.ward ?? ""}${c.bed ? ` · Bed ${c.bed}` : ""}`.trim());
+  if (c.status) bits.push(c.status);
+  if (c.admission_date) bits.push(`Adm ${fmtDate(c.admission_date)}`);
+  return <p className="font-mono text-xs">{bits.join(" · ")}</p>;
 }
 
 function SummaryRow({ label, count, text }: { label: string; count?: number; text?: string }) {

@@ -207,6 +207,105 @@ function sanitiseHospitalNumber(v: string | null | undefined): string | null {
 }
 
 /**
+ * Look up a patient by the sticker fields the extractor pulled off the chart.
+ * Matches on hospital_number (case-insensitive, hyphens stripped) and, when
+ * both sides have initials, checks the initials agree. Returns at most a
+ * handful of candidates so the reviewer can confirm the correct chart is
+ * being filed against the correct patient.
+ */
+export const matchPatientBySticker = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { hospital_number?: string | null; initials?: string | null }) =>
+    z
+      .object({
+        hospital_number: z.string().nullish(),
+        initials: z.string().nullish(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const mrn = sanitiseHospitalNumber(data.hospital_number);
+    const initials = sanitiseInitials(data.initials);
+    if (!mrn && !initials) {
+      return { candidates: [] as MatchCandidate[], mrn: null, initials: null };
+    }
+
+    let query = context.supabase
+      .from("patients")
+      .select("id, full_name, hospital_number, age, sex, ward, bed, status, admission_date")
+      .limit(5);
+
+    if (mrn) {
+      // Case-insensitive MRN match. Some units record with hyphens, some without.
+      query = query.ilike("hospital_number", mrn);
+    } else if (initials) {
+      // No MRN — fall back to admitted patients whose name initials match.
+      query = query.in("status", ["admitted", "referred"]).limit(25);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw safeDbError(error);
+
+    const candidates: MatchCandidate[] = (rows ?? [])
+      .map((r) => ({
+        id: r.id as string,
+        full_name: (r.full_name as string) ?? null,
+        hospital_number: (r.hospital_number as string) ?? null,
+        age: (r.age as number | null) ?? null,
+        sex: (r.sex as string | null) ?? null,
+        ward: (r.ward as string | null) ?? null,
+        bed: (r.bed as string | null) ?? null,
+        status: (r.status as string | null) ?? null,
+        admission_date: (r.admission_date as string | null) ?? null,
+        initials_match: matchesInitials(r.full_name as string | null, initials),
+      }))
+      .filter((r) => (initials ? r.initials_match !== false : true))
+      .slice(0, 5);
+
+    return { candidates, mrn, initials };
+  });
+
+export type MatchCandidate = {
+  id: string;
+  full_name: string | null;
+  hospital_number: string | null;
+  age: number | null;
+  sex: string | null;
+  ward: string | null;
+  bed: string | null;
+  status: string | null;
+  admission_date: string | null;
+  /** true if the sticker initials match the record's name initials; null when
+   *  we don't have sticker initials to check against. */
+  initials_match: boolean | null;
+};
+
+function nameInitials(fullName: string | null | undefined): string {
+  if (!fullName) return "";
+  return fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 3);
+}
+
+function matchesInitials(fullName: string | null, sticker: string | null): boolean | null {
+  if (!sticker) return null;
+  const record = nameInitials(fullName);
+  if (!record) return false;
+  // Sticker often carries first + last initial only; accept as a match if the
+  // sticker letters appear in order within the record initials.
+  let i = 0;
+  for (const ch of sticker) {
+    const found = record.indexOf(ch, i);
+    if (found === -1) return false;
+    i = found + 1;
+  }
+  return true;
+}
+
+/**
  * Commit a reviewed extraction into the patient's structured tables.
  * Writes-through into patient_observations, investigations, microbiology_results,
  * patient systems fields, and stores the hourly grid on chart_days/chart_hourly.
