@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Camera, Loader2, Archive, RotateCcw, Lock, Maximize2, Minimize2 } from "lucide-react";
+import { Camera, Loader2, Archive, RotateCcw, Lock, Maximize2, Minimize2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   ensureChartDay,
   getChartDay,
