@@ -76,6 +76,10 @@ export function ScanChartDialog({
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
   const [extraction, setExtraction] = useState<ChartExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Which patient the chart will actually be filed against. Defaults to the
+  // patient whose page opened the scanner but the reviewer can reassign it
+  // via the manual picker in the review panel when the sticker doesn't match.
+  const [selectedPatientId, setSelectedPatientId] = useState(patientId);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const extractFn = useServerFn(extractChart);
@@ -87,6 +91,7 @@ export function ScanChartDialog({
     setRedactPages([]);
     setExtraction(null);
     setError(null);
+    setSelectedPatientId(patientId);
     if (fileInput.current) fileInput.current.value = "";
   };
 
