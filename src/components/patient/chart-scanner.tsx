@@ -802,7 +802,8 @@ function CandidateCompareCard({
   extractedMrn: string | null;
   extractedInitials: string | null;
   onSelect: () => void;
-  onAutoFill: () => void;
+  onAutoFill: (mrn: string | null, initials: string | null) => void;
+
 }) {
   const recordInitials = deriveInitials(candidate.full_name);
   const mrnMatch =
