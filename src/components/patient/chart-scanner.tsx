@@ -27,7 +27,9 @@ import {
   bakeRedactions,
   loadPage,
   isRedactionReady,
+  DEFAULT_REDACTION_SETTINGS,
   type RedactionPage,
+  type RedactionSettings,
 } from "@/components/patient/chart-redactor";
 import { LiveCameraCapture } from "@/components/patient/live-camera-capture";
 
@@ -78,6 +80,7 @@ export function ScanChartDialog({
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
   const [extraction, setExtraction] = useState<ChartExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [redactSettings, setRedactSettings] = useState<RedactionSettings>(DEFAULT_REDACTION_SETTINGS);
   // Which patient the chart will actually be filed against. Defaults to the
   // patient whose page opened the scanner but the reviewer can reassign it
   // via the manual picker in the review panel when the sticker doesn't match.
@@ -115,7 +118,7 @@ export function ScanChartDialog({
     mutationFn: async (pagesToSend: RedactionPage[]) => {
       // Bake redactions into each page BEFORE handing bytes to the server fn.
       const pages: string[] = [];
-      for (const p of pagesToSend) pages.push(await bakeRedactions(p));
+      for (const p of pagesToSend) pages.push(await bakeRedactions(p, redactSettings));
       try {
         const res = await extractFn({ data: { patientId, chartDate, pages } });
         return res;
@@ -247,7 +250,12 @@ export function ScanChartDialog({
 
         {stage === "redact" && redactPages.length > 0 && (
           <div className="space-y-3">
-            <ChartRedactor pages={redactPages} onChange={setRedactPages} />
+            <ChartRedactor
+              pages={redactPages}
+              onChange={setRedactPages}
+              settings={redactSettings}
+              onSettingsChange={setRedactSettings}
+            />
             {error && (
               <p className="flex items-center gap-2 text-sm text-destructive">
                 <AlertTriangle className="h-4 w-4" /> {error}
