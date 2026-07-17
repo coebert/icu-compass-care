@@ -682,6 +682,17 @@ function OverviewChartCard({ patientId }: { patientId: string }) {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="h-8 shrink-0"
+            onClick={() => open(todayISO())}
+            aria-label="Open today's chart"
+            title="Open today's chart"
+          >
+            Today
+          </Button>
           <Button size="sm" variant="outline" onClick={() => open(date)}>
             Open
           </Button>
