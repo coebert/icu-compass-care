@@ -407,6 +407,7 @@ function PatientDetail() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="demographics">Demographics</TabsTrigger>
             <TabsTrigger value="observations">Observations</TabsTrigger>
+            <TabsTrigger value="chart">24h Chart</TabsTrigger>
             <TabsTrigger value="lines">Lines & devices</TabsTrigger>
             <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
             <TabsTrigger value="nok">Next of kin</TabsTrigger>
