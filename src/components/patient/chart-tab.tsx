@@ -182,6 +182,75 @@ export function ChartTab({ patientId }: { patientId: string }) {
 
   const day = dayQ.data?.day ?? null;
 
+  const chartBody = dayQ.isLoading ? (
+    <p className="text-sm text-muted-foreground">Loading chart…</p>
+  ) : !day ? (
+    <p className="text-sm text-muted-foreground">
+      No chart recorded for {chartDate}. Scan the paper chart or start a blank one.
+    </p>
+  ) : (
+    <div className="space-y-6">
+      {day.archived_at && (
+        <div className="flex items-start gap-2 rounded border border-amber-400/60 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+          <Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <div>
+            <div className="font-medium">Archived chart — read-only view</div>
+            <div className="mt-0.5">
+              Archived {fmtDateTime(day.archived_at)}
+              {day.archive_reason ? ` · Reason: ${day.archive_reason}` : ""}
+            </div>
+            <div className="mt-0.5 opacity-80">
+              Data is retained for medico-legal review. Use ‘Restore’ above to edit again.
+            </div>
+          </div>
+        </div>
+      )}
+      {COL_GROUPS.map((group) => (
+        <ChartGrid
+          key={group.title}
+          title={group.title}
+          cols={group.cols}
+          hourly={hourly}
+          readOnly={!!day.archived_at}
+          onSave={(hour, key, valueStr, col) => {
+            if (day.archived_at) return;
+            const trimmed = valueStr.trim();
+            let next: string | number | null;
+            if (col.type === "text") {
+              next = trimmed === "" ? null : trimmed.slice(0, 200);
+            } else {
+              if (trimmed === "") {
+                next = null;
+              } else {
+                const parsed = col.step
+                  ? Number.parseFloat(trimmed)
+                  : Number.parseInt(trimmed, 10);
+                if (!Number.isFinite(parsed)) return;
+                next = parsed;
+              }
+            }
+            const prev = hourly.find((r) => r.hour === hour) ?? { hour };
+            const patch = { ...prev, [key]: next } as HourlyCell & { hour: number };
+            const { hour: _h, ...rest } = patch;
+            void _h;
+            cellMut.mutate({ chartDayId: day.id, hour, patch: rest as HourlyCell });
+          }}
+        />
+      ))}
+
+      <div>
+        <Label htmlFor="chart-notes" className="text-xs">Nursing notes / summary</Label>
+        <NotesEditor
+          initial={day.notes ?? ""}
+          disabled={notesMut.isPending || !!day.archived_at}
+          onSave={(next) =>
+            notesMut.mutate({ id: day.id, notes: next.trim() ? next : null })
+          }
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <Card>
