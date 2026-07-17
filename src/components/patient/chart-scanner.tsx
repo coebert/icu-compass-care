@@ -424,8 +424,11 @@ function ReviewPanel({
   // treat that as an explicit manual pick — no override checkbox needed.
   const manuallyReassigned = selectedPatientId !== openedFromPatientId;
 
+  const hasSelectedPatient =
+    selectedPatientId.length > 0 &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedPatientId);
   const canConfirm =
-    !committing && (!stickerMismatch || manuallyReassigned || override);
+    !committing && hasSelectedPatient && (!stickerMismatch || manuallyReassigned || override);
 
   const totalLow = (extraction.low_confidence ?? []).length;
   const conf = extraction.overall_confidence;
