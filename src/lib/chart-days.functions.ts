@@ -74,7 +74,7 @@ export const getChartDay = createServerFn({ method: "GET" })
       .eq("chart_date", data.chartDate)
       .maybeSingle();
     if (error) throw safeDbError(error);
-    if (!day) return { day: null, hourly: [] as unknown[] };
+    if (!day) return { day: null, hourly: [] as never[] };
     const { data: hourly, error: he } = await context.supabase
       .from("chart_hourly")
       .select(HOURLY_COLUMNS)
