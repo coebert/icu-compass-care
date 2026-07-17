@@ -101,6 +101,9 @@ function todayISO(): string {
 export function ChartTab({ patientId }: { patientId: string }) {
   const [chartDate, setChartDate] = useState<string>(todayISO());
   const [scanOpen, setScanOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
   const qc = useQueryClient();
 
   const getDay = useServerFn(getChartDay);
@@ -108,10 +111,11 @@ export function ChartTab({ patientId }: { patientId: string }) {
   const ensureDay = useServerFn(ensureChartDay);
   const upsertCell = useServerFn(upsertHourlyCell);
   const updateDay = useServerFn(updateChartDay);
-  const removeDay = useServerFn(deleteChartDay);
+  const archiveDay = useServerFn(archiveChartDay);
+  const restoreDay = useServerFn(unarchiveChartDay);
 
   const dayQueryKey = ["chart-day", patientId, chartDate] as const;
-  const daysQueryKey = ["chart-days", patientId] as const;
+  const daysQueryKey = ["chart-days", patientId, showArchived] as const;
 
   const dayQ = useQuery({
     queryKey: dayQueryKey,
@@ -119,14 +123,14 @@ export function ChartTab({ patientId }: { patientId: string }) {
   });
   const daysQ = useQuery({
     queryKey: daysQueryKey,
-    queryFn: () => listDays({ data: { patientId } }),
+    queryFn: () => listDays({ data: { patientId, includeArchived: showArchived } }),
   });
 
   const ensureMut = useMutation({
     mutationFn: () => ensureDay({ data: { patientId, chartDate, source: "manual" } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: dayQueryKey });
-      qc.invalidateQueries({ queryKey: daysQueryKey });
+      qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
     },
   });
 
@@ -146,14 +150,28 @@ export function ChartTab({ patientId }: { patientId: string }) {
     },
   });
 
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => removeDay({ data: { id } }),
+  const archiveMut = useMutation({
+    mutationFn: (v: { id: string; reason: string }) => archiveDay({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: dayQueryKey });
-      qc.invalidateQueries({ queryKey: daysQueryKey });
-      toast.success("Chart day deleted");
+      qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
+      toast.success("Chart archived. Access it via ‘Show archived’.");
+      setArchiveOpen(false);
+      setArchiveReason("");
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : "Failed to archive chart"),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: (id: string) => restoreDay({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: dayQueryKey });
+      qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
+      toast.success("Chart restored.");
     },
   });
+
 
   const hourly: HourlyRow[] = useMemo(() => {
     const rows = (dayQ.data?.hourly ?? []) as HourlyRow[];
