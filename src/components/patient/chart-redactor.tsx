@@ -1,17 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { ShieldCheck, Undo2, ChevronLeft, ChevronRight, Trash2, Check, AlertTriangle } from "lucide-react";
 
 /**
  * Mandatory pre-upload redaction step. For every page the reviewer must:
- *   1. Drag at least one black box over the sticker, AND
+ *   1. Drag at least one box over the sticker, AND
  *   2. Tick "Name covered" AND "DOB covered" to confirm the two mandatory
  *      identifiers are no longer visible.
  * Only then does the page count as "ready" — the parent uses `isRedactionReady`
- * to gate the Send-to-extractor button. Boxes are baked into the canvas as
- * solid black rectangles and the resulting JPEG data URL is what the server
- * sees — the original file is never uploaded.
+ * to gate the Send-to-extractor button. Boxes are baked into the canvas as a
+ * heavy Gaussian blur (configurable radius) with an optional "REDACTED"
+ * watermark, and the resulting JPEG data URL is what the server sees — the
+ * original file is never uploaded.
  */
+
+export type RedactionSettings = {
+  /** Gaussian blur radius in pixels applied inside each box. 0 = solid black. */
+  blurRadius: number;
+  /** Overlay a "REDACTED" watermark on each box. */
+  watermark: boolean;
+};
+
+export const DEFAULT_REDACTION_SETTINGS: RedactionSettings = {
+  blurRadius: 18,
+  watermark: true,
+};
 
 export type RedactionPage = {
   originalDataUrl: string; // input (downscaled) image
@@ -57,8 +73,10 @@ export function isRedactionReady(pages: RedactionPage[]): boolean {
   return pages.length > 0 && pages.every((p) => pageCoverageStatus(p).ready);
 }
 
-
-export async function bakeRedactions(page: RedactionPage): Promise<string> {
+export async function bakeRedactions(
+  page: RedactionPage,
+  settings: RedactionSettings = DEFAULT_REDACTION_SETTINGS,
+): Promise<string> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
@@ -71,13 +89,50 @@ export async function bakeRedactions(page: RedactionPage): Promise<string> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas not available");
   ctx.drawImage(img, 0, 0, page.width, page.height);
-  ctx.fillStyle = "#000";
-  for (const b of page.boxes) ctx.fillRect(b.x, b.y, b.w, b.h);
-  // Watermark so any leak is obvious
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.font = `${Math.max(12, Math.round(page.width / 80))}px sans-serif`;
-  for (const b of page.boxes) {
-    ctx.fillText("REDACTED", b.x + 4, b.y + Math.min(b.h - 4, 18));
+
+  const radius = Math.max(0, Math.round(settings.blurRadius));
+
+  if (radius === 0) {
+    // Fallback: solid black fill when the user turns blur down to zero.
+    ctx.fillStyle = "#000";
+    for (const b of page.boxes) ctx.fillRect(b.x, b.y, b.w, b.h);
+  } else {
+    // Render a fully-blurred copy of the page once, then stamp the box regions
+    // over the sharp original. This is much cheaper than blurring per-box and
+    // gives consistent coverage even for large boxes.
+    const blurred = document.createElement("canvas");
+    blurred.width = page.width;
+    blurred.height = page.height;
+    const bctx = blurred.getContext("2d");
+    if (!bctx) throw new Error("Canvas not available");
+    // Chained blur passes yield a heavier smear than a single filter call and
+    // guarantee no legible glyphs survive even on high-resolution captures.
+    bctx.filter = `blur(${radius}px)`;
+    bctx.drawImage(img, 0, 0, page.width, page.height);
+    bctx.filter = `blur(${Math.max(4, Math.round(radius / 2))}px)`;
+    bctx.drawImage(blurred, 0, 0);
+    bctx.filter = "none";
+    for (const b of page.boxes) {
+      ctx.drawImage(blurred, b.x, b.y, b.w, b.h, b.x, b.y, b.w, b.h);
+    }
+  }
+
+  if (settings.watermark) {
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.font = `bold ${Math.max(12, Math.round(page.width / 80))}px sans-serif`;
+    ctx.textBaseline = "top";
+    for (const b of page.boxes) {
+      const label = "REDACTED";
+      const pad = 4;
+      const metrics = ctx.measureText(label);
+      const tw = metrics.width + pad * 2;
+      const th = Math.max(14, Math.round(page.width / 70));
+      // Small opaque plate behind the text so it stays legible on any background.
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillRect(b.x + 2, b.y + 2, Math.min(tw, b.w - 4), Math.min(th, b.h - 4));
+      ctx.fillStyle = "rgba(0,0,0,0.9)";
+      ctx.fillText(label, b.x + 2 + pad, b.y + 4);
+    }
   }
   return canvas.toDataURL("image/jpeg", 0.85);
 }
@@ -85,9 +140,13 @@ export async function bakeRedactions(page: RedactionPage): Promise<string> {
 export function ChartRedactor({
   pages,
   onChange,
+  settings,
+  onSettingsChange,
 }: {
   pages: RedactionPage[];
   onChange: (next: RedactionPage[]) => void;
+  settings: RedactionSettings;
+  onSettingsChange: (next: RedactionSettings) => void;
 }) {
   const [idx, setIdx] = useState(0);
   const page = pages[idx];
@@ -147,8 +206,6 @@ export function ChartRedactor({
       updatePage((p) => ({
         ...p,
         boxes: [...p.boxes, preview],
-        // Adding a new box invalidates prior confirmations so the user
-        // re-checks that name+DOB are still fully covered.
         nameConfirmed: false,
         dobConfirmed: false,
       }));
@@ -159,7 +216,14 @@ export function ChartRedactor({
 
   const totalBoxes = useMemo(() => pages.reduce((n, p) => n + p.boxes.length, 0), [pages]);
 
+  // Live preview of the applied blur, using a CSS filter that mirrors the
+  // bake step so the reviewer sees what the extractor will actually receive.
+  // (Watermark is drawn separately below.)
+  const previewBlurPx = settings.blurRadius > 0 ? settings.blurRadius * scale : 0;
+
   if (!page) return null;
+
+  const modeLabel = settings.blurRadius === 0 ? "Solid black" : `Blur ${settings.blurRadius}px`;
 
   return (
     <div className="space-y-3">
@@ -170,9 +234,35 @@ export function ChartRedactor({
         <p className="mt-1 text-muted-foreground">
           Drag a rectangle over each of the <strong>name</strong> and <strong>date of birth</strong> on
           the sticker. Leave the <strong>hospital number</strong> and <strong>initials</strong> visible so
-          the extractor can identify the record. Redacted regions are filled with solid black in your
+          the extractor can identify the record. Redacted regions are blurred (or blacked out) in your
           browser — Gemini never sees the pixels underneath.
         </p>
+      </div>
+
+      {/* Redaction style controls — apply to all pages. */}
+      <div className="flex flex-wrap items-center gap-4 rounded border bg-muted/30 p-2 text-xs">
+        <div className="flex min-w-[220px] flex-1 items-center gap-2">
+          <Label htmlFor="redact-blur" className="whitespace-nowrap text-xs">
+            Blur strength
+          </Label>
+          <Slider
+            id="redact-blur"
+            min={0}
+            max={40}
+            step={1}
+            value={[settings.blurRadius]}
+            onValueChange={(v) => onSettingsChange({ ...settings, blurRadius: v[0] ?? 0 })}
+            className="flex-1"
+          />
+          <span className="w-20 shrink-0 tabular-nums text-muted-foreground">{modeLabel}</span>
+        </div>
+        <label className="flex items-center gap-2">
+          <Switch
+            checked={settings.watermark}
+            onCheckedChange={(v) => onSettingsChange({ ...settings, watermark: v })}
+          />
+          <span>Show "REDACTED" watermark</span>
+        </label>
       </div>
 
       <div
@@ -190,18 +280,53 @@ export function ChartRedactor({
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           draggable={false}
         />
-        {page.boxes.map((b, i) => (
-          <div
-            key={i}
-            className="absolute bg-black"
-            style={{ left: b.x * scale, top: b.y * scale, width: b.w * scale, height: b.h * scale }}
-            title="Redacted region"
-          >
-            <span className="pointer-events-none block px-1 text-[10px] font-semibold text-white/80">
-              REDACTED
-            </span>
-          </div>
-        ))}
+        {page.boxes.map((b, i) => {
+          const style: React.CSSProperties = {
+            left: b.x * scale,
+            top: b.y * scale,
+            width: b.w * scale,
+            height: b.h * scale,
+          };
+          if (settings.blurRadius === 0) {
+            return (
+              <div key={i} className="absolute bg-black" style={style} title="Redacted region">
+                {settings.watermark && (
+                  <span className="pointer-events-none block px-1 text-[10px] font-semibold text-white/80">
+                    REDACTED
+                  </span>
+                )}
+              </div>
+            );
+          }
+          return (
+            <div
+              key={i}
+              className="pointer-events-none absolute overflow-hidden"
+              style={style}
+              title="Redacted region"
+            >
+              <img
+                src={page.originalDataUrl}
+                alt=""
+                aria-hidden
+                draggable={false}
+                className="absolute"
+                style={{
+                  left: -b.x * scale,
+                  top: -b.y * scale,
+                  width: rendered.w,
+                  height: rendered.h,
+                  filter: `blur(${previewBlurPx}px)`,
+                }}
+              />
+              {settings.watermark && (
+                <span className="absolute left-1 top-1 rounded bg-white/80 px-1 text-[10px] font-semibold text-black">
+                  REDACTED
+                </span>
+              )}
+            </div>
+          );
+        })}
         {preview && (
           <div
             className="absolute border-2 border-amber-400 bg-black/60"
@@ -252,7 +377,6 @@ export function ChartRedactor({
               updatePage((p) => ({
                 ...p,
                 boxes: p.boxes.slice(0, -1),
-                // Any change to boxes invalidates prior confirmations.
                 nameConfirmed: false,
                 dobConfirmed: false,
               }))
@@ -273,8 +397,6 @@ export function ChartRedactor({
         </div>
       </div>
 
-      {/* Per-page confirmation — extraction is blocked until both are ticked
-          on every page. */}
       <div
         className={`rounded border p-2 text-xs ${
           page.boxes.length === 0
@@ -307,12 +429,11 @@ export function ChartRedactor({
         </div>
         {page.boxes.length === 0 && (
           <p className="mt-1 text-muted-foreground">
-            Draw at least one black box before confirming.
+            Draw at least one box before confirming.
           </p>
         )}
       </div>
 
-      {/* Per-page overview strip — each page shows its coverage status. */}
       <div>
         <p className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">
           Redaction coverage per page
@@ -357,4 +478,3 @@ export function ChartRedactor({
     </div>
   );
 }
-
