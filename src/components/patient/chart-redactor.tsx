@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Undo2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { ShieldCheck, Undo2, ChevronLeft, ChevronRight, Trash2, Check, AlertTriangle } from "lucide-react";
 
 /**
- * Mandatory pre-upload redaction step. The user must drag at least one box
- * over the patient sticker to cover NAME and DATE OF BIRTH before the image
- * is passed to the AI extractor. Boxes are baked into the canvas as solid
- * black rectangles and the resulting JPEG data URL is what the server sees —
- * the original file is never uploaded.
+ * Mandatory pre-upload redaction step. For every page the reviewer must:
+ *   1. Drag at least one black box over the sticker, AND
+ *   2. Tick "Name covered" AND "DOB covered" to confirm the two mandatory
+ *      identifiers are no longer visible.
+ * Only then does the page count as "ready" — the parent uses `isRedactionReady`
+ * to gate the Send-to-extractor button. Boxes are baked into the canvas as
+ * solid black rectangles and the resulting JPEG data URL is what the server
+ * sees — the original file is never uploaded.
  */
 
 export type RedactionPage = {
@@ -15,6 +18,8 @@ export type RedactionPage = {
   width: number;
   height: number;
   boxes: { x: number; y: number; w: number; h: number }[]; // in image coordinates
+  nameConfirmed: boolean;
+  dobConfirmed: boolean;
 };
 
 export async function loadPage(dataUrl: string): Promise<RedactionPage> {
@@ -24,8 +29,34 @@ export async function loadPage(dataUrl: string): Promise<RedactionPage> {
     el.onerror = reject;
     el.src = dataUrl;
   });
-  return { originalDataUrl: dataUrl, width: img.width, height: img.height, boxes: [] };
+  return {
+    originalDataUrl: dataUrl,
+    width: img.width,
+    height: img.height,
+    boxes: [],
+    nameConfirmed: false,
+    dobConfirmed: false,
+  };
 }
+
+export function pageCoverageStatus(p: RedactionPage): {
+  ready: boolean;
+  boxes: number;
+  nameConfirmed: boolean;
+  dobConfirmed: boolean;
+} {
+  return {
+    ready: p.boxes.length > 0 && p.nameConfirmed && p.dobConfirmed,
+    boxes: p.boxes.length,
+    nameConfirmed: p.nameConfirmed,
+    dobConfirmed: p.dobConfirmed,
+  };
+}
+
+export function isRedactionReady(pages: RedactionPage[]): boolean {
+  return pages.length > 0 && pages.every((p) => pageCoverageStatus(p).ready);
+}
+
 
 export async function bakeRedactions(page: RedactionPage): Promise<string> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
