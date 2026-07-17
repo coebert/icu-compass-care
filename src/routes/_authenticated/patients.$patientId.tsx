@@ -440,6 +440,10 @@ function PatientDetail() {
           />
         </TabsContent>
 
+        <TabsContent value="chart" className="mt-4 space-y-4">
+          <ChartTab patientId={patientId} />
+        </TabsContent>
+
         <TabsContent value="lines" className="mt-4 space-y-4">
           <LinesCard patientId={patientId} />
         </TabsContent>
