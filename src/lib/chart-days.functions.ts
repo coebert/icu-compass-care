@@ -47,19 +47,29 @@ export type HourlyCell = z.infer<typeof hourlyCellSchema>;
 
 export const listChartDays = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { patientId: string }) =>
-    z.object({ patientId: z.string().uuid() }).parse(input),
+  .inputValidator((input: { patientId: string; includeArchived?: boolean }) =>
+    z
+      .object({
+        patientId: z.string().uuid(),
+        includeArchived: z.boolean().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
+    let q = context.supabase
       .from("chart_days")
-      .select("id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at")
+      .select(
+        "id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at, archived_at, archived_by, archive_reason",
+      )
       .eq("patient_id", data.patientId)
       .order("chart_date", { ascending: false })
-      .limit(120);
+      .limit(365);
+    if (!data.includeArchived) q = q.is("archived_at", null);
+    const { data: rows, error } = await q;
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
+
 
 export const getChartDay = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
