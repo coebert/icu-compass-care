@@ -262,6 +262,9 @@ export type Database = {
       }
       chart_days: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           balance_24h_ml: number | null
           chart_date: string
           created_at: string
@@ -273,6 +276,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           balance_24h_ml?: number | null
           chart_date: string
           created_at?: string
@@ -284,6 +290,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           balance_24h_ml?: number | null
           chart_date?: string
           created_at?: string
