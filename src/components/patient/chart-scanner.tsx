@@ -20,6 +20,7 @@ import {
   type MatchCandidate,
 } from "@/lib/chart-extract.functions";
 import { fmtDate } from "@/lib/icu";
+import { ChartReviewSheet } from "@/components/patient/chart-review-sheet";
 
 
 // Client-side downscale to ≤2000px longest edge, JPEG 0.85. Also strips EXIF
