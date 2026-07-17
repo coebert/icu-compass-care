@@ -254,6 +254,21 @@ export function ChartTab({ patientId }: { patientId: string }) {
             </p>
           ) : (
             <div className="space-y-6">
+              {day.archived_at && (
+                <div className="flex items-start gap-2 rounded border border-amber-400/60 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+                  <Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">Archived chart — read-only view</div>
+                    <div className="mt-0.5">
+                      Archived {fmtDateTime(day.archived_at)}
+                      {day.archive_reason ? ` · Reason: ${day.archive_reason}` : ""}
+                    </div>
+                    <div className="mt-0.5 opacity-80">
+                      Data is retained for medico-legal review. Use ‘Restore’ above to edit again.
+                    </div>
+                  </div>
+                </div>
+              )}
               {COL_GROUPS.map((group) => (
                 <ChartGrid
                   key={group.title}
