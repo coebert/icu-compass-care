@@ -33,6 +33,7 @@ type KeyInvestigation = { category: string; findings: string; result_at: string 
 const KeyInvestigationsContext = createContext<Map<string, KeyInvestigation>>(new Map());
 
 import { HandoverPreviewModal } from "@/components/HandoverPreviewModal";
+import { ScanChartDialog } from "@/components/patient/chart-scanner";
 // Radnor Critical Care Unit bed roster (admin-editable, shared with the bridge).
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
