@@ -47,19 +47,29 @@ export type HourlyCell = z.infer<typeof hourlyCellSchema>;
 
 export const listChartDays = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { patientId: string }) =>
-    z.object({ patientId: z.string().uuid() }).parse(input),
+  .inputValidator((input: { patientId: string; includeArchived?: boolean }) =>
+    z
+      .object({
+        patientId: z.string().uuid(),
+        includeArchived: z.boolean().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
+    let q = context.supabase
       .from("chart_days")
-      .select("id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at")
+      .select(
+        "id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at, archived_at, archived_by, archive_reason",
+      )
       .eq("patient_id", data.patientId)
       .order("chart_date", { ascending: false })
-      .limit(120);
+      .limit(365);
+    if (!data.includeArchived) q = q.is("archived_at", null);
+    const { data: rows, error } = await q;
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
+
 
 export const getChartDay = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -69,7 +79,9 @@ export const getChartDay = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { data: day, error } = await context.supabase
       .from("chart_days")
-      .select("id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at")
+      .select(
+        "id, patient_id, chart_date, source, notes, balance_24h_ml, created_at, updated_at, archived_at, archived_by, archive_reason",
+      )
       .eq("patient_id", data.patientId)
       .eq("chart_date", data.chartDate)
       .maybeSingle();
@@ -159,11 +171,38 @@ export const updateChartDay = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deleteChartDay = createServerFn({ method: "POST" })
+export const archiveChartDay = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .inputValidator((input: { id: string; reason: string }) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        reason: z.string().trim().min(3).max(500),
+      })
+      .parse(input),
+  )
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase.from("chart_days").delete().eq("id", data.id);
+    const { error } = await context.supabase
+      .from("chart_days")
+      .update({
+        archived_at: new Date().toISOString(),
+        archived_by: context.userId,
+        archive_reason: data.reason,
+      } as never)
+      .eq("id", data.id);
     if (error) throw safeDbError(error);
     return { ok: true };
   });
+
+export const unarchiveChartDay = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("chart_days")
+      .update({ archived_at: null, archived_by: null, archive_reason: null } as never)
+      .eq("id", data.id);
+    if (error) throw safeDbError(error);
+    return { ok: true };
+  });
+

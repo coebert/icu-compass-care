@@ -5,18 +5,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Loader2, Archive, RotateCcw, Lock } from "lucide-react";
 import {
   ensureChartDay,
   getChartDay,
   listChartDays,
   upsertHourlyCell,
-  deleteChartDay,
+  archiveChartDay,
+  unarchiveChartDay,
   updateChartDay,
   type HourlyCell,
 } from "@/lib/chart-days.functions";
 import { ScanChartDialog } from "@/components/patient/chart-scanner";
+import { fmtDateTime } from "@/lib/icu";
+
 
 type HourlyRow = HourlyCell & { hour: number };
 
@@ -93,6 +101,9 @@ function todayISO(): string {
 export function ChartTab({ patientId }: { patientId: string }) {
   const [chartDate, setChartDate] = useState<string>(todayISO());
   const [scanOpen, setScanOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
   const qc = useQueryClient();
 
   const getDay = useServerFn(getChartDay);
@@ -100,10 +111,11 @@ export function ChartTab({ patientId }: { patientId: string }) {
   const ensureDay = useServerFn(ensureChartDay);
   const upsertCell = useServerFn(upsertHourlyCell);
   const updateDay = useServerFn(updateChartDay);
-  const removeDay = useServerFn(deleteChartDay);
+  const archiveDay = useServerFn(archiveChartDay);
+  const restoreDay = useServerFn(unarchiveChartDay);
 
   const dayQueryKey = ["chart-day", patientId, chartDate] as const;
-  const daysQueryKey = ["chart-days", patientId] as const;
+  const daysQueryKey = ["chart-days", patientId, showArchived] as const;
 
   const dayQ = useQuery({
     queryKey: dayQueryKey,
@@ -111,14 +123,14 @@ export function ChartTab({ patientId }: { patientId: string }) {
   });
   const daysQ = useQuery({
     queryKey: daysQueryKey,
-    queryFn: () => listDays({ data: { patientId } }),
+    queryFn: () => listDays({ data: { patientId, includeArchived: showArchived } }),
   });
 
   const ensureMut = useMutation({
     mutationFn: () => ensureDay({ data: { patientId, chartDate, source: "manual" } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: dayQueryKey });
-      qc.invalidateQueries({ queryKey: daysQueryKey });
+      qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
     },
   });
 
@@ -138,14 +150,28 @@ export function ChartTab({ patientId }: { patientId: string }) {
     },
   });
 
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => removeDay({ data: { id } }),
+  const archiveMut = useMutation({
+    mutationFn: (v: { id: string; reason: string }) => archiveDay({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: dayQueryKey });
-      qc.invalidateQueries({ queryKey: daysQueryKey });
-      toast.success("Chart day deleted");
+      qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
+      toast.success("Chart archived. Access it via ‘Show archived’.");
+      setArchiveOpen(false);
+      setArchiveReason("");
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : "Failed to archive chart"),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: (id: string) => restoreDay({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: dayQueryKey });
+      qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
+      toast.success("Chart restored.");
     },
   });
+
 
   const hourly: HourlyRow[] = useMemo(() => {
     const rows = (dayQ.data?.hourly ?? []) as HourlyRow[];
@@ -195,17 +221,26 @@ export function ChartTab({ patientId }: { patientId: string }) {
                 Start blank chart
               </Button>
             )}
-            {day && (
+            {day && !day.archived_at && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  if (confirm("Delete this whole chart day?")) deleteMut.mutate(day.id);
-                }}
-                className="gap-1 text-destructive"
-                aria-label="Delete chart day"
+                onClick={() => setArchiveOpen(true)}
+                className="gap-1"
+                aria-label="Archive chart day"
               >
-                <Trash2 className="h-4 w-4" /> Delete day
+                <Archive className="h-4 w-4" /> Archive day
+              </Button>
+            )}
+            {day?.archived_at && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => restoreMut.mutate(day.id)}
+                disabled={restoreMut.isPending}
+                className="gap-1"
+              >
+                <RotateCcw className="h-4 w-4" /> Restore
               </Button>
             )}
           </div>
@@ -219,13 +254,30 @@ export function ChartTab({ patientId }: { patientId: string }) {
             </p>
           ) : (
             <div className="space-y-6">
+              {day.archived_at && (
+                <div className="flex items-start gap-2 rounded border border-amber-400/60 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+                  <Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">Archived chart — read-only view</div>
+                    <div className="mt-0.5">
+                      Archived {fmtDateTime(day.archived_at)}
+                      {day.archive_reason ? ` · Reason: ${day.archive_reason}` : ""}
+                    </div>
+                    <div className="mt-0.5 opacity-80">
+                      Data is retained for medico-legal review. Use ‘Restore’ above to edit again.
+                    </div>
+                  </div>
+                </div>
+              )}
               {COL_GROUPS.map((group) => (
                 <ChartGrid
                   key={group.title}
                   title={group.title}
                   cols={group.cols}
                   hourly={hourly}
+                  readOnly={!!day.archived_at}
                   onSave={(hour, key, valueStr, col) => {
+                    if (day.archived_at) return;
                     const trimmed = valueStr.trim();
                     let next: string | number | null;
                     if (col.type === "text") {
@@ -247,7 +299,6 @@ export function ChartTab({ patientId }: { patientId: string }) {
                     void _h;
                     cellMut.mutate({ chartDayId: day.id, hour, patch: rest as HourlyCell });
                   }}
-
                 />
               ))}
 
@@ -255,7 +306,7 @@ export function ChartTab({ patientId }: { patientId: string }) {
                 <Label htmlFor="chart-notes" className="text-xs">Nursing notes / summary</Label>
                 <NotesEditor
                   initial={day.notes ?? ""}
-                  disabled={notesMut.isPending}
+                  disabled={notesMut.isPending || !!day.archived_at}
                   onSave={(next) =>
                     notesMut.mutate({ id: day.id, notes: next.trim() ? next : null })
                   }
@@ -266,32 +317,70 @@ export function ChartTab({ patientId }: { patientId: string }) {
         </CardContent>
       </Card>
 
-      {(daysQ.data?.length ?? 0) > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent chart days</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle className="text-base">Chart archive</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              All past 24-hour charts are retained. Click a date to view. Archived charts are read-only.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            {showArchived ? "Hide archived" : "Show archived"}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {daysQ.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (daysQ.data?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">No chart days recorded yet.</p>
+          ) : (
             <ul className="divide-y text-sm">
               {(daysQ.data ?? []).map((d) => (
-                <li key={d.id} className="flex items-center justify-between py-1.5">
-                  <button
-                    type="button"
-                    className="text-left underline-offset-2 hover:underline"
-                    onClick={() => setChartDate(d.chart_date)}
-                  >
-                    {d.chart_date}
-                  </button>
-                  <span className="text-xs text-muted-foreground">
-                    {d.source === "scan" ? "From scan" : "Manual"}
-                    {d.balance_24h_ml != null ? ` · 24h bal ${d.balance_24h_ml} mL` : ""}
-                  </span>
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-left font-medium underline-offset-2 hover:underline"
+                      onClick={() => setChartDate(d.chart_date)}
+                    >
+                      {d.chart_date}
+                    </button>
+                    {d.archived_at && (
+                      <Badge variant="outline" className="gap-1 text-[10px]">
+                        <Archive className="h-3 w-3" /> Archived
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {d.source === "scan" ? "From scan" : "Manual"}
+                      {d.balance_24h_ml != null ? ` · 24h bal ${d.balance_24h_ml} mL` : ""}
+                    </span>
+                    {d.archived_at && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-xs"
+                        onClick={() => restoreMut.mutate(d.id)}
+                        disabled={restoreMut.isPending}
+                      >
+                        <RotateCcw className="h-3 w-3" /> Restore
+                      </Button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <ScanChartDialog
         open={scanOpen}
@@ -300,9 +389,46 @@ export function ChartTab({ patientId }: { patientId: string }) {
         chartDate={chartDate}
         onCommitted={() => {
           qc.invalidateQueries({ queryKey: dayQueryKey });
-          qc.invalidateQueries({ queryKey: daysQueryKey });
+          qc.invalidateQueries({ queryKey: ["chart-days", patientId] });
         }}
       />
+
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive this 24-hour chart?</DialogTitle>
+            <DialogDescription>
+              The chart will become read-only but remain permanently retained for review. Provide a
+              short reason (e.g. superseded by rescan, entered in error, duplicate).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="archive-reason" className="text-xs">Reason (required, 3–500 chars)</Label>
+            <Textarea
+              id="archive-reason"
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="e.g. Rescanned after correction; original retained for audit."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setArchiveOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!day) return;
+                archiveMut.mutate({ id: day.id, reason: archiveReason.trim() });
+              }}
+              disabled={archiveMut.isPending || archiveReason.trim().length < 3}
+              className="gap-2"
+            >
+              {archiveMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Archive chart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -312,11 +438,13 @@ function ChartGrid({
   cols,
   hourly,
   onSave,
+  readOnly = false,
 }: {
   title: string;
   cols: ColDef[];
   hourly: HourlyRow[];
   onSave: (hour: number, key: keyof HourlyCell, value: string, col: ColDef) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -353,8 +481,10 @@ function ChartGrid({
                         step={isText ? undefined : (c.step ?? "1")}
                         inputMode={isText ? undefined : c.step ? "decimal" : "numeric"}
                         maxLength={isText ? 200 : undefined}
+                        readOnly={readOnly}
                         defaultValue={raw == null ? "" : String(raw)}
                         onBlur={(e) => {
+                          if (readOnly) return;
                           const current = raw == null ? "" : String(raw);
                           if (e.currentTarget.value !== current) {
                             onSave(row.hour, c.key, e.currentTarget.value, c);
@@ -362,7 +492,7 @@ function ChartGrid({
                         }}
                         className={`h-8 w-full bg-transparent px-2 outline-none focus:bg-accent/40 ${
                           isText ? "min-w-24" : "min-w-16 tabular-nums"
-                        }`}
+                        } ${readOnly ? "cursor-default" : ""}`}
                         aria-label={`${c.label} at hour ${row.hour}`}
                       />
                     </td>
