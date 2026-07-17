@@ -1,5 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import type { ChartExtraction } from "@/lib/chart-extract.functions";
+import { ChartTrendPreview } from "@/components/patient/chart-trend-preview";
+
 
 /**
  * Detailed pre-commit review of an extracted Radnor chart. Shows every value
