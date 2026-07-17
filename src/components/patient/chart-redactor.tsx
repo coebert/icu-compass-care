@@ -291,6 +291,10 @@ export function ChartRedactor({
           />
           <span>Show "REDACTED" watermark</span>
         </label>
+        <label className="flex items-center gap-2">
+          <Switch checked={showCompare} onCheckedChange={setShowCompare} />
+          <span>Side-by-side preview</span>
+        </label>
       </div>
 
       <div
