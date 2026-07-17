@@ -643,6 +643,17 @@ function OverviewChartCard({ patientId }: { patientId: string }) {
           <label htmlFor="overview-chart-date" className="text-xs text-muted-foreground">
             Open date
           </label>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setDate((d) => shiftISODate(d, -1))}
+            aria-label="Previous day"
+            title="Previous day"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
           <input
             id="overview-chart-date"
             type="date"
@@ -650,10 +661,22 @@ function OverviewChartCard({ patientId }: { patientId: string }) {
             onChange={(e) => setDate(e.target.value)}
             className="h-8 rounded border bg-background px-2 text-sm"
           />
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setDate((d) => shiftISODate(d, 1))}
+            aria-label="Next day"
+            title="Next day"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
           <Button size="sm" variant="outline" onClick={() => open(date)}>
             Open
           </Button>
         </div>
+
       </CardHeader>
       <CardContent className="space-y-3">
         {recent.length > 0 && (
