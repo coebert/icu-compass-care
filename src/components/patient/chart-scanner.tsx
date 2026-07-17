@@ -422,7 +422,7 @@ function ReviewPanel({
     !stickerMatchedSelected && !!(extraction.hospital_number || extraction.initials);
   // When the reviewer has reassigned to a patient outside the current page,
   // treat that as an explicit manual pick — no override checkbox needed.
-  const manuallyReassigned = selectedPatientId !== openedFromPatientId;
+  const manuallyReassigned = selectedPatientId !== (openedFromPatientId ?? "");
 
   const hasSelectedPatient =
     selectedPatientId.length > 0 &&
