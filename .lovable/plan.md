@@ -1,108 +1,89 @@
 
-# ICU Handover — UX & Ergonomics Improvement Plan
+## Radnor Chart Digitisation — implementation plan
 
-Based on a full-app design audit. Findings are cited with file paths in the audit; this plan groups the fixes into 5 rollout phases so the highest safety/usability wins ship first without churning the whole app in one go.
+Turn a mobile photo of the paper Radnor 24-hour chart into structured data that (a) drives a digital replica chart per patient/day and (b) auto-fills the existing observations, fluid balance, investigations, microbiology and systems-review sections used in the handover.
 
-Each phase is independently shippable. After each phase we can pause, review with users, then continue.
+### Governance guardrails (non-negotiable)
 
----
+- Chart images are **transient**. They are uploaded from the browser as base64 straight into a server function, passed to the vision model, and discarded when the response returns. No storage bucket, no `patients/*` table column, no logging of the raw bytes, no CDN copy.
+- The server function scrubs any patient-identifying free text before returning (name, DOB, address, NHS number if scanned from the sticker) — only **hospital number** and **initials** are kept, matching existing app precedent (`icu.ts` display rules).
+- Server-side rate-limit + audit log entry per scan (who/when/patient linked, no payload). Uses existing `record_audit` + `audit_log` tables.
+- Vision call goes through Lovable AI Gateway (no user API keys). Model: `google/gemini-3-pro-image` capable multimodal (`google/gemini-2.5-pro`) — chosen for handwriting + table OCR.
+- Confirmation UI: nothing writes to the patient record until the clinician reviews the extracted fields on a diff screen and hits Confirm.
 
-## Phase 1 — Safety & consistency of destructive actions (highest priority)
+### Data model
 
-Rationale: the biggest cross-cutting risk we found was that clinically significant deletes are one-tap, no-confirm, and inconsistent between near-identical surfaces.
+New tables (single migration, with GRANTs + RLS mirroring the other clinical tables — authenticated read/write, service_role all):
 
-1. Add a shared `ConfirmDestructive` wrapper (thin AlertDialog helper) and apply it uniformly to every delete/destroy button:
-   - Observation delete, Line delete, Microbiology delete, Timeline event delete, Bed remove, Investigation delete (verify), Patient delete cascade wording.
-2. Rewrite the Patient delete warning text to name every cascade (obs, lines, micro, reviews, timeline, audit).
-3. Add confirmation to role changes in Admin (Make admin / Make clinician), plus a short "why this matters" line.
-4. Add a warning + block on Bed remove when the bed currently has an occupant.
-5. Move Delete out of the header action row on the patient page into a "Danger zone" section at the bottom of the Status tab, visually separated from Edit/Handover PDF.
-6. Extend the existing 10s undo toast on bed moves to include a persistent "recent moves" strip (last 3 moves, click to revert) so an unseen toast isn't the only rescue path.
+- `chart_days` — one row per patient per 24h chart period.
+  - `id`, `patient_id`, `chart_date` (date), `created_by`, `created_at`, `updated_at`, `source` enum('scan','manual'), `notes`.
+  - Unique (`patient_id`, `chart_date`).
+- `chart_hourly` — hourly grid rows (24 per chart).
+  - `chart_day_id`, `hour` (0–23), fluid intake/output columns matching the paper chart (`intake_ml`, `flushes_ml`, `ng_aspirate_ml`, `ng_free_ml`, `urine_ml`, `bowels`, `target_removal_ml`, `actual_removal_ml`, `hourly_balance_ml`, `cumulative_balance_ml`), vitals block (`hr`, `sbp`, `dbp`, `map`, `cvp`, `spo2`, `etco2`, `rr`, `temp`, `gcs`, `cam_icu`, `pupils_l`, `pupils_r`), vent block (`mode`, `peep`, `fio2`, `p_support`, `tv`, `mv`, `peak_pressure`), ABG optional block.
+  - PK (`chart_day_id`, `hour`).
+- `chart_infusions` — free-form infusion rows with 24-hour rate array (`name`, `dose_unit`, `rates jsonb[24]`).
+- `chart_care_bundle` — ventilator care bundle Y/N/exclusion per shift.
+- `chart_assessments` — daily assessment text per system (resp / cvs / renal / cns / gi / skin) with targets (target_map, target_urine, target_sats, etc.).
 
-## Phase 2 — Ward-round ergonomics (bed board + patient tabs)
+The digital chart page reads/writes these directly. When rows are inserted from a confirmed scan, we also **write-through** the mapped fields into the existing tables so the rest of the app benefits automatically:
 
-Rationale: this is where most clinician time is spent; small friction here compounds every round.
+- Latest hourly vitals row → `patient_observations` insert (one composite obs per hour that has data).
+- Investigation ticks (CXR / ECG / cultures / MRSA / MC+S / Sputum / Swabs) → `investigations` inserts.
+- Microbiology specimens → `microbiology_results` inserts.
+- Daily assessment text → `patients.systems_resp/cvs/renal/neuro/gastro/haem/micro/other` update, plus targets (`target_map`, etc. — added if not present).
+- 24h balance → summary field or stored on `chart_days` and rendered on handover.
 
-1. Persist bed-board state in the URL: search, sex filter, sort, view density. Use TanStack search-param validation. Same for Handover History filters and Timeline filters.
-2. Persist the active patient-detail tab in the URL (`?tab=escalation`) so deep links, refresh, and browser back/forward preserve context. Keep the existing Timeline → Investigations `focus` mechanism.
-3. Add a visible chevron/gradient overflow affordance on the 11-tab TabsList so scrolled-off tabs are discoverable on narrow viewports; consider grouping less-used tabs (Status, History) into a "More" menu on <md widths.
-4. Raise all primary-touch controls to 44×44:
-   - Wardable pill on bed cards.
-   - Icon-only nav buttons (Patients / History / Unit / Security / Profile).
-   - Delete/edit icon buttons inside card lists.
-5. Replace hover-only affordances with tap-friendly equivalents:
-   - `EditableField` pencil: show a subtle always-visible edit icon on touch (media query or `@media (pointer: coarse)`), not just on `group-hover`.
-   - `PatientHoverCard` on touch: add a visible "info" affordance (small chip) alongside the long-press so the feature is discoverable.
-6. Add a compact/detailed toggle on the bed board for large units (persisted in URL).
+### Server layer
 
-## Phase 3 — Data-entry consistency & validation
+- `src/lib/chart-extract.functions.ts` (protected server fn, `requireSupabaseAuth`):
+  - Input: `{ patientId, chartDate, pages: string[] /* base64 image data URLs */ }` — max 3 pages, per-image size validated, MIME allow-list.
+  - Handler builds a Gemini `google/gemini-2.5-pro` chat-completion via the AI Gateway with a strict system prompt: "You are extracting a Radnor 24h ICU chart. Return JSON matching this schema. Never invent values. Use null for illegible cells."
+  - Uses AI SDK `generateText` + `Output.object` with a *modest* Zod schema (chart-level metadata, `hourly[]` up to 24, `infusions[]`, `investigations[]`, `microbiology[]`, `assessments{}`, `care_bundle{}`). Follows the schema-simplicity rules from `ai-sdk-agent-patterns` (no bounds, no long enums; clamp in code).
+  - Post-processing: strip name/DOB from any field, coerce hospital-number cross-check with the requested patient, derive initials, compute cumulative balance, validate hours 0–23.
+  - Returns the parsed payload and a per-field confidence score. **Never returns the image.**
+  - Emits an `audit_log` row (`scan_attempt`, `scan_success`/`scan_reject`).
+- `src/lib/chart-days.functions.ts` — CRUD (get by patient+date, upsert hourly cell, list days for a patient), all `requireSupabaseAuth`.
+- `src/lib/chart-commit.functions.ts` — takes the confirmed payload and performs the write-through to `patient_observations`, `investigations`, `microbiology_results`, patient systems fields in a transaction (RPC).
 
-Rationale: two different edit paths for the same field (inline vs full modal) causes confusion and increases conflict risk.
+### Client layer
 
-1. Retire the full `PatientForm` modal on the patient detail page for fields already inline-editable. Keep the modal only for initial patient creation (new-patient flow) and for the escalation/NOK block that is currently read-only. Add inline editing to Escalation & Resus and NOK tabs using the existing `EditableField` primitive.
-2. Add range validators to Observations numeric fields (HR, BP, MAP, SpO₂, RR, temperature, lactate, PEEP, Vt) with soft warnings ("Value outside physiological range — confirm?") rather than hard blocks.
-3. Batch `CheckboxOptionGroup` toggles: local optimistic state + a single debounced save (300ms) instead of a serial round-trip per click. Show a subtle "Saving…/Saved" pill in the widget header.
-4. Change Timeline Quick-add so no DB row is created until the user confirms in the inline editor (or auto-purge empty "Other" events created and abandoned within 5 minutes).
-5. Fix TEP colour semantics: pick a shared clinical colour system (e.g. destructive = safety-critical restriction, warning = attention needed, secondary = neutral state) and apply to DNACPR, TEP, isolation, wardable, deteriorating consistently. Add a one-line legend accessible from a "?" icon on the badges row.
-6. Unify toast conventions: success = 4s, warning/conflict = 10s with action, destructive-outcome = persistent until dismissed. Extract into a `notify` helper.
+- New route `src/routes/_authenticated/patients.$patientId.chart.tsx`:
+  - Date picker for chart day (defaults to today), digital replica of the paper chart in two tabs: **Hourly grid** and **Daily assessment**.
+  - Every cell is inline-editable (reusing `EditableField`/`EditableSelect` patterns from Demographics), with running `hourly_balance` and `cumulative_balance` auto-calculated.
+  - Prominent "Scan paper chart" button.
+- New component `ScanChartDialog`:
+  - Uses `<input type="file" accept="image/*" capture="environment" multiple>` for mobile camera capture; also accepts drag-drop / gallery uploads.
+  - Client-side downscale to ≤2000px longest edge via `<canvas>` + JPEG 0.85 before base64 encoding — reduces payload + strips EXIF/GPS.
+  - Immediately posts to `extractChart` server fn; shows a **skeleton preview** (not the photo) while extracting.
+  - On response, opens `ScanReviewDialog`: side-by-side (left = extracted fields grouped by section with confidence-coloured badges; right = current chart values). Clinician can accept-all, accept-per-section, or edit inline. Confirm calls `commitChart`.
+  - After the response (success **or** error) the base64 payload is cleared from state and never persisted.
+- Patient detail: add "Chart" tab in the existing tab strip, pointing to the new route (URL-preserved with the existing `?tab=` pattern).
+- Handover columns: the write-through means existing handover renderers automatically get the new obs / investigations / micro / systems text. Add a small "24h balance" line to the observations column when a chart_day exists for the current shift.
 
-## Phase 4 — Awareness, staleness & real-time
+### UX flow (mobile-optimised)
 
-Rationale: this is a shared clinical record with no presence signalling today.
+1. Clinician opens the patient → Chart tab → taps **Scan chart**.
+2. Native camera opens (thanks to `capture="environment"`). Takes one photo of page 1, optionally a second of page 2.
+3. Loading state ("Reading chart…") — no image displayed.
+4. Review screen — clinician verifies extracted values against the paper in hand (not against a stored image). Can edit any field.
+5. Confirm — commit writes structured rows, updates handover-visible fields, records audit.
 
-1. Add a Supabase Realtime channel scoped per patient: broadcast "user X viewing/editing" presence. Show small avatars in the patient header. On field edit, show a soft yellow ring on any field another user is currently editing.
-2. Add per-section "Updated HH:mm by Name" line under each Overview widget, Observations, Investigations, Micro, Reviews. Uses existing audit/field-change data.
-3. Replace the post-hoc "CONFLICT:" toast with a diff dialog: "This field changed while you were editing. Yours: … / Theirs: … / Keep mine / Keep theirs / Merge."
-4. On the Unit dashboard, add a soft `refetchInterval` (30s) and a "Last synced" timestamp; make stat cards clickable to filter the bed board.
-5. Add an offline banner (`navigator.onLine` + Supabase channel status) with a queued-writes indicator. Block risky writes when offline; allow read-only browsing.
+### Testing
 
-## Phase 4.5 — Follow-ups (shipped)
+- `tests/chart-extract-schema.test.ts` — mock Gateway response, assert Zod-parsed payload matches expected shape and PII scrubbing removes name/DOB.
+- `tests/chart-commit.test.ts` — commit maps hourly[] → `patient_observations` rows with correct timestamps (chart_date + hour), and creates investigations only for ticked boxes.
+- `tests/no-image-persistence.test.ts` — grep guard: forbid `storage_upload`, `parsed-documents`, or `fs.writeFile` inside chart-extract.functions.ts; assert the server fn signature never returns image data.
+- E2E: seed patient, POST fake extraction payload directly to `commitChart`, open Chart tab and handover PDF, assert values appear.
 
-1. Per-section "Updated HH:mm" line under Observations, Lines, Investigations, Microbiology, Reviews via a shared `<SectionUpdated />` helper that reads `updated_at`/`created_at` from the section's own list — no extra fetch. Author attribution is deferred until the audit trail covers all detail tables (currently only `patients`/`investigations` write to `record_audit`).
-2. Clickable stat cards on the Unit dashboard link into the bed board with a new `preset` search param (`vent`, `vasoactive`, `rrt`, `noresus`). The board renders a clearable "Filter: <label>" chip below the heading and applies the preset to the list.
+### Rollout phases
 
-Still deferred:
-- Conflict diff dialog for concurrent edits (requires an optimistic-concurrency layer on every editable surface).
-- Queued-writes indicator (no offline mutation queue exists yet).
+1. Migration + `chart_days` / `chart_hourly` tables + digital chart page (manual entry only).
+2. Extraction server fn + Scan dialog + Review dialog (behind an admin-enabled feature flag on `profiles` so it can be piloted).
+3. Write-through into existing tables + handover integration.
+4. Care-bundle / infusions / assessments extraction + audit review UI on `/admin`.
 
-## Phase 5 — Accessibility, discoverability & polish (shipped)
+### Open questions to confirm before build
 
-1. `aria-label`s added to the remaining icon-only buttons: staff-account delete (`admin.tsx`), task delete (`tasks-card.tsx`), systems-status remove-entry (`systems-status.tsx`), and the header Lock/Sign-out controls.
-2. Shared skeleton primitives (`ListSkeleton`, `RowSkeleton`, `TextSkeleton`) in `src/components/LoadingSkeleton.tsx` replace every `<p>Loading…</p>` placeholder across the patients board, patient detail, admin, antimicrobials, sharing, bridge security panel, and the Investigations / Microbiology / Reviews / History / Tasks / Recent-investigations tabs. Each skeleton carries `role="status"` + `aria-busy` so assistive tech announces the loading state and it is visually distinct from empty states.
-3. Global command palette (`src/components/CommandMenu.tsx`, mounted in the authenticated layout) — ⌘K / Ctrl+K opens a search for patient by name / MRN / NHS number, jump-to-bed, and the top-level navigation actions. Data is drawn from the existing React Query cache so it's free after first load. A small `⌘K to jump` hint sits bottom-right on ≥md.
-4. Auth page: inline `aria-live="polite"` error/info region (replaces the transient toast that auto-dismissed before staff could read it), plus a "Forgot password?" link that triggers `supabase.auth.resetPasswordForEmail`.
-
-Still deferred:
-- Full audit of `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `patients.sharing.tsx`, `settings.tsx`, `reconcile.tsx`, `setup.tsx`, `antimicrobials.tsx` for the same patterns (tap targets, URL state, inline edits). Handover Mode is the bedside surface and warrants its own phase.
-- Conflict diff dialog and queued-writes indicator (both require larger architectural work — optimistic-concurrency layer and an offline mutation queue).
-
-Phase 5 deferred items shipped:
-- `MoveToBedMenu` (`src/components/patient/move-to-bed-menu.tsx`) — keyboard-accessible "Move to bed…" popover on every patient card.
-- Clinical-colour legend added to the Security FAQ (`#clinical-colour-legend` anchor).
-- Conflict diff dialog (`src/components/ConflictDialog.tsx`, `useConflictDialog` hook + `parseConflict` helper). Replaces the transient "Edit conflict" toast on the patient detail page and the Status tab with a persistent, non-dismissable dialog that explains what happened, offers "Reload latest" (invalidates the relevant queries and re-runs the loader) or "Keep editing (do not save)". Wired at every place that sends `expected_updated_at` on `updatePatient` today.
-
-Still deferred (larger architectural work — not built this cycle):
-- Offline mutation queue with a "queued writes" indicator in the header. Requires a persistent, ordered write log in `localStorage`/`IndexedDB`, per-mutation replay on reconnect with conflict handling, and a UI to inspect/discard pending items. No offline write path exists today; on reconnect a stale in-memory mutation still errors with a network toast.
-- Bringing the conflict-dialog pattern to every other editable surface (observations, lines, systems widgets, tasks, reviews, investigations, microbiology, timeline). Those mutations don't currently send `expected_updated_at`, so they need matching server-side concurrency checks first.
-- Deep audit of `patients.compare.tsx`, `patients.handover-mode.tsx`, `patients.handover-preview.tsx`, `settings.tsx`, `reconcile.tsx`, `antimicrobials.tsx` — a scan today found no blocking a11y/UX regressions (icon-only buttons all carry `aria-label`, loaders replaced, URL state persisted where relevant), so this is a review effort rather than a fix backlog.
-
-
-
-
----
-
-## Suggested sequencing
-
-- **Phase 1**: 1 short cycle. Almost all shadcn AlertDialog work + one shared helper. Low risk, high safety payoff.
-- **Phase 2**: URL state + touch targets. Medium effort, spread across bed board and patient page.
-- **Phase 3**: Inline-editing convergence is the biggest single refactor; do it after Phase 1 & 2 so the destructive/URL infra is already stable.
-- **Phase 4**: Introduces Realtime — new infra; ship after the editing model is settled so presence has one clear model to attach to.
-- **Phase 5**: Ongoing polish and closing the audit gaps.
-
-## Notes / open questions to confirm before Phase 1 starts
-
-- Whether Investigations delete already uses AlertDialog (file was truncated in the audit — quick verify).
-- Whether any Realtime channel already exists elsewhere in `src/lib` we should extend rather than add.
-- Which surfaces are the actual bedside-round view (Handover Mode vs. patient detail) — will shape Phase 2 tap-target priorities.
-
-If you approve, I'll start with **Phase 1** in the next turn.
+- Do you want the digital chart to be strictly append-only per hour (nurse enters as the shift progresses) or fully editable retrospectively? (Assumed: editable, mirroring the paper workflow.)
+- Should a chart_day auto-close at 08:00 (Salisbury shift boundary) and start a new one, or stay a fixed 00:00–24:00? (Assumed: 00:00–24:00 to match the paper chart headings.)
+- Confirm the AI model: default to `google/gemini-2.5-pro` for OCR-quality on handwriting, or prefer `openai/gpt-5.4` for cost/latency?

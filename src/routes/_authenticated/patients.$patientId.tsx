@@ -35,6 +35,7 @@ import { listInvestigations } from "@/lib/investigations.functions";
 import { listMicrobiology } from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { DemographicsTab } from "@/components/patient/demographics-tab";
+import { ChartTab } from "@/components/patient/chart-tab";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { missingCriticalFields } from "@/lib/handover-validation";
@@ -58,6 +59,7 @@ const TAB_KEYS = [
   "overview",
   "demographics",
   "observations",
+  "chart",
   "lines",
   "escalation",
   "nok",
@@ -406,6 +408,7 @@ function PatientDetail() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="demographics">Demographics</TabsTrigger>
             <TabsTrigger value="observations">Observations</TabsTrigger>
+            <TabsTrigger value="chart">24h Chart</TabsTrigger>
             <TabsTrigger value="lines">Lines & devices</TabsTrigger>
             <TabsTrigger value="escalation">Escalation & Resus</TabsTrigger>
             <TabsTrigger value="nok">Next of kin</TabsTrigger>
@@ -436,6 +439,10 @@ function PatientDetail() {
               vasoactive: Array.isArray(patient.vasoactive_agents) && patient.vasoactive_agents.length > 0,
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="chart" className="mt-4 space-y-4">
+          <ChartTab patientId={patientId} />
         </TabsContent>
 
         <TabsContent value="lines" className="mt-4 space-y-4">
