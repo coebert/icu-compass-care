@@ -278,6 +278,42 @@ export const matchPatientBySticker = createServerFn({ method: "POST" })
     return { candidates, mrn, initials };
   });
 
+/**
+ * Free-text patient picker used by the chart scanner when the sticker match
+ * fails and the reviewer needs to pin the extraction to the correct record.
+ * Matches against hospital_number and full_name.
+ */
+export const searchPatientsForChart = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { q?: string | null }) =>
+    z.object({ q: z.string().nullish() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const q = (data.q ?? "").trim();
+    if (q.length < 2) return { candidates: [] as MatchCandidate[] };
+    const safe = q.replace(/[,()"']/g, " ");
+    const like = `%${safe}%`;
+    const { data: rows, error } = await context.supabase
+      .from("patients")
+      .select("id, full_name, hospital_number, age, sex, ward, bed, status, admission_date")
+      .or(`hospital_number.ilike.${like},full_name.ilike.${like}`)
+      .limit(15);
+    if (error) throw safeDbError(error);
+    const candidates: MatchCandidate[] = (rows ?? []).map((r) => ({
+      id: r.id as string,
+      full_name: (r.full_name as string) ?? null,
+      hospital_number: (r.hospital_number as string) ?? null,
+      age: (r.age as number | null) ?? null,
+      sex: (r.sex as string | null) ?? null,
+      ward: (r.ward as string | null) ?? null,
+      bed: (r.bed as string | null) ?? null,
+      status: (r.status as string | null) ?? null,
+      admission_date: (r.admission_date as string | null) ?? null,
+      initials_match: null,
+    }));
+    return { candidates };
+  });
+
 export type MatchCandidate = {
   id: string;
   full_name: string | null;

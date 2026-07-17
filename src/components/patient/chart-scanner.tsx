@@ -16,6 +16,7 @@ import {
   extractChart,
   commitChart,
   matchPatientBySticker,
+  searchPatientsForChart,
   type ChartExtraction,
   type MatchCandidate,
 } from "@/lib/chart-extract.functions";
@@ -75,6 +76,10 @@ export function ScanChartDialog({
   const [redactPages, setRedactPages] = useState<RedactionPage[]>([]);
   const [extraction, setExtraction] = useState<ChartExtraction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Which patient the chart will actually be filed against. Defaults to the
+  // patient whose page opened the scanner but the reviewer can reassign it
+  // via the manual picker in the review panel when the sticker doesn't match.
+  const [selectedPatientId, setSelectedPatientId] = useState(patientId);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const extractFn = useServerFn(extractChart);
@@ -86,6 +91,7 @@ export function ScanChartDialog({
     setRedactPages([]);
     setExtraction(null);
     setError(null);
+    setSelectedPatientId(patientId);
     if (fileInput.current) fileInput.current.value = "";
   };
 
@@ -114,10 +120,13 @@ export function ScanChartDialog({
 
   const commitMut = useMutation({
     mutationFn: (ex: ChartExtraction) =>
-      commitFn({ data: { patientId, chartDate, extraction: ex } }),
+      commitFn({ data: { patientId: selectedPatientId, chartDate, extraction: ex } }),
     onSuccess: (res) => {
+      const reassigned = selectedPatientId !== patientId;
       toast.success(
-        `Chart committed: ${res.observationsAdded} obs, ${res.investigationsAdded} investigations`,
+        `Chart committed: ${res.observationsAdded} obs, ${res.investigationsAdded} investigations${
+          reassigned ? " (filed against a different patient)" : ""
+        }`,
       );
       onCommitted();
       reset();
@@ -249,7 +258,9 @@ export function ScanChartDialog({
         {stage === "review" && extraction && (
           <ReviewPanel
             extraction={extraction}
-            currentPatientId={patientId}
+            openedFromPatientId={patientId}
+            selectedPatientId={selectedPatientId}
+            onSelectPatient={setSelectedPatientId}
             onChange={setExtraction}
             onCancel={() => {
               reset();
@@ -281,14 +292,18 @@ export function ScanChartDialog({
 
 function ReviewPanel({
   extraction,
-  currentPatientId,
+  openedFromPatientId,
+  selectedPatientId,
+  onSelectPatient,
   onChange,
   onCancel,
   onConfirm,
   committing,
 }: {
   extraction: ChartExtraction;
-  currentPatientId: string;
+  openedFromPatientId: string;
+  selectedPatientId: string;
+  onSelectPatient: (id: string) => void;
   onChange: (e: ChartExtraction) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -346,11 +361,15 @@ function ReviewPanel({
 
   const candidates = matchQuery.data?.candidates ?? [];
   const primary: MatchCandidate | undefined = candidates[0];
-  const currentMatched = candidates.find((c) => c.id === currentPatientId);
-  const mismatched =
-    !!currentMatched === false && (extraction.hospital_number || extraction.initials);
+  const stickerMatchedSelected = candidates.some((c) => c.id === selectedPatientId);
+  const stickerMismatch =
+    !stickerMatchedSelected && !!(extraction.hospital_number || extraction.initials);
+  // When the reviewer has reassigned to a patient outside the current page,
+  // treat that as an explicit manual pick — no override checkbox needed.
+  const manuallyReassigned = selectedPatientId !== openedFromPatientId;
 
-  const canConfirm = !committing && (!mismatched || override);
+  const canConfirm =
+    !committing && (!stickerMismatch || manuallyReassigned || override);
 
   const totalLow = (extraction.low_confidence ?? []).length;
   const conf = extraction.overall_confidence;
@@ -417,12 +436,20 @@ function ReviewPanel({
         loading={matchQuery.isLoading}
         candidates={candidates}
         primary={primary}
-        currentPatientId={currentPatientId}
-        currentMatched={!!currentMatched}
+        selectedPatientId={selectedPatientId}
+        onSelectPatient={onSelectPatient}
+        openedFromPatientId={openedFromPatientId}
         hasStickerFields={!!(extraction.hospital_number || extraction.initials)}
       />
 
-      {mismatched && (
+      <ManualPatientPicker
+        selectedPatientId={selectedPatientId}
+        openedFromPatientId={openedFromPatientId}
+        onSelectPatient={onSelectPatient}
+        defaultOpen={stickerMismatch}
+      />
+
+      {stickerMismatch && !manuallyReassigned && (
         <label className="flex items-start gap-2 rounded border border-destructive/50 bg-destructive/5 p-3 text-xs">
           <input
             type="checkbox"
@@ -557,15 +584,17 @@ function StickerMatchPanel({
   loading,
   candidates,
   primary,
-  currentPatientId,
-  currentMatched,
+  selectedPatientId,
+  onSelectPatient,
+  openedFromPatientId,
   hasStickerFields,
 }: {
   loading: boolean;
   candidates: MatchCandidate[];
   primary: MatchCandidate | undefined;
-  currentPatientId: string;
-  currentMatched: boolean;
+  selectedPatientId: string;
+  onSelectPatient: (id: string) => void;
+  openedFromPatientId: string;
   hasStickerFields: boolean;
 }) {
   if (!hasStickerFields) {
@@ -573,8 +602,8 @@ function StickerMatchPanel({
       <div className="flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
         <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
         <span>
-          No hospital number or initials were read from the sticker. Enter them above
-          so the app can confirm the chart belongs to this patient.
+          No hospital number or initials were read from the sticker. Enter them above,
+          or use the patient picker below to assign this chart manually.
         </span>
       </div>
     );
@@ -586,16 +615,16 @@ function StickerMatchPanel({
       </div>
     );
   }
-  if (currentMatched) {
-    const p = candidates.find((c) => c.id === currentPatientId)!;
+  const stickerMatched = candidates.find((c) => c.id === selectedPatientId);
+  if (stickerMatched) {
     return (
       <div className="rounded border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
         <p className="flex items-center gap-2 font-medium text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="h-4 w-4" /> Matched patient
         </p>
-        <CandidateLine c={p} />
+        <CandidateLine c={stickerMatched} />
         <p className="mt-1 text-xs text-muted-foreground">
-          Sticker corresponds to the patient record you are filing against.
+          Sticker corresponds to the patient this chart will be filed against.
         </p>
       </div>
     );
@@ -607,8 +636,8 @@ function StickerMatchPanel({
           <AlertTriangle className="h-4 w-4" /> No patient record matches this sticker
         </p>
         <p className="mt-1 text-xs">
-          Check the sticker values above, or add the patient in the app before filing
-          this chart.
+          Check the sticker values above, use the patient picker below to search for
+          the correct record, or add the patient in the app before filing this chart.
         </p>
       </div>
     );
@@ -621,23 +650,133 @@ function StickerMatchPanel({
       {primary && (
         <>
           <p className="mt-2 text-xs">The sticker looks like:</p>
-          <CandidateLine c={primary} />
+          <button
+            type="button"
+            onClick={() => onSelectPatient(primary.id)}
+            className="mt-1 block w-full rounded border border-transparent px-2 py-1 text-left hover:border-destructive/40 hover:bg-background/60"
+            title="File the chart against this patient instead"
+          >
+            <CandidateLine c={primary} />
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Click to file against this patient
+            </span>
+          </button>
         </>
       )}
       {candidates.length > 1 && (
         <ul className="mt-2 space-y-1 text-xs">
           {candidates.slice(1).map((c) => (
             <li key={c.id}>
-              <CandidateLine c={c} />
+              <button
+                type="button"
+                onClick={() => onSelectPatient(c.id)}
+                className="block w-full rounded border border-transparent px-2 py-1 text-left hover:border-destructive/40 hover:bg-background/60"
+              >
+                <CandidateLine c={c} />
+              </button>
             </li>
           ))}
         </ul>
       )}
       <p className="mt-2 text-xs text-muted-foreground">
-        Open the correct patient and scan the chart from there, or tick the override
-        box below if you are certain the sticker is wrong.
+        Reassign to the correct patient above or via the picker below, or tick the
+        override box if you are certain the sticker is wrong for
+        {selectedPatientId === openedFromPatientId ? " this patient." : " your selection."}
       </p>
     </div>
+  );
+}
+
+function ManualPatientPicker({
+  selectedPatientId,
+  openedFromPatientId,
+  onSelectPatient,
+  defaultOpen,
+}: {
+  selectedPatientId: string;
+  openedFromPatientId: string;
+  onSelectPatient: (id: string) => void;
+  defaultOpen: boolean;
+}) {
+  const [q, setQ] = useState("");
+  const searchFn = useServerFn(searchPatientsForChart);
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  const results = useQuery({
+    queryKey: ["chart-patient-search", debounced],
+    queryFn: () => searchFn({ data: { q: debounced } }),
+    enabled: debounced.length >= 2,
+    staleTime: 15_000,
+  });
+  const reassigned = selectedPatientId !== openedFromPatientId;
+  return (
+    <details className="rounded border p-3 text-sm" open={defaultOpen || reassigned}>
+      <summary className="cursor-pointer text-sm font-medium">
+        Assign to a different patient{reassigned ? " — reassigned" : ""}
+      </summary>
+      <div className="mt-3 space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Search by name or hospital number. Selecting a patient files this chart
+          against that record instead of the one you opened the scanner from.
+        </p>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name or hospital number…"
+          className="w-full rounded border px-2 py-1 text-sm"
+        />
+        {debounced.length >= 2 && results.isLoading && (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+          </p>
+        )}
+        {debounced.length >= 2 && !results.isLoading && (results.data?.candidates.length ?? 0) === 0 && (
+          <p className="text-xs text-muted-foreground">No patients match “{debounced}”.</p>
+        )}
+        <ul className="max-h-56 space-y-1 overflow-y-auto">
+          {(results.data?.candidates ?? []).map((c) => {
+            const isSelected = c.id === selectedPatientId;
+            return (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectPatient(c.id)}
+                  className={`flex w-full items-center justify-between gap-2 rounded border px-2 py-1.5 text-left hover:bg-muted/40 ${
+                    isSelected ? "border-emerald-500/60 bg-emerald-500/5" : ""
+                  }`}
+                >
+                  <CandidateLine c={c} />
+                  {isSelected ? (
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" /> Selected
+                    </span>
+                  ) : (
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Use
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {reassigned && (
+          <div className="flex items-center justify-between rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1 text-xs">
+            <span>Chart will be filed against the selected patient, not the one you opened.</span>
+            <button
+              type="button"
+              onClick={() => onSelectPatient(openedFromPatientId)}
+              className="rounded border px-2 py-0.5 text-[11px] hover:bg-background"
+            >
+              Reset
+            </button>
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
