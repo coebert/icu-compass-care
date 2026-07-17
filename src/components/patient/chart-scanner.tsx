@@ -258,7 +258,9 @@ export function ScanChartDialog({
         {stage === "review" && extraction && (
           <ReviewPanel
             extraction={extraction}
-            currentPatientId={patientId}
+            openedFromPatientId={patientId}
+            selectedPatientId={selectedPatientId}
+            onSelectPatient={setSelectedPatientId}
             onChange={setExtraction}
             onCancel={() => {
               reset();
