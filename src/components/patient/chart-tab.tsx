@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,8 +108,16 @@ function shiftISODate(iso: string, delta: number): string {
   return `${dt.getUTCFullYear()}-${mm}-${dd}`;
 }
 
-export function ChartTab({ patientId, initialDate }: { patientId: string; initialDate?: string }) {
-  const [chartDate, setChartDate] = useState<string>(initialDate ?? todayISO());
+export function ChartTab({ patientId, initialDate, onDateChange }: { patientId: string; initialDate?: string; onDateChange?: (date: string) => void }) {
+  const [chartDate, setChartDateState] = useState<string>(initialDate ?? todayISO());
+  const setChartDate = (next: string) => {
+    setChartDateState(next);
+    onDateChange?.(next);
+  };
+  useEffect(() => {
+    if (initialDate && initialDate !== chartDate) setChartDateState(initialDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDate]);
   const [scanOpen, setScanOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">("active");
   const [fromDate, setFromDate] = useState<string>("");

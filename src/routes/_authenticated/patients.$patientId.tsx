@@ -1,6 +1,6 @@
 import { ListSkeleton, RowSkeleton, TextSkeleton } from "@/components/LoadingSkeleton";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getPatient, updatePatient, deletePatient } from "@/lib/patients.functions";
@@ -75,6 +75,7 @@ const TAB_KEYS = [
 const patientDetailSearchSchema = z.object({
   tab: fallback(z.string(), "overview").default("overview"),
   filter: fallback(z.string(), "").default(""),
+  chartDate: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
@@ -119,6 +120,15 @@ function PatientDetail() {
       to: "/patients/$patientId",
       params: { patientId },
       search: (prev: SearchShape) => ({ ...prev, filter: next.join(",") }),
+      replace: true,
+    });
+  const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
+  const urlChartDate = isoDateRe.test(search.chartDate) ? search.chartDate : "";
+  const setChartDate = (next: string) =>
+    navigate({
+      to: "/patients/$patientId",
+      params: { patientId },
+      search: (prev: SearchShape) => ({ ...prev, chartDate: next && isoDateRe.test(next) ? next : "" }),
       replace: true,
     });
 
@@ -443,7 +453,11 @@ function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="chart" className="mt-4 space-y-4">
-          <ChartTab patientId={patientId} />
+          <ChartTab
+            patientId={patientId}
+            initialDate={urlChartDate || undefined}
+            onDateChange={setChartDate}
+          />
         </TabsContent>
 
         <TabsContent value="lines" className="mt-4 space-y-4">
@@ -490,7 +504,11 @@ function PatientDetail() {
             </CardContent>
           </Card>
 
-          <OverviewChartCard patientId={patientId} />
+          <OverviewChartCard
+            patientId={patientId}
+            initialDate={urlChartDate || undefined}
+            onDateChange={setChartDate}
+          />
 
         </TabsContent>
 
@@ -628,16 +646,31 @@ function todayISO(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-function OverviewChartCard({ patientId }: { patientId: string }) {
+function OverviewChartCard({ patientId, initialDate, onDateChange }: { patientId: string; initialDate?: string; onDateChange?: (date: string) => void }) {
   const listDays = useServerFn(listChartDays);
-  const [expanded, setExpanded] = useState(false);
-  const [date, setDate] = useState<string>(() => {
+  const [expanded, setExpanded] = useState(!!initialDate);
+  const [date, setDateState] = useState<string>(() => {
+    if (initialDate) return initialDate;
     const d = new Date();
     const m = `${d.getMonth() + 1}`.padStart(2, "0");
     const day = `${d.getDate()}`.padStart(2, "0");
     return `${d.getFullYear()}-${m}-${day}`;
   });
   const [chartKey, setChartKey] = useState(0);
+  const setDate = (updater: string | ((prev: string) => string)) => {
+    setDateState((prev) => {
+      const next = typeof updater === "function" ? (updater as (p: string) => string)(prev) : updater;
+      return next;
+    });
+  };
+  useEffect(() => {
+    if (initialDate && initialDate !== date) {
+      setDateState(initialDate);
+      setExpanded(true);
+      setChartKey((k) => k + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDate]);
 
   const daysQ = useQuery({
     queryKey: ["chart-days-overview", patientId],
@@ -645,9 +678,10 @@ function OverviewChartCard({ patientId }: { patientId: string }) {
   });
 
   const open = (d: string) => {
-    setDate(d);
+    setDateState(d);
     setExpanded(true);
     setChartKey((k) => k + 1);
+    onDateChange?.(d);
   };
 
   const recent = (daysQ.data ?? []).slice(0, 8);
