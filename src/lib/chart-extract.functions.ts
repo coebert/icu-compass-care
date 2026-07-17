@@ -147,9 +147,8 @@ export const extractChart = createServerFn({ method: "POST" })
           entity: "patients",
           entity_id: data.patientId,
           action: "update",
-          actor_id: context.userId,
-          source: "app",
-          summary: `chart-scan failed: ${err instanceof Error ? err.message.slice(0, 200) : "unknown"}`,
+          user_id: context.userId,
+          diff: { chart_scan_failed: err instanceof Error ? err.message.slice(0, 200) : "unknown" },
         } as never);
       throw err instanceof Error ? err : new Error("Extraction failed");
     }
