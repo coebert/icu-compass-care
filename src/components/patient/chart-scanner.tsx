@@ -27,7 +27,9 @@ import {
   bakeRedactions,
   loadPage,
   isRedactionReady,
+  DEFAULT_REDACTION_SETTINGS,
   type RedactionPage,
+  type RedactionSettings,
 } from "@/components/patient/chart-redactor";
 import { LiveCameraCapture } from "@/components/patient/live-camera-capture";
 
