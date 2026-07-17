@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Camera, Loader2, Archive, RotateCcw, Lock, Maximize2, Minimize2 } from "lucide-react";
+import { Camera, Loader2, Archive, RotateCcw, Lock, Maximize2, Minimize2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   ensureChartDay,
   getChartDay,
@@ -96,6 +96,16 @@ function todayISO(): string {
   const m = `${d.getMonth() + 1}`.padStart(2, "0");
   const day = `${d.getDate()}`.padStart(2, "0");
   return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function shiftISODate(iso: string, delta: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const mm = `${dt.getUTCMonth() + 1}`.padStart(2, "0");
+  const dd = `${dt.getUTCDate()}`.padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${mm}-${dd}`;
 }
 
 export function ChartTab({ patientId, initialDate }: { patientId: string; initialDate?: string }) {
@@ -269,13 +279,37 @@ export function ChartTab({ patientId, initialDate }: { patientId: string; initia
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <Label htmlFor="chart-date" className="text-xs">Chart date</Label>
-              <Input
-                id="chart-date"
-                type="date"
-                value={chartDate}
-                onChange={(e) => setChartDate(e.target.value || todayISO())}
-                className="w-40"
-              />
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => setChartDate(shiftISODate(chartDate, -1))}
+                  aria-label="Previous day"
+                  title="Previous day"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="chart-date"
+                  type="date"
+                  value={chartDate}
+                  onChange={(e) => setChartDate(e.target.value || todayISO())}
+                  className="w-40"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => setChartDate(shiftISODate(chartDate, 1))}
+                  aria-label="Next day"
+                  title="Next day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Button
               onClick={() => setScanOpen(true)}
