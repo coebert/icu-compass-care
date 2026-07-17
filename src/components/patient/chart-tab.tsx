@@ -309,6 +309,17 @@ export function ChartTab({ patientId, initialDate }: { patientId: string; initia
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-9 shrink-0"
+                  onClick={() => setChartDate(todayISO())}
+                  aria-label="Open today's chart"
+                  title="Open today's chart"
+                >
+                  Today
+                </Button>
               </div>
             </div>
             <Button
