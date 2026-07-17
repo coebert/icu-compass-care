@@ -913,7 +913,7 @@ function CandidateCompareCard({
         </button>
         <button
           type="button"
-          onClick={onAutoFill}
+          onClick={() => onAutoFill(candidate.hospital_number ?? null, recordInitials)}
           className="rounded border px-2 py-1 text-xs font-medium hover:bg-muted/60"
           title="Overwrite the extracted MRN and initials with the values from this patient record"
           disabled={mrnMatch && initialsMatch}
