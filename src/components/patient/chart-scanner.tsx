@@ -595,13 +595,43 @@ function CandidateLine({ c }: { c: MatchCandidate }) {
   return <p className="font-mono text-xs">{bits.join(" · ")}</p>;
 }
 
-function SummaryRow({ label, count, text }: { label: string; count?: number; text?: string }) {
+function SummaryRow({
+  label,
+  count,
+  text,
+  lowCount,
+  flagged,
+}: {
+  label: string;
+  count?: number;
+  text?: string;
+  lowCount?: number;
+  flagged?: boolean;
+}) {
+  const showFlag = flagged || (lowCount ?? 0) > 0;
   return (
-    <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-      <span>{label}</span>
+    <div
+      className={`flex items-center justify-between rounded border px-3 py-2 text-sm ${
+        showFlag ? "border-amber-500/50 bg-amber-500/5" : ""
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        {label}
+        {(lowCount ?? 0) > 0 && (
+          <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-1.5 py-0 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-3 w-3" /> {lowCount} uncertain
+          </span>
+        )}
+        {flagged && (lowCount ?? 0) === 0 && (
+          <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-1.5 py-0 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-3 w-3" /> uncertain
+          </span>
+        )}
+      </span>
       <span className="font-mono text-xs tabular-nums text-muted-foreground">
         {text ?? String(count ?? 0)}
       </span>
     </div>
   );
 }
+
