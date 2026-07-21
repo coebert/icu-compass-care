@@ -1072,7 +1072,7 @@ function CandidateLine({ c }: { c: MatchCandidate }) {
   if (c.hospital_number) bits.push(`MRN ${c.hospital_number}`);
   if (initials) bits.push(`Initials ${initials}`);
   if (c.age != null) bits.push(`${c.age}y`);
-  if (c.sex) bits.push(String(c.sex).slice(0, 1).toUpperCase());
+  if (c.sex) bits.push(formatSexShort(String(c.sex)));
   if (c.ward || c.bed) bits.push(`${c.ward ?? ""}${c.bed ? ` · Bed ${c.bed}` : ""}`.trim());
   if (c.status) bits.push(c.status);
   if (c.admission_date) bits.push(`Adm ${fmtDate(c.admission_date)}`);
