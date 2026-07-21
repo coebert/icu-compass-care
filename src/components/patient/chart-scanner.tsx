@@ -822,7 +822,7 @@ function CandidateCompareCard({
     .join(" · ") || "—";
   const demographics = [
     candidate.age != null ? `${candidate.age}y` : null,
-    candidate.sex ? String(candidate.sex).slice(0, 1).toUpperCase() : null,
+    candidate.sex ? formatSexShort(String(candidate.sex)) : null,
     candidate.status,
   ]
     .filter(Boolean)
