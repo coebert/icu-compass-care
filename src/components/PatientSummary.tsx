@@ -26,17 +26,17 @@ export function formatAge(age?: number | null): string {
   return age != null ? `${age}y` : "—";
 }
 
-// Short badge-style sex marker (F / M / O / U) to sit alongside age. Treats
-// null/empty/unrecognised values as "U" (Unknown) so every surface stays
-// consistent with the form's null-to-unknown normalisation.
+// Short badge-style sex marker using Unicode symbols (♀ / ♂ / ⚧ / ?) instead
+// of letters, so "M"/"F" can't be confused with a patient's initials.
 export function formatSexShort(sex?: string | null): string {
   switch (sex) {
-    case "female": return "F";
-    case "male": return "M";
-    case "other": return "O";
-    default: return "U";
+    case "female": return "♀";
+    case "male": return "♂";
+    case "other": return "⚧";
+    default: return "?";
   }
 }
+
 
 export function formatSexLong(sex?: string | null): string {
   switch (sex) {
