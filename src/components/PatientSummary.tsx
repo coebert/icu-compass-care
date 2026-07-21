@@ -43,9 +43,10 @@ export function formatSexLong(sex?: string | null): string {
     case "female": return "Female";
     case "male": return "Male";
     case "other": return "Other";
-    default: return "Unknown";
+    default: return "Unspecified";
   }
 }
+
 
 export function formatHospitalNumber(hospitalNumber?: string | null): string | null {
   return hospitalNumber ? `MRN ${hospitalNumber}` : null;
