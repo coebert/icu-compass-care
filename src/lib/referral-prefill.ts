@@ -207,7 +207,10 @@ export function referralCandidateSummary(r: {
 }): string {
   const bits: string[] = [];
   if (r.age != null) bits.push(`${r.age}y`);
-  if (r.sex) bits.push(r.sex);
+  if (r.sex) {
+    const sym = r.sex === "male" ? "♂" : r.sex === "female" ? "♀" : r.sex === "other" ? "⚧" : "?";
+    bits.push(sym);
+  }
   const reason = label(REASON_CATEGORY_LABEL, r.reason_category);
   if (reason) bits.push(reason);
   if (r.referring_specialty) bits.push(r.referring_specialty);
