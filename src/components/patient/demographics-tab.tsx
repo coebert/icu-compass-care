@@ -145,12 +145,12 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
             value={patient.sex}
             required
             options={[
-              { value: "female", label: "Female" },
-              { value: "male", label: "Male" },
-              { value: "other", label: "Other" },
-              { value: "unknown", label: "Unknown" },
+              { value: "female", label: "♀ Female" },
+              { value: "male", label: "♂ Male" },
+              { value: "other", label: "⚧ Other" },
+              { value: "unknown", label: "? Unspecified / Unknown" },
             ]}
-            placeholder="Select sex…"
+            placeholder="Select sex (pick Unspecified if unknown)…"
           />
           <EditableField
             patientId={patientId}
