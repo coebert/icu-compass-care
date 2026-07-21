@@ -21,6 +21,8 @@ import {
   type MatchCandidate,
 } from "@/lib/chart-extract.functions";
 import { fmtDate } from "@/lib/icu";
+import { formatSexShort } from "@/components/PatientSummary";
+
 import { ChartReviewSheet } from "@/components/patient/chart-review-sheet";
 import {
   ChartRedactor,
