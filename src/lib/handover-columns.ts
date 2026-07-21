@@ -22,7 +22,7 @@ function joinNonEmpty(parts: (string | null | undefined | false)[], sep = "\n"):
   return parts.filter(Boolean).join(sep);
 }
 
-const SEX_SHORT: Record<string, string> = { male: "M", female: "F", other: "O", unknown: "U" };
+const SEX_SHORT: Record<string, string> = { male: "♂", female: "♀", other: "⚧", unknown: "?" };
 
 function identity(p: HandoverPatient): string {
   const allergies = summariseAllergies((p as Record<string, unknown>).allergies);
