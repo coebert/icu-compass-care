@@ -40,10 +40,10 @@ export const sexSchema = z.preprocess(
   z.enum(SEX_VALUES, {
     errorMap: (issue, ctx) => {
       if (issue.code === "invalid_type" && ctx.data === undefined) {
-        return { message: "Sex is required." };
+        return { message: "Sex is required — pick Unspecified / Unknown if it isn't recorded." };
       }
       return {
-        message: "Invalid value. Choose one of: Female, Male, Other, Unknown.",
+        message: "Invalid value. Choose one of: Female, Male, Other, Unspecified / Unknown.",
       };
     },
   }),

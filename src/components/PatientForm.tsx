@@ -219,15 +219,15 @@ export function PatientForm({
                 <SelectValue placeholder="Select sex…" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-                <SelectItem value="unknown">Unknown</SelectItem>
+                <SelectItem value="female">♀ Female</SelectItem>
+                <SelectItem value="male">♂ Male</SelectItem>
+                <SelectItem value="other">⚧ Other</SelectItem>
+                <SelectItem value="unknown">? Unspecified / Unknown</SelectItem>
               </SelectContent>
             </Select>
             {sexMissing && (
               <p id="pf-sex-error" className="text-xs text-destructive">
-                Please select a sex. Use "Unknown" if it isn't recorded.
+                Please select a sex. Choose "Unspecified / Unknown" if it isn't recorded — blank isn't allowed.
               </p>
             )}
           </Field>

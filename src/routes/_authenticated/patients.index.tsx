@@ -590,10 +590,10 @@ function PatientsBoard() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All sexes</SelectItem>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-              <SelectItem value="unknown">Unknown</SelectItem>
+              <SelectItem value="female">♀ Female</SelectItem>
+              <SelectItem value="male">♂ Male</SelectItem>
+              <SelectItem value="other">⚧ Other</SelectItem>
+              <SelectItem value="unknown">? Unspecified</SelectItem>
             </SelectContent>
           </Select>
           <Button
