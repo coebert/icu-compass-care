@@ -123,6 +123,7 @@ export const updatePatientTask = createServerFn({ method: "POST" })
         category: z.enum(TASK_CATEGORIES).optional(),
         owner: z.string().trim().max(120).nullish(),
         due_at: zTimestampNullish,
+        notes: z.string().trim().max(4000).nullish(),
       })
       .parse(input),
   )
