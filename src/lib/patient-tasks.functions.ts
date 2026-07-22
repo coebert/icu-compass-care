@@ -86,6 +86,7 @@ export const addPatientTask = createServerFn({ method: "POST" })
         category: z.enum(TASK_CATEGORIES).optional(),
         owner: z.string().trim().max(120).nullish(),
         due_at: zTimestampNullish,
+        notes: z.string().trim().max(4000).nullish(),
       })
       .parse(input),
   )
@@ -100,6 +101,8 @@ export const addPatientTask = createServerFn({ method: "POST" })
         category: data.category ?? "job",
         owner: data.owner ?? null,
         due_at: data.due_at ?? null,
+        notes: data.notes ?? null,
+
         created_by: context.userId,
       } as never)
       .select()
