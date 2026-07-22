@@ -52,12 +52,25 @@ export const listOpenTasks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data: rows, error } = await context.supabase
       .from("patient_tasks")
-      .select("id, patient_id, description, priority, category, owner, due_at, status")
+      .select("id, patient_id, description, priority, category, owner, due_at, status, notes")
       .neq("status", "completed")
       .order("due_at", { ascending: true, nullsFirst: false });
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
+
+// All tasks across every patient (open + recently completed) for the jobs list.
+export const listAllTasks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("patient_tasks")
+      .select("id, patient_id, description, priority, category, owner, due_at, status, notes, created_at, updated_at")
+      .order("created_at", { ascending: false });
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
 
 
 
