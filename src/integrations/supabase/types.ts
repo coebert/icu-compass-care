@@ -1018,6 +1018,7 @@ export type Database = {
           description: string
           due_at: string | null
           id: string
+          notes: string | null
           owner: string | null
           patient_id: string
           position: number
@@ -1032,6 +1033,7 @@ export type Database = {
           description: string
           due_at?: string | null
           id?: string
+          notes?: string | null
           owner?: string | null
           patient_id: string
           position?: number
@@ -1046,6 +1048,7 @@ export type Database = {
           description?: string
           due_at?: string | null
           id?: string
+          notes?: string | null
           owner?: string | null
           patient_id?: string
           position?: number
