@@ -1,0 +1,1 @@
+ALTER TABLE public.patient_tasks ADD COLUMN IF NOT EXISTS notes text;

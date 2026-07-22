@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
 import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon, Menu } from "lucide-react";
+import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon, Menu, ClipboardList } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -136,6 +136,7 @@ function AuthenticatedLayout() {
     { to: "/patients", label: "Patients", icon: Users },
     { to: "/patients/history", label: "History", icon: History },
     { to: "/unit", label: "Unit", icon: LayoutDashboard },
+    { to: "/jobs", label: "Jobs list", icon: ClipboardList },
     ...(profile?.isAdmin
       ? [
           { to: "/admin", label: "Staff", icon: Shield },
