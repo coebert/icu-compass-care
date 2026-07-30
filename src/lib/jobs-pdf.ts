@@ -11,7 +11,7 @@ import {
   type TaskCategory,
 } from "@/lib/patient-tasks.functions";
 import { dueLevel } from "@/lib/task-reminders";
-import { formatInitials, formatSexShort } from "@/components/PatientSummary";
+import { formatInitials, formatSexLong } from "@/components/PatientSummary";
 
 export type JobsPdfTask = {
   id: string;
@@ -62,7 +62,7 @@ function patientHeading(p: JobsPdfGroup["patient"]): string {
   const bits = [
     formatInitials(p),
     p.age != null ? `${p.age}y` : null,
-    formatSexShort(p.sex),
+    formatSexLong(p.sex),
     p.hospital_number ? `MRN ${p.hospital_number}` : null,
     p.bed ? `Bed ${p.bed}` : p.ward ? p.ward : null,
   ].filter(Boolean);
@@ -219,12 +219,12 @@ export function buildJobsPdf(groups: JobsPdfGroup[], opts?: JobsPdfOptions): jsP
       ensureSpace(writeInLines * 6 + 4);
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.1);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
       for (let i = 0; i < writeInLines; i++) {
         cursorY += 6;
-        doc.text("[ ]", marginX + 1, cursorY - 1);
-        doc.setTextColor(30, 41, 59);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
+        doc.text("[ ]", marginX + 1, cursorY - 0.8);
         doc.line(marginX + 10, cursorY, pageWidth - marginX, cursorY);
       }
       cursorY += 4;
