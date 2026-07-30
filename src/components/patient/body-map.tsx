@@ -314,6 +314,32 @@ export function BodyMap({
             Patient left
           </text>
 
+          {/* Snap preview: shows where a dragged marker will land. */}
+          {drag?.moved &&
+            (() => {
+              const snap = regionAt(drag.x, drag.y);
+              return (
+                <g className="pointer-events-none">
+                  <circle
+                    cx={snap.x}
+                    cy={snap.y}
+                    r={9}
+                    className="fill-primary/10 stroke-primary/60"
+                    strokeDasharray="3 3"
+                  />
+                  <text
+                    x={snap.x > 100 ? snap.x + 12 : snap.x - 12}
+                    y={snap.y - 12}
+                    textAnchor={snap.x > 100 ? "start" : "end"}
+                    fontSize="9"
+                    className="fill-muted-foreground"
+                  >
+                    {snap.site}
+                  </text>
+                </g>
+              );
+            })()}
+
 
           {markers.map((m) => {
             const overdue = isOverdue(m.line);
