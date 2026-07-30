@@ -110,12 +110,17 @@ function regionAt(x: number, y: number): Omit<BodyMapPlacement, "x" | "y"> {
 export function BodyMap({
   lines,
   onPlace,
+  onMoveMarker,
 }: {
   lines: PatientLine[];
   onPlace?: (placement: BodyMapPlacement) => void;
+  onMoveMarker?: (line: PatientLine, placement: BodyMapPlacement) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<BodyMapPlacement | null>(null);
+  const [drag, setDrag] = useState<{ id: string; x: number; y: number; moved: boolean } | null>(
+    null,
+  );
 
   const markers = useMemo(() => {
     const placed = lines.map((line) => ({ line, ...place(line) }));
@@ -133,16 +138,42 @@ export function BodyMap({
 
   if (lines.length === 0 && !onPlace) return null;
 
+  const toSvg = (target: SVGSVGElement, clientX: number, clientY: number) => {
+    const rect = target.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    return {
+      x: ((clientX - rect.left) / rect.width) * 200,
+      y: ((clientY - rect.top) / rect.height) * 420,
+    };
+  };
+
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!onPlace) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const x = ((e.clientX - rect.left) / rect.width) * 200;
-    const y = ((e.clientY - rect.top) / rect.height) * 420;
-    const placement = { ...regionAt(x, y), x, y };
+    if (!onPlace || drag?.moved) return;
+    const pt = toSvg(e.currentTarget, e.clientX, e.clientY);
+    if (!pt) return;
+    const placement = { ...regionAt(pt.x, pt.y), ...pt };
     setPending(placement);
     setActiveId(null);
     onPlace(placement);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!drag) return;
+    const pt = toSvg(e.currentTarget, e.clientX, e.clientY);
+    if (!pt) return;
+    setDrag({ ...drag, ...pt, moved: true });
+  };
+
+  const endDrag = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!drag) return;
+    const current = drag;
+    setDrag(null);
+    if (!current.moved || !onMoveMarker) return;
+    const line = lines.find((l) => l.id === current.id);
+    if (!line) return;
+    const placement = { ...regionAt(current.x, current.y), x: current.x, y: current.y };
+    onMoveMarker(line, placement);
+    e.stopPropagation();
   };
 
   return (
@@ -153,8 +184,14 @@ export function BodyMap({
           role="img"
           aria-label="Body map showing the position of lines and devices"
           onClick={handleMapClick}
-          className={"w-full " + (onPlace ? "cursor-crosshair" : "")}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerLeave={() => setDrag(null)}
+          className={
+            "w-full touch-none " + (drag ? "cursor-grabbing " : onPlace ? "cursor-crosshair" : "")
+          }
         >
+
 
           {/* Anatomical anterior figure: each region drawn once and mirrored. */}
           <g
@@ -244,39 +281,55 @@ export function BodyMap({
           {markers.map((m) => {
             const overdue = isOverdue(m.line);
             const selected = m.line.id === activeId;
+            const dragging = drag?.id === m.line.id && drag.moved;
+            const cx = dragging ? drag.x : m.x;
+            const cy = dragging ? drag.y : m.y;
             return (
               <g
                 key={m.line.id}
-                onClick={() => setActiveId((v) => (v === m.line.id ? null : m.line.id))}
-                className="cursor-pointer"
+                onPointerDown={(e) => {
+                  if (!onMoveMarker) return;
+                  e.currentTarget.releasePointerCapture?.(e.pointerId);
+                  setDrag({ id: m.line.id, x: m.x, y: m.y, moved: false });
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (drag?.moved) return;
+                  setActiveId((v) => (v === m.line.id ? null : m.line.id));
+                }}
+                className={onMoveMarker ? "cursor-grab" : "cursor-pointer"}
               >
                 <title>
                   {(LINE_TYPE_LABEL[m.line.device_type as LineType] ?? m.line.device_type) +
-                    (m.line.site ? ` — ${m.line.site}` : "")}
+                    (m.line.site ? ` — ${m.line.site}` : "") +
+                    (onMoveMarker ? " — drag to reposition" : "")}
                 </title>
                 <circle
-                  cx={m.x}
-                  cy={m.y}
-                  r={selected ? 9 : 7}
+                  cx={cx}
+                  cy={cy}
+                  r={selected || dragging ? 9 : 7}
                   className={
                     overdue
                       ? "fill-rose-500 stroke-background"
                       : "fill-primary stroke-background"
                   }
                   strokeWidth={2}
+                  opacity={dragging ? 0.85 : 1}
                 />
-                {selected && (
+                {(selected || dragging) && (
                   <circle
-                    cx={m.x}
-                    cy={m.y}
+                    cx={cx}
+                    cy={cy}
                     r={13}
                     className="fill-none stroke-primary"
                     strokeWidth={2}
+                    strokeDasharray={dragging ? "3 3" : undefined}
                   />
                 )}
               </g>
             );
           })}
+
 
           {pending && (
             <g pointerEvents="none">
@@ -301,7 +354,9 @@ export function BodyMap({
         </p>
         {onPlace && (
           <p className="mt-1 text-center text-[11px] text-muted-foreground">
-            Click anywhere on the figure to add a device there.
+            Click anywhere on the figure to add a device there
+            {onMoveMarker ? ", or drag a marker to reposition it." : "."}
+
           </p>
         )}
       </div>
