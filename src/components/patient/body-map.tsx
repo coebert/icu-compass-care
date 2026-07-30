@@ -1,8 +1,25 @@
 import { useMemo, useState } from "react";
 import { LINE_TYPE_LABEL, LINE_REVIEW_DAYS, type LineType } from "@/lib/lines.functions";
 import { type PatientLine, daysInSitu } from "@/lib/lines";
-import { fmtDate } from "@/lib/icu";
+import { fmtDate, fmtDateTime } from "@/lib/icu";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+/** Scrolls to and briefly highlights the matching row in the device list. */
+function focusLineRow(id: string) {
+  if (typeof document === "undefined") return;
+  const el = document.querySelector<HTMLElement>(`[data-line-id="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.add("ring-2", "ring-primary");
+  window.setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 1800);
+}
+
 
 /**
  * Simplified anterior body map. Coordinates are on a 200 x 420 viewBox where the
@@ -214,9 +231,11 @@ export function BodyMap({
   };
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-[220px_1fr]">
       <div className="mx-auto w-full max-w-[220px]">
         <svg
+
           viewBox="0 0 200 420"
           role="img"
           aria-label="Body map showing the position of lines and devices"
@@ -347,51 +366,74 @@ export function BodyMap({
             const dragging = drag?.id === m.line.id && drag.moved;
             const cx = dragging ? drag.x : m.x;
             const cy = dragging ? drag.y : m.y;
+            const days = daysInSitu(m.line);
+            const limit = LINE_REVIEW_DAYS[m.line.device_type as LineType];
             return (
-              <g
-                key={m.line.id}
-                onPointerDown={(e) => {
-                  if (!onMoveMarker) return;
-                  e.currentTarget.releasePointerCapture?.(e.pointerId);
-                  setDrag({ id: m.line.id, x: m.x, y: m.y, moved: false });
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (drag?.moved) return;
-                  setActiveId((v) => (v === m.line.id ? null : m.line.id));
-                }}
-                className={onMoveMarker ? "cursor-grab" : "cursor-pointer"}
-              >
-                <title>
-                  {(LINE_TYPE_LABEL[m.line.device_type as LineType] ?? m.line.device_type) +
-                    (m.line.site ? ` — ${m.line.site}` : "") +
-                    (onMoveMarker ? " — drag to reposition" : "")}
-                </title>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={selected || dragging ? 9 : 7}
-                  className={
-                    overdue
-                      ? "fill-rose-500 stroke-background"
-                      : "fill-primary stroke-background"
-                  }
-                  strokeWidth={2}
-                  opacity={dragging ? 0.85 : 1}
-                />
-                {(selected || dragging) && (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={13}
-                    className="fill-none stroke-primary"
-                    strokeWidth={2}
-                    strokeDasharray={dragging ? "3 3" : undefined}
-                  />
-                )}
-              </g>
+              <Tooltip key={m.line.id}>
+                <TooltipTrigger asChild>
+                  <g
+                    onPointerDown={(e) => {
+                      if (!onMoveMarker) return;
+                      e.currentTarget.releasePointerCapture?.(e.pointerId);
+                      setDrag({ id: m.line.id, x: m.x, y: m.y, moved: false });
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (drag?.moved) return;
+                      setActiveId((v) => (v === m.line.id ? null : m.line.id));
+                      focusLineRow(m.line.id);
+                    }}
+                    className={onMoveMarker ? "cursor-grab" : "cursor-pointer"}
+                  >
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={selected || dragging ? 9 : 7}
+                      className={
+                        overdue
+                          ? "fill-rose-500 stroke-background"
+                          : "fill-primary stroke-background"
+                      }
+                      strokeWidth={2}
+                      opacity={dragging ? 0.85 : 1}
+                    />
+                    {(selected || dragging) && (
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={13}
+                        className="fill-none stroke-primary"
+                        strokeWidth={2}
+                        strokeDasharray={dragging ? "3 3" : undefined}
+                      />
+                    )}
+                  </g>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-56 space-y-0.5">
+                  <p className="font-medium">
+                    {LINE_TYPE_LABEL[m.line.device_type as LineType] ?? m.line.device_type}
+                  </p>
+                  <p className="text-xs">
+                    {m.line.site || m.region}
+                    {m.line.laterality ? ` (${m.line.laterality})` : ""}
+                  </p>
+                  <p className="text-xs">
+                    Last reviewed {fmtDateTime(m.line.updated_at)}
+                    {days !== null && limit != null
+                      ? ` · day ${days} of ${limit}${overdue ? " (review overdue)" : ""}`
+                      : days !== null
+                        ? ` · day ${days}`
+                        : ""}
+                  </p>
+                  <p className="text-xs opacity-80">
+                    Click to open in the device list
+                    {onMoveMarker ? " · drag to reposition" : ""}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             );
           })}
+
 
 
           {pending && (
@@ -495,5 +537,7 @@ export function BodyMap({
 
       </div>
     </div>
+    </TooltipProvider>
   );
+
 }

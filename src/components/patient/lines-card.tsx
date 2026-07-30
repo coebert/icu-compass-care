@@ -85,10 +85,12 @@ function LineRow({ line, patientId }: { line: PatientLine; patientId: string }) 
   const removed = line.status === "removed";
   return (
     <div
-      className={`flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm ${
+      data-line-id={line.id}
+      className={`flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm transition-shadow ${
         removed ? "opacity-60" : ""
       }`}
     >
+
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">
