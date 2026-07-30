@@ -252,7 +252,7 @@ function AuthenticatedLayout() {
                     className="h-9 shrink-0 gap-1.5"
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
-                    <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
+                    <span className="hidden whitespace-nowrap xl:inline">{item.label}</span>
                   </Button>
                 </Link>
               );
