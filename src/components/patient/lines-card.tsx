@@ -305,7 +305,21 @@ export function LinesCard({ patientId }: { patientId: string }) {
           <p className="text-sm text-muted-foreground">No lines or devices recorded.</p>
         )}
 
-        {active.length > 0 && <BodyMap lines={active} />}
+        <BodyMap
+          lines={active}
+          onPlace={(p) => {
+            setDeviceType(p.device_type);
+            setSite(p.site);
+            setLaterality(p.laterality === "left" ? "Left" : p.laterality === "right" ? "Right" : "");
+            setAdding(true);
+            toast.info(
+              `Placing ${LINE_TYPE_LABEL[p.device_type] ?? p.device_type} at ${p.site}${
+                p.laterality ? ` (${p.laterality})` : ""
+              } — check the details before saving.`,
+            );
+          }}
+        />
+
 
         {active.length > 0 && (
           <div className="space-y-2">
