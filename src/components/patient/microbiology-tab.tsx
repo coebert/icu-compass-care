@@ -25,13 +25,15 @@ import { toast } from "sonner";
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
 
+type CrossLink = { key: string; label: string; reason: string; score: number };
+
 /** Shows how many entries in the other lane relate to this one, and why. */
 function LinkSummary({
   links,
   expanded,
   align,
 }: {
-  links: { key: string; label: string; reason: string }[];
+  links: CrossLink[];
   expanded: boolean;
   align: "left" | "right";
 }) {
@@ -44,8 +46,9 @@ function LinkSummary({
       </span>
       {expanded && (
         <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-          {links.map((l) => (
+          {links.map((l, i) => (
             <li key={l.key}>
+              {i === 0 && <span className="font-medium text-primary">Closest match: </span>}
               {l.label} — {l.reason}
             </li>
           ))}
@@ -54,6 +57,7 @@ function LinkSummary({
     </div>
   );
 }
+
 
 export function MicrobiologyTab({
   patientId,
