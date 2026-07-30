@@ -200,8 +200,34 @@ export function LinesCard({ patientId }: { patientId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+
+  // Drag-to-reposition: holds the pending site/laterality edit for one marker.
+  const [moving, setMoving] = useState<{
+    line: PatientLine;
+    site: string;
+    laterality: string;
+  } | null>(null);
+  const updateFn = useServerFn(updatePatientLine);
+  const move = useMutation({
+    mutationFn: () =>
+      updateFn({
+        data: {
+          id: moving!.line.id,
+          site: moving!.site || null,
+          laterality: moving!.laterality || null,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Position updated");
+      qc.invalidateQueries({ queryKey: ["patient-lines", patientId] });
+      setMoving(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const active = lines.filter((l) => l.status !== "removed");
   const removed = lines.filter((l) => l.status === "removed");
+
 
   return (
     <Card>
