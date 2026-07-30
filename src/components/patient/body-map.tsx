@@ -1,8 +1,25 @@
 import { useMemo, useState } from "react";
 import { LINE_TYPE_LABEL, LINE_REVIEW_DAYS, type LineType } from "@/lib/lines.functions";
 import { type PatientLine, daysInSitu } from "@/lib/lines";
-import { fmtDate } from "@/lib/icu";
+import { fmtDate, fmtDateTime } from "@/lib/icu";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+/** Scrolls to and briefly highlights the matching row in the device list. */
+function focusLineRow(id: string) {
+  if (typeof document === "undefined") return;
+  const el = document.querySelector<HTMLElement>(`[data-line-id="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.add("ring-2", "ring-primary");
+  window.setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 1800);
+}
+
 
 /**
  * Simplified anterior body map. Coordinates are on a 200 x 420 viewBox where the
