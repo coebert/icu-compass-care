@@ -418,9 +418,10 @@ export function BodyMap({
         {onPlace && (
           <p className="mt-1 text-center text-[11px] text-muted-foreground">
             Click anywhere on the figure to add a device there
-            {onMoveMarker ? ", or drag a marker to reposition it." : "."}
-
+            {onMoveMarker ? ", or drag a marker to reposition it" : ""}. Positions snap to the
+            nearest named anatomical site.
           </p>
+
         )}
       </div>
 
