@@ -599,6 +599,72 @@ function PatientDetail() {
           <ReviewsTab patientId={patientId} />
         </TabsContent>
 
+        <TabsContent value="nursing" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Nursing handover</CardTitle>
+              <CardDescription>
+                Key nursing information for handover — care needs, pressure areas, mobility,
+                continence, skin, family updates and anything the next shift must know.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <EditableField
+                patientId={patientId}
+                field="nursing_handover"
+                label="Nursing notes"
+                value={patient.nursing_handover}
+                placeholder="Enter key nursing handover information…"
+                multiline
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="allied" className="mt-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Physiotherapy</CardTitle>
+                <CardDescription>
+                  Respiratory and rehabilitation input, mobility status and ongoing plan.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <EditableField
+                  patientId={patientId}
+                  field="physio_handover"
+                  label="Physiotherapy notes"
+                  value={patient.physio_handover}
+                  placeholder="Enter key physiotherapy handover information…"
+                  multiline
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Speech &amp; language therapy (SALT)</CardTitle>
+                <CardDescription>
+                  Swallow assessment, diet and fluid consistency, communication needs and plan.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <EditableField
+                  patientId={patientId}
+                  field="salt_handover"
+                  label="SALT notes"
+                  value={patient.salt_handover}
+                  placeholder="Enter key SALT handover information…"
+                  multiline
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+
+
         <TabsContent value="timeline" className="mt-4">
           <TimelineTab
             patient={patient}
