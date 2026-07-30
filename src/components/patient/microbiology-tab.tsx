@@ -25,13 +25,15 @@ import { toast } from "sonner";
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
 
+type CrossLink = { key: string; label: string; reason: string; score: number };
+
 /** Shows how many entries in the other lane relate to this one, and why. */
 function LinkSummary({
   links,
   expanded,
   align,
 }: {
-  links: { key: string; label: string; reason: string }[];
+  links: CrossLink[];
   expanded: boolean;
   align: "left" | "right";
 }) {
@@ -44,8 +46,9 @@ function LinkSummary({
       </span>
       {expanded && (
         <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-          {links.map((l) => (
+          {links.map((l, i) => (
             <li key={l.key}>
+              {i === 0 && <span className="font-medium text-primary">Closest match: </span>}
               {l.label} — {l.reason}
             </li>
           ))}
@@ -54,6 +57,7 @@ function LinkSummary({
     </div>
   );
 }
+
 
 export function MicrobiologyTab({
   patientId,
@@ -221,12 +225,17 @@ export function MicrobiologyTab({
   // the result text names the agent, or when the two happened within 48 hours.
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const links = useMemo(() => {
-    const map = new Map<string, { key: string; label: string; reason: string }[]>();
+    const map = new Map<string, CrossLink[]>();
     const abx = timeline.filter((e) => e.kind !== "result");
     const micro = timeline.filter((e) => e.kind === "result");
-    const push = (a: (typeof timeline)[number], b: (typeof timeline)[number], reason: string) => {
+    const push = (
+      a: (typeof timeline)[number],
+      b: (typeof timeline)[number],
+      reason: string,
+      score: number,
+    ) => {
       const list = map.get(a.key) ?? [];
-      list.push({ key: b.key, label: b.title, reason });
+      list.push({ key: b.key, label: b.title, reason, score });
       map.set(a.key, list);
     };
     for (const a of abx) {
@@ -240,12 +249,20 @@ export function MicrobiologyTab({
         const reason = named
           ? `Result mentions ${a.agent}`
           : `Within ${Math.round(hours)}h`;
-        push(a, m, reason);
-        push(m, a, reason);
+        // Named matches always beat time-only ones; within each kind, closer in
+        // time scores higher.
+        const score = (named ? 1000 : 0) + Math.max(0, 48 - Math.min(hours, 48));
+        push(a, m, reason, score);
+        push(m, a, reason, score);
       }
     }
+    // Best match first, so the top of each list is the closest relation.
+    for (const list of map.values()) list.sort((x, y) => y.score - x.score);
     return map;
   }, [timeline]);
+
+  const activeLinks = activeKey ? (links.get(activeKey) ?? []) : [];
+  const bestKey = activeLinks[0]?.key ?? null;
 
   const linkedKeys = useMemo(() => {
     if (!activeKey) return null;
@@ -255,9 +272,19 @@ export function MicrobiologyTab({
   const linkClass = (key: string) => {
     if (!linkedKeys) return "";
     if (key === activeKey) return " ring-2 ring-primary ring-offset-1";
-    if (linkedKeys.has(key)) return " ring-2 ring-primary/50 ring-offset-1";
+    if (key === bestKey)
+      return " ring-2 ring-primary ring-offset-2 shadow-md scale-[1.01]";
+    if (linkedKeys.has(key)) return " ring-2 ring-primary/40 ring-offset-1";
     return " opacity-40";
   };
+
+  const ClosestBadge = ({ show }: { show: boolean }) =>
+    show ? (
+      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+        <Link2 className="h-3 w-3" /> Closest match
+      </span>
+    ) : null;
+
 
   return (
     <div ref={containerRef} className="space-y-6">
@@ -359,11 +386,13 @@ export function MicrobiologyTab({
                                 {ev.detail}
                               </Badge>
                             )}
+                            <ClosestBadge show={ev.key === bestKey} />
                             <LinkSummary
                               links={links.get(ev.key) ?? []}
                               expanded={activeKey === ev.key}
                               align="right"
                             />
+
                           </button>
                         ))
                       )}
@@ -408,11 +437,13 @@ export function MicrobiologyTab({
                                 {ev.detail}
                               </p>
                             )}
+                            <ClosestBadge show={ev.key === bestKey} />
                             <LinkSummary
                               links={links.get(ev.key) ?? []}
                               expanded={activeKey === ev.key}
                               align="left"
                             />
+
                           </button>
                         ))
                       )}
