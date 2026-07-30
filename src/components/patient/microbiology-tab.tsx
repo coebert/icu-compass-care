@@ -19,11 +19,41 @@ import { SectionUpdated } from "@/components/patient/section-updated";
 import { Badge } from "@/components/ui/badge";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Trash2, Plus, Microscope, Pill } from "lucide-react";
+import { Trash2, Plus, Microscope, Pill, Link2 } from "lucide-react";
 import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { toast } from "sonner";
 
 type Microbiology = DomainMicrobiology & Record<string, any>;
+
+/** Shows how many entries in the other lane relate to this one, and why. */
+function LinkSummary({
+  links,
+  expanded,
+  align,
+}: {
+  links: { key: string; label: string; reason: string }[];
+  expanded: boolean;
+  align: "left" | "right";
+}) {
+  if (links.length === 0) return null;
+  return (
+    <div className={`mt-1.5 ${align === "right" ? "text-right" : "text-left"}`}>
+      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+        <Link2 className="h-3 w-3" />
+        {links.length} linked
+      </span>
+      {expanded && (
+        <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+          {links.map((l) => (
+            <li key={l.key}>
+              {l.label} — {l.reason}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function MicrobiologyTab({
   patientId,
@@ -114,6 +144,10 @@ export function MicrobiologyTab({
       kind: "result" | "abx-start" | "abx-stop";
       title: string;
       detail?: string;
+      /** Antimicrobial name (abx rows) used for cross-lane matching. */
+      agent?: string;
+      /** Raw findings text (result rows) used for cross-lane matching. */
+      text?: string;
     };
     const events: TL[] = [];
     for (const it of items) {
@@ -125,6 +159,7 @@ export function MicrobiologyTab({
         kind: "result",
         title: it.specimen_type,
         detail: it.findings,
+        text: `${it.specimen_type} ${it.findings ?? ""}`,
       });
     }
     agents.forEach((a, i) => {
@@ -137,6 +172,7 @@ export function MicrobiologyTab({
           sort: isNaN(t) ? 0 : t,
           kind: "abx-start",
           title: `Started ${a.name ?? "antimicrobial"}`,
+          agent: a.name ?? undefined,
           detail:
             days != null
               ? `Day ${days}${a.ended_on ? "" : " (ongoing)"}`
@@ -152,6 +188,7 @@ export function MicrobiologyTab({
           sort: isNaN(t) ? 0 : t,
           kind: "abx-stop",
           title: `Stopped ${a.name ?? "antimicrobial"}`,
+          agent: a.name ?? undefined,
           detail: days != null ? `${days}-day course` : undefined,
         });
       }
@@ -179,6 +216,48 @@ export function MicrobiologyTab({
     }
     return Array.from(byDay.values()).sort((a, b) => b.sort - a.sort);
   }, [timeline]);
+
+  // Cross-lane links: an antimicrobial change is related to a micro result when
+  // the result text names the agent, or when the two happened within 48 hours.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const links = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; reason: string }[]>();
+    const abx = timeline.filter((e) => e.kind !== "result");
+    const micro = timeline.filter((e) => e.kind === "result");
+    const push = (a: (typeof timeline)[number], b: (typeof timeline)[number], reason: string) => {
+      const list = map.get(a.key) ?? [];
+      list.push({ key: b.key, label: b.title, reason });
+      map.set(a.key, list);
+    };
+    for (const a of abx) {
+      const name = (a.agent ?? "").trim().toLowerCase();
+      for (const m of micro) {
+        const text = (m.text ?? "").toLowerCase();
+        const named = name.length >= 4 && text.includes(name);
+        const hours = Math.abs(a.sort - m.sort) / 3_600_000;
+        const close = hours <= 48;
+        if (!named && !close) continue;
+        const reason = named
+          ? `Result mentions ${a.agent}`
+          : `Within ${Math.round(hours)}h`;
+        push(a, m, reason);
+        push(m, a, reason);
+      }
+    }
+    return map;
+  }, [timeline]);
+
+  const linkedKeys = useMemo(() => {
+    if (!activeKey) return null;
+    return new Set([activeKey, ...(links.get(activeKey) ?? []).map((l) => l.key)]);
+  }, [activeKey, links]);
+
+  const linkClass = (key: string) => {
+    if (!linkedKeys) return "";
+    if (key === activeKey) return " ring-2 ring-primary ring-offset-1";
+    if (linkedKeys.has(key)) return " ring-2 ring-primary/50 ring-offset-1";
+    return " opacity-40";
+  };
 
   return (
     <div ref={containerRef} className="space-y-6">
@@ -224,7 +303,8 @@ export function MicrobiologyTab({
           </h2>
           <p className="text-xs text-muted-foreground">
             Antimicrobials and microbiology results on one shared timescale, newest first — read
-            across a row to cross-reference.
+            across a row to cross-reference. Select an entry to highlight the antimicrobial changes
+            and results that relate to it.
           </p>
         </div>
         {rows.length === 0 ? (
@@ -260,13 +340,17 @@ export function MicrobiologyTab({
                         <span className="text-xs text-muted-foreground/50">—</span>
                       ) : (
                         row.abx.map((ev) => (
-                          <div
+                          <button
+                            type="button"
                             key={ev.key}
+                            onClick={() => setActiveKey((k) => (k === ev.key ? null : ev.key))}
+                            aria-pressed={activeKey === ev.key}
                             className={
-                              "w-full max-w-sm rounded-md border p-2 text-right " +
+                              "w-full max-w-sm rounded-md border p-2 text-right transition " +
                               (ev.kind === "abx-start"
                                 ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/40"
-                                : "bg-muted/40")
+                                : "bg-muted/40") +
+                              linkClass(ev.key)
                             }
                           >
                             <p className="text-sm font-medium">{ev.title}</p>
@@ -275,7 +359,12 @@ export function MicrobiologyTab({
                                 {ev.detail}
                               </Badge>
                             )}
-                          </div>
+                            <LinkSummary
+                              links={links.get(ev.key) ?? []}
+                              expanded={activeKey === ev.key}
+                              align="right"
+                            />
+                          </button>
                         ))
                       )}
                     </div>
@@ -298,9 +387,15 @@ export function MicrobiologyTab({
                         <span className="text-xs text-muted-foreground/50">—</span>
                       ) : (
                         row.micro.map((ev) => (
-                          <div
+                          <button
+                            type="button"
                             key={ev.key}
-                            className="w-full max-w-sm rounded-md border border-violet-200 bg-violet-50/60 p-2 dark:border-violet-900 dark:bg-violet-950/40"
+                            onClick={() => setActiveKey((k) => (k === ev.key ? null : ev.key))}
+                            aria-pressed={activeKey === ev.key}
+                            className={
+                              "w-full max-w-sm rounded-md border border-violet-200 bg-violet-50/60 p-2 text-left transition dark:border-violet-900 dark:bg-violet-950/40" +
+                              linkClass(ev.key)
+                            }
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium">{ev.title}</span>
@@ -313,7 +408,12 @@ export function MicrobiologyTab({
                                 {ev.detail}
                               </p>
                             )}
-                          </div>
+                            <LinkSummary
+                              links={links.get(ev.key) ?? []}
+                              expanded={activeKey === ev.key}
+                              align="left"
+                            />
+                          </button>
                         ))
                       )}
                     </div>
