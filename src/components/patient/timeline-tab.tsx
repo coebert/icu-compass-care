@@ -356,7 +356,15 @@ export function TimelineTab({
   // Trunk-and-branch timeline reads top (newest) to bottom (oldest).
   const ordered = filteredEvents;
 
-  const TimelineBranch = ({ ev, side }: { ev: TimelineEvent; side: "left" | "right" }) => {
+  const TimelineBranch = ({
+    ev,
+    side,
+    isNewest,
+  }: {
+    ev: TimelineEvent;
+    side: "left" | "right";
+    isNewest?: boolean;
+  }) => {
     const clickable =
       (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) ||
       (ev.kind === "event" && !!ev.eventId);
