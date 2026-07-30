@@ -48,6 +48,7 @@ import {
   GitBranch,
   Pill,
   X,
+  ArrowUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
@@ -355,7 +356,15 @@ export function TimelineTab({
   // Trunk-and-branch timeline reads top (newest) to bottom (oldest).
   const ordered = filteredEvents;
 
-  const TimelineBranch = ({ ev, side }: { ev: TimelineEvent; side: "left" | "right" }) => {
+  const TimelineBranch = ({
+    ev,
+    side,
+    isNewest,
+  }: {
+    ev: TimelineEvent;
+    side: "left" | "right";
+    isNewest?: boolean;
+  }) => {
     const clickable =
       (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) ||
       (ev.kind === "event" && !!ev.eventId);
@@ -412,6 +421,11 @@ export function TimelineTab({
             <div
               className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${side === "left" ? "md:justify-end" : ""}`}
             >
+              {isNewest && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+                  <ArrowUp className="h-3 w-3" /> Most recent
+                </span>
+              )}
               <span className="text-sm font-semibold leading-tight">{ev.title}</span>
               <span className="text-xs text-muted-foreground">
                 {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
@@ -520,16 +534,32 @@ export function TimelineTab({
         </Card>
       ) : (
         <div className="relative py-2">
-          {/* trunk */}
+          {/* direction key: newest at the top */}
+          <div className="mb-3 flex items-center gap-2 md:justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <ArrowUp className="h-3.5 w-3.5" /> Newest events at the top
+            </span>
+          </div>
+          {/* trunk: brighter at the top (recent) fading downwards (older) */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-2 left-4 w-0.5 bg-border md:left-1/2 md:-translate-x-1/2"
+            className="pointer-events-none absolute left-4 top-12 bottom-10 w-0.5 bg-gradient-to-b from-primary via-border to-border/30 md:left-1/2 md:-translate-x-1/2"
           />
           <ol className="relative space-y-4">
             {ordered.map((ev, i) => (
-              <TimelineBranch key={ev.key} ev={ev} side={i % 2 === 0 ? "right" : "left"} />
+              <TimelineBranch
+                key={ev.key}
+                ev={ev}
+                side={i % 2 === 0 ? "right" : "left"}
+                isNewest={i === 0}
+              />
             ))}
           </ol>
+          <div className="mt-3 flex items-center gap-2 md:justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
+              Oldest events at the bottom
+            </span>
+          </div>
         </div>
       )}
 
