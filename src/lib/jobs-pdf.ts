@@ -43,6 +43,8 @@ export type JobsPdfOptions = {
   /** Leave blank lines under each patient for handwritten additions. */
   writeInLines?: number;
   includeNotes?: boolean;
+  /** A4 page orientation; landscape fits more job detail per page. */
+  orientation?: "portrait" | "landscape";
 };
 
 const DEFAULT_TITLE = "ICU jobs list";
@@ -71,7 +73,11 @@ function patientHeading(p: JobsPdfGroup["patient"]): string {
 
 /** Build a printable ward-round jobs sheet grouped by patient. */
 export function buildJobsPdf(groups: JobsPdfGroup[], opts?: JobsPdfOptions): jsPDF {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({
+    orientation: opts?.orientation === "landscape" ? "landscape" : "portrait",
+    unit: "mm",
+    format: "a4",
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = 10;
@@ -201,7 +207,8 @@ export function buildJobsPdf(groups: JobsPdfGroup[], opts?: JobsPdfOptions): jsP
         },
         columnStyles: {
           0: { cellWidth: 9, halign: "center", fontStyle: "bold" },
-          1: { cellWidth: 78 },
+          // Job text absorbs the extra width available in landscape.
+          1: { cellWidth: pageWidth - marginX * 2 - (9 + 27 + 22 + 28 + 26) },
           2: { cellWidth: 27 },
           3: { cellWidth: 22 },
           4: { cellWidth: 28 },

@@ -111,6 +111,7 @@ function JobsListPage() {
 
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [showRoundOnly, setShowRoundOnly] = useState(false);
+  const [landscape, setLandscape] = useState(false);
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ["jobs-list-tasks"],
@@ -170,6 +171,7 @@ function JobsListPage() {
       return;
     }
     downloadJobsPdf(groups, {
+      orientation: landscape ? "landscape" : "portrait",
       title: "ICU jobs list",
       subtitle: [
         filter === "open" ? "Open jobs only" : "Including completed jobs",
@@ -179,7 +181,7 @@ function JobsListPage() {
         .filter(Boolean)
         .join(" · "),
     });
-    toast.success("Jobs list PDF generated");
+    toast.success(`Jobs list PDF generated (A4 ${landscape ? "landscape" : "portrait"})`);
   };
 
   return (
@@ -210,6 +212,14 @@ function JobsListPage() {
               onCheckedChange={(v) => setShowRoundOnly(!!v)}
             />
             Ward-round jobs only
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={landscape}
+              onCheckedChange={(v) => setLandscape(!!v)}
+              aria-label="Export PDF in A4 landscape"
+            />
+            Landscape A4
           </label>
           <Button variant="outline" size="sm" onClick={exportPdf}>
             <Printer className="mr-1 h-4 w-4" /> Export PDF
