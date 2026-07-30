@@ -95,31 +95,56 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
           aria-label="Body map showing the position of lines and devices"
           className="w-full"
         >
-          {/* Anatomical anterior silhouette, drawn as one half and mirrored. */}
+          {/* Anatomical anterior figure: each region drawn once and mirrored. */}
           <g
             className="fill-muted stroke-border"
             strokeWidth={1.6}
             strokeLinejoin="round"
             strokeLinecap="round"
           >
-            {[false, true].map((mirror) => (
-              <path
-                key={String(mirror)}
-                transform={mirror ? "translate(200,0) scale(-1,1)" : undefined}
-                d="M100 18 C86 18 76 29 76 45 C76 58 82 68 90 72 L90 80
-                   C78 86 66 90 56 98 C46 104 42 114 40 128
-                   C37 149 35 169 33 189 C31 213 28 237 26 259
-                   C25 269 24 277 27 283 C31 289 38 288 40 281
-                   C43 269 45 255 48 241 C52 219 57 197 62 177
-                   C64 167 66 151 68 133
-                   C67 153 65 171 66 187 C67 201 69 211 71 221
-                   C73 233 75 241 78 251
-                   C76 285 74 313 74 343 C74 369 76 391 78 407
-                   C72 411 70 416 76 417 L96 417
-                   C98 401 97 379 97 349 C97 301 99 273 100 253 Z"
-              />
-            ))}
+            {[false, true].map((mirror) => {
+              const t = mirror ? "translate(200,0) scale(-1,1)" : undefined;
+              return (
+                <g key={String(mirror)} transform={t}>
+                  {/* head, neck and torso */}
+                  <path
+                    d="M100 16 C87 16 77 27 77 44 C77 57 82 67 90 72
+                       C90 78 90 82 88 85 C80 90 70 94 62 100
+                       C54 106 50 116 49 128
+                       C56 132 60 140 61 152
+                       C62 168 62 180 64 192
+                       C66 206 70 216 74 226
+                       C80 238 90 246 100 250
+                       V16 Z"
+                  />
+                  {/* arm: shoulder, upper arm, elbow, forearm, hand */}
+                  <path
+                    d="M49 122 C40 126 34 136 32 150
+                       C30 166 28 184 26 200
+                       C24 216 21 234 19 250
+                       C17 262 15 272 17 280
+                       C19 289 27 292 32 287
+                       C37 282 39 270 41 258
+                       C44 240 48 220 51 202
+                       C54 184 57 166 58 150
+                       C59 138 56 128 49 122 Z"
+                  />
+                  {/* leg: thigh, knee, calf, ankle and foot */}
+                  <path
+                    d="M76 232 C72 254 70 280 71 306
+                       C72 330 74 350 75 370
+                       C76 386 77 398 78 408
+                       C72 411 68 415 71 418 L95 418
+                       C97 404 97 386 96 366
+                       C95 340 96 312 97 288
+                       C98 268 99 254 100 244
+                       C93 244 84 240 76 232 Z"
+                  />
+                </g>
+              );
+            })}
           </g>
+
 
           {/* Faint anatomical landmarks for orientation */}
           <g
