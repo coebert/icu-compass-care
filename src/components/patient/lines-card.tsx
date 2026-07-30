@@ -304,6 +304,8 @@ export function LinesCard({ patientId }: { patientId: string }) {
           <p className="text-sm text-muted-foreground">No lines or devices recorded.</p>
         )}
 
+        {active.length > 0 && <BodyMap lines={active} />}
+
         {active.length > 0 && (
           <div className="space-y-2">
             {active.map((l) => (
