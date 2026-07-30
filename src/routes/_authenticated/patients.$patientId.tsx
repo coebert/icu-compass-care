@@ -42,7 +42,7 @@ import { downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { missingCriticalFields } from "@/lib/handover-validation";
 import { listObservations } from "@/lib/observations.functions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff, ChevronLeft, ChevronRight } from "lucide-react";
