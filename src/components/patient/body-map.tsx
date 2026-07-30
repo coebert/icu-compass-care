@@ -111,11 +111,14 @@ export function BodyMap({
   lines,
   onPlace,
   onMoveMarker,
+  renderMarkerActions,
 }: {
   lines: PatientLine[];
   onPlace?: (placement: BodyMapPlacement) => void;
   onMoveMarker?: (line: PatientLine, placement: BodyMapPlacement) => void;
+  renderMarkerActions?: (line: PatientLine) => React.ReactNode;
 }) {
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<BodyMapPlacement | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number; moved: boolean } | null>(
