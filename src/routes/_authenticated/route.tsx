@@ -27,6 +27,7 @@ import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { CommandMenu } from "@/components/CommandMenu";
 import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
 import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
+import { useJobReminders } from "@/hooks/use-job-reminders";
 
 
 // Automatically end a session after this much inactivity, warning shortly
@@ -53,6 +54,9 @@ function AuthenticatedLayout() {
   const [hydrated, setHydrated] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Background due-date reminders for ICU jobs (toasts, deduped + snoozable).
+  useJobReminders({ toasts: true });
 
   useEffect(() => {
     setHydrated(true);
