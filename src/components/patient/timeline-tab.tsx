@@ -441,7 +441,7 @@ export function TimelineTab({
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Activity className="h-4 w-4" />
-          Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Tap any item for details.
+          Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Full details are shown on each branch; tap an event to edit.
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-md border bg-muted/30 p-1 pl-2">
