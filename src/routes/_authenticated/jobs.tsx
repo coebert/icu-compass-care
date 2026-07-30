@@ -214,6 +214,15 @@ function JobsListPage() {
             Ward-round jobs only
           </label>
           <Button variant="outline" size="sm" onClick={exportPdf}>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={landscape}
+              onCheckedChange={(v) => setLandscape(!!v)}
+              aria-label="Export PDF in A4 landscape"
+            />
+            Landscape A4
+          </label>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
             <Printer className="mr-1 h-4 w-4" /> Export PDF
           </Button>
         </div>
