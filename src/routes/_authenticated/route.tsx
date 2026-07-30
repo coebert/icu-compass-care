@@ -228,7 +228,10 @@ function AuthenticatedLayout() {
             <span className="hidden whitespace-nowrap sm:inline">ICU Handover</span>
           </Link>
           {/* Inline nav — hidden on small screens (the hamburger takes over). */}
-          <nav className="hidden min-w-0 flex-1 items-center gap-1 md:flex" aria-label="Primary">
+          <nav
+            className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            aria-label="Primary"
+          >
             {navItems.map((item) => {
               // Pick the most specific matching nav item so e.g. /patients/history
               // highlights "History" rather than also lighting up "Patients".
@@ -249,7 +252,7 @@ function AuthenticatedLayout() {
                     className="h-9 shrink-0 gap-1.5"
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
-                    <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
+                    <span className="hidden whitespace-nowrap xl:inline">{item.label}</span>
                   </Button>
                 </Link>
               );
