@@ -419,12 +419,16 @@ export function BodyMap({
           })}
         </ul>
         {active && (
-          <p className="text-xs text-muted-foreground">
-            {LINE_TYPE_LABEL[active.line.device_type as LineType]} · mapped to {active.region}
-            {active.side === 0 ? " (side not recorded)" : ""}
-            {active.line.inserted_on ? ` · inserted ${fmtDate(active.line.inserted_on)}` : ""}
-          </p>
+          <div className="space-y-2 rounded-md border bg-muted/40 p-2">
+            <p className="text-xs text-muted-foreground">
+              {LINE_TYPE_LABEL[active.line.device_type as LineType]} · mapped to {active.region}
+              {active.side === 0 ? " (side not recorded)" : ""}
+              {active.line.inserted_on ? ` · inserted ${fmtDate(active.line.inserted_on)}` : ""}
+            </p>
+            {renderMarkerActions?.(active.line)}
+          </div>
         )}
+
       </div>
     </div>
   );
