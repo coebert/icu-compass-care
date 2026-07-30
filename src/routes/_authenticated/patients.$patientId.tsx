@@ -134,7 +134,7 @@ function PatientDetail() {
       replace: true,
     });
 
-  const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology"; id: string; seq: number } | null>(null);
+  const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology" | "reviews"; id: string; seq: number } | null>(null);
 
 
   const { hasClinicalAccess, profile } = useClinicalAccess();
