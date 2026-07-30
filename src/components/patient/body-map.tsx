@@ -75,36 +75,70 @@ export type BodyMapPlacement = {
   y: number;
 };
 
-/** Reverse lookup: turn a click on the figure into a suggested device/site/side. */
-function regionAt(x: number, y: number): Omit<BodyMapPlacement, "x" | "y"> {
-  const dist = Math.abs(x - 100);
-  const side: "" | "left" | "right" = dist < 10 ? "" : x > 100 ? "left" : "right";
-  const pick = (device_type: LineType, site: string, lateral = true) => ({
-    device_type,
-    site,
-    region: site,
-    laterality: lateral ? side : ("" as const),
-  });
+/**
+ * Canonical anatomical sites. Clicks/drags snap to the nearest of these so the
+ * pre-filled site text is always drawn from one consistent vocabulary.
+ */
+type SiteAnchor = {
+  site: string;
+  y: number;
+  /** Distance from midline; omitted for midline-only structures. */
+  lateral?: number;
+  device_type: LineType;
+  /** Midline structures have no meaningful laterality. */
+  midlineOnly?: boolean;
+};
 
-  // Limbs first — anything far from the midline below the shoulders is an arm.
-  if (dist >= 30 && y >= 110) {
-    if (y < 200) return pick("picc", "Upper arm");
-    if (y < 240) return pick("peripheral_cannula", "Antecubital fossa");
-    if (y < 285) return pick("arterial_line", "Radial / wrist");
-    return pick("peripheral_cannula", "Hand");
+export const SITE_ANCHORS: SiteAnchor[] = [
+  { site: "Nose / mouth", y: 62, device_type: "ng_tube", midlineOnly: true },
+  { site: "Mouth / airway", y: 80, device_type: "ett", midlineOnly: true },
+  { site: "Anterior neck", y: 104, device_type: "tracheostomy", midlineOnly: true },
+  { site: "Internal jugular", y: 98, lateral: 18, device_type: "central_venous_catheter" },
+  { site: "Subclavian", y: 122, lateral: 30, device_type: "central_venous_catheter" },
+  { site: "Chest", y: 155, lateral: 34, device_type: "chest_drain" },
+  { site: "Abdomen", y: 212, lateral: 24, device_type: "surgical_drain" },
+  { site: "Bladder / urethra", y: 240, device_type: "urinary_catheter", midlineOnly: true },
+  { site: "Femoral", y: 265, lateral: 22, device_type: "vascath" },
+  { site: "Upper arm", y: 180, lateral: 46, device_type: "picc" },
+  { site: "Antecubital fossa", y: 215, lateral: 52, device_type: "peripheral_cannula" },
+  { site: "Radial / wrist", y: 255, lateral: 58, device_type: "arterial_line" },
+  { site: "Hand", y: 288, lateral: 60, device_type: "peripheral_cannula" },
+  { site: "Thigh", y: 320, lateral: 22, device_type: "other" },
+  { site: "Leg", y: 355, lateral: 24, device_type: "other" },
+  { site: "Foot / ankle", y: 388, lateral: 26, device_type: "other" },
+];
+
+/**
+ * Reverse lookup: snap a click on the figure to the nearest anatomical site and
+ * return the suggested device/site/side plus the snapped coordinates.
+ */
+function regionAt(x: number, y: number): BodyMapPlacement {
+  const side: "" | "left" | "right" = x > 100 ? "left" : "right";
+  let best: { anchor: SiteAnchor; x: number; d: number } | null = null;
+
+  for (const anchor of SITE_ANCHORS) {
+    const candidates = anchor.midlineOnly
+      ? [100]
+      : anchor.lateral
+        ? [100 - anchor.lateral, 100 + anchor.lateral]
+        : [100];
+    for (const cx of candidates) {
+      const d = Math.hypot(cx - x, anchor.y - y);
+      if (!best || d < best.d) best = { anchor, x: cx, d };
+    }
   }
 
-  if (y < 74) return pick("ng_tube", "Nose / mouth", false);
-  if (y < 92) return pick("ett", "Mouth / airway", false);
-  if (y < 108) return dist < 12 ? pick("tracheostomy", "Anterior neck", false) : pick("central_venous_catheter", "Internal jugular");
-  if (y < 132) return pick("central_venous_catheter", "Subclavian");
-  if (y < 180) return pick("chest_drain", "Chest");
-  if (y < 222) return pick("surgical_drain", "Abdomen");
-  if (y < 250) return dist < 14 ? pick("urinary_catheter", "Bladder / urethra", false) : pick("vascath", "Femoral");
-  if (y < 300) return pick("vascath", "Femoral");
-  if (y < 370) return pick("other", "Leg");
-  return pick("other", "Foot / ankle");
+  const { anchor, x: snappedX } = best!;
+  return {
+    device_type: anchor.device_type,
+    site: anchor.site,
+    region: anchor.site,
+    laterality: anchor.midlineOnly ? "" : snappedX > 100 ? "left" : snappedX < 100 ? "right" : side,
+    x: snappedX,
+    y: anchor.y,
+  };
 }
+
 
 /** Visual map of where each in-situ line/device sits on the patient. */
 export function BodyMap({
