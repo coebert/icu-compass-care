@@ -537,5 +537,7 @@ export function BodyMap({
 
       </div>
     </div>
+    </TooltipProvider>
   );
+
 }
