@@ -181,7 +181,7 @@ function JobsListPage() {
         .filter(Boolean)
         .join(" · "),
     });
-    toast.success("Jobs list PDF generated");
+    toast.success(`Jobs list PDF generated (A4 ${landscape ? "landscape" : "portrait"})`);
   };
 
   return (
