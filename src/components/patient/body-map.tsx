@@ -111,11 +111,14 @@ export function BodyMap({
   lines,
   onPlace,
   onMoveMarker,
+  renderMarkerActions,
 }: {
   lines: PatientLine[];
   onPlace?: (placement: BodyMapPlacement) => void;
   onMoveMarker?: (line: PatientLine, placement: BodyMapPlacement) => void;
+  renderMarkerActions?: (line: PatientLine) => React.ReactNode;
 }) {
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<BodyMapPlacement | null>(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number; moved: boolean } | null>(
@@ -419,12 +422,16 @@ export function BodyMap({
           })}
         </ul>
         {active && (
-          <p className="text-xs text-muted-foreground">
-            {LINE_TYPE_LABEL[active.line.device_type as LineType]} · mapped to {active.region}
-            {active.side === 0 ? " (side not recorded)" : ""}
-            {active.line.inserted_on ? ` · inserted ${fmtDate(active.line.inserted_on)}` : ""}
-          </p>
+          <div className="space-y-2 rounded-md border bg-muted/40 p-2">
+            <p className="text-xs text-muted-foreground">
+              {LINE_TYPE_LABEL[active.line.device_type as LineType]} · mapped to {active.region}
+              {active.side === 0 ? " (side not recorded)" : ""}
+              {active.line.inserted_on ? ` · inserted ${fmtDate(active.line.inserted_on)}` : ""}
+            </p>
+            {renderMarkerActions?.(active.line)}
+          </div>
         )}
+
       </div>
     </div>
   );
