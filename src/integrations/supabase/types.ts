@@ -1099,16 +1099,19 @@ export type Database = {
           nok_last_updated_by: string | null
           nok_name: string | null
           nok_relationship: string | null
+          nursing_handover: string | null
           nutrition_route: string[]
           outstanding_tasks: string | null
           parent_specialty: string | null
           past_medical_history: string | null
           pca_agents: string[]
+          physio_handover: string | null
           regional_analgesia: string[]
           renal_diuretics: boolean
           renal_rrt: boolean
           resp_fio2: string | null
           resp_support: string[]
+          salt_handover: string | null
           sedative_agents: string[]
           sex: string | null
           shared_with_partner: boolean
@@ -1169,16 +1172,19 @@ export type Database = {
           nok_last_updated_by?: string | null
           nok_name?: string | null
           nok_relationship?: string | null
+          nursing_handover?: string | null
           nutrition_route?: string[]
           outstanding_tasks?: string | null
           parent_specialty?: string | null
           past_medical_history?: string | null
           pca_agents?: string[]
+          physio_handover?: string | null
           regional_analgesia?: string[]
           renal_diuretics?: boolean
           renal_rrt?: boolean
           resp_fio2?: string | null
           resp_support?: string[]
+          salt_handover?: string | null
           sedative_agents?: string[]
           sex?: string | null
           shared_with_partner?: boolean
@@ -1239,16 +1245,19 @@ export type Database = {
           nok_last_updated_by?: string | null
           nok_name?: string | null
           nok_relationship?: string | null
+          nursing_handover?: string | null
           nutrition_route?: string[]
           outstanding_tasks?: string | null
           parent_specialty?: string | null
           past_medical_history?: string | null
           pca_agents?: string[]
+          physio_handover?: string | null
           regional_analgesia?: string[]
           renal_diuretics?: boolean
           renal_rrt?: boolean
           resp_fio2?: string | null
           resp_support?: string[]
+          salt_handover?: string | null
           sedative_agents?: string[]
           sex?: string | null
           shared_with_partner?: boolean

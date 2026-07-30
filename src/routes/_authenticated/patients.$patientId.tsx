@@ -42,7 +42,7 @@ import { downloadHandover, type HandoverPatient } from "@/lib/handover-pdf";
 import { missingCriticalFields } from "@/lib/handover-validation";
 import { listObservations } from "@/lib/observations.functions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff, ChevronLeft, ChevronRight } from "lucide-react";
@@ -67,6 +67,8 @@ const TAB_KEYS = [
   "investigations",
   "microbiology",
   "reviews",
+  "nursing",
+  "allied",
   "timeline",
   "status",
   "history",
@@ -426,6 +428,8 @@ function PatientDetail() {
             <TabsTrigger value="investigations">Investigations</TabsTrigger>
             <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
             <TabsTrigger value="reviews">Specialty reviews</TabsTrigger>
+            <TabsTrigger value="nursing">Nursing</TabsTrigger>
+            <TabsTrigger value="allied">Allied Specialties</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
@@ -594,6 +598,72 @@ function PatientDetail() {
         <TabsContent value="reviews" className="mt-4">
           <ReviewsTab patientId={patientId} />
         </TabsContent>
+
+        <TabsContent value="nursing" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Nursing handover</CardTitle>
+              <CardDescription>
+                Key nursing information for handover — care needs, pressure areas, mobility,
+                continence, skin, family updates and anything the next shift must know.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <EditableField
+                patientId={patientId}
+                field="nursing_handover"
+                label="Nursing notes"
+                value={patient.nursing_handover}
+                placeholder="Enter key nursing handover information…"
+                multiline
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="allied" className="mt-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Physiotherapy</CardTitle>
+                <CardDescription>
+                  Respiratory and rehabilitation input, mobility status and ongoing plan.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <EditableField
+                  patientId={patientId}
+                  field="physio_handover"
+                  label="Physiotherapy notes"
+                  value={patient.physio_handover}
+                  placeholder="Enter key physiotherapy handover information…"
+                  multiline
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Speech &amp; language therapy (SALT)</CardTitle>
+                <CardDescription>
+                  Swallow assessment, diet and fluid consistency, communication needs and plan.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <EditableField
+                  patientId={patientId}
+                  field="salt_handover"
+                  label="SALT notes"
+                  value={patient.salt_handover}
+                  placeholder="Enter key SALT handover information…"
+                  multiline
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+
 
         <TabsContent value="timeline" className="mt-4">
           <TimelineTab

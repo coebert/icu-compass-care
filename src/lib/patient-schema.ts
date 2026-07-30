@@ -108,6 +108,9 @@ export const patientInput = z.object({
     .max(30)
     .optional(),
   systems_other: z.string().max(10000).optional().nullable(),
+  nursing_handover: z.string().max(10000).optional().nullable(),
+  physio_handover: z.string().max(10000).optional().nullable(),
+  salt_handover: z.string().max(10000).optional().nullable(),
   isolation_required: z.boolean(),
   tep_in_place: z.boolean(),
   tep_details: z.string().max(10000).optional().nullable(),
