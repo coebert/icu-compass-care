@@ -14,6 +14,7 @@ import {
   type LineType,
 } from "@/lib/lines.functions";
 import { type PatientLine, daysInSitu } from "@/lib/lines";
+import { BodyMap } from "@/components/patient/body-map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionUpdated } from "@/components/patient/section-updated";
 import { Button } from "@/components/ui/button";
