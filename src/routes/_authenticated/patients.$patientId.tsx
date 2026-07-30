@@ -67,6 +67,8 @@ const TAB_KEYS = [
   "investigations",
   "microbiology",
   "reviews",
+  "nursing",
+  "allied",
   "timeline",
   "status",
   "history",
