@@ -44,9 +44,11 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  Printer,
 } from "lucide-react";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { JobRemindersPanel } from "@/components/JobRemindersPanel";
+import { downloadJobsPdf, type JobsPdfGroup } from "@/lib/jobs-pdf";
 import { useJobReminders } from "@/hooks/use-job-reminders";
 import { toast } from "sonner";
 
@@ -156,6 +158,30 @@ function JobsListPage() {
 
   const totalOpen = tasks.filter((t) => t.status !== "completed").length;
 
+  // Print/PDF export mirrors exactly what is on screen (same filters, same
+  // per-patient grouping and ordering) so the paper sheet matches the app.
+  const exportPdf = () => {
+    const groups: JobsPdfGroup[] = activePatients.map((p: any) => ({
+      patient: p,
+      tasks: (grouped.get(p.id) ?? []) as any,
+    }));
+    if (groups.length === 0) {
+      toast.error("Nothing to export", { description: "No admitted patients." });
+      return;
+    }
+    downloadJobsPdf(groups, {
+      title: "ICU jobs list",
+      subtitle: [
+        filter === "open" ? "Open jobs only" : "Including completed jobs",
+        showRoundOnly ? "Ward-round jobs only" : null,
+        `${totalOpen} open across the unit`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    });
+    toast.success("Jobs list PDF generated");
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -185,6 +211,9 @@ function JobsListPage() {
             />
             Ward-round jobs only
           </label>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <Printer className="mr-1 h-4 w-4" /> Export PDF
+          </Button>
         </div>
       </header>
 
