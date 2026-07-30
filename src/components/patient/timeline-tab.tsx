@@ -368,10 +368,9 @@ export function TimelineTab({
     };
     return (
       <li className="relative md:grid md:grid-cols-[1fr_auto_1fr] md:items-start md:gap-0">
-        {/* left column (desktop) */}
-        <div className={side === "left" ? "hidden md:block md:pr-8" : "hidden md:block"} />
-        {/* node + branch stub */}
-        <div className="absolute left-4 top-3 z-10 -translate-x-1/2 md:static md:translate-x-0 md:flex md:justify-center">
+        {/* node on the trunk */}
+        <div className="absolute left-4 top-3 z-10 -translate-x-1/2 md:static md:col-start-2 md:row-start-1 md:translate-x-0 md:flex md:justify-center">
+
           <span
             className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-background ${KIND_STYLE[ev.kind]}`}
           >
