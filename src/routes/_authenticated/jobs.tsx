@@ -111,6 +111,7 @@ function JobsListPage() {
 
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [showRoundOnly, setShowRoundOnly] = useState(false);
+  const [landscape, setLandscape] = useState(false);
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ["jobs-list-tasks"],
