@@ -437,11 +437,13 @@ export function MicrobiologyTab({
                                 {ev.detail}
                               </p>
                             )}
+                            <ClosestBadge show={ev.key === bestKey} />
                             <LinkSummary
                               links={links.get(ev.key) ?? []}
                               expanded={activeKey === ev.key}
                               align="left"
                             />
+
                           </button>
                         ))
                       )}
