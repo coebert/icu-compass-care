@@ -421,6 +421,11 @@ export function TimelineTab({
             <div
               className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${side === "left" ? "md:justify-end" : ""}`}
             >
+              {isNewest && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+                  <ArrowUp className="h-3 w-3" /> Most recent
+                </span>
+              )}
               <span className="text-sm font-semibold leading-tight">{ev.title}</span>
               <span className="text-xs text-muted-foreground">
                 {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
