@@ -225,6 +225,18 @@ export function LinesCard({ patientId }: { patientId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteLineFn = useServerFn(deletePatientLine);
+  const deleteMarker = useMutation({
+    mutationFn: (id: string) => deleteLineFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Deleted");
+      qc.invalidateQueries({ queryKey: ["patient-lines", patientId] });
+      setMoving(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const active = lines.filter((l) => l.status !== "removed");
   const removed = lines.filter((l) => l.status === "removed");
 
