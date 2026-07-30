@@ -228,7 +228,10 @@ function AuthenticatedLayout() {
             <span className="hidden whitespace-nowrap sm:inline">ICU Handover</span>
           </Link>
           {/* Inline nav — hidden on small screens (the hamburger takes over). */}
-          <nav className="hidden min-w-0 flex-1 items-center gap-1 md:flex" aria-label="Primary">
+          <nav
+            className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            aria-label="Primary"
+          >
             {navItems.map((item) => {
               // Pick the most specific matching nav item so e.g. /patients/history
               // highlights "History" rather than also lighting up "Patients".
