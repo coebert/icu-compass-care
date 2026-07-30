@@ -352,68 +352,96 @@ export function TimelineTab({
     return events.filter((ev) => activeFilters.some((f) => matchesFilter(ev, f)));
   }, [events, activeFilters]);
 
-  // Horizontal timeline reads left (oldest) to right (newest).
-  const chronological = useMemo(
-    () =>
-      [...filteredEvents].sort((a, b) => {
-        const ta = a.at ? new Date(a.at).getTime() : 0;
-        const tb = b.at ? new Date(b.at).getTime() : 0;
-        return ta - tb;
-      }),
-    [filteredEvents],
-  );
+  // Trunk-and-branch timeline reads top (newest) to bottom (oldest).
+  const ordered = filteredEvents;
 
-  const [cols, setCols] = useState(3);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const compute = () => {
-      const w = window.innerWidth;
-      setCols(w >= 1280 ? 6 : w >= 1024 ? 5 : w >= 768 ? 4 : w >= 640 ? 3 : 2);
+  const TimelineBranch = ({ ev, side }: { ev: TimelineEvent; side: "left" | "right" }) => {
+    const clickable =
+      (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) ||
+      (ev.kind === "event" && !!ev.eventId);
+    const open = () => {
+      if (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) {
+        onNavigate(ev.kind === "investigation" ? "investigations" : "microbiology", ev.sourceId);
+        return;
+      }
+      if (ev.kind === "event" && ev.eventId) setSelected(ev);
     };
-    compute();
-    window.addEventListener("resize", compute);
-    return () => window.removeEventListener("resize", compute);
-  }, []);
+    return (
+      <li className="relative md:grid md:grid-cols-[1fr_auto_1fr] md:items-start md:gap-0">
+        {/* node on the trunk */}
+        <div className="absolute left-4 top-3 z-10 -translate-x-1/2 md:static md:col-start-2 md:row-start-1 md:translate-x-0 md:flex md:justify-center">
 
-  const rows = useMemo(() => {
-    const out: TimelineEvent[][] = [];
-    for (let i = 0; i < chronological.length; i += cols) {
-      out.push(chronological.slice(i, i + cols));
-    }
-    return out;
-  }, [chronological, cols]);
+          <span
+            className={`flex h-9 w-9 items-center justify-center rounded-full ring-4 ring-background ${KIND_STYLE[ev.kind]}`}
+          >
+            {ev.icon}
+          </span>
+        </div>
+        <div
+          className={`ml-10 md:ml-0 ${side === "left" ? "md:col-start-1 md:row-start-1 md:pr-8 md:text-right" : "md:col-start-3 md:row-start-1 md:pl-8"}`}
+        >
+          {/* branch stub connecting card to trunk */}
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute top-[1.9rem] hidden h-0.5 w-8 bg-border md:block ${
+              side === "left" ? "left-[calc(50%-3.125rem)]" : "right-[calc(50%-3.125rem)]"
+            }`}
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-4 top-[1.9rem] h-0.5 w-6 bg-border md:hidden"
+          />
+          <div
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onClick={clickable ? open : undefined}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      open();
+                    }
+                  }
+                : undefined
+            }
+            className={`rounded-lg border bg-card p-3 shadow-sm transition ${
+              clickable ? "cursor-pointer hover:border-primary/50 hover:bg-accent/40" : ""
+            }`}
+          >
+            <div
+              className={`flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${side === "left" ? "md:justify-end" : ""}`}
+            >
+              <span className="text-sm font-semibold leading-tight">{ev.title}</span>
+              <span className="text-xs text-muted-foreground">
+                {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "Date not recorded"}
+              </span>
+            </div>
+            {ev.detail?.trim() ? (
+              <p className="mt-1.5 whitespace-pre-wrap text-sm text-foreground/90">{ev.detail}</p>
+            ) : (
+              <p className="mt-1.5 text-sm italic text-muted-foreground">No further details recorded</p>
+            )}
+            {ev.changedBy && (
+              <p
+                className={`mt-1.5 flex items-center gap-1 text-xs text-muted-foreground ${side === "left" ? "md:justify-end" : ""}`}
+              >
+                <UserRound className="h-3 w-3" /> Changed by {ev.changedBy}
+              </p>
+            )}
+          </div>
+        </div>
+      </li>
+    );
+  };
 
-  const TimelineNode = ({ ev }: { ev: TimelineEvent }) => (
-    <button
-      type="button"
-      onClick={() => {
-        if (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) {
-          onNavigate(ev.kind === "investigation" ? "investigations" : "microbiology", ev.sourceId);
-          return;
-        }
-        setSelected(ev);
-      }}
-      className="group relative z-10 flex w-full flex-col items-center gap-1.5 rounded-md p-1 text-center transition hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span
-        className={`flex h-10 w-10 items-center justify-center rounded-full ring-4 ring-background transition group-hover:scale-110 ${KIND_STYLE[ev.kind]}`}
-      >
-        {ev.icon}
-      </span>
-      <span className="line-clamp-2 text-xs font-medium leading-tight">{ev.title}</span>
-      <span className="text-[10px] text-muted-foreground">
-        {ev.at ? (isDate(ev.at) ? fmtDate(ev.at) : fmtDateTime(ev.at)) : "—"}
-      </span>
-    </button>
-  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Activity className="h-4 w-4" />
-          Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Tap any item for details.
+          Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Full details are shown on each branch; tap an event to edit.
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-md border bg-muted/30 p-1 pl-2">
@@ -482,7 +510,7 @@ export function TimelineTab({
         )}
       </div>
 
-      {chronological.length === 0 ? (
+      {ordered.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {activeFilters.length > 0
@@ -491,41 +519,20 @@ export function TimelineTab({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2 py-2">
-          {rows.map((row, rowIdx) => {
-            const reversed = rowIdx % 2 === 1;
-            const items = reversed ? [...row].reverse() : row;
-            const isLastRow = rowIdx === rows.length - 1;
-            return (
-              <div key={rowIdx} className="relative">
-                {/* Horizontal connector across this row's nodes */}
-                <div
-                  className="pointer-events-none absolute top-6 h-0.5 bg-border"
-                  style={{
-                    left: `calc(${100 / (row.length * 2)}%)`,
-                    right: `calc(${100 / (row.length * 2)}%)`,
-                  }}
-                />
-                <div
-                  className="grid gap-2"
-                  style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-                >
-                  {items.map((ev) => (
-                    <TimelineNode key={ev.key} ev={ev} />
-                  ))}
-                </div>
-                {/* Snake connector down to next row on the correct side */}
-                {!isLastRow && row.length === cols && (
-                  <div
-                    className="pointer-events-none absolute top-6 h-[calc(100%+0.5rem)] w-0.5 bg-border"
-                    style={reversed ? { left: `calc(${100 / (cols * 2)}%)` } : { right: `calc(${100 / (cols * 2)}%)` }}
-                  />
-                )}
-              </div>
-            );
-          })}
+        <div className="relative py-2">
+          {/* trunk */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-2 left-4 w-0.5 bg-border md:left-1/2 md:-translate-x-1/2"
+          />
+          <ol className="relative space-y-4">
+            {ordered.map((ev, i) => (
+              <TimelineBranch key={ev.key} ev={ev} side={i % 2 === 0 ? "right" : "left"} />
+            ))}
+          </ol>
         </div>
       )}
+
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-w-md">
