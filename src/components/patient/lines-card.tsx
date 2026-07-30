@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Cable, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Cable, Plus, Trash2, AlertTriangle, Pencil } from "lucide-react";
 import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
 import { fmtDate } from "@/lib/icu";
 
