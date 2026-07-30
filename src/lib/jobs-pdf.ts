@@ -73,7 +73,11 @@ function patientHeading(p: JobsPdfGroup["patient"]): string {
 
 /** Build a printable ward-round jobs sheet grouped by patient. */
 export function buildJobsPdf(groups: JobsPdfGroup[], opts?: JobsPdfOptions): jsPDF {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({
+    orientation: opts?.orientation === "landscape" ? "landscape" : "portrait",
+    unit: "mm",
+    format: "a4",
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = 10;
