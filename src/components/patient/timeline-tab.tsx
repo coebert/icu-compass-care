@@ -511,7 +511,7 @@ export function TimelineTab({
         )}
       </div>
 
-      {chronological.length === 0 ? (
+      {ordered.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             {activeFilters.length > 0
@@ -520,41 +520,20 @@ export function TimelineTab({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2 py-2">
-          {rows.map((row, rowIdx) => {
-            const reversed = rowIdx % 2 === 1;
-            const items = reversed ? [...row].reverse() : row;
-            const isLastRow = rowIdx === rows.length - 1;
-            return (
-              <div key={rowIdx} className="relative">
-                {/* Horizontal connector across this row's nodes */}
-                <div
-                  className="pointer-events-none absolute top-6 h-0.5 bg-border"
-                  style={{
-                    left: `calc(${100 / (row.length * 2)}%)`,
-                    right: `calc(${100 / (row.length * 2)}%)`,
-                  }}
-                />
-                <div
-                  className="grid gap-2"
-                  style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-                >
-                  {items.map((ev) => (
-                    <TimelineNode key={ev.key} ev={ev} />
-                  ))}
-                </div>
-                {/* Snake connector down to next row on the correct side */}
-                {!isLastRow && row.length === cols && (
-                  <div
-                    className="pointer-events-none absolute top-6 h-[calc(100%+0.5rem)] w-0.5 bg-border"
-                    style={reversed ? { left: `calc(${100 / (cols * 2)}%)` } : { right: `calc(${100 / (cols * 2)}%)` }}
-                  />
-                )}
-              </div>
-            );
-          })}
+        <div className="relative py-2">
+          {/* trunk */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-2 left-4 w-0.5 bg-border md:left-1/2 md:-translate-x-1/2"
+          />
+          <ol className="relative space-y-4">
+            {ordered.map((ev, i) => (
+              <TimelineBranch key={ev.key} ev={ev} side={i % 2 === 0 ? "right" : "left"} />
+            ))}
+          </ol>
         </div>
       )}
+
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-w-md">
