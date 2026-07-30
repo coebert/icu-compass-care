@@ -10,6 +10,7 @@ import type {
 import { getPatientStatusChanges } from "@/lib/patients.functions";
 import { listInvestigations } from "@/lib/investigations.functions";
 import { listMicrobiology } from "@/lib/microbiology.functions";
+import { listPatientReviews } from "@/lib/patient-reviews.functions";
 import {
   listPatientEvents,
   addPatientEvent,
@@ -49,6 +50,7 @@ import {
   Pill,
   X,
   ArrowUp,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
@@ -64,7 +66,7 @@ type TimelineEvent = {
   icon: React.ReactNode;
   title: string;
   detail?: string | null;
-  kind: "admission" | "discharge" | "investigation" | "microbiology" | "event";
+  kind: "admission" | "discharge" | "investigation" | "microbiology" | "event" | "review";
   eventId?: string;
   eventType?: string;
   changedBy?: string | null;
@@ -76,11 +78,12 @@ const KIND_STYLE: Record<TimelineEvent["kind"], string> = {
   discharge: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
   investigation: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
   microbiology: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  review: "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300",
   event: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 
-export type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics";
-export const TIMELINE_FILTER_KEYS: FilterKey[] = ["scans", "procedures", "lines", "micro", "antibiotics"];
+export type FilterKey = "scans" | "procedures" | "lines" | "micro" | "antibiotics" | "reviews";
+export const TIMELINE_FILTER_KEYS: FilterKey[] = ["scans", "procedures", "lines", "micro", "antibiotics", "reviews"];
 
 const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
   { key: "scans", label: "Scans", icon: <Scan className="h-3.5 w-3.5" /> },
@@ -88,6 +91,7 @@ const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
   { key: "lines", label: "Lines", icon: <GitBranch className="h-3.5 w-3.5" /> },
   { key: "micro", label: "Micro", icon: <Microscope className="h-3.5 w-3.5" /> },
   { key: "antibiotics", label: "Antibiotics", icon: <Pill className="h-3.5 w-3.5" /> },
+  { key: "reviews", label: "Specialty reviews", icon: <ClipboardList className="h-3.5 w-3.5" /> },
 ];
 
 const SCAN_KEYWORDS = ["ct", "cxr", "x-ray", "xray", "ultrasound", "echo", "echocardiogram", "mri", "pet", "angiogram", "fluoroscopy", "dexa", "scan"];
@@ -122,6 +126,8 @@ function matchesFilter(ev: TimelineEvent, filter: FilterKey): boolean {
       return ev.kind === "event" && ev.eventType === "Line insertion";
     case "micro":
       return ev.kind === "microbiology";
+    case "reviews":
+      return ev.kind === "review";
     case "antibiotics":
       return (ev.kind === "event" && ev.eventType === "Antibiotics") || ANTIBIOTIC_KEYWORDS.some((k) => text.includes(k));
     default:
@@ -138,7 +144,7 @@ export function TimelineTab({
 }: {
   patient: Patient;
   patientId: string;
-  onNavigate?: (tab: "investigations" | "microbiology", id: string) => void;
+  onNavigate?: (tab: "investigations" | "microbiology" | "reviews", id: string) => void;
   filters?: FilterKey[];
   onFiltersChange?: (next: FilterKey[]) => void;
 }) {
@@ -146,6 +152,7 @@ export function TimelineTab({
   const listInv = useServerFn(listInvestigations);
   const listMicro = useServerFn(listMicrobiology);
   const listEvents = useServerFn(listPatientEvents);
+  const listReviews = useServerFn(listPatientReviews);
   const addEvent = useServerFn(addPatientEvent);
   const editEvent = useServerFn(updatePatientEvent);
   const removeEvent = useServerFn(deletePatientEvent);
@@ -171,6 +178,10 @@ export function TimelineTab({
   const { data: micro = [] } = useQuery({
     queryKey: ["microbiology", patientId],
     queryFn: () => listMicro({ data: { patientId } }) as Promise<Microbiology[]>,
+  });
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["patient-reviews", patientId],
+    queryFn: () => listReviews({ data: { patientId } }) as Promise<any[]>,
   });
   const { data: keyEvents = [] } = useQuery({
     queryKey: ["patient-events", patientId],
@@ -320,6 +331,24 @@ export function TimelineTab({
       });
     }
 
+    for (const r of reviews) {
+      const detail = [
+        r.review?.trim() ? `Review: ${r.review.trim()}` : null,
+        r.plan?.trim() ? `Plan: ${r.plan.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      evs.push({
+        key: `review-${r.id}`,
+        at: r.reviewed_at,
+        icon: <ClipboardList className="h-4 w-4" />,
+        title: `${r.specialty} review`,
+        detail: detail || null,
+        kind: "review",
+        sourceId: r.id,
+      });
+    }
+
     for (const sc of statusChanges) {
       const toStatus = sc.to as keyof typeof STATUS_LABELS | null;
       const label = toStatus && STATUS_LABELS[toStatus] ? STATUS_LABELS[toStatus] : sc.to ?? "Unknown";
@@ -344,7 +373,7 @@ export function TimelineTab({
       const tb = b.at ? new Date(b.at).getTime() : 0;
       return tb - ta;
     });
-  }, [patient, investigations, micro, keyEvents, statusChanges]);
+  }, [patient, investigations, micro, keyEvents, reviews, statusChanges]);
 
   const isDate = (v: string | null) => !!v && v.length <= 10;
 
@@ -366,11 +395,20 @@ export function TimelineTab({
     isNewest?: boolean;
   }) => {
     const clickable =
-      (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) ||
+      (onNavigate &&
+        ev.sourceId &&
+        (ev.kind === "investigation" || ev.kind === "microbiology" || ev.kind === "review")) ||
       (ev.kind === "event" && !!ev.eventId);
     const open = () => {
-      if (onNavigate && ev.sourceId && (ev.kind === "investigation" || ev.kind === "microbiology")) {
-        onNavigate(ev.kind === "investigation" ? "investigations" : "microbiology", ev.sourceId);
+      if (
+        onNavigate &&
+        ev.sourceId &&
+        (ev.kind === "investigation" || ev.kind === "microbiology" || ev.kind === "review")
+      ) {
+        onNavigate(
+          ev.kind === "investigation" ? "investigations" : ev.kind === "microbiology" ? "microbiology" : "reviews",
+          ev.sourceId,
+        );
         return;
       }
       if (ev.kind === "event" && ev.eventId) setSelected(ev);
@@ -455,7 +493,7 @@ export function TimelineTab({
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Activity className="h-4 w-4" />
-          Key clinical events, admission, discharge and investigation snapshots — retained after discharge. Full details are shown on each branch; tap an event to edit.
+          Key clinical events, specialty reviews, admission, discharge and investigation snapshots — retained after discharge. Full details are shown on each branch; tap an event to edit.
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-md border bg-muted/30 p-1 pl-2">
