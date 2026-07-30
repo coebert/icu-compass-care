@@ -66,9 +66,56 @@ function isOverdue(line: PatientLine) {
   return days !== null && limit != null && days >= limit;
 }
 
+export type BodyMapPlacement = {
+  device_type: LineType;
+  site: string;
+  laterality: "" | "left" | "right";
+  region: string;
+  x: number;
+  y: number;
+};
+
+/** Reverse lookup: turn a click on the figure into a suggested device/site/side. */
+function regionAt(x: number, y: number): Omit<BodyMapPlacement, "x" | "y"> {
+  const dist = Math.abs(x - 100);
+  const side: "" | "left" | "right" = dist < 10 ? "" : x > 100 ? "left" : "right";
+  const pick = (device_type: LineType, site: string, lateral = true) => ({
+    device_type,
+    site,
+    region: site,
+    laterality: lateral ? side : ("" as const),
+  });
+
+  // Limbs first — anything far from the midline below the shoulders is an arm.
+  if (dist >= 30 && y >= 110) {
+    if (y < 200) return pick("picc", "Upper arm");
+    if (y < 240) return pick("peripheral_cannula", "Antecubital fossa");
+    if (y < 285) return pick("arterial_line", "Radial / wrist");
+    return pick("peripheral_cannula", "Hand");
+  }
+
+  if (y < 74) return pick("ng_tube", "Nose / mouth", false);
+  if (y < 92) return pick("ett", "Mouth / airway", false);
+  if (y < 108) return dist < 12 ? pick("tracheostomy", "Anterior neck", false) : pick("central_venous_catheter", "Internal jugular");
+  if (y < 132) return pick("central_venous_catheter", "Subclavian");
+  if (y < 180) return pick("chest_drain", "Chest");
+  if (y < 222) return pick("surgical_drain", "Abdomen");
+  if (y < 250) return dist < 14 ? pick("urinary_catheter", "Bladder / urethra", false) : pick("vascath", "Femoral");
+  if (y < 300) return pick("vascath", "Femoral");
+  if (y < 370) return pick("other", "Leg");
+  return pick("other", "Foot / ankle");
+}
+
 /** Visual map of where each in-situ line/device sits on the patient. */
-export function BodyMap({ lines }: { lines: PatientLine[] }) {
+export function BodyMap({
+  lines,
+  onPlace,
+}: {
+  lines: PatientLine[];
+  onPlace?: (placement: BodyMapPlacement) => void;
+}) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pending, setPending] = useState<BodyMapPlacement | null>(null);
 
   const markers = useMemo(() => {
     const placed = lines.map((line) => ({ line, ...place(line) }));
@@ -84,7 +131,19 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
 
   const active = markers.find((m) => m.line.id === activeId) ?? null;
 
-  if (lines.length === 0) return null;
+  if (lines.length === 0 && !onPlace) return null;
+
+  const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onPlace) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = ((e.clientX - rect.left) / rect.width) * 200;
+    const y = ((e.clientY - rect.top) / rect.height) * 420;
+    const placement = { ...regionAt(x, y), x, y };
+    setPending(placement);
+    setActiveId(null);
+    onPlace(placement);
+  };
 
   return (
     <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-[220px_1fr]">
@@ -93,8 +152,10 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
           viewBox="0 0 200 420"
           role="img"
           aria-label="Body map showing the position of lines and devices"
-          className="w-full"
+          onClick={handleMapClick}
+          className={"w-full " + (onPlace ? "cursor-crosshair" : "")}
         >
+
           {/* Anatomical anterior figure: each region drawn once and mirrored. */}
           <g
             className="fill-muted stroke-border"
@@ -216,10 +277,33 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
               </g>
             );
           })}
+
+          {pending && (
+            <g pointerEvents="none">
+              <circle
+                cx={pending.x}
+                cy={pending.y}
+                r={8}
+                className="fill-none stroke-emerald-500"
+                strokeWidth={2}
+                strokeDasharray="3 3"
+              />
+              <path
+                d={`M${pending.x - 12} ${pending.y} h24 M${pending.x} ${pending.y - 12} v24`}
+                className="stroke-emerald-500"
+                strokeWidth={1.2}
+              />
+            </g>
+          )}
         </svg>
         <p className="mt-1 text-center text-[11px] text-muted-foreground">
           Anterior view · sides are the patient&apos;s own
         </p>
+        {onPlace && (
+          <p className="mt-1 text-center text-[11px] text-muted-foreground">
+            Click anywhere on the figure to add a device there.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -231,7 +315,14 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
             <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Review overdue
           </span>
           <span>Select a marker or a row to link the two.</span>
+          {pending && (
+            <span className="text-emerald-600">
+              New device position: {pending.region}
+              {pending.laterality ? ` (${pending.laterality})` : ""}
+            </span>
+          )}
         </div>
+
         <ul className="space-y-1">
           {markers.map((m) => {
             const selected = m.line.id === activeId;
