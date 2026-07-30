@@ -534,16 +534,32 @@ export function TimelineTab({
         </Card>
       ) : (
         <div className="relative py-2">
-          {/* trunk */}
+          {/* direction key: newest at the top */}
+          <div className="mb-3 flex items-center gap-2 md:justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <ArrowUp className="h-3.5 w-3.5" /> Newest events at the top
+            </span>
+          </div>
+          {/* trunk: brighter at the top (recent) fading downwards (older) */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-y-2 left-4 w-0.5 bg-border md:left-1/2 md:-translate-x-1/2"
+            className="pointer-events-none absolute left-4 top-12 bottom-10 w-0.5 bg-gradient-to-b from-primary via-border to-border/30 md:left-1/2 md:-translate-x-1/2"
           />
           <ol className="relative space-y-4">
             {ordered.map((ev, i) => (
-              <TimelineBranch key={ev.key} ev={ev} side={i % 2 === 0 ? "right" : "left"} />
+              <TimelineBranch
+                key={ev.key}
+                ev={ev}
+                side={i % 2 === 0 ? "right" : "left"}
+                isNewest={i === 0}
+              />
             ))}
           </ol>
+          <div className="mt-3 flex items-center gap-2 md:justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
+              Oldest events at the bottom
+            </span>
+          </div>
         </div>
       )}
 
