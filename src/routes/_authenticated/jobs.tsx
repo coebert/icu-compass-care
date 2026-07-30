@@ -213,7 +213,6 @@ function JobsListPage() {
             />
             Ward-round jobs only
           </label>
-          <Button variant="outline" size="sm" onClick={exportPdf}>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
               checked={landscape}
