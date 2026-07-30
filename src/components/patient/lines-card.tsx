@@ -344,7 +344,54 @@ export function LinesCard({ patientId }: { patientId: string }) {
               } — check the details before saving.`,
             );
           }}
+          onMoveMarker={(line, p) =>
+            setMoving({
+              line,
+              site: p.site,
+              laterality:
+                p.laterality === "left" ? "Left" : p.laterality === "right" ? "Right" : "",
+            })
+          }
         />
+
+        {moving && (
+          <div className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-3">
+            <p className="text-sm font-medium">
+              Reposition {LINE_TYPE_LABEL[moving.line.device_type as LineType] ?? moving.line.device_type}
+              <span className="ml-1 font-normal text-muted-foreground">
+                (was {moving.line.site || "no site"}
+                {moving.line.laterality ? ` · ${moving.line.laterality}` : ""})
+              </span>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Site</Label>
+                <Input
+                  value={moving.site}
+                  onChange={(e) => setMoving({ ...moving, site: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Laterality</Label>
+                <Input
+                  value={moving.laterality}
+                  onChange={(e) => setMoving({ ...moving, laterality: e.target.value })}
+                  placeholder="Left / Right"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => move.mutate()} disabled={move.isPending}>
+                {move.isPending ? "Saving…" : "Save position"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setMoving(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+
 
 
         {active.length > 0 && (
