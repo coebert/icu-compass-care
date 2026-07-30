@@ -352,7 +352,40 @@ export function LinesCard({ patientId }: { patientId: string }) {
                 p.laterality === "left" ? "Left" : p.laterality === "right" ? "Right" : "",
             })
           }
+          renderMarkerActions={(line) => (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setMoving({
+                    line,
+                    site: line.site ?? "",
+                    laterality: line.laterality ?? "",
+                  })
+                }
+              >
+                <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+              </Button>
+              <ConfirmDestructive
+                title="Delete this line record?"
+                description={`Permanently removes the ${LINE_TYPE_LABEL[line.device_type as LineType] ?? line.device_type}${line.site ? ` (${line.site})` : ""} record. To keep it for review, mark it as removed instead.`}
+                onConfirm={() => deleteMarker.mutate(line.id)}
+              >
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  disabled={deleteMarker.isPending}
+                  aria-label="Delete line record"
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
+                </Button>
+              </ConfirmDestructive>
+            </div>
+          )}
         />
+
 
         {moving && (
           <div className="space-y-3 rounded-md border border-primary/40 bg-primary/5 p-3">
