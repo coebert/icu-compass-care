@@ -188,7 +188,7 @@ export function BodyMap({
     if (!onPlace || drag?.moved) return;
     const pt = toSvg(e.currentTarget, e.clientX, e.clientY);
     if (!pt) return;
-    const placement = { ...regionAt(pt.x, pt.y), ...pt };
+    const placement = regionAt(pt.x, pt.y);
     setPending(placement);
     setActiveId(null);
     onPlace(placement);
