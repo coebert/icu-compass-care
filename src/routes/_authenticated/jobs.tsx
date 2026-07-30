@@ -171,6 +171,7 @@ function JobsListPage() {
       return;
     }
     downloadJobsPdf(groups, {
+      orientation: landscape ? "landscape" : "portrait",
       title: "ICU jobs list",
       subtitle: [
         filter === "open" ? "Open jobs only" : "Including completed jobs",
