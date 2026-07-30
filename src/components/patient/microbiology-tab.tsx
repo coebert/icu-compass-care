@@ -159,6 +159,27 @@ export function MicrobiologyTab({
     return events.sort((x, y) => y.sort - x.sort);
   }, [items, agents]);
 
+  // Group events into shared time rows so the two lanes line up on one
+  // timescale (one row per calendar day, newest first).
+  const rows = useMemo(() => {
+    const byDay = new Map<
+      string,
+      { day: string; sort: number; abx: typeof timeline; micro: typeof timeline }
+    >();
+    for (const ev of timeline) {
+      const d = new Date(ev.sort);
+      const day = isNaN(d.getTime()) ? ev.at : d.toISOString().slice(0, 10);
+      let row = byDay.get(day);
+      if (!row) {
+        row = { day, sort: new Date(day + "T00:00:00").getTime(), abx: [], micro: [] };
+        byDay.set(day, row);
+      }
+      if (ev.kind === "result") row.micro.push(ev);
+      else row.abx.push(ev);
+    }
+    return Array.from(byDay.values()).sort((a, b) => b.sort - a.sort);
+  }, [timeline]);
+
   return (
     <div ref={containerRef} className="space-y-6">
       <div className="flex items-center justify-between">
