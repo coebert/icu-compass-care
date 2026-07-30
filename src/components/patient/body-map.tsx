@@ -354,7 +354,9 @@ export function BodyMap({
         </p>
         {onPlace && (
           <p className="mt-1 text-center text-[11px] text-muted-foreground">
-            Click anywhere on the figure to add a device there.
+            Click anywhere on the figure to add a device there
+            {onMoveMarker ? ", or drag a marker to reposition it." : "."}
+
           </p>
         )}
       </div>
