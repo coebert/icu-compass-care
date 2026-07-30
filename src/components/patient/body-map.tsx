@@ -208,7 +208,7 @@ export function BodyMap({
     if (!current.moved || !onMoveMarker) return;
     const line = lines.find((l) => l.id === current.id);
     if (!line) return;
-    const placement = { ...regionAt(current.x, current.y), x: current.x, y: current.y };
+    const placement = regionAt(current.x, current.y);
     onMoveMarker(line, placement);
     e.stopPropagation();
   };
