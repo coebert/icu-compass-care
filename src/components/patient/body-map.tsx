@@ -95,39 +95,90 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
           aria-label="Body map showing the position of lines and devices"
           className="w-full"
         >
-          {/* Simplified anterior figure */}
+          {/* Anatomical anterior figure: each region drawn once and mirrored. */}
           <g
             className="fill-muted stroke-border"
-            strokeWidth={2}
+            strokeWidth={1.6}
             strokeLinejoin="round"
             strokeLinecap="round"
           >
-            <circle cx="100" cy="46" r="26" />
-            <path d="M100 72 h0 M86 78 h28 l6 8 v6 h-40 v-6 z" />
-            <path d="M72 92 h56 l10 22 v70 l-8 60 h-60 l-8 -60 v-70 z" />
-            {/* arms */}
-            <path d="M72 96 l-22 12 -12 76 -6 66 h16 l10 -62 14 -50 z" />
-            <path d="M128 96 l22 12 12 76 6 66 h-16 l-10 -62 -14 -50 z" />
-            {/* legs */}
-            <path d="M82 244 l-6 92 -4 74 h22 l6 -74 6 -60 z" />
-            <path d="M118 244 l6 92 4 74 h-22 l-6 -74 -6 -60 z" />
+            {[false, true].map((mirror) => {
+              const t = mirror ? "translate(200,0) scale(-1,1)" : undefined;
+              return (
+                <g key={String(mirror)} transform={t}>
+                  {/* head, neck and torso */}
+                  <path
+                    d="M100 16 C87 16 77 27 77 44 C77 57 82 67 90 72
+                       C90 78 90 82 88 85 C80 90 70 94 62 100
+                       C54 106 50 116 49 128
+                       C56 132 60 140 61 152
+                       C62 168 62 180 64 192
+                       C66 206 70 216 74 226
+                       C80 238 90 246 100 250
+                       V16 Z"
+                  />
+                  {/* arm: shoulder, upper arm, elbow, forearm, hand */}
+                  <path
+                    d="M49 122 C40 126 34 136 32 150
+                       C30 166 28 184 26 200
+                       C24 216 21 234 19 250
+                       C17 262 15 272 17 280
+                       C19 289 27 292 32 287
+                       C37 282 39 270 41 258
+                       C44 240 48 220 51 202
+                       C54 184 57 166 58 150
+                       C59 138 56 128 49 122 Z"
+                  />
+                  {/* leg: thigh, knee, calf, ankle and foot */}
+                  <path
+                    d="M76 232 C72 254 70 280 71 306
+                       C72 330 74 350 75 370
+                       C76 386 77 398 78 408
+                       C72 411 68 415 71 418 L95 418
+                       C97 404 97 386 96 366
+                       C95 340 96 312 97 288
+                       C98 268 99 254 100 244
+                       C93 244 84 240 76 232 Z"
+                  />
+                </g>
+              );
+            })}
           </g>
-          {/* midline for orientation */}
-          <line
-            x1="100"
-            y1="80"
-            x2="100"
-            y2="240"
-            className="stroke-border"
-            strokeDasharray="3 5"
+
+
+          {/* Faint anatomical landmarks for orientation */}
+          <g
+            className="fill-none stroke-border"
             strokeWidth={1}
-          />
+            opacity={0.75}
+            strokeLinecap="round"
+          >
+            {/* clavicles */}
+            <path d="M62 100 C74 106 84 108 100 108 C116 108 126 106 138 100" />
+            {/* sternum / midline */}
+            <path d="M100 108 V152" strokeDasharray="3 4" />
+            {/* costal margin */}
+            <path d="M74 140 C82 158 92 166 100 168 C108 166 118 158 126 140" />
+            {/* umbilicus */}
+            <circle cx="100" cy="196" r="2.5" className="fill-border stroke-none" />
+            {/* iliac crests / inguinal creases */}
+            <path d="M72 222 C82 232 92 238 100 240 C108 238 118 232 128 222" />
+            {/* shoulder joints */}
+            <path d="M52 108 C46 116 44 124 45 132" />
+            <path d="M148 108 C154 116 156 124 155 132" />
+            {/* elbows and knees */}
+            <path d="M34 194 h10 M156 194 h10" />
+            <path d="M84 312 C92 316 100 316 100 316 M116 312 C108 316 100 316 100 316" />
+            {/* trachea / airway guide */}
+            <path d="M100 74 V100" strokeDasharray="2 3" />
+          </g>
           <text x="6" y="14" className="fill-muted-foreground" fontSize="10">
             Patient right
           </text>
           <text x="194" y="14" textAnchor="end" className="fill-muted-foreground" fontSize="10">
             Patient left
           </text>
+
 
           {markers.map((m) => {
             const overdue = isOverdue(m.line);
