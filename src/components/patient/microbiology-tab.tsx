@@ -220,63 +220,111 @@ export function MicrobiologyTab({
       <div className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Combined timeline
+            Parallel timelines
           </h2>
           <p className="text-xs text-muted-foreground">
-            Key micro results and antimicrobial courses, most recent first.
+            Antimicrobials and microbiology results on one shared timescale, newest first — read
+            across a row to cross-reference.
           </p>
         </div>
-        {timeline.length === 0 ? (
+        {rows.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
               No micro results or antimicrobial courses recorded yet.
             </CardContent>
           </Card>
         ) : (
-          <ol className="relative space-y-4 border-l pl-6">
-            {timeline.map((ev) => {
-              const isResult = ev.kind === "result";
-              const isStart = ev.kind === "abx-start";
-              return (
-                <li key={ev.key} className="relative">
-                  <span
-                    className={
-                      "absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-background " +
-                      (isResult
-                        ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
-                        : isStart
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                          : "bg-muted text-muted-foreground")
-                    }
+          <Card>
+            <CardContent className="p-3 sm:p-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 pb-2 sm:gap-x-4">
+                <div className="flex items-center justify-end gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  <Pill className="h-3.5 w-3.5" /> Antimicrobials
+                </div>
+                <div className="w-16 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:w-24">
+                  Date
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                  <Microscope className="h-3.5 w-3.5" /> Micro results
+                </div>
+              </div>
+
+              <ol className="space-y-4">
+                {rows.map((row) => (
+                  <li
+                    key={row.day}
+                    className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-x-3 sm:gap-x-4"
                   >
-                    {isResult ? (
-                      <Microscope className="h-3 w-3" />
-                    ) : (
-                      <Pill className="h-3 w-3" />
-                    )}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{ev.title}</span>
-                    {ev.detail && !isResult && (
-                      <Badge variant="secondary" className="text-xs">
-                        {ev.detail}
-                      </Badge>
-                    )}
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {isResult ? fmtDateTime(ev.at) : fmtDate(ev.at)}
-                    </span>
-                  </div>
-                  {ev.detail && isResult && (
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                      {ev.detail}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
+                    {/* Antimicrobial lane */}
+                    <div className="flex flex-col items-end gap-2">
+                      {row.abx.length === 0 ? (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      ) : (
+                        row.abx.map((ev) => (
+                          <div
+                            key={ev.key}
+                            className={
+                              "w-full max-w-sm rounded-md border p-2 text-right " +
+                              (ev.kind === "abx-start"
+                                ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/40"
+                                : "bg-muted/40")
+                            }
+                          >
+                            <p className="text-sm font-medium">{ev.title}</p>
+                            {ev.detail && (
+                              <Badge variant="secondary" className="mt-1 text-xs">
+                                {ev.detail}
+                              </Badge>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Shared time axis */}
+                    <div className="relative flex w-16 flex-col items-center sm:w-24">
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border"
+                      />
+                      <span className="relative mt-1 h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-background" />
+                      <span className="relative mt-1 text-center text-[11px] font-medium text-muted-foreground">
+                        {fmtDate(row.day)}
+                      </span>
+                    </div>
+
+                    {/* Microbiology lane */}
+                    <div className="flex flex-col items-start gap-2">
+                      {row.micro.length === 0 ? (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      ) : (
+                        row.micro.map((ev) => (
+                          <div
+                            key={ev.key}
+                            className="w-full max-w-sm rounded-md border border-violet-200 bg-violet-50/60 p-2 dark:border-violet-900 dark:bg-violet-950/40"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{ev.title}</span>
+                              <span className="ml-auto text-[11px] text-muted-foreground">
+                                {fmtDateTime(ev.at)}
+                              </span>
+                            </div>
+                            {ev.detail && (
+                              <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                                {ev.detail}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
         )}
       </div>
+
 
       <div className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
