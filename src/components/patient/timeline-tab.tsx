@@ -48,6 +48,7 @@ import {
   GitBranch,
   Pill,
   X,
+  ArrowUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDestructive } from "@/components/ui/confirm-destructive";
