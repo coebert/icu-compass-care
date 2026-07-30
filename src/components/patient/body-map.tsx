@@ -231,9 +231,11 @@ export function BodyMap({
   };
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-[220px_1fr]">
       <div className="mx-auto w-full max-w-[220px]">
         <svg
+
           viewBox="0 0 200 420"
           role="img"
           aria-label="Body map showing the position of lines and devices"
