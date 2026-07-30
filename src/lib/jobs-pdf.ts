@@ -43,6 +43,8 @@ export type JobsPdfOptions = {
   /** Leave blank lines under each patient for handwritten additions. */
   writeInLines?: number;
   includeNotes?: boolean;
+  /** A4 page orientation; landscape fits more job detail per page. */
+  orientation?: "portrait" | "landscape";
 };
 
 const DEFAULT_TITLE = "ICU jobs list";
