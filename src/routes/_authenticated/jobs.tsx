@@ -18,6 +18,7 @@ import {
   type TaskCategory,
 } from "@/lib/patient-tasks.functions";
 import { fmtDateTime } from "@/lib/icu";
+import { dueLevel, dueRelativeLabel } from "@/lib/task-reminders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
+import { JobRemindersPanel } from "@/components/JobRemindersPanel";
+import { useJobReminders } from "@/hooks/use-job-reminders";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/jobs")({
@@ -101,6 +104,8 @@ function JobsListPage() {
   const qc = useQueryClient();
   const fetchTasks = useServerFn(listAllTasks);
   const fetchPatients = useServerFn(listPatients);
+
+  const { overdue, soon } = useJobReminders();
 
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [showRoundOnly, setShowRoundOnly] = useState(false);
@@ -182,6 +187,8 @@ function JobsListPage() {
           </label>
         </div>
       </header>
+
+      <JobRemindersPanel overdue={overdue} soon={soon} />
 
       {patientsLoading || tasksLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
@@ -356,15 +363,7 @@ function NewTaskRow({
   );
 }
 
-function taskDueState(due?: string | null): "none" | "soon" | "overdue" {
-  if (!due) return "none";
-  const t = new Date(due).getTime();
-  if (Number.isNaN(t)) return "none";
-  const diff = t - Date.now();
-  if (diff < 0) return "overdue";
-  if (diff < 2 * 60 * 60 * 1000) return "soon";
-  return "none";
-}
+const taskDueState = (due?: string | null) => dueLevel(due);
 
 function TaskItem({ task, onChange }: { task: TaskRow; onChange: () => void }) {
   const editTask = useServerFn(updatePatientTask);
@@ -444,6 +443,7 @@ function TaskItem({ task, onChange }: { task: TaskRow; onChange: () => void }) {
                 <Clock className="h-3 w-3" />
                 {dueState === "overdue" ? "Overdue · " : ""}
                 {fmtDateTime(task.due_at)}
+                {dueState !== "none" ? ` · ${dueRelativeLabel(task.due_at)}` : ""}
               </span>
             )}
           </div>
