@@ -277,10 +277,33 @@ export function BodyMap({
               </g>
             );
           })}
+
+          {pending && (
+            <g pointerEvents="none">
+              <circle
+                cx={pending.x}
+                cy={pending.y}
+                r={8}
+                className="fill-none stroke-emerald-500"
+                strokeWidth={2}
+                strokeDasharray="3 3"
+              />
+              <path
+                d={`M${pending.x - 12} ${pending.y} h24 M${pending.x} ${pending.y - 12} v24`}
+                className="stroke-emerald-500"
+                strokeWidth={1.2}
+              />
+            </g>
+          )}
         </svg>
         <p className="mt-1 text-center text-[11px] text-muted-foreground">
           Anterior view · sides are the patient&apos;s own
         </p>
+        {onPlace && (
+          <p className="mt-1 text-center text-[11px] text-muted-foreground">
+            Click anywhere on the figure to add a device there.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -292,7 +315,14 @@ export function BodyMap({
             <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Review overdue
           </span>
           <span>Select a marker or a row to link the two.</span>
+          {pending && (
+            <span className="text-emerald-600">
+              New device position: {pending.region}
+              {pending.laterality ? ` (${pending.laterality})` : ""}
+            </span>
+          )}
         </div>
+
         <ul className="space-y-1">
           {markers.map((m) => {
             const selected = m.line.id === activeId;
