@@ -95,39 +95,65 @@ export function BodyMap({ lines }: { lines: PatientLine[] }) {
           aria-label="Body map showing the position of lines and devices"
           className="w-full"
         >
-          {/* Simplified anterior figure */}
+          {/* Anatomical anterior silhouette, drawn as one half and mirrored. */}
           <g
             className="fill-muted stroke-border"
-            strokeWidth={2}
+            strokeWidth={1.6}
             strokeLinejoin="round"
             strokeLinecap="round"
           >
-            <circle cx="100" cy="46" r="26" />
-            <path d="M100 72 h0 M86 78 h28 l6 8 v6 h-40 v-6 z" />
-            <path d="M72 92 h56 l10 22 v70 l-8 60 h-60 l-8 -60 v-70 z" />
-            {/* arms */}
-            <path d="M72 96 l-22 12 -12 76 -6 66 h16 l10 -62 14 -50 z" />
-            <path d="M128 96 l22 12 12 76 6 66 h-16 l-10 -62 -14 -50 z" />
-            {/* legs */}
-            <path d="M82 244 l-6 92 -4 74 h22 l6 -74 6 -60 z" />
-            <path d="M118 244 l6 92 4 74 h-22 l-6 -74 -6 -60 z" />
+            {[false, true].map((mirror) => (
+              <path
+                key={String(mirror)}
+                transform={mirror ? "translate(200,0) scale(-1,1)" : undefined}
+                d="M100 18 C86 18 76 29 76 45 C76 58 82 68 90 72 L90 80
+                   C78 86 66 90 56 98 C46 104 42 114 40 128
+                   C37 149 35 169 33 189 C31 213 28 237 26 259
+                   C25 269 24 277 27 283 C31 289 38 288 40 281
+                   C43 269 45 255 48 241 C52 219 57 197 62 177
+                   C64 167 66 151 68 133
+                   C67 153 65 171 66 187 C67 201 69 211 71 221
+                   C73 233 75 241 78 251
+                   C76 285 74 313 74 343 C74 369 76 391 78 407
+                   C72 411 70 416 76 417 L96 417
+                   C98 401 97 379 97 349 C97 301 99 273 100 253 Z"
+              />
+            ))}
           </g>
-          {/* midline for orientation */}
-          <line
-            x1="100"
-            y1="80"
-            x2="100"
-            y2="240"
-            className="stroke-border"
-            strokeDasharray="3 5"
+
+          {/* Faint anatomical landmarks for orientation */}
+          <g
+            className="fill-none stroke-border"
             strokeWidth={1}
-          />
+            opacity={0.75}
+            strokeLinecap="round"
+          >
+            {/* clavicles */}
+            <path d="M62 100 C74 106 84 108 100 108 C116 108 126 106 138 100" />
+            {/* sternum / midline */}
+            <path d="M100 108 V152" strokeDasharray="3 4" />
+            {/* costal margin */}
+            <path d="M74 140 C82 158 92 166 100 168 C108 166 118 158 126 140" />
+            {/* umbilicus */}
+            <circle cx="100" cy="196" r="2.5" className="fill-border stroke-none" />
+            {/* iliac crests / inguinal creases */}
+            <path d="M72 222 C82 232 92 238 100 240 C108 238 118 232 128 222" />
+            {/* shoulder joints */}
+            <path d="M52 108 C46 116 44 124 45 132" />
+            <path d="M148 108 C154 116 156 124 155 132" />
+            {/* elbows and knees */}
+            <path d="M34 194 h10 M156 194 h10" />
+            <path d="M84 312 C92 316 100 316 100 316 M116 312 C108 316 100 316 100 316" />
+            {/* trachea / airway guide */}
+            <path d="M100 74 V100" strokeDasharray="2 3" />
+          </g>
           <text x="6" y="14" className="fill-muted-foreground" fontSize="10">
             Patient right
           </text>
           <text x="194" y="14" textAnchor="end" className="fill-muted-foreground" fontSize="10">
             Patient left
           </text>
+
 
           {markers.map((m) => {
             const overdue = isOverdue(m.line);
