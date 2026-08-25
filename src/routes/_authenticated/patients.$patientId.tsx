@@ -111,7 +111,7 @@ function PatientDetail() {
     navigate({
       to: "/patients/$patientId",
       params: { patientId },
-      search: (prev: SearchShape) => ({ ...prev, tab }),
+      search: (prev: Partial<SearchShape>) => ({ ...prev, tab }),
       replace: true,
     });
   const timelineFilters = search.filter
@@ -121,7 +121,7 @@ function PatientDetail() {
     navigate({
       to: "/patients/$patientId",
       params: { patientId },
-      search: (prev: SearchShape) => ({ ...prev, filter: next.join(",") }),
+      search: (prev: Partial<SearchShape>) => ({ ...prev, filter: next.join(",") }),
       replace: true,
     });
   const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -130,7 +130,7 @@ function PatientDetail() {
     navigate({
       to: "/patients/$patientId",
       params: { patientId },
-      search: (prev: SearchShape) => ({ ...prev, chartDate: next && isoDateRe.test(next) ? next : "" }),
+      search: (prev: Partial<SearchShape>) => ({ ...prev, chartDate: next && isoDateRe.test(next) ? next : "" }),
       replace: true,
     });
 
