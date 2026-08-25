@@ -93,7 +93,7 @@ function HandoverHistoryPage() {
   const updateSearch = (patch: Partial<HistorySearch>) =>
     navigate({
       to: "/patients/history",
-      search: (prev: HistorySearch) => ({ ...prev, ...patch }),
+      search: (prev: Partial<HistorySearch>) => ({ ...prev, ...patch }),
       replace: true,
     });
   const q = urlSearch.q;

@@ -96,7 +96,7 @@ function PatientsBoard() {
   const updateBoardSearch = (patch: Partial<BoardSearch>) =>
     navigate({
       to: "/patients",
-      search: (prev: BoardSearch) => ({ ...prev, ...patch }),
+      search: (prev: Partial<BoardSearch>) => ({ ...prev, ...patch }),
       replace: true,
     });
   const search = urlSearch.q;
