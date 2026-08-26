@@ -226,12 +226,3 @@ export function sanitiseOutboundImage(dataUrl: string): OutboundImage {
     strippedSegments: [...strippedSegments, ...result.stripped],
   };
 }
-
-/** Free-text guard for anything textual we put in the outbound prompt. */
-export function assertNoIdentifierText(label: string, value: string): void {
-  // Prompt text is machine-built from a validated ISO date; this asserts that
-  // stays true if the prompt is ever extended.
-  if (/[A-Za-z]{4,}/.test(value.replace(/^Extract the Radnor 24h chart for chart_date /, ""))) {
-    throw new OutboundGuardError(`Refusing to send free text in ${label}.`);
-  }
-}
