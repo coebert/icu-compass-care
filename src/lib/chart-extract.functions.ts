@@ -110,6 +110,10 @@ export const extractChart = createServerFn({ method: "POST" })
         chartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         pages: z.array(dataUrlSchema).min(1).max(MAX_PAGES),
       })
+      // .strict(): any extra key a caller invents (name, mrn, notes, dob...) is
+      // rejected outright rather than silently stripped, so no unvetted free
+      // text can ever reach the prompt builder below.
+      .strict()
       .parse(input),
   )
   .handler(async ({ context, data }) => {
@@ -148,6 +152,40 @@ export const extractChart = createServerFn({ method: "POST" })
         } as never);
     }
 
+    // OUTBOUND GUARD — nothing reaches the model except pixels. Every page is
+    // rebuilt from its decoded bytes: unsupported formats are refused, data-URL
+    // header parameters (e.g. `;name=SMITH_John.jpg`) are dropped, and JPEG
+    // EXIF/XMP/IPTC/comment segments plus PNG/WebP text + metadata chunks are
+    // removed, so device IDs, GPS, authors and captions cannot leak. The prompt
+    // text itself is machine-built from the validated ISO date only — no patient
+    // id, MRN, initials or caller-supplied string is interpolated into it.
+    const { sanitiseOutboundImage, OutboundGuardError } = await import(
+      "@/lib/chart-outbound.server"
+    );
+
+    const outboundPages: string[] = [];
+    const strippedSegments: string[] = [];
+    try {
+      for (const p of data.pages) {
+        const safe = sanitiseOutboundImage(p);
+        outboundPages.push(safe.dataUrl);
+        strippedSegments.push(...safe.strippedSegments);
+      }
+    } catch (err) {
+      if (err instanceof OutboundGuardError) {
+        await context.supabase
+          .from("audit_log")
+          .insert({
+            entity: data.patientId ? "patients" : "chart_scan",
+            entity_id: data.patientId ?? null,
+            action: "update",
+            user_id: context.userId,
+            diff: { chart_scan_blocked: err.message.slice(0, 200) },
+          } as never);
+      }
+      throw err instanceof Error ? err : new Error("Chart page rejected");
+    }
+
     const userContent: Array<
       { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
     > = [
@@ -156,9 +194,10 @@ export const extractChart = createServerFn({ method: "POST" })
         text: `Extract the Radnor 24h chart for chart_date ${chartDate}. Return JSON only.`,
       },
     ];
-    for (const p of data.pages) {
+    for (const p of outboundPages) {
       userContent.push({ type: "image_url", image_url: { url: p } });
     }
+
 
     let content: string;
     try {
@@ -227,7 +266,11 @@ export const extractChart = createServerFn({ method: "POST" })
           chart_scan_success: {
             hourly: scrubbed.hourly.length,
             investigations: scrubbed.investigations.length,
+            // Which metadata carriers were removed before upload (types only,
+            // never their contents).
+            metadata_stripped: [...new Set(strippedSegments)],
           },
+
         },
       } as never);
 
