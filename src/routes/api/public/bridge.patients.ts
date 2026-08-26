@@ -1,4 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  decryptPatientRow,
+  decryptPatientRows,
+  encryptPatientPayload,
+} from "@/lib/patient-crypto.server";
 import { z } from "zod";
 import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp, consumeWriteNonce } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
@@ -95,7 +100,9 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         // The sharing flag is a local governance decision, not clinical data —
         // never leak it to the partner (and never let it overwrite their copy).
-        const patients = (data ?? []).map((p: Record<string, unknown>) => {
+        const patients = decryptPatientRows(
+          data as Array<Record<string, unknown>> | null,
+        ).map((p: Record<string, unknown>) => {
           const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...rest } = p;
           void shared_with_partner;
           void shared_with_partner_at;
@@ -160,7 +167,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
               {
                 error: "conflict",
                 message: "This patient was modified since you last loaded it.",
-                current,
+                current: decryptPatientRow(current as Record<string, unknown>),
                 your_expected_updated_at: expected_updated_at,
               },
               409,
@@ -169,7 +176,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
           const { data, error } = await supabaseAdmin
             .from("patients")
-            .update(record)
+            .update(encryptPatientPayload(record) as never)
             .eq("id", record.id as string)
             .select()
             .maybeSingle();
@@ -186,12 +193,12 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
             after: data as Record<string, unknown>,
           });
           await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
-          return json({ patient: data });
+          return json({ patient: decryptPatientRow(data as Record<string, unknown>) });
         }
 
         const { data, error } = await supabaseAdmin
           .from("patients")
-          .insert(record)
+          .insert(encryptPatientPayload(record) as never)
           .select()
           .maybeSingle();
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
