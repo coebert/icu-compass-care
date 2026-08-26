@@ -110,6 +110,10 @@ export const extractChart = createServerFn({ method: "POST" })
         chartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         pages: z.array(dataUrlSchema).min(1).max(MAX_PAGES),
       })
+      // .strict(): any extra key a caller invents (name, mrn, notes, dob...) is
+      // rejected outright rather than silently stripped, so no unvetted free
+      // text can ever reach the prompt builder below.
+      .strict()
       .parse(input),
   )
   .handler(async ({ context, data }) => {
