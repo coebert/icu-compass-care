@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { encryptField } from "@/lib/crypto.server";
 import {
+  PATIENT_ENCRYPTED_FIELDS,
   decryptPatientRow,
   encryptPatientPayload,
   withCryptoColumns,
@@ -78,12 +80,12 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
     };
 
     const plan = computeReferralPrefill(source, {
-      current_admission: patient.current_admission,
-      current_management: patient.current_management,
-      tep_in_place: patient.tep_in_place,
-      tep_details: patient.tep_details,
-      dnacpr_decision: patient.dnacpr_decision,
-      dnacpr_details: patient.dnacpr_details,
+      current_admission: patientPlain.current_admission as string | null,
+      current_management: patientPlain.current_management as string | null,
+      tep_in_place: patientPlain.tep_in_place as boolean | null,
+      tep_details: patientPlain.tep_details as string | null,
+      dnacpr_decision: patientPlain.dnacpr_decision as boolean | null,
+      dnacpr_details: patientPlain.dnacpr_details as string | null,
     });
 
     return {
@@ -109,6 +111,7 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
       .maybeSingle();
     if (pErr) throw safeDbError(pErr);
     if (!patient) throw new Error("Patient not found");
+    const patientPlain = decryptPatientRow(patient);
 
     const { data: ref, error: rErr } = await context.supabase
       .from("referrals")
@@ -134,12 +137,12 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
     };
 
     const { patch, applied_fields, skipped_fields } = computeReferralPrefill(source, {
-      current_admission: patient.current_admission,
-      current_management: patient.current_management,
-      tep_in_place: patient.tep_in_place,
-      tep_details: patient.tep_details,
-      dnacpr_decision: patient.dnacpr_decision,
-      dnacpr_details: patient.dnacpr_details,
+      current_admission: patientPlain.current_admission,
+      current_management: patientPlain.current_management,
+      tep_in_place: patientPlain.tep_in_place,
+      tep_details: patientPlain.tep_details,
+      dnacpr_decision: patientPlain.dnacpr_decision,
+      dnacpr_details: patientPlain.dnacpr_details,
     });
 
     // Always record the link so the card can surface its referral origin, even
@@ -148,7 +151,7 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
 
     const { data: row, error } = await context.supabase
       .from("patients")
-      .update(updatePayload as never)
+      .update(encryptPatientPayload(updatePayload) as never)
       .eq("id", data.patient_id)
       .select()
       .single();
@@ -164,13 +167,19 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
       actor,
       before: patient as Record<string, unknown>,
       after: row as Record<string, unknown>,
+      changedFields: diffFields(
+        patientPlain as Record<string, unknown>,
+        decryptPatientRow(row) as Record<string, unknown>,
+      ),
     });
     await writePatientFieldChanges(supabaseAdmin, {
       patientId: row.id,
-      before: patient as Record<string, unknown>,
-      after: row as Record<string, unknown>,
+      before: patientPlain as Record<string, unknown>,
+      after: decryptPatientRow(row) as Record<string, unknown>,
       actor,
+      sealValue: (v) => encryptField(v),
+      sealedColumns: new Set<string>(PATIENT_ENCRYPTED_FIELDS),
     });
 
-    return { applied_fields, skipped_fields, patient: row };
+    return { applied_fields, skipped_fields, patient: decryptPatientRow(row) };
   });
