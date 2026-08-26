@@ -75,10 +75,22 @@ function stripJpegMetadata(bytes: Uint8Array): { bytes: Uint8Array; stripped: st
     }
 
     if (marker === 0xda) {
-      // Start of scan: the rest is entropy-coded image data, keep verbatim.
-      keep.push([i, bytes.length]);
+      // Start of scan: entropy-coded image data runs to the final EOI marker.
+      // Keep it verbatim but cut anything appended after EOI — trailing bytes
+      // are not image data and are a free-text channel.
+      let eoi = -1;
+      for (let j = bytes.length - 2; j > i; j -= 1) {
+        if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
+          eoi = j;
+          break;
+        }
+      }
+      const end = eoi === -1 ? bytes.length : eoi + 2;
+      if (end < bytes.length) stripped.push("JPEG:TRAILER");
+      keep.push([i, end]);
       break;
     }
+
     const len = (bytes[i + 2]! << 8) | bytes[i + 3]!;
     if (len < 2) throw new OutboundGuardError("Malformed JPEG segment; page rejected.");
     const end = i + 2 + len;
