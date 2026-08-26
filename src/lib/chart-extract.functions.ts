@@ -5,7 +5,6 @@ import { safeDbError } from "@/lib/db-error";
 import { callGatewayChat } from "@/lib/ai-gateway.server";
 import { hourlyCellSchema, type HourlyCell } from "@/lib/chart-days.functions";
 import {
-  CHART_SYSTEM_PROMPT,
   buildChartExtractionMessages,
   scrubExtractionIdentifiers,
 } from "@/lib/chart-prompt.server";
