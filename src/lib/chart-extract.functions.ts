@@ -87,7 +87,7 @@ Rules:
 Confidence reporting (REQUIRED):
 - overall_confidence: your overall confidence 0-1 that the whole extraction is correct.
 - low_confidence: an array of dotted field paths you are uncertain about (illegible handwriting, ambiguous digits, smudges, unclear ticks). Use these path formats:
-    "hospital_number", "initials", "chart_date", "balance_24h_ml", "notes"
+    "chart_date", "balance_24h_ml", "notes"
     "assessments.<system>"  e.g. "assessments.resp"
     "hourly[<hour>].<field>"  e.g. "hourly[13].hr", "hourly[7].sbp"
     "investigations[<index>].<field>"  e.g. "investigations[2].findings"
