@@ -4,6 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
 import { callGatewayChat } from "@/lib/ai-gateway.server";
 import { hourlyCellSchema, type HourlyCell } from "@/lib/chart-days.functions";
+import {
+  CHART_SYSTEM_PROMPT,
+  buildChartExtractionMessages,
+  scrubExtractionIdentifiers,
+} from "@/lib/chart-prompt.server";
 
 /**
  * Chart image extraction — the image is passed to the vision model IN MEMORY
@@ -68,33 +73,7 @@ export const chartExtractionSchema = z.object({
 
 export type ChartExtraction = z.infer<typeof chartExtractionSchema>;
 
-const SYSTEM_PROMPT = `You are a clinical data-extraction assistant reading a photograph of the Radnor Critical Care Unit 24-hour paper chart used at Salisbury District Hospital.
 
-Return ONE JSON object matching the caller's schema. Use null for anything illegible or blank. NEVER invent values.
-
-Rules:
-- Numbers only in numeric fields (mL, integers unless a decimal is written).
-- Times use 24-hour clock. "01:00" is hour 0-index 1, "00:00" is hour 0 (midnight after the previous day).
-- Only include hourly rows that have at least one non-null value.
-- The patient identity sticker has been blacked out before this image was sent. Do NOT return ANY patient identifier: no name, initials, DOB, address, NHS number or hospital number. Never attempt to read or reconstruct redacted areas. Return null for hospital_number and initials always — the clinician enters those in the app.
-- The chart_date is the date written at the top of the chart (YYYY-MM-DD).
-- Investigations: emit one row per tick/entry in the "Investigations" list (CXR / Scans / 12 Lead ECG / Blood Cultures / Urine MC+S / Sputum / Swabs / MRSA Screen / Other). Set findings to any handwritten result note or null.
-- Microbiology: one row per specimen line with a handwritten result.
-- Assessments: copy the free-text management-plan blocks per system (resp / cvs / renal / neuro / gastro / haem / micro / other).
-- Vitals: read the hourly grid (HR, SBP/DBP, MAP, CVP, SpO2, EtCO2, RR, Temp, GCS) into the matching hourly row.
-- Ventilation: mode, PEEP, FiO2 (as fraction 0-1), pressure support, tidal volume, minute volume, peak pressure.
-
-Confidence reporting (REQUIRED):
-- overall_confidence: your overall confidence 0-1 that the whole extraction is correct.
-- low_confidence: an array of dotted field paths you are uncertain about (illegible handwriting, ambiguous digits, smudges, unclear ticks). Use these path formats:
-    "chart_date", "balance_24h_ml", "notes"
-    "assessments.<system>"  e.g. "assessments.resp"
-    "hourly[<hour>].<field>"  e.g. "hourly[13].hr", "hourly[7].sbp"
-    "investigations[<index>].<field>"  e.g. "investigations[2].findings"
-    "microbiology[<index>].<field>"
-- Prefer a null value + a low_confidence entry over a guessed value. Only list paths whose returned value is questionable.
-
-Return strictly valid JSON with no prose, no code fences.`;
 
 
 function todayISO(): string {
@@ -186,18 +165,7 @@ export const extractChart = createServerFn({ method: "POST" })
       throw err instanceof Error ? err : new Error("Chart page rejected");
     }
 
-    const userContent: Array<
-      { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
-    > = [
-      {
-        type: "text",
-        text: `Extract the Radnor 24h chart for chart_date ${chartDate}. Return JSON only.`,
-      },
-    ];
-    for (const p of outboundPages) {
-      userContent.push({ type: "image_url", image_url: { url: p } });
-    }
-
+    const messages = buildChartExtractionMessages(chartDate, outboundPages);
 
     let content: string;
     try {
@@ -206,10 +174,7 @@ export const extractChart = createServerFn({ method: "POST" })
         response_format: { type: "json_object" },
         temperature: 0,
         max_tokens: 8000,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
+        messages,
       });
       content = result.content;
     } catch (err) {
@@ -245,14 +210,7 @@ export const extractChart = createServerFn({ method: "POST" })
     // identifier here could only be a hallucination or a read of an
     // insufficiently covered sticker. Either way it is discarded — the
     // clinician types the MRN/initials into the app on the review screen.
-    const scrubbed: ChartExtraction = {
-      ...parsed.data,
-      initials: null,
-      hospital_number: null,
-      low_confidence: (parsed.data.low_confidence ?? []).filter(
-        (p) => p !== "initials" && p !== "hospital_number",
-      ),
-    };
+    const scrubbed: ChartExtraction = scrubExtractionIdentifiers(parsed.data);
 
     // Success audit (still no image bytes).
     await context.supabase
