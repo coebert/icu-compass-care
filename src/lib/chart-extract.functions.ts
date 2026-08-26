@@ -266,7 +266,11 @@ export const extractChart = createServerFn({ method: "POST" })
           chart_scan_success: {
             hourly: scrubbed.hourly.length,
             investigations: scrubbed.investigations.length,
+            // Which metadata carriers were removed before upload (types only,
+            // never their contents).
+            metadata_stripped: [...new Set(strippedSegments)],
           },
+
         },
       } as never);
 
