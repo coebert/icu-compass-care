@@ -61,7 +61,7 @@ export const listPatients = createServerFn({ method: "GET" })
     if (error) throw safeDbError(error);
     // Ciphertext columns are opened here and stripped from the payload, so no
     // encrypted or fingerprint value ever leaves the server.
-    return decryptPatientRows(data as Record<string, unknown>[] | null);
+    return decryptPatientRows(data);
   });
 
 export const getPatient = createServerFn({ method: "GET" })
@@ -74,7 +74,7 @@ export const getPatient = createServerFn({ method: "GET" })
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw safeDbError(error);
-    return patient ? decryptPatientRow(patient as Record<string, unknown>) : patient;
+    return patient ? decryptPatientRow(patient) : patient;
   });
 
 export const createPatient = createServerFn({ method: "POST" })
@@ -110,7 +110,7 @@ export const createPatient = createServerFn({ method: "POST" })
       // plaintext copy of the record.
       after: row as Record<string, unknown>,
     });
-    return decryptPatientRow(row as Record<string, unknown>);
+    return decryptPatientRow(row);
   });
 
 export const updatePatient = createServerFn({ method: "POST" })
@@ -154,7 +154,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readErr) throw safeDbError(readErr);
     if (!current) throw new Error("Patient not found");
-    const currentPlain = decryptPatientRow(current as Record<string, unknown>);
+    const currentPlain = decryptPatientRow(current);
 
     // Optimistic concurrency — block overwriting a newer change from either app.
     if (expected_updated_at && current.updated_at !== expected_updated_at) {
@@ -216,11 +216,11 @@ export const updatePatient = createServerFn({ method: "POST" })
       before: current as Record<string, unknown>,
       after: row as Record<string, unknown>,
     });
-    const rowPlain = decryptPatientRow(row as Record<string, unknown>);
+    const rowPlain = decryptPatientRow(row);
     await writePatientFieldChanges(supabaseAdmin, {
       patientId: row.id,
-      before: currentPlain,
-      after: rowPlain,
+      before: currentPlain as Record<string, unknown>,
+      after: rowPlain as Record<string, unknown>,
       actor,
       // Diff on readable values, but store the values sealed.
       sealValue: (v) => encryptField(v),
