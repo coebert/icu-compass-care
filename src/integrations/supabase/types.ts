@@ -1828,6 +1828,7 @@ export type Database = {
           retry_after: number
         }[]
       }
+      to_initials: { Args: { _name: string }; Returns: string }
     }
     Enums: {
       admission_urgency:
