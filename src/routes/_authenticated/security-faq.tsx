@@ -109,6 +109,51 @@ function SecurityFaqPage() {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="initials">
+              <AccordionTrigger>
+                Does the app store patient names?
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2 text-muted-foreground">
+                <p>
+                  No. Patients are identified by <strong>initials and hospital
+                  number only</strong>. The initials field accepts a maximum of 10
+                  characters and rejects anything that looks like a word, and the
+                  same rule is enforced by the database itself — so a full name
+                  cannot be saved, from this app or from the partner app across the
+                  bridge. Names arriving from the partner system are reduced to
+                  initials before they are stored.
+                </p>
+                <p>
+                  Date of birth and NHS number are not held anywhere in this app.
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="ai">
+              <AccordionTrigger>
+                Is any patient data sent to an AI model?
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2 text-muted-foreground">
+                <p>
+                  Only when a clinician scans a paper 24-hour chart. Before any
+                  image leaves the device, the app <strong>requires</strong> the
+                  identity sticker to be blurred and the clinician to confirm that
+                  the name, date of birth and hospital number are all covered. The
+                  blur is baked into the image in the browser, so the redacted copy
+                  is the only version that exists beyond the device.
+                </p>
+                <p>
+                  The model is therefore only ever given the clinical grid, and is
+                  instructed never to return an identifier. Any identifier it
+                  returns anyway is discarded by the server before the values reach
+                  the review screen — the clinician types the hospital number and
+                  initials in themselves. Chart images are never written to storage,
+                  never logged and are discarded as soon as the values are read.
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+
+
             <AccordionItem value="access">
               <AccordionTrigger>
                 Who can access what?
