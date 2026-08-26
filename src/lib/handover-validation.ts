@@ -22,7 +22,7 @@ export function missingCriticalFields(
 ): string[] {
   if (!p) return ["Patient record"];
   const missing: string[] = [];
-  if (!p.full_name?.trim()) missing.push("Patient name");
+  if (!p.full_name?.trim()) missing.push("Patient initials");
   if (!p.hospital_number?.trim()) missing.push("Hospital number");
   if (!p.ward?.trim() && !p.bed?.trim()) missing.push("Location (ward/bed)");
   if (!p.current_admission?.trim()) missing.push("Current admission");
