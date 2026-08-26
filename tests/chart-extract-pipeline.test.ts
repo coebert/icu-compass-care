@@ -358,12 +358,23 @@ describe("chart pipeline integration (upload → outbound → extraction)", () =
   });
 
   it("rejects the whole upload when any page is not a plain raster image", () => {
-    const bad = [
-      `data:application/pdf;base64,${btoa(`%PDF-1.7 /Title (${ID.name} ${ID.mrn})`)}`,
+    // Non-image MIME types never get past input validation at all.
+    expect(() =>
+      runPipeline({
+        pages: [
+          EDGE_CASE_PAGES[0]!.page,
+          `data:application/pdf;base64,${btoa(`%PDF-1.7 /Title (${ID.name} ${ID.mrn})`)}`,
+        ],
+      }),
+    ).toThrow(/must start with/);
+
+    // Image-labelled pages that are not plain rasters are refused by the guard.
+    const guarded = [
       `data:image/svg+xml;base64,${btoa(`<svg><text>${ID.mrn}</text></svg>`)}`,
       `data:image/jpeg;base64,${btoa("SMITH")}`,
+      `data:image/png;base64,${btoa(`not a png ${ID.mrn} ${ID.name} padding padding`)}`,
     ];
-    for (const page of bad) {
+    for (const page of guarded) {
       expect(
         () => runPipeline({ pages: [EDGE_CASE_PAGES[0]!.page, page] }),
         page.slice(0, 32),
