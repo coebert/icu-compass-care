@@ -104,7 +104,7 @@ describe("chart scan: no patient identifiers reach Gemini", () => {
     expect(safe.strippedSegments.join(" ")).not.toContain("SMITH");
     // The picture itself survived.
     expect(raw.startsWith("\xff\xd8")).toBe(true);
-    expect(raw).toContain("z".repeat(10) === "" ? "" : "\x7a\x7a\x7a");
+    expect(raw).toContain("\x7a\x7a\x7a"); // entropy-coded pixel data preserved
   });
 
   it("builds a prompt containing no identifier — only the ISO chart date", () => {
