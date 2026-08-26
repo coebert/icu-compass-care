@@ -11,6 +11,13 @@ import {
 } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
 import { normalizeBed } from "@/lib/icu-beds";
+import {
+  decryptPatientRow,
+  decryptPatientRows,
+  encryptPatientPayload,
+  withCryptoColumns,
+} from "@/lib/patient-crypto.server";
+import { decryptFieldSafe } from "@/lib/crypto.server";
 
 // Reject bed collisions before writing so two active patients can't share a
 // bed via the form, drag-and-drop, or the bridge write path. `excludeId` skips
@@ -25,16 +32,16 @@ async function assertBedFree(
   if (!target) return;
   let q = supabase
     .from("patients")
-    .select("id, full_name, hospital_number")
+    .select(withCryptoColumns("id, full_name, hospital_number"))
     .eq("location_type", "icu")
     .in("status", ["admitted", "referred"])
     .ilike("bed", bed.trim());
   if (excludeId) q = q.neq("id", excludeId);
   const { data, error } = await q.limit(1);
   if (error) throw safeDbError(error);
-  const other = data?.[0];
+  const other = data?.[0] ? decryptPatientRow(data[0] as Record<string, unknown>) : null;
   if (other) {
-    const who = other.full_name ?? other.hospital_number ?? "another patient";
+    const who = (other.full_name as string | null) ?? (other.hospital_number as string | null) ?? "another patient";
     throw new Error(
       `Bed ${bed} is already occupied by ${who}. Move or discharge them first.`,
     );
@@ -49,7 +56,9 @@ export const listPatients = createServerFn({ method: "GET" })
       .select("*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)")
       .order("updated_at", { ascending: false });
     if (error) throw safeDbError(error);
-    return data;
+    // Ciphertext columns are opened here and stripped from the payload, so no
+    // encrypted or fingerprint value ever leaves the server.
+    return decryptPatientRows(data as Record<string, unknown>[] | null);
   });
 
 export const getPatient = createServerFn({ method: "GET" })
@@ -62,7 +71,7 @@ export const getPatient = createServerFn({ method: "GET" })
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw safeDbError(error);
-    return patient;
+    return patient ? decryptPatientRow(patient as Record<string, unknown>) : patient;
   });
 
 export const createPatient = createServerFn({ method: "POST" })
@@ -79,7 +88,11 @@ export const createPatient = createServerFn({ method: "POST" })
     }
     const { data: row, error } = await context.supabase
       .from("patients")
-      .insert({ ...cleaned, created_by: context.userId, updated_by: context.userId } as never)
+      .insert(encryptPatientPayload({
+        ...cleaned,
+        created_by: context.userId,
+        updated_by: context.userId,
+      }) as never)
       .select()
       .single();
     if (error) throw safeDbError(error);
@@ -90,9 +103,11 @@ export const createPatient = createServerFn({ method: "POST" })
       action: "insert",
       source: "app",
       actor: { id: context.userId, email: (context.claims.email as string) ?? null },
+      // Audit keeps the stored (encrypted) shape — the trail must not become a
+      // plaintext copy of the record.
       after: row as Record<string, unknown>,
     });
-    return row;
+    return decryptPatientRow(row as Record<string, unknown>);
   });
 
 export const updatePatient = createServerFn({ method: "POST" })
@@ -136,6 +151,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readErr) throw safeDbError(readErr);
     if (!current) throw new Error("Patient not found");
+    const currentPlain = decryptPatientRow(current as Record<string, unknown>);
 
     // Optimistic concurrency — block overwriting a newer change from either app.
     if (expected_updated_at && current.updated_at !== expected_updated_at) {
@@ -146,7 +162,7 @@ export const updatePatient = createServerFn({ method: "POST" })
 
     // Validate the lifecycle transition + per-status required fields against
     // the effective row (current values overlaid with the incoming changes).
-    const merged = { ...current, ...clean(rest) };
+    const merged = { ...currentPlain, ...clean(rest) };
     validatePatientState(merged, current.status as PatientStatus);
 
     // After merging, reject moves that would put two active patients in the
@@ -162,7 +178,10 @@ export const updatePatient = createServerFn({ method: "POST" })
 
     // Auto-stamp the "ready for the ward" transition so the ward-wait timer
     // is measured from a single trusted server clock, not the client's.
-    const patch: Record<string, unknown> = { ...clean(rest), updated_by: context.userId };
+    const patch: Record<string, unknown> = encryptPatientPayload({
+      ...clean(rest),
+      updated_by: context.userId,
+    });
     if (Object.prototype.hasOwnProperty.call(rest, "wardable")) {
       const wasWardable = current.wardable === true;
       const nextWardable = (rest as { wardable?: boolean }).wardable === true;
@@ -200,7 +219,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       after: row as Record<string, unknown>,
       actor,
     });
-    return row;
+    return decryptPatientRow(row as Record<string, unknown>);
   });
 
 export const deletePatient = createServerFn({ method: "POST" })
@@ -254,7 +273,12 @@ export const getPatientFieldChanges = createServerFn({ method: "GET" })
       .order("changed_at", { ascending: false })
       .limit(100);
     if (error) throw safeDbError(error);
-    return rows ?? [];
+    // Stored values are ciphertext for encrypted fields; open them for display.
+    return (rows ?? []).map((r) => ({
+      ...r,
+      old_value: decryptFieldSafe(r.old_value),
+      new_value: decryptFieldSafe(r.new_value),
+    }));
   });
 
 // Unit-wide recent field changes across every patient, for the dashboard
