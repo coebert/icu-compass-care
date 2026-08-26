@@ -67,9 +67,13 @@ function stripJpegMetadata(bytes: Uint8Array): { bytes: Uint8Array; stripped: st
       marker = bytes[i + 1]!;
     }
     if (marker === 0xd9) {
-      keep.push([i, bytes.length]);
+      // End of image: keep the EOI marker only. Anything appended after it is
+      // not image data and is a free-text channel, so it is discarded.
+      if (i + 2 < bytes.length) stripped.push("JPEG:TRAILER");
+      keep.push([i, i + 2]);
       break;
     }
+
     if (marker === 0xda) {
       // Start of scan: the rest is entropy-coded image data, keep verbatim.
       keep.push([i, bytes.length]);
