@@ -3,6 +3,23 @@ import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdmin } from "@/lib/roles.server";
+import { decryptFieldSafe } from "@/lib/crypto.server";
+
+// Saved snapshots are stored encrypted as { enc: "enc:v1:..." }. Legacy rows
+// captured before encryption hold the plain array, so both shapes are read.
+function readSnapshot(snapshot: unknown): unknown[] {
+  if (Array.isArray(snapshot)) return snapshot;
+  const enc = (snapshot as { enc?: unknown } | null)?.enc;
+  if (typeof enc !== "string") return [];
+  const plain = decryptFieldSafe(enc);
+  if (!plain) return [];
+  try {
+    const parsed: unknown = JSON.parse(plain);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export type HandoverVersionSummary = {
   id: string;
@@ -62,11 +79,28 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
       .order("shift", { ascending: false })
       .range(fromIdx, toIdx);
 
+    // The search index is encrypted, so a text query is resolved by decrypting
+    // the (small) set of version indexes and restricting to the matching ids.
     const q = data.q?.trim();
     if (q) {
-      // Escape PostgREST ilike wildcards so a literal search stays literal.
-      const safe = q.replace(/[%,]/g, " ").trim();
-      if (safe) query = query.ilike("search_text", `%${safe}%`);
+      let idQuery = context.supabase
+        .from("handover_versions")
+        .select("id, search_text")
+        .limit(2000);
+      if (data.from) idQuery = idQuery.gte("local_date", data.from);
+      if (data.to) idQuery = idQuery.lte("local_date", data.to);
+      const { data: idxRows, error: idxErr } = await idQuery;
+      if (idxErr) throw safeDbError(idxErr, "search saved handover versions");
+      const needle = q.toLowerCase();
+      const matching = (idxRows ?? [])
+        .filter((r) =>
+          (decryptFieldSafe(r.search_text) ?? "").toLowerCase().includes(needle),
+        )
+        .map((r) => r.id);
+      if (matching.length === 0) {
+        return { rows: [], total: 0, page, pageSize, pageCount: 1 };
+      }
+      query = query.in("id", matching);
     }
     if (data.from) query = query.gte("local_date", data.from);
     if (data.to) query = query.lte("local_date", data.to);
@@ -101,7 +135,11 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) throw safeDbError(error, "load the saved handover version");
     if (!row) throw new Error("Saved handover version not found");
-    return row;
+    // Hand the readable snapshot back so the saved handover can be re-rendered,
+    // and never return the encrypted search index.
+    const { search_text, ...rest } = row as Record<string, unknown>;
+    void search_text;
+    return { ...rest, snapshot: readSnapshot(row.snapshot) } as typeof row;
   });
 
 // Admin-only manual capture, so a version can be saved on demand without waiting

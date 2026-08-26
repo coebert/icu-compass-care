@@ -17,6 +17,7 @@ export type { ShiftKey } from "@/lib/handover-shift";
 // Mirrors the select used by listPatients so a saved version can be re-rendered
 // into the exact same handover PDF later.
 import { decryptPatientRows } from "@/lib/patient-crypto.server";
+import { encryptField } from "@/lib/crypto.server";
 
 const PATIENT_SELECT =
   "*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)";
@@ -108,8 +109,11 @@ export async function captureHandoverSnapshot(
         captured_at: now.toISOString(),
         label,
         patient_count: rows.length,
-        snapshot: rows as unknown as never,
-        search_text: buildSearchText(rows),
+        // Saved handovers are a full copy of the clinical record, so the
+        // payload and its search index are stored as AES-256-GCM ciphertext
+        // rather than readable jsonb/text.
+        snapshot: { enc: encryptField(JSON.stringify(rows)) } as unknown as never,
+        search_text: encryptField(buildSearchText(rows)) ?? "",
       },
       { onConflict: "local_date,shift" },
     )
