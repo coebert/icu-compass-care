@@ -13,6 +13,8 @@ import { callGatewayChat } from "@/lib/ai-gateway.server";
 import { hourlyCellSchema, type HourlyCell } from "@/lib/chart-days.functions";
 import {
   buildChartExtractionMessages,
+  chartExtractInputSchema,
+  parseChartModelOutput,
   scrubExtractionIdentifiers,
 } from "@/lib/chart-prompt.server";
 
@@ -23,18 +25,6 @@ import {
  * upstream call and is dropped when this handler returns. Callers are
  * responsible for clearing the client-side buffer once the response arrives.
  */
-
-const MAX_PAGES = 3;
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6 MB after client-side downscale
-
-const dataUrlSchema = z
-  .string()
-  .startsWith("data:image/")
-  .refine((s) => {
-    // Rough byte cap so a hostile client can't blow up the worker memory.
-    const approxBytes = (s.length * 3) / 4;
-    return approxBytes <= MAX_IMAGE_BYTES;
-  }, `Each page must be under ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB after downscale.`);
 
 export const chartExtractionSchema = z.object({
   chart_date: z.string().nullish(),
@@ -89,17 +79,7 @@ function todayISO(): string {
 export const extractChart = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { patientId?: string; chartDate?: string; pages: string[] }) =>
-    z
-      .object({
-        patientId: z.string().uuid().optional(),
-        chartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-        pages: z.array(dataUrlSchema).min(1).max(MAX_PAGES),
-      })
-      // .strict(): any extra key a caller invents (name, mrn, notes, dob...) is
-      // rejected outright rather than silently stripped, so no unvetted free
-      // text can ever reach the prompt builder below.
-      .strict()
-      .parse(input),
+    chartExtractInputSchema.parse(input),
   )
   .handler(async ({ context, data }) => {
     const chartDate = data.chartDate ?? todayISO();
@@ -196,15 +176,7 @@ export const extractChart = createServerFn({ method: "POST" })
       throw err instanceof Error ? err : new Error("Extraction failed");
     }
 
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(content);
-    } catch {
-      // Try to salvage JSON if the model wrapped it (defensive).
-      const match = content.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error("Model returned unparseable output");
-      parsedJson = JSON.parse(match[0]);
-    }
+    const parsedJson: unknown = parseChartModelOutput(content);
 
     const parsed = chartExtractionSchema.safeParse(parsedJson);
     if (!parsed.success) {
