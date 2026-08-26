@@ -53,10 +53,14 @@ export async function writeAudit(
     actor: AuditActor;
     before?: Record<string, unknown> | null;
     after?: Record<string, unknown> | null;
+    // Encrypted columns cannot be diffed byte-wise (each write gets a fresh
+    // nonce), so callers holding the readable values pass the field list in.
+    changedFields?: string[];
   },
 ): Promise<void> {
   const changed =
-    params.action === "update" ? diffFields(params.before, params.after) : [];
+    params.changedFields ??
+    (params.action === "update" ? diffFields(params.before, params.after) : []);
   try {
     await client.from("record_audit").insert({
       entity: params.entity,
@@ -132,9 +136,15 @@ export async function writePatientFieldChanges(
     before: Record<string, unknown> | null | undefined;
     after: Record<string, unknown> | null | undefined;
     actor: AuditActor;
+    // Optional sealing hook: values of `sealedColumns` are stored encrypted so
+    // the audit trail never becomes a readable copy of the clinical record.
+    sealValue?: (value: string | null) => string | null;
+    sealedColumns?: ReadonlySet<string>;
   },
 ): Promise<void> {
   const { before, after } = params;
+  const seal = (column: string, value: string | null): string | null =>
+    params.sealValue && params.sealedColumns?.has(column) ? params.sealValue(value) : value;
   if (!before || !after) return;
   const rows = TRACKED_PATIENT_FIELDS.flatMap(({ column, label }) => {
     const oldVal = toStr(before[column]);
@@ -144,8 +154,8 @@ export async function writePatientFieldChanges(
       {
         patient_id: params.patientId,
         field_name: label,
-        old_value: oldVal,
-        new_value: newVal,
+        old_value: seal(column, oldVal),
+        new_value: seal(column, newVal),
         changed_by: params.actor.id ?? null,
         changed_by_email: params.actor.email ?? null,
       },

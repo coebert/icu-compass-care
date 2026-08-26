@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
+import { diffFields, writeAudit, writePatientFieldChanges } from "@/lib/audit";
 import {
   patientInput,
   clean,
@@ -17,7 +17,10 @@ import {
   encryptPatientPayload,
   withCryptoColumns,
 } from "@/lib/patient-crypto.server";
-import { decryptFieldSafe } from "@/lib/crypto.server";
+import { decryptFieldSafe, encryptField } from "@/lib/crypto.server";
+import { PATIENT_ENCRYPTED_FIELDS } from "@/lib/patient-crypto.server";
+
+const SEALED_COLUMNS: ReadonlySet<string> = new Set<string>(PATIENT_ENCRYPTED_FIELDS);
 
 // Reject bed collisions before writing so two active patients can't share a
 // bed via the form, drag-and-drop, or the bridge write path. `excludeId` skips
@@ -213,13 +216,17 @@ export const updatePatient = createServerFn({ method: "POST" })
       before: current as Record<string, unknown>,
       after: row as Record<string, unknown>,
     });
+    const rowPlain = decryptPatientRow(row as Record<string, unknown>);
     await writePatientFieldChanges(supabaseAdmin, {
       patientId: row.id,
-      before: current as Record<string, unknown>,
-      after: row as Record<string, unknown>,
+      before: currentPlain,
+      after: rowPlain,
       actor,
+      // Diff on readable values, but store the values sealed.
+      sealValue: (v) => encryptField(v),
+      sealedColumns: SEALED_COLUMNS,
     });
-    return decryptPatientRow(row as Record<string, unknown>);
+    return rowPlain;
   });
 
 export const deletePatient = createServerFn({ method: "POST" })
