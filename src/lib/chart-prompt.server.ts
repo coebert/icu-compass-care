@@ -7,6 +7,8 @@
  * be interpolated into the prompt, and no identifier is ever accepted back.
  */
 
+import { z } from "zod";
+
 export const CHART_SYSTEM_PROMPT = `You are a clinical data-extraction assistant reading a photograph of the Radnor Critical Care Unit 24-hour paper chart used at Salisbury District Hospital.
 
 Return ONE JSON object matching the caller's schema. Use null for anything illegible or blank. NEVER invent values.
@@ -89,4 +91,48 @@ export function scrubExtractionIdentifiers<
       (p) => p !== "initials" && p !== "hospital_number",
     ),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Upload validation + model-output parsing.
+//
+// Kept here (not in the server-fn file) so the whole upload → outbound →
+// extraction pipeline can be exercised in tests without a request context.
+// See tests/chart-extract-pipeline.test.ts.
+// ---------------------------------------------------------------------------
+
+export const MAX_CHART_PAGES = 3;
+export const MAX_CHART_IMAGE_BYTES = 6 * 1024 * 1024; // 6 MB after client-side downscale
+
+const chartPageSchema = z
+  .string()
+  .startsWith("data:image/")
+  .refine((s) => {
+    // Rough byte cap so a hostile client can't blow up the worker memory.
+    const approxBytes = (s.length * 3) / 4;
+    return approxBytes <= MAX_CHART_IMAGE_BYTES;
+  }, `Each page must be under ${Math.round(MAX_CHART_IMAGE_BYTES / 1024 / 1024)} MB after downscale.`);
+
+/**
+ * Upload payload. `.strict()` means any extra key a caller invents
+ * (name, mrn, dob, notes, prompt...) is rejected outright rather than silently
+ * stripped, so no unvetted free text can reach the prompt builder.
+ */
+export const chartExtractInputSchema = z
+  .object({
+    patientId: z.string().uuid().optional(),
+    chartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    pages: z.array(chartPageSchema).min(1).max(MAX_CHART_PAGES),
+  })
+  .strict();
+
+/** Parse the model's reply, salvaging a JSON object if it wrapped it in prose. */
+export function parseChartModelOutput(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Model returned unparseable output");
+    return JSON.parse(match[0]);
+  }
 }
