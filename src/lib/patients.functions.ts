@@ -15,6 +15,7 @@ import {
   decryptPatientRow,
   decryptPatientRows,
   encryptPatientPayload,
+  patientLookupHash,
   withCryptoColumns,
 } from "@/lib/patient-crypto.server";
 import { decryptFieldSafe, encryptField } from "@/lib/crypto.server";
@@ -427,22 +428,26 @@ export const findPreviousAdmissions = createServerFn({ method: "GET" })
     let query = context.supabase
       .from("patients")
       .select(
-        "id, full_name, hospital_number, age, status, admission_date, discharge_date, discharge_destination, date_of_death, past_medical_history, allergies, tep_in_place, tep_details, tep_exclusions, dnacpr_decision, dnacpr_details, dnacpr_date, updated_at",
+        withCryptoColumns(
+          "id, full_name, hospital_number, age, status, admission_date, discharge_date, discharge_destination, date_of_death, past_medical_history, allergies, tep_in_place, tep_details, tep_exclusions, dnacpr_decision, dnacpr_details, dnacpr_date, updated_at",
+        ),
       )
       .in("status", ["discharged", "died"])
       .order("updated_at", { ascending: false })
       .limit(5);
 
+    // Identifiers are encrypted, so matching uses the keyed-hash fingerprint
+    // column (HMAC of the normalised value) rather than a text comparison.
     if (mrn) {
-      query = query.ilike("hospital_number", mrn);
+      query = query.eq("hospital_number_hash", patientLookupHash(mrn) as string);
     } else if (name && age != null) {
-      query = query.ilike("full_name", name).eq("age", age);
+      query = query.eq("full_name_hash", patientLookupHash(name) as string).eq("age", age);
     }
     if (data.exclude_id) query = query.neq("id", data.exclude_id);
 
     const { data: rows, error } = await query;
     if (error) throw safeDbError(error);
-    return rows ?? [];
+    return decryptPatientRows(rows as unknown as Array<Record<string, unknown>> | null);
   });
 
 
