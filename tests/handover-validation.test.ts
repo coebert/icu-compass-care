@@ -43,12 +43,12 @@ describe("handover critical-field validation", () => {
     {
       name: "missing patient name",
       patient: { ...complete, full_name: "" },
-      expected: ["Patient name"],
+      expected: ["Patient initials"],
     },
     {
       name: "whitespace-only name counts as missing",
       patient: { ...complete, full_name: "   " },
-      expected: ["Patient name"],
+      expected: ["Patient initials"],
     },
     {
       name: "null hospital number",
@@ -85,7 +85,7 @@ describe("handover critical-field validation", () => {
         current_admission: "",
       },
       expected: [
-        "Patient name",
+        "Patient initials",
         "Hospital number",
         "Location (ward/bed)",
         "Current admission",
@@ -95,7 +95,7 @@ describe("handover critical-field validation", () => {
       name: "empty object → all fields missing",
       patient: {},
       expected: [
-        "Patient name",
+        "Patient initials",
         "Hospital number",
         "Location (ward/bed)",
         "Current admission",
