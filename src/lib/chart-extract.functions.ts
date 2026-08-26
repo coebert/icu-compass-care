@@ -76,7 +76,7 @@ Rules:
 - Numbers only in numeric fields (mL, integers unless a decimal is written).
 - Times use 24-hour clock. "01:00" is hour 0-index 1, "00:00" is hour 0 (midnight after the previous day).
 - Only include hourly rows that have at least one non-null value.
-- Do NOT include patient name, DOB, address, or NHS number. Return ONLY hospital_number (MRN) and initials (up to 3 uppercase letters from the given name and surname).
+- The patient identity sticker has been blacked out before this image was sent. Do NOT return ANY patient identifier: no name, initials, DOB, address, NHS number or hospital number. Never attempt to read or reconstruct redacted areas. Return null for hospital_number and initials always — the clinician enters those in the app.
 - The chart_date is the date written at the top of the chart (YYYY-MM-DD).
 - Investigations: emit one row per tick/entry in the "Investigations" list (CXR / Scans / 12 Lead ECG / Blood Cultures / Urine MC+S / Sputum / Swabs / MRSA Screen / Other). Set findings to any handwritten result note or null.
 - Microbiology: one row per specimen line with a handwritten result.
