@@ -32,7 +32,7 @@ export type PreviousAdmission = {
   discharge_destination: string | null;
   date_of_death: string | null;
   past_medical_history: string | null;
-  allergies: unknown;
+  allergies: Array<Record<string, string | null>> | null;
   tep_in_place: boolean | null;
   tep_details: string | null;
   tep_exclusions: string[] | null;
