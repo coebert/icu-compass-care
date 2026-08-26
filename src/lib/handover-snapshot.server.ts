@@ -16,6 +16,8 @@ export type { ShiftKey } from "@/lib/handover-shift";
 
 // Mirrors the select used by listPatients so a saved version can be re-rendered
 // into the exact same handover PDF later.
+import { decryptPatientRows } from "@/lib/patient-crypto.server";
+
 const PATIENT_SELECT =
   "*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)";
 
@@ -92,7 +94,9 @@ export async function captureHandoverSnapshot(
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
 
-  const rows = (patients ?? []) as Array<Record<string, unknown>>;
+  // Snapshots are rendered later as PDFs, so store readable values — never
+  // ciphertext — and never the fingerprint columns.
+  const rows = decryptPatientRows(patients as Array<Record<string, unknown>> | null);
   const label = labelFor(parts, shift);
 
   const { data: inserted, error: upErr } = await admin

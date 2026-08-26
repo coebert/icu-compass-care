@@ -1,3 +1,4 @@
+import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { DEFAULT_BEDS, normalizeBed, type BedSlot } from "@/lib/icu-beds";
 
 export type BridgePatient = Record<string, unknown> & {
@@ -42,6 +43,7 @@ export async function buildBridgeBedBoard(supabaseAdmin: any) {
     .in("status", ["admitted", "referred"])
     .order("updated_at", { ascending: false });
   if (error) throw error;
+  const decrypted = decryptPatientRows(data as Array<Record<string, unknown>> | null);
 
   const icu = (data ?? []) as BridgePatient[];
 
