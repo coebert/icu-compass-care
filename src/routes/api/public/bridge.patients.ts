@@ -191,6 +191,11 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
             actor: auth.actor,
             before: current as Record<string, unknown>,
             after: data as Record<string, unknown>,
+            // Ciphertext can't be diffed byte-wise; compare readable values.
+            changedFields: diffFields(
+              decryptPatientRow(current as Record<string, unknown>),
+              decryptPatientRow(data as Record<string, unknown>),
+            ),
           });
           await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
           return json({ patient: decryptPatientRow(data as Record<string, unknown>) });
@@ -213,7 +218,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           after: data as Record<string, unknown>,
         });
         await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
-        return json({ patient: data });
+        return json({ patient: decryptPatientRow(data as Record<string, unknown>) });
       },
     },
   },

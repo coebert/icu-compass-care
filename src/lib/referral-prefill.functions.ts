@@ -1,5 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import {
+  decryptPatientRow,
+  encryptPatientPayload,
+  withCryptoColumns,
+} from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
@@ -39,12 +44,15 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
     const { data: patient, error: pErr } = await context.supabase
       .from("patients")
       .select(
-        "current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
+        withCryptoColumns(
+          "current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
+        ),
       )
       .eq("id", data.patient_id)
       .maybeSingle();
     if (pErr) throw safeDbError(pErr);
     if (!patient) throw new Error("Patient not found");
+    const patientPlain = decryptPatientRow(patient as unknown as Record<string, unknown>);
 
     const { data: ref, error: rErr } = await context.supabase
       .from("referrals")

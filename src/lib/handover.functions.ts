@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { decryptPatientRows, withCryptoColumns } from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { missingCriticalFields } from "@/lib/handover-validation";
@@ -26,11 +27,18 @@ export const validateHandoverExport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: rows, error } = await context.supabase
       .from("patients")
-      .select("id, full_name, hospital_number, ward, bed, current_admission")
+      .select(
+        withCryptoColumns("id, full_name, hospital_number, ward, bed, current_admission"),
+      )
       .in("id", data.patientIds);
     if (error) throw safeDbError(error);
 
-    const found = new Map((rows ?? []).map((r) => [r.id, r]));
+    const found = new Map(
+      decryptPatientRows(rows as unknown as Array<Record<string, unknown>> | null).map((r) => [
+        r.id as string,
+        r as { id: string; full_name?: string | null },
+      ]),
+    );
 
     // Any requested id that RLS/deletion hides is treated as an incomplete
     // record so we never silently export a patient we cannot verify.
