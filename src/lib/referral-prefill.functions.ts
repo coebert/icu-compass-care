@@ -9,7 +9,7 @@ import {
 } from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { writeAudit, writePatientFieldChanges } from "@/lib/audit";
+import { diffFields, writeAudit, writePatientFieldChanges } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 import {
   computeReferralPrefill,

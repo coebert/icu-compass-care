@@ -6,7 +6,7 @@ import {
 } from "@/lib/patient-crypto.server";
 import { z } from "zod";
 import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp, consumeWriteNonce } from "@/lib/api-bridge.server";
-import { writeAudit } from "@/lib/audit";
+import { diffFields, writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
 
