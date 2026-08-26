@@ -8,8 +8,10 @@ import { ShieldCheck, Undo2, ChevronLeft, ChevronRight, Trash2, Check, AlertTria
 /**
  * Mandatory pre-upload redaction step. For every page the reviewer must:
  *   1. Drag at least one box over the sticker, AND
- *   2. Tick "Name covered" AND "DOB covered" to confirm the two mandatory
- *      identifiers are no longer visible.
+ *   2. Tick "Name covered", "DOB covered" AND "Hospital number covered" to
+ *      confirm every patient identifier is no longer visible. NO patient-
+ *      identifiable data may leave the device: the extractor (and the vision
+ *      model behind it) only ever sees the clinical grid.
  * Only then does the page count as "ready" — the parent uses `isRedactionReady`
  * to gate the Send-to-extractor button. Boxes are baked into the canvas as a
  * heavy Gaussian blur (configurable radius) with an optional "REDACTED"
@@ -36,6 +38,7 @@ export type RedactionPage = {
   boxes: { x: number; y: number; w: number; h: number }[]; // in image coordinates
   nameConfirmed: boolean;
   dobConfirmed: boolean;
+  mrnConfirmed: boolean;
 };
 
 export async function loadPage(dataUrl: string): Promise<RedactionPage> {
@@ -52,6 +55,7 @@ export async function loadPage(dataUrl: string): Promise<RedactionPage> {
     boxes: [],
     nameConfirmed: false,
     dobConfirmed: false,
+    mrnConfirmed: false,
   };
 }
 
@@ -60,12 +64,14 @@ export function pageCoverageStatus(p: RedactionPage): {
   boxes: number;
   nameConfirmed: boolean;
   dobConfirmed: boolean;
+  mrnConfirmed: boolean;
 } {
   return {
-    ready: p.boxes.length > 0 && p.nameConfirmed && p.dobConfirmed,
+    ready: p.boxes.length > 0 && p.nameConfirmed && p.dobConfirmed && p.mrnConfirmed,
     boxes: p.boxes.length,
     nameConfirmed: p.nameConfirmed,
     dobConfirmed: p.dobConfirmed,
+    mrnConfirmed: p.mrnConfirmed,
   };
 }
 
@@ -236,6 +242,7 @@ export function ChartRedactor({
         boxes: [...p.boxes, preview],
         nameConfirmed: false,
         dobConfirmed: false,
+        mrnConfirmed: false,
       }));
     }
     drag.current = null;
@@ -457,6 +464,7 @@ export function ChartRedactor({
                 boxes: p.boxes.slice(0, -1),
                 nameConfirmed: false,
                 dobConfirmed: false,
+                mrnConfirmed: false,
               }))
             }
           >
@@ -467,7 +475,13 @@ export function ChartRedactor({
             variant="ghost"
             disabled={page.boxes.length === 0}
             onClick={() =>
-              updatePage((p) => ({ ...p, boxes: [], nameConfirmed: false, dobConfirmed: false }))
+              updatePage((p) => ({
+                ...p,
+                boxes: [],
+                nameConfirmed: false,
+                dobConfirmed: false,
+                mrnConfirmed: false,
+              }))
             }
           >
             <Trash2 className="mr-1 h-3.5 w-3.5" /> Clear
@@ -479,7 +493,7 @@ export function ChartRedactor({
         className={`rounded border p-2 text-xs ${
           page.boxes.length === 0
             ? "border-amber-500/50 bg-amber-500/5"
-            : page.nameConfirmed && page.dobConfirmed
+            : page.nameConfirmed && page.dobConfirmed && page.mrnConfirmed
               ? "border-emerald-500/50 bg-emerald-500/5"
               : "border-amber-500/50 bg-amber-500/5"
         }`}
@@ -503,6 +517,18 @@ export function ChartRedactor({
               onChange={(e) => updatePage((p) => ({ ...p, dobConfirmed: e.target.checked }))}
             />
             <span>Patient <strong>date of birth</strong> is fully covered</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={page.mrnConfirmed}
+              disabled={page.boxes.length === 0}
+              onChange={(e) => updatePage((p) => ({ ...p, mrnConfirmed: e.target.checked }))}
+            />
+            <span>
+              <strong>Hospital number</strong> (and any NHS number / address label) is fully
+              covered
+            </span>
           </label>
         </div>
         {page.boxes.length === 0 && (
@@ -542,6 +568,7 @@ export function ChartRedactor({
                   <span className="tabular-nums opacity-70">
                     {s.boxes}b · {s.nameConfirmed ? "N" : "n"}
                     {s.dobConfirmed ? "D" : "d"}
+                    {s.mrnConfirmed ? "H" : "h"}
                   </span>
                 </button>
               </li>

@@ -50,11 +50,18 @@ export const sexSchema = z.preprocess(
 );
 
 export const patientInput = z.object({
+  // Initials ONLY. This app must never hold a patient's full name, so the
+  // 4+ letter-run rule blocks anything that looks like a word/name. The same
+  // rule is enforced in the database (patients_full_name_initials_only).
   full_name: z
-    .string({ required_error: "Initials / name is required." })
+    .string({ required_error: "Patient initials are required." })
     .trim()
-    .min(1, "Initials / name is required.")
-    .max(10, "Max 10 characters."),
+    .min(1, "Patient initials are required.")
+    .max(10, "Max 10 characters.")
+    .refine(
+      (v) => !/[A-Za-z]{4,}/.test(v),
+      "Initials only — do not enter a full name (e.g. use J.S.).",
+    ),
   hospital_number: z
     .string()
     .trim()

@@ -196,10 +196,11 @@ export function ScanChartDialog({
             <Camera className="h-4 w-4" /> Scan Radnor chart — {chartDate}
           </DialogTitle>
           <DialogDescription>
-            You will be asked to blur out the patient name and date of birth before the
-            image is sent for extraction. The photo is discarded immediately after; only
-            the structured values are stored, and only hospital number and initials
-            identify the record.
+            You must blur out the whole patient identity sticker — name, date of birth
+            and hospital number — before the image is sent for extraction. No
+            patient-identifiable data leaves this device: the extractor only ever sees
+            the clinical grid. The photo is discarded immediately after, and you confirm
+            the patient yourself on the review screen.
           </DialogDescription>
         </DialogHeader>
 
@@ -207,7 +208,7 @@ export function ScanChartDialog({
         {stage === "pick" && (
           <div className="space-y-4">
             <div className="rounded border border-dashed p-4 text-sm text-muted-foreground">
-              <p className="mb-2">Capture each page of the paper chart (max 3 pages). The live camera grabs frames directly from the device — no photo is saved to your camera roll. You will blur the patient name and date of birth on the next screen before anything is sent to the extractor.</p>
+              <p className="mb-2">Capture each page of the paper chart (max 3 pages). The live camera grabs frames directly from the device — no photo is saved to your camera roll. On the next screen you blur the entire identity sticker (name, date of birth and hospital number) before anything is sent to the extractor.</p>
               <p className="flex items-center gap-1 text-xs">
                 <ShieldCheck className="h-3.5 w-3.5" /> Image is not stored, uploaded to
                 any bucket, or logged.
@@ -277,7 +278,7 @@ export function ScanChartDialog({
                 onClick={() => {
                   if (!isRedactionReady(redactPages)) {
                     setError(
-                      "Every page must have at least one black box AND both 'name covered' and 'DOB covered' ticked before sending.",
+                      "Every page must have at least one black box AND 'name covered', 'DOB covered' and 'hospital number covered' all ticked before sending.",
                     );
                     return;
                   }
@@ -288,7 +289,7 @@ export function ScanChartDialog({
                 title={
                   isRedactionReady(redactPages)
                     ? "Send the redacted image to the extractor"
-                    : "Confirm name and DOB are covered on every page first"
+                    : "Confirm name, DOB and hospital number are covered on every page first"
                 }
               >
                 Send redacted image to extractor
@@ -458,7 +459,12 @@ function ReviewPanel({
       </div>
 
       <div className="rounded border p-3 text-sm">
-        <p className="mb-2 font-medium">Patient (from chart sticker)</p>
+        <p className="mb-2 font-medium">Patient identifiers (type these from the paper chart)</p>
+        <p className="mb-2 text-xs text-muted-foreground">
+          The sticker was redacted before extraction, so no identifier was read from the
+          image. Enter them here to match the chart to a patient record, or use the
+          picker below.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs">
             <span className="flex items-center gap-1">

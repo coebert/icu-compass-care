@@ -76,7 +76,7 @@ Rules:
 - Numbers only in numeric fields (mL, integers unless a decimal is written).
 - Times use 24-hour clock. "01:00" is hour 0-index 1, "00:00" is hour 0 (midnight after the previous day).
 - Only include hourly rows that have at least one non-null value.
-- Do NOT include patient name, DOB, address, or NHS number. Return ONLY hospital_number (MRN) and initials (up to 3 uppercase letters from the given name and surname).
+- The patient identity sticker has been blacked out before this image was sent. Do NOT return ANY patient identifier: no name, initials, DOB, address, NHS number or hospital number. Never attempt to read or reconstruct redacted areas. Return null for hospital_number and initials always — the clinician enters those in the app.
 - The chart_date is the date written at the top of the chart (YYYY-MM-DD).
 - Investigations: emit one row per tick/entry in the "Investigations" list (CXR / Scans / 12 Lead ECG / Blood Cultures / Urine MC+S / Sputum / Swabs / MRSA Screen / Other). Set findings to any handwritten result note or null.
 - Microbiology: one row per specimen line with a handwritten result.
@@ -87,7 +87,7 @@ Rules:
 Confidence reporting (REQUIRED):
 - overall_confidence: your overall confidence 0-1 that the whole extraction is correct.
 - low_confidence: an array of dotted field paths you are uncertain about (illegible handwriting, ambiguous digits, smudges, unclear ticks). Use these path formats:
-    "hospital_number", "initials", "chart_date", "balance_24h_ml", "notes"
+    "chart_date", "balance_24h_ml", "notes"
     "assessments.<system>"  e.g. "assessments.resp"
     "hourly[<hour>].<field>"  e.g. "hourly[13].hr", "hourly[7].sbp"
     "investigations[<index>].<field>"  e.g. "investigations[2].findings"
@@ -201,12 +201,18 @@ export const extractChart = createServerFn({ method: "POST" })
       throw new Error(`Extraction schema mismatch: ${parsed.error.issues[0]?.message ?? "unknown"}`);
     }
 
-    // Scrub any accidental PII fields the model may have hallucinated.
+    // Belt-and-braces: no patient identifier is ever accepted back from the
+    // model. The identity sticker is redacted client-side before upload, so any
+    // identifier here could only be a hallucination or a read of an
+    // insufficiently covered sticker. Either way it is discarded — the
+    // clinician types the MRN/initials into the app on the review screen.
     const scrubbed: ChartExtraction = {
       ...parsed.data,
-      // Preserve only initials + MRN. Everything else is dropped.
-      initials: sanitiseInitials(parsed.data.initials),
-      hospital_number: sanitiseHospitalNumber(parsed.data.hospital_number),
+      initials: null,
+      hospital_number: null,
+      low_confidence: (parsed.data.low_confidence ?? []).filter(
+        (p) => p !== "initials" && p !== "hospital_number",
+      ),
     };
 
     // Success audit (still no image bytes).

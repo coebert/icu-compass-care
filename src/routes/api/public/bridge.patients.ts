@@ -15,7 +15,15 @@ const patientUpsert = z.object({
   // Optimistic concurrency: the updated_at the caller last saw. When present on
   // an update, the write is rejected (409) if the record changed since then.
   expected_updated_at: z.string().optional(),
-  full_name: z.string().trim().min(1).max(200),
+  // This app stores patient INITIALS ONLY. The partner system may still send a
+  // longer name, so anything that isn't already initials is reduced to initials
+  // here, before it ever reaches the database (which also enforces the rule).
+  full_name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .transform((v) => toInitials(v)),
   hospital_number: z.string().trim().max(50).optional().nullable(),
   age: z.coerce.number().int().min(0).max(130).optional().nullable(),
   location_type: z.enum(["icu", "outlier"]).optional(),
@@ -203,3 +211,22 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
     },
   },
 });
+
+/**
+ * Reduce any free-text name to initials (max 3, dot-separated), e.g.
+ * "John Smith" -> "J.S.". Already-initialised input ("J.S.", "JS") is
+ * preserved. Mirrors public.to_initials() in the database.
+ */
+function toInitials(v: string): string {
+  const raw = v.trim();
+  // Already compact and word-free: treat as initials as-is.
+  if (raw.length <= 10 && !/[A-Za-z]{4,}/.test(raw)) return raw;
+  const letters = raw
+    .replace(/[^A-Za-z]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((w) => w[0]!.toUpperCase());
+  return letters.length ? `${letters.join(".")}.` : "X";
+}

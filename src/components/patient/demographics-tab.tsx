@@ -105,11 +105,17 @@ export function DemographicsTab({ patient }: { patient: Patient }) {
           <EditableField
             patientId={patientId}
             field="full_name"
-            label="Initials / name *"
+            label="Initials *"
             value={patient.full_name}
             placeholder="e.g. J.S."
             required
-            validate={(v) => (v.length > 10 ? "Max 10 characters." : null)}
+            validate={(v) => {
+              if (v.length > 10) return "Max 10 characters.";
+              // Initials only — full names are never stored by this app.
+              if (/[A-Za-z]{4,}/.test(v))
+                return "Initials only — do not enter a full name (e.g. use J.S.).";
+              return null;
+            }}
           />
           <EditableField
             patientId={patientId}
