@@ -43,9 +43,10 @@ export async function buildBridgeBedBoard(supabaseAdmin: any) {
     .in("status", ["admitted", "referred"])
     .order("updated_at", { ascending: false });
   if (error) throw error;
-  const decrypted = decryptPatientRows(data as Array<Record<string, unknown>> | null);
 
-  const icu = (data ?? []) as BridgePatient[];
+  const icu = decryptPatientRows(
+    data as Array<Record<string, unknown>> | null,
+  ) as unknown as BridgePatient[];
 
   // Load the admin-editable bed roster; fall back to defaults if empty.
   const { data: bedRows } = await supabaseAdmin
