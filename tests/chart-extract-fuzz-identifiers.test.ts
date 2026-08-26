@@ -219,8 +219,12 @@ describe("chart extraction fuzz: no identifier-bearing string escapes", () => {
         notes: null,
         low_confidence: ["hourly[3].hr"],
         hourly: [{ hour: 3, hr: 88, patient_name: id.fullName }],
-        investigations: [{ kind: "CXR", findings: "R basal atelectasis", mrn: id.mrn }],
-        microbiology: [{ specimen: "Sputum", result: "no growth", nhs_number: id.nhs }],
+        investigations: [
+          { category: "CXR", findings: "R basal atelectasis", mrn: id.mrn },
+        ],
+        microbiology: [
+          { specimen_type: "Sputum", findings: "no growth", nhs_number: id.nhs },
+        ],
       };
 
       const parsed = chartExtractionSchema.safeParse(hostileResponse);
