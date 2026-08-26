@@ -1,3 +1,4 @@
+import { encryptPatientPayload } from "@/lib/patient-crypto.server";
 // Server-only orchestration for the bridge synchronization job.
 //
 // Strategy: PULL-based reconciliation. Each backend independently pulls the
@@ -63,7 +64,9 @@ async function syncPatients(admin: any): Promise<EntitySyncResult> {
       void shared_with_partner;
       void shared_with_partner_at;
       void shared_with_partner_by;
-      const { error: upErr } = await admin.from("patients").upsert(remoteSafe, { onConflict: "id" });
+      const { error: upErr } = await admin
+        .from("patients")
+        .upsert(encryptPatientPayload(remoteSafe), { onConflict: "id" });
       if (upErr) {
         result.skipped++;
         continue;

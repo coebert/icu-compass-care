@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 import { occupantView, requestLimit, type BridgePatient } from "@/lib/bridge-beds";
@@ -22,7 +23,9 @@ export const Route = createFileRoute("/api/public/bridge/bed_transfers_out")({
           .limit(requestLimit(request));
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
 
-        const bed_transfers_out = ((data ?? []) as BridgePatient[]).map((p) => ({
+        const bed_transfers_out = (
+          decryptPatientRows(data as Array<Record<string, unknown>> | null) as unknown as BridgePatient[]
+        ).map((p) => ({
           ...occupantView(p),
           discharge_date: p.discharge_date ?? null,
           discharge_destination: p.discharge_destination ?? null,

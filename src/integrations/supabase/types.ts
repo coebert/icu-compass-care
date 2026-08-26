@@ -429,6 +429,33 @@ export type Database = {
           },
         ]
       }
+      crypto_key_escrow: {
+        Row: {
+          algo: string
+          created_at: string
+          key_id: string
+          note: string | null
+          updated_at: string
+          wrapped_key: string
+        }
+        Insert: {
+          algo?: string
+          created_at?: string
+          key_id: string
+          note?: string | null
+          updated_at?: string
+          wrapped_key: string
+        }
+        Update: {
+          algo?: string
+          created_at?: string
+          key_id?: string
+          note?: string | null
+          updated_at?: string
+          wrapped_key?: string
+        }
+        Relationships: []
+      }
       handover_acknowledgements: {
         Row: {
           ack_by: string | null
@@ -1078,40 +1105,56 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_admission: string | null
+          current_admission_enc: string | null
           current_management: string | null
+          current_management_enc: string | null
           daily_goals: Json
           daily_goals_reviewed_at: string | null
           daily_goals_reviewed_by: string | null
           date_of_death: string | null
           discharge_date: string | null
           discharge_destination: string | null
+          discharge_destination_enc: string | null
           dnacpr_date: string | null
           dnacpr_decision: boolean
           dnacpr_details: string | null
-          full_name: string
+          dnacpr_details_enc: string | null
+          full_name: string | null
+          full_name_enc: string | null
+          full_name_hash: string | null
           height_m: number | null
           hospital_number: string | null
+          hospital_number_enc: string | null
+          hospital_number_hash: string | null
           id: string
           isolation_required: boolean
           location_type: Database["public"]["Enums"]["patient_location"]
           nok_contact: string | null
+          nok_contact_enc: string | null
           nok_last_updated: string | null
           nok_last_updated_by: string | null
           nok_name: string | null
+          nok_name_enc: string | null
           nok_relationship: string | null
+          nok_relationship_enc: string | null
           nursing_handover: string | null
+          nursing_handover_enc: string | null
           nutrition_route: string[]
           outstanding_tasks: string | null
+          outstanding_tasks_enc: string | null
           parent_specialty: string | null
           past_medical_history: string | null
+          past_medical_history_enc: string | null
           pca_agents: string[]
           physio_handover: string | null
+          physio_handover_enc: string | null
           regional_analgesia: string[]
           renal_diuretics: boolean
           renal_rrt: boolean
           resp_fio2: string | null
           resp_support: string[]
           salt_handover: string | null
+          salt_handover_enc: string | null
           sedative_agents: string[]
           sex: string | null
           shared_with_partner: boolean
@@ -1121,14 +1164,23 @@ export type Database = {
           specialty_consultant: string | null
           status: Database["public"]["Enums"]["patient_status"]
           systems_cvs: string | null
+          systems_cvs_enc: string | null
           systems_gastro: string | null
+          systems_gastro_enc: string | null
           systems_haem: string | null
+          systems_haem_enc: string | null
           systems_micro: string | null
+          systems_micro_enc: string | null
           systems_neuro: string | null
+          systems_neuro_enc: string | null
           systems_other: string | null
+          systems_other_enc: string | null
           systems_renal: string | null
+          systems_renal_enc: string | null
           systems_resp: string | null
+          systems_resp_enc: string | null
           tep_details: string | null
+          tep_details_enc: string | null
           tep_exclusions: string[]
           tep_in_place: boolean
           updated_at: string
@@ -1151,40 +1203,56 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_admission?: string | null
+          current_admission_enc?: string | null
           current_management?: string | null
+          current_management_enc?: string | null
           daily_goals?: Json
           daily_goals_reviewed_at?: string | null
           daily_goals_reviewed_by?: string | null
           date_of_death?: string | null
           discharge_date?: string | null
           discharge_destination?: string | null
+          discharge_destination_enc?: string | null
           dnacpr_date?: string | null
           dnacpr_decision?: boolean
           dnacpr_details?: string | null
-          full_name: string
+          dnacpr_details_enc?: string | null
+          full_name?: string | null
+          full_name_enc?: string | null
+          full_name_hash?: string | null
           height_m?: number | null
           hospital_number?: string | null
+          hospital_number_enc?: string | null
+          hospital_number_hash?: string | null
           id?: string
           isolation_required?: boolean
           location_type?: Database["public"]["Enums"]["patient_location"]
           nok_contact?: string | null
+          nok_contact_enc?: string | null
           nok_last_updated?: string | null
           nok_last_updated_by?: string | null
           nok_name?: string | null
+          nok_name_enc?: string | null
           nok_relationship?: string | null
+          nok_relationship_enc?: string | null
           nursing_handover?: string | null
+          nursing_handover_enc?: string | null
           nutrition_route?: string[]
           outstanding_tasks?: string | null
+          outstanding_tasks_enc?: string | null
           parent_specialty?: string | null
           past_medical_history?: string | null
+          past_medical_history_enc?: string | null
           pca_agents?: string[]
           physio_handover?: string | null
+          physio_handover_enc?: string | null
           regional_analgesia?: string[]
           renal_diuretics?: boolean
           renal_rrt?: boolean
           resp_fio2?: string | null
           resp_support?: string[]
           salt_handover?: string | null
+          salt_handover_enc?: string | null
           sedative_agents?: string[]
           sex?: string | null
           shared_with_partner?: boolean
@@ -1194,14 +1262,23 @@ export type Database = {
           specialty_consultant?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
+          systems_cvs_enc?: string | null
           systems_gastro?: string | null
+          systems_gastro_enc?: string | null
           systems_haem?: string | null
+          systems_haem_enc?: string | null
           systems_micro?: string | null
+          systems_micro_enc?: string | null
           systems_neuro?: string | null
+          systems_neuro_enc?: string | null
           systems_other?: string | null
+          systems_other_enc?: string | null
           systems_renal?: string | null
+          systems_renal_enc?: string | null
           systems_resp?: string | null
+          systems_resp_enc?: string | null
           tep_details?: string | null
+          tep_details_enc?: string | null
           tep_exclusions?: string[]
           tep_in_place?: boolean
           updated_at?: string
@@ -1224,40 +1301,56 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_admission?: string | null
+          current_admission_enc?: string | null
           current_management?: string | null
+          current_management_enc?: string | null
           daily_goals?: Json
           daily_goals_reviewed_at?: string | null
           daily_goals_reviewed_by?: string | null
           date_of_death?: string | null
           discharge_date?: string | null
           discharge_destination?: string | null
+          discharge_destination_enc?: string | null
           dnacpr_date?: string | null
           dnacpr_decision?: boolean
           dnacpr_details?: string | null
-          full_name?: string
+          dnacpr_details_enc?: string | null
+          full_name?: string | null
+          full_name_enc?: string | null
+          full_name_hash?: string | null
           height_m?: number | null
           hospital_number?: string | null
+          hospital_number_enc?: string | null
+          hospital_number_hash?: string | null
           id?: string
           isolation_required?: boolean
           location_type?: Database["public"]["Enums"]["patient_location"]
           nok_contact?: string | null
+          nok_contact_enc?: string | null
           nok_last_updated?: string | null
           nok_last_updated_by?: string | null
           nok_name?: string | null
+          nok_name_enc?: string | null
           nok_relationship?: string | null
+          nok_relationship_enc?: string | null
           nursing_handover?: string | null
+          nursing_handover_enc?: string | null
           nutrition_route?: string[]
           outstanding_tasks?: string | null
+          outstanding_tasks_enc?: string | null
           parent_specialty?: string | null
           past_medical_history?: string | null
+          past_medical_history_enc?: string | null
           pca_agents?: string[]
           physio_handover?: string | null
+          physio_handover_enc?: string | null
           regional_analgesia?: string[]
           renal_diuretics?: boolean
           renal_rrt?: boolean
           resp_fio2?: string | null
           resp_support?: string[]
           salt_handover?: string | null
+          salt_handover_enc?: string | null
           sedative_agents?: string[]
           sex?: string | null
           shared_with_partner?: boolean
@@ -1267,14 +1360,23 @@ export type Database = {
           specialty_consultant?: string | null
           status?: Database["public"]["Enums"]["patient_status"]
           systems_cvs?: string | null
+          systems_cvs_enc?: string | null
           systems_gastro?: string | null
+          systems_gastro_enc?: string | null
           systems_haem?: string | null
+          systems_haem_enc?: string | null
           systems_micro?: string | null
+          systems_micro_enc?: string | null
           systems_neuro?: string | null
+          systems_neuro_enc?: string | null
           systems_other?: string | null
+          systems_other_enc?: string | null
           systems_renal?: string | null
+          systems_renal_enc?: string | null
           systems_resp?: string | null
+          systems_resp_enc?: string | null
           tep_details?: string | null
+          tep_details_enc?: string | null
           tep_exclusions?: string[]
           tep_in_place?: boolean
           updated_at?: string

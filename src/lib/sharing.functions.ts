@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { decryptPatientRows, withCryptoColumns } from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
 
 // Governance layer for cross-project sharing: an administrator explicitly marks
@@ -44,12 +45,18 @@ export const listPatientSharing = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("patients")
       .select(
-        "id, full_name, hospital_number, ward, bed, location_type, status, shared_with_partner, shared_with_partner_at",
+        withCryptoColumns(
+          "id, full_name, hospital_number, ward, bed, location_type, status, shared_with_partner, shared_with_partner_at",
+        ),
       )
-      .order("shared_with_partner", { ascending: false })
-      .order("full_name", { ascending: true });
+      .order("shared_with_partner", { ascending: false });
     if (error) throw safeDbError(error, "load patient sharing");
-    return (data ?? []) as PatientSharingRow[];
+    // Initials live in an encrypted column, so ordering happens after decryption.
+    return (decryptPatientRows(data as unknown as Array<Record<string, unknown>> | null) as unknown as PatientSharingRow[]).sort(
+      (a, b) =>
+        Number(b.shared_with_partner) - Number(a.shared_with_partner) ||
+        (a.full_name ?? "").localeCompare(b.full_name ?? ""),
+    );
   });
 
 // Admin-only: turn sharing on/off for one or many patients at once. The

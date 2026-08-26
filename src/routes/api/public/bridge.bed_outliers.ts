@@ -1,3 +1,4 @@
+import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
@@ -30,7 +31,9 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
           .limit(requestLimit(request));
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
 
-        const ward_outliers = ((data ?? []) as BridgePatient[]).map(occupantView);
+        const ward_outliers = (
+          decryptPatientRows(data as Array<Record<string, unknown>> | null) as unknown as BridgePatient[]
+        ).map(occupantView);
         const bed_outliers = [...board.unassigned, ...ward_outliers];
 
         await logSync(supabaseAdmin, {

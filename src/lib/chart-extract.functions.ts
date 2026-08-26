@@ -1,6 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  decryptPatientRow,
+  decryptPatientRows,
+  encryptPatientPayload,
+  patientLookupHash,
+  withCryptoColumns,
+} from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
 import { callGatewayChat } from "@/lib/ai-gateway.server";
 import { hourlyCellSchema, type HourlyCell } from "@/lib/chart-days.functions";
@@ -103,7 +110,7 @@ export const extractChart = createServerFn({ method: "POST" })
     if (data.patientId) {
       const { data: patient, error: pe } = await context.supabase
         .from("patients")
-        .select("id, hospital_number")
+        .select(withCryptoColumns("id, hospital_number"))
         .eq("id", data.patientId)
         .maybeSingle();
       if (pe) throw safeDbError(pe);
@@ -271,12 +278,17 @@ export const matchPatientBySticker = createServerFn({ method: "POST" })
 
     let query = context.supabase
       .from("patients")
-      .select("id, full_name, hospital_number, age, sex, ward, bed, status, admission_date")
+      .select(
+        withCryptoColumns(
+          "id, full_name, hospital_number, age, sex, ward, bed, status, admission_date",
+        ),
+      )
       .limit(5);
 
     if (mrn) {
-      // Case-insensitive MRN match. Some units record with hyphens, some without.
-      query = query.ilike("hospital_number", mrn);
+      // MRNs are encrypted, so match on the keyed-hash fingerprint of the
+      // normalised value (equivalent to the old case-insensitive match).
+      query = query.eq("hospital_number_hash", patientLookupHash(mrn) as string);
     } else if (initials) {
       // No MRN — fall back to admitted patients whose name initials match.
       query = query.in("status", ["admitted", "referred"]).limit(25);
@@ -285,7 +297,9 @@ export const matchPatientBySticker = createServerFn({ method: "POST" })
     const { data: rows, error } = await query;
     if (error) throw safeDbError(error);
 
-    const candidates: MatchCandidate[] = (rows ?? [])
+    const candidates: MatchCandidate[] = decryptPatientRows(
+      rows as unknown as Array<Record<string, unknown>> | null,
+    )
       .map((r) => ({
         id: r.id as string,
         full_name: (r.full_name as string) ?? null,
@@ -317,15 +331,29 @@ export const searchPatientsForChart = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const q = (data.q ?? "").trim();
     if (q.length < 2) return { candidates: [] as MatchCandidate[] };
-    const safe = q.replace(/[,()"']/g, " ");
-    const like = `%${safe}%`;
+    // Identifiers are encrypted at rest, so a substring search can't run in
+    // SQL. Pull a bounded recent window and match on the decrypted values.
+    const needle = q.toLowerCase();
     const { data: rows, error } = await context.supabase
       .from("patients")
-      .select("id, full_name, hospital_number, age, sex, ward, bed, status, admission_date")
-      .or(`hospital_number.ilike.${like},full_name.ilike.${like}`)
-      .limit(15);
+      .select(
+        withCryptoColumns(
+          "id, full_name, hospital_number, age, sex, ward, bed, status, admission_date",
+        ),
+      )
+      .order("updated_at", { ascending: false })
+      .limit(300);
     if (error) throw safeDbError(error);
-    const candidates: MatchCandidate[] = (rows ?? []).map((r) => ({
+    const candidates: MatchCandidate[] = decryptPatientRows(
+      rows as unknown as Array<Record<string, unknown>> | null,
+    )
+      .filter(
+        (r) =>
+          String(r.hospital_number ?? "").toLowerCase().includes(needle) ||
+          String(r.full_name ?? "").toLowerCase().includes(needle),
+      )
+      .slice(0, 15)
+      .map((r) => ({
       id: r.id as string,
       full_name: (r.full_name as string) ?? null,
       hospital_number: (r.hospital_number as string) ?? null,
@@ -539,7 +567,7 @@ export const commitChart = createServerFn({ method: "POST" })
     if (Object.keys(sysPatch).length) {
       const { error } = await context.supabase
         .from("patients")
-        .update(sysPatch as never)
+        .update(encryptPatientPayload(sysPatch) as never)
         .eq("id", patientId);
       if (error) throw safeDbError(error);
     }

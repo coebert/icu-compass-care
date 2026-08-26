@@ -1,3 +1,4 @@
+import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { DEFAULT_BEDS, normalizeBed, type BedSlot } from "@/lib/icu-beds";
 
 export type BridgePatient = Record<string, unknown> & {
@@ -43,7 +44,9 @@ export async function buildBridgeBedBoard(supabaseAdmin: any) {
     .order("updated_at", { ascending: false });
   if (error) throw error;
 
-  const icu = (data ?? []) as BridgePatient[];
+  const icu = decryptPatientRows(
+    data as Array<Record<string, unknown>> | null,
+  ) as unknown as BridgePatient[];
 
   // Load the admin-editable bed roster; fall back to defaults if empty.
   const { data: bedRows } = await supabaseAdmin

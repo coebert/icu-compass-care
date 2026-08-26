@@ -129,6 +129,51 @@ function SecurityFaqPage() {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="encryption">
+              <AccordionTrigger>
+                Are clinical notes and identifiers encrypted?
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2 text-muted-foreground">
+                <p>
+                  Yes. Every free-text clinical field (current admission,
+                  management plan, past medical history, the system-by-system
+                  entries, TEP/DNACPR detail, and the nursing, physiotherapy and
+                  SALT handovers) plus every identifier (initials, hospital
+                  number and next-of-kin details) is encrypted with{" "}
+                  <strong>AES-256-GCM</strong> before it is written to the
+                  database. Each value gets its own random nonce and an
+                  authentication tag, so a stored value cannot be altered
+                  without detection.
+                </p>
+                <p>
+                  Anyone looking directly at the database — including a database
+                  backup or export — sees only ciphertext such as{" "}
+                  <code>enc:v1:…</code>. The keys are held in the application
+                  server environment, never in the database and never in the
+                  browser.
+                </p>
+                <p>
+                  To still allow lookups (for example matching a scanned chart
+                  sticker to a patient, or spotting a previous admission), the
+                  app stores a <strong>keyed hash</strong> (HMAC-SHA256) of the
+                  hospital number and initials alongside the ciphertext. A hash
+                  can be compared for an exact match but cannot be reversed back
+                  into the original value, and without the key it cannot be
+                  guessed by trying candidate numbers.
+                </p>
+                <p>
+                  Saved handover versions are stored the same way: the whole
+                  snapshot and its search index are encrypted, and searching
+                  happens inside the application after decryption rather than in
+                  readable database text. The audit trail also stores changed
+                  values encrypted, so the history never becomes a readable copy
+                  of the record.
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+
+
+
             <AccordionItem value="ai">
               <AccordionTrigger>
                 Is any patient data sent to an AI model?
