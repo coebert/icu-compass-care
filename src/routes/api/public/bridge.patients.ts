@@ -211,3 +211,22 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
     },
   },
 });
+
+/**
+ * Reduce any free-text name to initials (max 3, dot-separated), e.g.
+ * "John Smith" -> "J.S.". Already-initialised input ("J.S.", "JS") is
+ * preserved. Mirrors public.to_initials() in the database.
+ */
+function toInitials(v: string): string {
+  const raw = v.trim();
+  // Already compact and word-free: treat as initials as-is.
+  if (raw.length <= 10 && !/[A-Za-z]{4,}/.test(raw)) return raw;
+  const letters = raw
+    .replace(/[^A-Za-z]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((w) => w[0]!.toUpperCase());
+  return letters.length ? `${letters.join(".")}.` : "X";
+}
