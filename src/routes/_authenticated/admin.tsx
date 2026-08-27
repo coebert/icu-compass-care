@@ -284,7 +284,6 @@ function AdminPage() {
                       />
                     )}
 
-                    {canManage && (
                     <AccessReasonDialog
                       title="Set a temporary password?"
                       description={`${who} will be able to sign in with the password you set here. Share it securely and ask them to change it.`}
@@ -484,15 +483,19 @@ function AdminPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Role</Label>
-              <Select value={role} onValueChange={(v) => setRole2(v as "admin" | "clinician")}>
+              <Select value={role} onValueChange={(v) => setRole2(v as UiRole)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="clinician">Clinician</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  {assignable.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="onboard-reason">Reason (recorded in the access log)</Label>
@@ -518,5 +521,61 @@ function AdminPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Changing someone's role is an access-control decision, so it always records a
+// reason in the tamper-evident access log (account_access_events).
+function RoleChanger({
+  who,
+  current,
+  options,
+  pending,
+  onChange,
+}: {
+  who: string;
+  current: UiRole;
+  options: readonly UiRole[];
+  pending: boolean;
+  onChange: (next: UiRole, reason: string) => void;
+}) {
+  const [next, setNext] = useState<UiRole>(current);
+  return (
+    <AccessReasonDialog
+      title={`Change the role for ${who}?`}
+      description="Roles decide what someone can see and change. The new role takes effect immediately and is recorded in the access change log."
+      confirmLabel="Change role"
+      pending={pending}
+      extra={
+        <div className="space-y-1.5">
+          <Label htmlFor={`role-${who}`}>New role</Label>
+          <Select value={next} onValueChange={(v) => setNext(v as UiRole)}>
+            <SelectTrigger id={`role-${who}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[next]}</p>
+        </div>
+      }
+      onConfirm={(reason) => {
+        if (next === current) {
+          toast.error("Pick a different role");
+          return false;
+        }
+        onChange(next, reason);
+        return true;
+      }}
+    >
+      <Button variant="outline" size="sm" className="gap-1.5">
+        <Shield className="h-4 w-4" /> Change role
+      </Button>
+    </AccessReasonDialog>
   );
 }
