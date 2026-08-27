@@ -3,15 +3,18 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { decryptPatientRows, withCryptoColumns } from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
+import { assertConfigAdmin } from "@/lib/roles.server";
 
 // Governance layer for cross-project sharing: an administrator explicitly marks
 // which patient records may be read by the linked partner app. The bridge
 // endpoints only expose patients whose `shared_with_partner` flag is true, so
 // this is the single control that decides what care data leaves this backend.
 //
-// Every function here is admin-only. The database also enforces this with a
-// BEFORE UPDATE trigger (patients_guard_share_flag) so the flag can never be
-// changed by a non-admin even via a direct Data API call.
+// Only administrators may change it: a unit administrator for patients in their
+// own units, a Trust administrator anywhere. The database enforces the same rule
+// with a BEFORE UPDATE trigger (patients_guard_share_flag) that calls
+// private.can_admin_unit, so the flag can never be flipped through a direct Data
+// API call, and RLS limits which patients each administrator can even see.
 
 export type PatientSharingRow = {
   id: string;
@@ -25,15 +28,9 @@ export type PatientSharingRow = {
   shared_with_partner_at: string | null;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function assertAdmin(context: { supabase: any; userId: string }) {
-  const { data, error } = await context.supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", context.userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (error) throw safeDbError(error, "check permissions");
-  if (!data) throw new Error("Forbidden: admin only");
+  await assertConfigAdmin(context);
 }
 
 // Admin-only list used by the bulk sharing manager. Returns just the fields the

@@ -2,7 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
-import { assertAdmin } from "@/lib/roles.server";
+import {
+  APP_ROLES,
+  assertAssignableRole,
+  assertCanManageAccount,
+  assertConfigAdmin,
+  assertOversight,
+  assertUnitScope,
+  type AppRole,
+} from "@/lib/roles.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // Provisioning actions recorded in the tamper-evident access log.
@@ -49,12 +57,13 @@ async function logAccessEvent(
 }
 
 const reasonSchema = z.string().trim().min(3).max(300);
+const roleSchema = z.enum(APP_ROLES);
 
 // List all staff accounts with their access state (admin only).
 export const listStaff = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    const actor = await assertOversight(context);
     const supabaseAdmin = await getAdmin();
     const { data: profiles, error } = await supabaseAdmin
       .from("profiles")
@@ -62,10 +71,22 @@ export const listStaff = createServerFn({ method: "GET" })
       .order("display_name");
     if (error) throw safeDbError(error);
     const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
+    const { data: grants } = await supabaseAdmin
+      .from("user_unit_access")
+      .select("user_id, unit_id, icu_units(name, code)");
     const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const authById = new Map((authList?.users ?? []).map((u) => [u.id, u]));
     const now = Date.now();
-    return (profiles ?? []).map((p) => {
+    // A unit administrator only ever sees accounts belonging to their own units
+    // (plus their own account); Trust administrators and auditors see everyone.
+    const visible = (id: string) => {
+      if (actor.isTrustAdmin || actor.isAuditor) return true;
+      if (id === actor.userId) return true;
+      return (grants ?? []).some(
+        (g) => g.user_id === id && actor.unitIds.includes(g.unit_id),
+      );
+    };
+    return (profiles ?? []).filter((p) => visible(p.id)).map((p) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const au = authById.get(p.id) as any;
       const bannedUntil = au?.banned_until ? Date.parse(au.banned_until) : null;
@@ -75,6 +96,10 @@ export const listStaff = createServerFn({ method: "GET" })
         email: (au?.email as string | undefined) ?? null,
         job_title: p.job_title ?? null,
         roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
+        units: (grants ?? [])
+          .filter((g) => g.user_id === p.id)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((g) => ({ unit_id: g.unit_id, label: (g as any).icu_units?.code ?? null })),
         suspended: Boolean(bannedUntil && bannedUntil > now),
         last_sign_in_at: (au?.last_sign_in_at as string | undefined) ?? null,
         created_at: (au?.created_at as string | undefined) ?? p.created_at ?? null,
@@ -86,15 +111,31 @@ export const listStaff = createServerFn({ method: "GET" })
 export const listAccessEvents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    const actor = await assertOversight(context);
     const supabaseAdmin = await getAdmin();
     const { data, error } = await supabaseAdmin
       .from("account_access_events")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) throw safeDbError(error);
-    return data ?? [];
+    if (actor.isTrustAdmin || actor.isAuditor) return (data ?? []).slice(0, 100);
+    // Unit administrators only see events about accounts in their own units.
+    const { data: grants } = await supabaseAdmin
+      .from("user_unit_access")
+      .select("user_id, unit_id");
+    const inScope = new Set(
+      (grants ?? [])
+        .filter((g) => actor.unitIds.includes(g.unit_id))
+        .map((g) => g.user_id),
+    );
+    return (data ?? [])
+      .filter(
+        (e) =>
+          e.actor_id === actor.userId ||
+          (e.target_user_id ? inScope.has(e.target_user_id) : false),
+      )
+      .slice(0, 100);
   });
 
 // Onboard a new staff account (admin only).
@@ -107,13 +148,26 @@ export const createStaff = createServerFn({ method: "POST" })
         password: z.string().min(8).max(200),
         display_name: z.string().trim().min(1).max(200),
         job_title: z.string().trim().max(120).optional(),
-        role: z.enum(["admin", "clinician"]),
+        role: roleSchema,
+        // ICU units the new account may work in. Required for clinical roles:
+        // without a membership the account can reach no patient data at all.
+        unit_ids: z.array(z.string().uuid()).max(50).optional(),
         reason: reasonSchema,
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
+    assertAssignableRole(actor, data.role as AppRole);
+    // A unit administrator may only place people in units they administer, and
+    // defaults to their own units when none are named.
+    const unitIds =
+      data.unit_ids && data.unit_ids.length > 0
+        ? data.unit_ids
+        : actor.isTrustAdmin
+          ? []
+          : actor.unitIds;
+    for (const unitId of unitIds) assertUnitScope(actor, unitId);
     const supabaseAdmin = await getAdmin();
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -132,6 +186,17 @@ export const createStaff = createServerFn({ method: "POST" })
       .from("user_roles")
       .insert({ user_id: newId, role: data.role });
     if (roleErr) throw safeDbError(roleErr);
+    if (unitIds.length > 0) {
+      const { error: unitErr } = await supabaseAdmin.from("user_unit_access").insert(
+        unitIds.map((unit_id) => ({
+          user_id: newId,
+          unit_id,
+          granted_by: context.userId,
+          reason: data.reason,
+        })),
+      );
+      if (unitErr) throw safeDbError(unitErr);
+    }
     await logAccessEvent(context, {
       action: "provisioned",
       target_user_id: newId,
@@ -151,13 +216,26 @@ export const setStaffRole = createServerFn({ method: "POST" })
     z
       .object({
         user_id: z.string().uuid(),
-        role: z.enum(["admin", "clinician"]),
+        role: roleSchema,
+        // ICU units the new account may work in. Required for clinical roles:
+        // without a membership the account can reach no patient data at all.
+        unit_ids: z.array(z.string().uuid()).max(50).optional(),
         reason: reasonSchema,
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
+    assertAssignableRole(actor, data.role as AppRole);
+    // A unit administrator may only place people in units they administer, and
+    // defaults to their own units when none are named.
+    const unitIds =
+      data.unit_ids && data.unit_ids.length > 0
+        ? data.unit_ids
+        : actor.isTrustAdmin
+          ? []
+          : actor.unitIds;
+    for (const unitId of unitIds) assertUnitScope(actor, unitId);
     const supabaseAdmin = await getAdmin();
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin
@@ -186,15 +264,17 @@ export const setStaffSuspended = createServerFn({ method: "POST" })
       .object({
         user_id: z.string().uuid(),
         suspended: z.boolean(),
-        role: z.enum(["admin", "clinician"]).optional(),
+        role: roleSchema.optional(),
         reason: reasonSchema,
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
+    if (data.role) assertAssignableRole(actor, data.role as AppRole);
     if (data.user_id === context.userId) throw new Error("You cannot suspend your own account");
     const supabaseAdmin = await getAdmin();
+    await assertCanManageAccount(actor, data.user_id, supabaseAdmin);
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
       ban_duration: data.suspended ? SUSPEND_DURATION : "none",
@@ -236,8 +316,9 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
     const supabaseAdmin = await getAdmin();
+    await assertCanManageAccount(actor, data.user_id, supabaseAdmin);
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
       password: data.password,
@@ -261,9 +342,10 @@ export const deleteStaff = createServerFn({ method: "POST" })
     z.object({ user_id: z.string().uuid(), reason: reasonSchema }).parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
     if (data.user_id === context.userId) throw new Error("You cannot delete your own account");
     const supabaseAdmin = await getAdmin();
+    await assertCanManageAccount(actor, data.user_id, supabaseAdmin);
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const email = target?.user?.email ?? null;
     const displayName =
@@ -290,12 +372,13 @@ export const claimFirstAdmin = createServerFn({ method: "POST" })
     const { count, error: countErr } = await supabaseAdmin
       .from("user_roles")
       .select("id", { count: "exact", head: true })
-      .eq("role", "admin");
+      .in("role", ["admin", "trust_admin"]);
     if (countErr) throw safeDbError(countErr);
     if ((count ?? 0) > 0) return { ok: false, reason: "admin_exists" as const };
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: context.userId, role: "admin" });
+    const { error } = await supabaseAdmin.from("user_roles").insert([
+      { user_id: context.userId, role: "trust_admin" },
+      { user_id: context.userId, role: "unit_admin" },
+    ]);
     if (error) throw safeDbError(error);
     return { ok: true };
   });

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertTrustAdmin } from "@/lib/roles.server";
 import { safeDbError } from "@/lib/db-error";
 
 export type BridgeSecurityAlert = {
@@ -41,18 +42,16 @@ export type BridgeSecurityOverview = {
   recentEvents: BridgeSecurityEvent[];
 };
 
+// Bridge security oversight is visible to administrators and to the read-only
+// auditor role; only a Trust administrator may acknowledge an alert.
 async function assertAdmin(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string,
 ): Promise<boolean> {
-  const { data } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  return Boolean(data);
+  const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  const roles = (data ?? []).map((r: { role: string }) => r.role);
+  return ["admin", "trust_admin", "unit_admin", "auditor"].some((r) => roles.includes(r));
 }
 
 // Open + recent bridge security alerts and the latest raw events (admin only).
@@ -105,8 +104,7 @@ export const updateBridgeSecurityAlert = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ context, data }): Promise<BridgeSecurityAlert> => {
-    const isAdmin = await assertAdmin(context.supabase, context.userId);
-    if (!isAdmin) throw new Error("Forbidden: admin only");
+    await assertTrustAdmin(context);
 
     const { data: updated, error } = await context.supabase
       .from("bridge_security_alerts")
