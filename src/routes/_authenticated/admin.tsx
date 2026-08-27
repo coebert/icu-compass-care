@@ -420,7 +420,10 @@ function AdminPage() {
         </CardContent>
       </Card>
 
+      <UnitAccessPanel staff={staff} />
+
       <BridgeSecurityPanel />
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
