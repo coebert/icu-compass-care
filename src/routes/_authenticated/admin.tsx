@@ -46,6 +46,8 @@ import { RoleChanger } from "@/components/RoleChanger";
 import { toast } from "sonner";
 import { BridgeSecurityPanel } from "@/components/BridgeSecurityPanel";
 import { UnitAccessPanel } from "@/components/UnitAccessPanel";
+import { listUnits } from "@/lib/units.functions";
+import { Checkbox } from "@/components/ui/checkbox";
 import { fmtDateTime } from "@/lib/icu";
 import { ROLE_DESCRIPTIONS, ROLE_ORDER, ROLE_LABELS, primaryRoleLabel, type UiRole } from "@/lib/roles";
 import { useClinicalAccess } from "@/hooks/use-clinical-access";
@@ -103,11 +105,27 @@ function AdminPage() {
   const [jobTitle, setJobTitle] = useState("");
   const [role, setRole2] = useState<UiRole>("clinician");
   const [reason, setReason] = useState("");
+  // ICU units the new account will be able to work in. Without at least one,
+  // unit-scoped RLS hides every patient from them.
+  const [newUnitIds, setNewUnitIds] = useState<string[]>([]);
   const [newPassword, setNewPassword] = useState("");
 
   // Only a Trust administrator may hand out Trust-wide or auditor roles; unit
   // administrators are limited to clinician and unit administrator.
   const { profile: me } = useClinicalAccess();
+  const unitsFn = useServerFn(listUnits);
+  const { data: allUnits = [] } = useQuery({
+    queryKey: ["icu-units"],
+    queryFn: () =>
+      unitsFn() as Promise<
+        { id: string; name: string; code: string; hospitals?: { name?: string } | null }[]
+      >,
+    retry: false,
+  });
+  // A unit administrator may only place people in units they administer.
+  const assignableUnits = me?.isTrustAdmin
+    ? allUnits
+    : allUnits.filter((u) => (me?.unitIds ?? []).includes(u.id));
   const isTrustAdmin = Boolean(me?.isTrustAdmin);
   const assignable: readonly UiRole[] = isTrustAdmin
     ? ROLE_ORDER
@@ -141,6 +159,7 @@ function AdminPage() {
           job_title: jobTitle || undefined,
           role,
           reason,
+          unit_ids: newUnitIds,
         },
       }),
     onSuccess: () => {
@@ -151,6 +170,7 @@ function AdminPage() {
       setDisplayName("");
       setJobTitle("");
       setReason("");
+      setNewUnitIds([]);
       setRole2("clinician");
       toast.success("Account created", { description: "Share the temporary password securely." });
     },
@@ -503,6 +523,36 @@ function AdminPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>ICU units</Label>
+              <div className="space-y-2 rounded-md border p-3">
+                {assignableUnits.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No ICU units available to assign.
+                  </p>
+                ) : (
+                  assignableUnits.map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={newUnitIds.includes(u.id)}
+                        onCheckedChange={(c) =>
+                          setNewUnitIds((prev) =>
+                            c ? [...prev, u.id] : prev.filter((id) => id !== u.id),
+                          )
+                        }
+                      />
+                      <span>
+                        {u.hospitals?.name ? `${u.hospitals.name} — ` : ""}
+                        {u.name} ({u.code})
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Clinical staff need at least one unit — without one they will see no patients.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="onboard-reason">Reason (recorded in the access log)</Label>
