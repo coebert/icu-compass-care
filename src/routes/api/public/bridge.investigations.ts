@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "clinician"] }, "/bridge/investigations");
+        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "unit_admin", "clinician"] }, "/bridge/investigations");
         if (!auth.ok) return auth.response;
 
         const replayAdmin = await getAdmin();
