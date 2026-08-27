@@ -66,8 +66,9 @@ function HandoverHistoryPage() {
 
   const { data: profile } = useQuery({ queryKey: ["me"], queryFn: () => me() });
   const isAdmin = profile?.isAdmin ?? false;
-  const roles = profile?.roles ?? [];
-  const hasClinicalAccess = roles.includes("admin") || roles.includes("clinician");
+  // Clinical roles may author; Trust administrators have view-only break-glass.
+  const hasClinicalAccess = Boolean(profile?.canEditClinical) || Boolean(profile?.isTrustAdmin);
+
 
   async function handleCaptureNow() {
     setCapturing(true);

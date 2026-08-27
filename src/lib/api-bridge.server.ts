@@ -67,9 +67,11 @@ export function json(body: unknown, status = 200): Response {
 
 const MAX_SKEW_SECONDS = 60;
 
-// Roles recognised by the bridge.
-const READ_ROLES = ["admin", "clinician"] as const;
-const WRITE_ROLES = ["admin", "clinician"] as const;
+// Roles recognised by the bridge. 'admin' is the machine service account used
+// by the sync job and the pre-matrix spelling of the Trust administrator role;
+// a Trust administrator may read but never write clinical data.
+const READ_ROLES = ["admin", "trust_admin", "unit_admin", "clinician"] as const;
+const WRITE_ROLES = ["admin", "unit_admin", "clinician"] as const;
 
 export type BridgeActor = { id: string; email?: string; role: string };
 

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
-import { assertAdmin } from "@/lib/roles.server";
+import { assertConfigAdmin, assertOversight, assertUnitScope } from "@/lib/roles.server";
 
 /**
  * Hospital / ICU unit scope administration.
@@ -36,17 +36,20 @@ export const listMyUnits = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-// Every grant across the unit estate (admin only).
+// Grants across the unit estate. Trust administrators and auditors see them
+// all; a unit administrator only sees grants for the units they administer.
 export const listUnitAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    const actor = await assertOversight(context);
     const { data, error } = await context.supabase
       .from("user_unit_access")
       .select("id, user_id, unit_id, reason, created_at, icu_units(name, code, hospitals(name))")
       .order("created_at", { ascending: false });
     if (error) throw safeDbError(error);
-    return data ?? [];
+    const rows = data ?? [];
+    if (actor.isTrustAdmin || actor.isAuditor) return rows;
+    return rows.filter((r) => actor.unitIds.includes(r.unit_id));
   });
 
 export const grantUnitAccess = createServerFn({ method: "POST" })
@@ -61,7 +64,9 @@ export const grantUnitAccess = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
+    // A unit administrator can only add people to their own units.
+    assertUnitScope(actor, data.unit_id);
     const { error } = await context.supabase.from("user_unit_access").insert({
       user_id: data.user_id,
       unit_id: data.unit_id,
@@ -78,7 +83,8 @@ export const revokeUnitAccess = createServerFn({ method: "POST" })
     z.object({ user_id: z.string().uuid(), unit_id: z.string().uuid() }).parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertAdmin(context);
+    const actor = await assertConfigAdmin(context);
+    assertUnitScope(actor, data.unit_id);
     const { error } = await context.supabase
       .from("user_unit_access")
       .delete()

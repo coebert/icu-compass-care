@@ -117,7 +117,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "clinician"] }, "/bridge/patients");
+        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "unit_admin", "clinician"] }, "/bridge/patients");
         if (!auth.ok) return auth.response;
 
         const supabaseAdminReplay = await getAdmin();

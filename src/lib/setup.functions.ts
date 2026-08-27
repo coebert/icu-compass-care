@@ -52,9 +52,14 @@ export const bootstrapAdmin = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error, "create the admin account");
     const id = created.user!.id;
     await supabaseAdmin.from("profiles").update({ display_name: data.display_name }).eq("id", id);
+    // The founding account needs both: Trust administrator for platform-wide
+    // configuration, and unit administrator so it can also run a unit clinically.
     const { error: roleErr } = await supabaseAdmin
       .from("user_roles")
-      .insert({ user_id: id, role: "admin" });
-    if (roleErr) throw safeDbError(roleErr, "assign the admin role");
+      .insert([
+        { user_id: id, role: "trust_admin" },
+        { user_id: id, role: "unit_admin" },
+      ]);
+    if (roleErr) throw safeDbError(roleErr, "assign the administrator roles");
     return { ok: true };
   });

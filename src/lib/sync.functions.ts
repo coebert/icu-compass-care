@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertTrustAdmin } from "@/lib/roles.server";
 import { safeDbError } from "@/lib/db-error";
 import type { SyncRunResult } from "@/lib/bridge-sync.server";
 
@@ -86,13 +87,7 @@ export const getSyncStatus = createServerFn({ method: "GET" })
 export const runBridgeSyncFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SyncRunResult> => {
-    const { data: role } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!role) throw new Error("Forbidden: admin only");
+    await assertTrustAdmin(context);
 
     const { runBridgeSync } = await import("@/lib/bridge-sync.server");
     return runBridgeSync();

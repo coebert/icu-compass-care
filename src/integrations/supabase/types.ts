@@ -2091,7 +2091,7 @@ export type Database = {
         | "within_30_min"
         | "within_1_hour"
         | "within_1_2_hours"
-      app_role: "admin" | "clinician"
+      app_role: "admin" | "clinician" | "unit_admin" | "trust_admin" | "auditor"
       audit_action: "view" | "create" | "update" | "delete"
       ceiling_of_care:
         | "full_escalation"
@@ -2268,7 +2268,7 @@ export const Constants = {
         "within_1_hour",
         "within_1_2_hours",
       ],
-      app_role: ["admin", "clinician"],
+      app_role: ["admin", "clinician", "unit_admin", "trust_admin", "auditor"],
       audit_action: ["view", "create", "update", "delete"],
       ceiling_of_care: [
         "full_escalation",

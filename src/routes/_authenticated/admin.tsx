@@ -45,6 +45,8 @@ import { toast } from "sonner";
 import { BridgeSecurityPanel } from "@/components/BridgeSecurityPanel";
 import { UnitAccessPanel } from "@/components/UnitAccessPanel";
 import { fmtDateTime } from "@/lib/icu";
+import { ROLE_DESCRIPTIONS, ROLE_ORDER, ROLE_LABELS, primaryRoleLabel, type UiRole } from "@/lib/roles";
+import { useClinicalAccess } from "@/hooks/use-clinical-access";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
@@ -97,9 +99,17 @@ function AdminPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
-  const [role, setRole2] = useState<"admin" | "clinician">("clinician");
+  const [role, setRole2] = useState<UiRole>("clinician");
   const [reason, setReason] = useState("");
   const [newPassword, setNewPassword] = useState("");
+
+  // Only a Trust administrator may hand out Trust-wide or auditor roles; unit
+  // administrators are limited to clinician and unit administrator.
+  const { profile: me } = useClinicalAccess();
+  const isTrustAdmin = Boolean(me?.isTrustAdmin);
+  const assignable: readonly UiRole[] = isTrustAdmin
+    ? ROLE_ORDER
+    : (["clinician", "unit_admin"] as const);
 
   const { data: staff = [], isLoading, error } = useQuery({
     queryKey: ["staff"],
@@ -146,7 +156,7 @@ function AdminPage() {
   });
 
   const roleMut = useMutation({
-    mutationFn: (v: { user_id: string; role: "admin" | "clinician"; reason: string }) =>
+    mutationFn: (v: { user_id: string; role: UiRole; reason: string }) =>
       setRole({ data: v }),
     onSuccess: () => {
       refresh();
@@ -159,7 +169,7 @@ function AdminPage() {
     mutationFn: (v: {
       user_id: string;
       suspended: boolean;
-      role?: "admin" | "clinician";
+      role?: UiRole;
       reason: string;
     }) => setSuspended({ data: v }),
     onSuccess: (_d, v) => {
@@ -230,7 +240,10 @@ function AdminPage() {
       ) : (
         <div className="grid gap-3">
           {staff.map((s) => {
-            const isAdmin = s.roles.includes("admin");
+            const roleLabel = primaryRoleLabel(s.roles);
+            const currentRole = (ROLE_ORDER.find((r) => s.roles.includes(r)) ??
+              (s.roles.includes("admin") ? "trust_admin" : "clinician")) as UiRole;
+            const canManage = isTrustAdmin || !s.roles.includes("trust_admin");
             const who = s.display_name || s.email || "this user";
             return (
               <Card key={s.id} className={s.suspended ? "border-destructive/40" : undefined}>
@@ -248,38 +261,27 @@ function AdminPage() {
                   {s.suspended ? (
                     <Badge variant="destructive">Access suspended</Badge>
                   ) : (
-                    <Badge variant={isAdmin ? "default" : "secondary"}>
-                      {isAdmin ? "Admin" : "Clinician"}
+                    <Badge
+                      variant={
+                        s.roles.includes("trust_admin") || s.roles.includes("admin")
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {roleLabel}
                     </Badge>
                   )}
                   <div className="ml-auto flex flex-wrap gap-2">
-                    {!s.suspended && (
-                      <AccessReasonDialog
-                        title={isAdmin ? "Revoke admin access?" : "Grant admin access?"}
-                        description={
-                          isAdmin
-                            ? `${who} will lose admin privileges (managing staff, roles, bed board, partner sharing) and become a regular clinician.`
-                            : `${who} will gain full admin privileges: managing staff accounts, changing anyone's role, editing the bed board, and enabling partner-app sharing.`
-                        }
-                        confirmLabel={isAdmin ? "Revoke admin" : "Grant admin"}
+                    {!s.suspended && canManage && (
+                      <RoleChanger
+                        who={who}
+                        current={currentRole}
+                        options={assignable}
                         pending={roleMut.isPending}
-                        onConfirm={(r) =>
-                          void roleMut.mutate({
-                            user_id: s.id,
-                            role: isAdmin ? "clinician" : "admin",
-                            reason: r,
-                          })
+                        onChange={(next, reason) =>
+                          void roleMut.mutate({ user_id: s.id, role: next, reason })
                         }
-                      >
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                          {isAdmin ? (
-                            <ShieldOff className="h-4 w-4" />
-                          ) : (
-                            <Shield className="h-4 w-4" />
-                          )}
-                          {isAdmin ? "Make clinician" : "Make admin"}
-                        </Button>
-                      </AccessReasonDialog>
+                      />
                     )}
 
                     <AccessReasonDialog
@@ -481,15 +483,19 @@ function AdminPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Role</Label>
-              <Select value={role} onValueChange={(v) => setRole2(v as "admin" | "clinician")}>
+              <Select value={role} onValueChange={(v) => setRole2(v as UiRole)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="clinician">Clinician</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  {assignable.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="onboard-reason">Reason (recorded in the access log)</Label>
@@ -515,5 +521,61 @@ function AdminPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Changing someone's role is an access-control decision, so it always records a
+// reason in the tamper-evident access log (account_access_events).
+function RoleChanger({
+  who,
+  current,
+  options,
+  pending,
+  onChange,
+}: {
+  who: string;
+  current: UiRole;
+  options: readonly UiRole[];
+  pending: boolean;
+  onChange: (next: UiRole, reason: string) => void;
+}) {
+  const [next, setNext] = useState<UiRole>(current);
+  return (
+    <AccessReasonDialog
+      title={`Change the role for ${who}?`}
+      description="Roles decide what someone can see and change. The new role takes effect immediately and is recorded in the access change log."
+      confirmLabel="Change role"
+      pending={pending}
+      extra={
+        <div className="space-y-1.5">
+          <Label htmlFor={`role-${who}`}>New role</Label>
+          <Select value={next} onValueChange={(v) => setNext(v as UiRole)}>
+            <SelectTrigger id={`role-${who}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[next]}</p>
+        </div>
+      }
+      onConfirm={(reason) => {
+        if (next === current) {
+          toast.error("Pick a different role");
+          return false;
+        }
+        onChange(next, reason);
+        return true;
+      }}
+    >
+      <Button variant="outline" size="sm" className="gap-1.5">
+        <Shield className="h-4 w-4" /> Change role
+      </Button>
+    </AccessReasonDialog>
   );
 }
