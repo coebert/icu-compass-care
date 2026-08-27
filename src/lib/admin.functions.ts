@@ -5,8 +5,52 @@ import { safeDbError } from "@/lib/db-error";
 import { assertAdmin } from "@/lib/roles.server";
 import { getAdmin } from "@/lib/admin-db.server";
 
+// Provisioning actions recorded in the tamper-evident access log.
+const ACTIONS = [
+  "provisioned",
+  "role_changed",
+  "suspended",
+  "reinstated",
+  "password_reset",
+  "deprovisioned",
+] as const;
 
-// List all staff accounts (admin only).
+// Far-future ban window used to suspend an account indefinitely.
+// Suspension blocks sign-in and token refresh immediately.
+const SUSPEND_DURATION = "876000h";
+
+type LogInput = {
+  action: (typeof ACTIONS)[number];
+  target_user_id?: string | null;
+  target_email?: string | null;
+  target_display_name?: string | null;
+  role?: string | null;
+  reason?: string | null;
+  note?: string | null;
+};
+
+async function logAccessEvent(
+  context: { userId: string; claims?: Record<string, unknown> | null },
+  input: LogInput,
+) {
+  const claimEmail = context.claims?.["email"];
+  const supabaseAdmin = await getAdmin();
+  await supabaseAdmin.from("account_access_events").insert({
+    action: input.action,
+    target_user_id: input.target_user_id ?? null,
+    target_email: input.target_email ?? null,
+    target_display_name: input.target_display_name ?? null,
+    role: input.role ?? null,
+    reason: input.reason ?? null,
+    note: input.note ?? null,
+    actor_id: context.userId,
+    actor_email: typeof claimEmail === "string" ? claimEmail : null,
+  });
+}
+
+const reasonSchema = z.string().trim().min(3).max(300);
+
+// List all staff accounts with their access state (admin only).
 export const listStaff = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -19,16 +63,41 @@ export const listStaff = createServerFn({ method: "GET" })
     if (error) throw safeDbError(error);
     const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
     const { data: authList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const emailById = new Map((authList?.users ?? []).map((u) => [u.id, u.email]));
-    return (profiles ?? []).map((p) => ({
-      id: p.id,
-      display_name: p.display_name,
-      email: emailById.get(p.id) ?? null,
-      roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
-    }));
+    const authById = new Map((authList?.users ?? []).map((u) => [u.id, u]));
+    const now = Date.now();
+    return (profiles ?? []).map((p) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const au = authById.get(p.id) as any;
+      const bannedUntil = au?.banned_until ? Date.parse(au.banned_until) : null;
+      return {
+        id: p.id,
+        display_name: p.display_name,
+        email: (au?.email as string | undefined) ?? null,
+        job_title: p.job_title ?? null,
+        roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
+        suspended: Boolean(bannedUntil && bannedUntil > now),
+        last_sign_in_at: (au?.last_sign_in_at as string | undefined) ?? null,
+        created_at: (au?.created_at as string | undefined) ?? p.created_at ?? null,
+      };
+    });
   });
 
-// Create a new staff account (admin only).
+// Recent onboarding / access-removal history (admin only).
+export const listAccessEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const supabaseAdmin = await getAdmin();
+    const { data, error } = await supabaseAdmin
+      .from("account_access_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw safeDbError(error);
+    return data ?? [];
+  });
+
+// Onboard a new staff account (admin only).
 export const createStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -37,7 +106,9 @@ export const createStaff = createServerFn({ method: "POST" })
         email: z.string().trim().email().max(255),
         password: z.string().min(8).max(200),
         display_name: z.string().trim().min(1).max(200),
+        job_title: z.string().trim().max(120).optional(),
         role: z.enum(["admin", "clinician"]),
+        reason: reasonSchema,
       })
       .parse(input),
   )
@@ -53,11 +124,23 @@ export const createStaff = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error);
     const newId = created.user!.id;
     // profile is auto-created by trigger; ensure display name + role
-    await supabaseAdmin.from("profiles").update({ display_name: data.display_name }).eq("id", newId);
+    await supabaseAdmin
+      .from("profiles")
+      .update({ display_name: data.display_name, job_title: data.job_title ?? null })
+      .eq("id", newId);
     const { error: roleErr } = await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: newId, role: data.role });
     if (roleErr) throw safeDbError(roleErr);
+    await logAccessEvent(context, {
+      action: "provisioned",
+      target_user_id: newId,
+      target_email: data.email,
+      target_display_name: data.display_name,
+      role: data.role,
+      reason: data.reason,
+      note: data.job_title ?? null,
+    });
     return { ok: true, id: newId };
   });
 
@@ -66,7 +149,11 @@ export const setStaffRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
-      .object({ user_id: z.string().uuid(), role: z.enum(["admin", "clinician"]) })
+      .object({
+        user_id: z.string().uuid(),
+        role: z.enum(["admin", "clinician"]),
+        reason: reasonSchema,
+      })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
@@ -77,21 +164,120 @@ export const setStaffRole = createServerFn({ method: "POST" })
       .from("user_roles")
       .insert({ user_id: data.user_id, role: data.role });
     if (error) throw safeDbError(error);
+    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    await logAccessEvent(context, {
+      action: "role_changed",
+      target_user_id: data.user_id,
+      target_email: target?.user?.email ?? null,
+      target_display_name:
+        (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null,
+      role: data.role,
+      reason: data.reason,
+    });
     return { ok: true };
   });
 
-// Delete a staff account (admin only). Patient records are retained.
+// Suspend or reinstate access (admin only). Suspension takes effect immediately:
+// sign-in and token refresh are blocked, and clinical roles are stripped.
+export const setStaffSuspended = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        suspended: z.boolean(),
+        role: z.enum(["admin", "clinician"]).optional(),
+        reason: reasonSchema,
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    if (data.user_id === context.userId) throw new Error("You cannot suspend your own account");
+    const supabaseAdmin = await getAdmin();
+    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      ban_duration: data.suspended ? SUSPEND_DURATION : "none",
+    });
+    if (error) throw safeDbError(error);
+    if (data.suspended) {
+      // Remove all role grants so nothing is authorised even if a session lingers.
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
+    } else {
+      const role = data.role ?? "clinician";
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
+      const { error: roleErr } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: data.user_id, role });
+      if (roleErr) throw safeDbError(roleErr);
+    }
+    await logAccessEvent(context, {
+      action: data.suspended ? "suspended" : "reinstated",
+      target_user_id: data.user_id,
+      target_email: target?.user?.email ?? null,
+      target_display_name:
+        (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null,
+      role: data.suspended ? null : (data.role ?? "clinician"),
+      reason: data.reason,
+    });
+    return { ok: true };
+  });
+
+// Set a new temporary password for a staff member (admin only).
+export const resetStaffPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        user_id: z.string().uuid(),
+        password: z.string().min(8).max(200),
+        reason: reasonSchema,
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    const supabaseAdmin = await getAdmin();
+    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      password: data.password,
+    });
+    if (error) throw safeDbError(error);
+    await logAccessEvent(context, {
+      action: "password_reset",
+      target_user_id: data.user_id,
+      target_email: target?.user?.email ?? null,
+      target_display_name:
+        (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null,
+      reason: data.reason,
+    });
+    return { ok: true };
+  });
+
+// Deprovision a staff account (admin only). Patient records are retained.
 export const deleteStaff = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { user_id: string }) =>
-    z.object({ user_id: z.string().uuid() }).parse(input),
+  .inputValidator((input) =>
+    z.object({ user_id: z.string().uuid(), reason: reasonSchema }).parse(input),
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context);
     if (data.user_id === context.userId) throw new Error("You cannot delete your own account");
     const supabaseAdmin = await getAdmin();
+    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    const email = target?.user?.email ?? null;
+    const displayName =
+      (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null;
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     if (error) throw safeDbError(error);
+    await logAccessEvent(context, {
+      action: "deprovisioned",
+      target_user_id: null,
+      target_email: email,
+      target_display_name: displayName,
+      reason: data.reason,
+    });
     return { ok: true };
   });
 

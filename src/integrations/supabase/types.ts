@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_access_events: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          reason: string | null
+          role: string | null
+          target_display_name: string | null
+          target_email: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          reason?: string | null
+          role?: string | null
+          target_display_name?: string | null
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          reason?: string | null
+          role?: string | null
+          target_display_name?: string | null
+          target_email?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       antimicrobial_library: {
         Row: {
           created_at: string
