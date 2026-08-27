@@ -195,7 +195,7 @@ async function probeConfig(actor: ActorKey) {
     }),
     // Deliberately probes ANOTHER account's role row: every signed-in user may
     // read their own role, only administrators may read other people's.
-    viewOtherRoles: await canView(cl, "user_roles", "user_id", fixture.userIds.signedInNoRole),
+    viewOtherRoles: await canView(cl, "user_roles", "user_id", fixture.userIds.clinicianOtherUnit),
     viewAccessLog: await canView(cl, "account_access_events", "note", `${TAG} seeded event`),
     viewOtherProfile: await canView(cl, "profiles", "id", fixture.userIds.signedInNoRole),
     readEncryptionKeys: await (async () => {
