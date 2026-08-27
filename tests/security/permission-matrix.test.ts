@@ -193,13 +193,10 @@ async function probeConfig(actor: ActorKey) {
       user_id: fixture.userIds.signedInNoRole,
       role: "clinician",
     }),
-    viewOtherRoles: await canView(
-      cl,
-      "user_roles",
-      "user_id",
-      fixture.userIds.clinicianSingleUnit,
-    ),
-    viewAccessLog: await canView(cl, "account_access_events", "action", "provisioned"),
+    // Deliberately probes ANOTHER account's role row: every signed-in user may
+    // read their own role, only administrators may read other people's.
+    viewOtherRoles: await canView(cl, "user_roles", "user_id", fixture.userIds.signedInNoRole),
+    viewAccessLog: await canView(cl, "account_access_events", "note", `${TAG} seeded event`),
     viewOtherProfile: await canView(cl, "profiles", "id", fixture.userIds.signedInNoRole),
     readEncryptionKeys: await (async () => {
       const { error } = await cl.from("crypto_key_escrow").select("key_id").limit(1);
@@ -378,6 +375,15 @@ beforeAll(async () => {
   );
   if (history.error) throw new Error(history.error.message);
 
+  const accessEvent = await admin.from("account_access_events").insert({
+    action: "provisioned",
+    role: "clinician",
+    reason: "permission matrix fixture",
+    note: `${TAG} seeded event`,
+    target_email: `${TAG}@matrix.test.invalid`,
+  });
+  if (accessEvent.error) throw new Error(accessEvent.error.message);
+
   await createActor("clinicianSingleUnit", "clinician");
   await createActor("clinicianRotating", "clinician");
   await createActor("clinicianOtherUnit", "clinician");
@@ -415,6 +421,7 @@ afterAll(async () => {
     await admin.from("user_roles").delete().eq("user_id", id);
     await admin.auth.admin.deleteUser(id).catch(() => undefined);
   }
+  await admin.from("account_access_events").delete().eq("note", `${TAG} seeded event`);
   for (const unit of [fixture.unitOwn, fixture.unitSibling, fixture.unitFar]) {
     if (unit) await admin.from("icu_units").delete().eq("id", unit);
   }
