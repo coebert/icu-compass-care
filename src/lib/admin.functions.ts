@@ -44,7 +44,7 @@ async function logAccessEvent(
     reason: input.reason ?? null,
     note: input.note ?? null,
     actor_id: context.userId,
-    actor_email: context.claims?.email ?? null,
+    actor_email: typeof claimEmail === "string" ? claimEmail : null,
   });
 }
 
