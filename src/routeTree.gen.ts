@@ -22,6 +22,7 @@ import { Route as AuthenticatedJobsRouteImport } from './routes/_authenticated/j
 import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
 import { Route as AuthenticatedAntimicrobialsRouteImport } from './routes/_authenticated/antimicrobials'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAccessRouteImport } from './routes/_authenticated/access'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
 import { Route as AuthenticatedPatientsSharingRouteImport } from './routes/_authenticated/patients.sharing'
 import { Route as AuthenticatedPatientsHistoryRouteImport } from './routes/_authenticated/patients.history'
@@ -110,6 +111,11 @@ const AuthenticatedAntimicrobialsRoute =
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAccessRoute = AuthenticatedAccessRouteImport.update({
+  id: '/access',
+  path: '/access',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPatientsIndexRoute =
@@ -249,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
+  '/access': typeof AuthenticatedAccessRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
+  '/access': typeof AuthenticatedAccessRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
@@ -324,6 +332,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
+  '/_authenticated/access': typeof AuthenticatedAccessRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/_authenticated/beds': typeof AuthenticatedBedsRoute
@@ -363,6 +372,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/setup'
+    | '/access'
     | '/admin'
     | '/antimicrobials'
     | '/beds'
@@ -400,6 +410,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/setup'
+    | '/access'
     | '/admin'
     | '/antimicrobials'
     | '/beds'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/setup'
+    | '/_authenticated/access'
     | '/_authenticated/admin'
     | '/_authenticated/antimicrobials'
     | '/_authenticated/beds'
@@ -585,6 +597,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/access': {
+      id: '/_authenticated/access'
+      path: '/access'
+      fullPath: '/access'
+      preLoaderRoute: typeof AuthenticatedAccessRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/patients/': {
@@ -779,6 +798,7 @@ const AuthenticatedPatientsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccessRoute: typeof AuthenticatedAccessRoute
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAntimicrobialsRoute: typeof AuthenticatedAntimicrobialsRoute
   AuthenticatedBedsRoute: typeof AuthenticatedBedsRoute
@@ -791,6 +811,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccessRoute: AuthenticatedAccessRoute,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAntimicrobialsRoute: AuthenticatedAntimicrobialsRoute,
   AuthenticatedBedsRoute: AuthenticatedBedsRoute,
