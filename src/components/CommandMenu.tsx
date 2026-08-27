@@ -19,6 +19,7 @@ import {
   History,
   LayoutDashboard,
   Shield,
+  Building2,
   ShieldCheck,
   User as UserIcon,
   Users,
@@ -165,6 +166,10 @@ export function CommandMenu() {
           <CommandItem value="staff admin" onSelect={() => go(() => navigate({ to: "/admin" }))}>
             <Shield />
             <span>Staff & admin</span>
+          </CommandItem>
+          <CommandItem value="hospital unit access roles" onSelect={() => go(() => navigate({ to: "/access" }))}>
+            <Building2 />
+            <span>Hospital &amp; unit access</span>
           </CommandItem>
           <CommandItem value="security faq" onSelect={() => go(() => navigate({ to: "/security-faq" }))}>
             <ShieldCheck />
