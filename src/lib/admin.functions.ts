@@ -30,9 +30,10 @@ type LogInput = {
 };
 
 async function logAccessEvent(
-  context: { supabase: unknown; userId: string; claims?: { email?: string } },
+  context: { userId: string; claims?: Record<string, unknown> | null },
   input: LogInput,
 ) {
+  const claimEmail = context.claims?.["email"];
   const supabaseAdmin = await getAdmin();
   await supabaseAdmin.from("account_access_events").insert({
     action: input.action,
