@@ -17,6 +17,20 @@ import type { HandoverPatient } from "@/lib/handover-pdf";
  * differ between render time and click time.
  */
 
+// The Download button calls a server function that re-validates every patient
+// record before the PDF is produced; in jsdom there is no server, so the
+// validator is stubbed to resolve.
+vi.mock("@/lib/handover.functions", () => ({
+  validateHandoverExport: Object.assign(vi.fn(async () => ({ ok: true })), {
+    url: "/_serverFn/validateHandoverExport",
+  }),
+}));
+
+vi.mock("@tanstack/react-start", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, useServerFn: () => vi.fn(async () => ({ ok: true })) };
+});
+
 vi.mock("@/lib/handover-pdf", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/handover-pdf")>();
   return {
@@ -26,7 +40,7 @@ vi.mock("@/lib/handover-pdf", async (importOriginal) => {
 });
 
 const PATIENTS: HandoverPatient[] = [
-  { full_name: "A.B.", status: "admitted", admission_date: new Date().toISOString() },
+  { id: "11111111-1111-4111-8111-111111111111", initials: "A.B.", status: "admitted", admission_date: new Date().toISOString() },
 ];
 
 // Radix primitives (Dialog, Slider) need these browser APIs that jsdom lacks.
@@ -76,7 +90,7 @@ function readDisplayedFilename(): string {
 }
 
 describe("HandoverPreviewModal download filename", () => {
-  it("shows the exact filename that the Download button saves", () => {
+  it("shows the exact filename that the Download button saves", async () => {
     const capture = captureDownloadFilename();
 
     render(
@@ -100,13 +114,14 @@ describe("HandoverPreviewModal download filename", () => {
     // Click the actual Download button and read the anchor's download attr.
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /Download PDF/i }));
+    await vi.waitFor(() => expect(capture.get()).not.toBeNull());
 
     const downloaded = capture.get();
     expect(downloaded, "download should have fired").not.toBeNull();
     expect(downloaded).toBe(displayed);
   });
 
-  it("keeps display and download in sync for a custom header title", () => {
+  it("keeps display and download in sync for a custom header title", async () => {
     const capture = captureDownloadFilename();
 
     render(
@@ -123,6 +138,7 @@ describe("HandoverPreviewModal download filename", () => {
 
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /Download PDF/i }));
+    await vi.waitFor(() => expect(capture.get()).not.toBeNull());
 
     expect(capture.get()).toBe(displayed);
     // Sanitized: no path separators or header-breaking characters survive.
@@ -130,7 +146,7 @@ describe("HandoverPreviewModal download filename", () => {
     expect(displayed.endsWith(".pdf")).toBe(true);
   });
 
-  it("revokes the download object URL after clicking Download PDF (no memory leak)", () => {
+  it("revokes the download object URL after clicking Download PDF (no memory leak)", async () => {
     vi.useFakeTimers();
     captureDownloadFilename();
 
@@ -152,6 +168,10 @@ describe("HandoverPreviewModal download filename", () => {
 
       const dialog = screen.getByRole("dialog");
       fireEvent.click(within(dialog).getByRole("button", { name: /Download PDF/i }));
+      await vi.waitFor(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+        expect(createSpy).toHaveBeenCalled();
+      });
 
       // A fresh object URL was created for the download.
       expect(createSpy).toHaveBeenCalled();
