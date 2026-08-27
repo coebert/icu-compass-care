@@ -50,6 +50,10 @@ export const sexSchema = z.preprocess(
 );
 
 export const patientInput = z.object({
+  // Hospital / ICU unit scope. Optional on input: when the clinician has one
+  // granted unit the server fills it in. Row-level security is the real guard.
+  unit_id: z.string().uuid("Choose a valid ICU unit.").optional().nullable(),
+
   // Initials ONLY. This app must never hold a patient's full name, so the
   // 4+ letter-run rule blocks anything that looks like a word/name. The same
   // rule is enforced in the database (patients_full_name_initials_only).

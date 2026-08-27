@@ -201,11 +201,17 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           return json({ patient: decryptPatientRow(data as Record<string, unknown>) });
         }
 
+        // Bridge writes are unit-scoped too: partner pushes land in the local
+        // unit unless the payload names one explicitly.
+        const { defaultUnitId } = await import("@/lib/scope.server");
+        const bridgeUnitId =
+          (record as Record<string, unknown>)["unit_id"] ?? (await defaultUnitId(supabaseAdmin));
         const { data, error } = await supabaseAdmin
           .from("patients")
-          .insert(encryptPatientPayload(record) as never)
+          .insert(encryptPatientPayload({ ...record, unit_id: bridgeUnitId }) as never)
           .select()
           .maybeSingle();
+
         if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
         if (!data) return json({ error: "Patient could not be created" }, 500);
 

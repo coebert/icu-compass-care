@@ -111,13 +111,23 @@ export const createPatient = createServerFn({ method: "POST" })
     if (bed && locType === "icu" && (status === "admitted" || status === "referred")) {
       await assertBedFree(context.supabase, bed, null);
     }
+    // Unit scope: RLS rejects a write outside the caller's granted units, so
+    // resolve it explicitly rather than relying on a database default.
+    const { resolveWriteUnitId } = await import("@/lib/scope.server");
+    const unitId = await resolveWriteUnitId(
+      context.supabase,
+      context.userId,
+      (cleaned.unit_id as string | null | undefined) ?? null,
+    );
     const { data: row, error } = await context.supabase
       .from("patients")
       .insert(encryptPatientPayload({
         ...cleaned,
+        unit_id: unitId,
         created_by: context.userId,
         updated_by: context.userId,
       }) as never)
+
       .select()
       .single();
     if (error) throw safeDbError(error);

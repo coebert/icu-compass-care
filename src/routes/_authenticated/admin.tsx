@@ -43,6 +43,7 @@ import {
 import { AccessReasonDialog } from "@/components/AccessReasonDialog";
 import { toast } from "sonner";
 import { BridgeSecurityPanel } from "@/components/BridgeSecurityPanel";
+import { UnitAccessPanel } from "@/components/UnitAccessPanel";
 import { fmtDateTime } from "@/lib/icu";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -420,7 +421,10 @@ function AdminPage() {
         </CardContent>
       </Card>
 
+      <UnitAccessPanel staff={staff} />
+
       <BridgeSecurityPanel />
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
