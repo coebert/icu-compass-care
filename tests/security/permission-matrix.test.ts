@@ -427,9 +427,6 @@ afterAll(async () => {
 
 describe("role vocabulary", () => {
   it("only the roles covered by these tests exist", async () => {
-    const { data, error } = await admin.rpc("noop" as never).select?.("*") ?? { data: null, error: null };
-    void data;
-    void error;
     // app_role is the single source of truth for role names; extending it must
     // come with new matrix rows and new expectations in this file.
     const { data: roles } = await admin.from("user_roles").select("role");
