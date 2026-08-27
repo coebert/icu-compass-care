@@ -208,7 +208,10 @@ function PatientsBoard() {
 
 
   const createMut = useMutation({
-    mutationFn: (v: PatientFormValues) => create({ data: v as never }),
+    mutationFn: (v: PatientFormValues) =>
+      // An empty unit picker means "use my only granted unit" — send nothing
+      // rather than an empty string, which would fail uuid validation.
+      create({ data: { ...v, unit_id: v.unit_id || undefined } as never }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["patients"] });
       setOpen(false);
