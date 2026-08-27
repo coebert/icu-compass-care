@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "vitest run tests/bridge-e2e.test.ts"
+    "test:e2e": "vitest run tests/bridge-e2e.test.ts",
+    "test:permissions": "vitest run tests/security/permission-matrix.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
