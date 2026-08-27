@@ -575,6 +575,30 @@ export type Database = {
         }
         Relationships: []
       }
+      hospitals: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       icnarc_targets: {
         Row: {
           decision_to_arrival_target_min: number
@@ -625,6 +649,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      icu_units: {
+        Row: {
+          bed_capacity: number | null
+          code: string
+          created_at: string
+          hospital_id: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          bed_capacity?: number | null
+          code: string
+          created_at?: string
+          hospital_id: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          bed_capacity?: number | null
+          code?: string
+          created_at?: string
+          hospital_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "icu_units_hospital_id_fkey"
+            columns: ["hospital_id"]
+            isOneToOne: false
+            referencedRelation: "hospitals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       investigations: {
         Row: {
@@ -1225,6 +1287,7 @@ export type Database = {
           tep_details_enc: string | null
           tep_exclusions: string[]
           tep_in_place: boolean
+          unit_id: string
           updated_at: string
           updated_by: string | null
           vasoactive_agents: string[]
@@ -1323,6 +1386,7 @@ export type Database = {
           tep_details_enc?: string | null
           tep_exclusions?: string[]
           tep_in_place?: boolean
+          unit_id: string
           updated_at?: string
           updated_by?: string | null
           vasoactive_agents?: string[]
@@ -1421,6 +1485,7 @@ export type Database = {
           tep_details_enc?: string | null
           tep_exclusions?: string[]
           tep_in_place?: boolean
+          unit_id?: string
           updated_at?: string
           updated_by?: string | null
           vasoactive_agents?: string[]
@@ -1430,7 +1495,15 @@ export type Database = {
           wardable_by?: string | null
           weight_kg?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "patients_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "icu_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       postop_bookings: {
         Row: {
@@ -1866,6 +1939,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_unit_access: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          reason: string | null
+          unit_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          unit_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          unit_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_unit_access_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "icu_units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webauthn_challenges: {
         Row: {
