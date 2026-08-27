@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { listMyUnits } from "@/lib/units.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +32,9 @@ import {
 } from "@/lib/patient-safety";
 
 export type PatientFormValues = {
+  /** ICU unit this patient belongs to. Only asked for when the clinician
+   *  has access to more than one unit; otherwise the server resolves it. */
+  unit_id: string;
   full_name: string;
   hospital_number: string;
   age: string;
@@ -78,6 +84,7 @@ export type PatientFormValues = {
 
 export function emptyPatient(): PatientFormValues {
   return {
+    unit_id: "",
     full_name: "",
     hospital_number: "",
     age: "",
@@ -188,11 +195,29 @@ export function PatientForm({
     values.tep_in_place && values.tep_details.trim() === "";
   const sexMissing = !values.sex;
 
+  // A clinician granted access to several ICU units must say which unit a new
+  // patient belongs to — the server cannot guess it safely.
+  const myUnitsFn = useServerFn(listMyUnits);
+  const { data: myUnits } = useQuery({
+    queryKey: ["my-units"],
+    queryFn: () => myUnitsFn({}),
+    staleTime: 5 * 60_000,
+  });
+  const unitOptions = (myUnits ?? []).map((row) => {
+    const u = (row as { unit_id: string; icu_units?: { name?: string; code?: string } | null });
+    return {
+      id: u.unit_id,
+      label: u.icu_units?.name ? `${u.icu_units.name} (${u.icu_units.code ?? ""})` : u.unit_id,
+    };
+  });
+  const needsUnit = unitOptions.length > 1;
+  const unitMissing = needsUnit && !values.unit_id;
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (tepDetailsMissing || sexMissing) return;
+        if (tepDetailsMissing || sexMissing || unitMissing) return;
         onSubmit();
       }}
       className="space-y-6"
@@ -203,6 +228,29 @@ export function PatientForm({
           Identity & location
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
+          {needsUnit && (
+            <Field label="ICU unit *">
+              <Select value={values.unit_id || undefined} onValueChange={(v) => set("unit_id", v)}>
+                <SelectTrigger
+                  aria-invalid={unitMissing || undefined}
+                  aria-describedby={unitMissing ? "pf-unit-error" : undefined}
+                  className={unitMissing ? "border-destructive focus-visible:ring-destructive" : undefined}
+                >
+                  <SelectValue placeholder="Select ICU unit…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitOptions.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {unitMissing && (
+                <p id="pf-unit-error" className="text-xs text-destructive">
+                  You work in more than one unit — choose which unit this patient belongs to.
+                </p>
+              )}
+            </Field>
+          )}
           <Field label="Initials *">
             <Input id="pf-full_name" value={values.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={10} placeholder="e.g. J.S." required />
           </Field>
