@@ -48,8 +48,10 @@ import {
 } from "lucide-react";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { JobRemindersPanel } from "@/components/JobRemindersPanel";
+import { ChecklistAlertsPanel } from "@/components/ChecklistAlertsPanel";
 import { downloadJobsPdf, type JobsPdfGroup } from "@/lib/jobs-pdf";
 import { useJobReminders } from "@/hooks/use-job-reminders";
+import { useChecklistAlerts } from "@/hooks/use-checklist-alerts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/jobs")({
@@ -108,6 +110,7 @@ function JobsListPage() {
   const fetchPatients = useServerFn(listPatients);
 
   const { overdue, soon } = useJobReminders();
+  const checklistAlerts = useChecklistAlerts();
 
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [showRoundOnly, setShowRoundOnly] = useState(false);
@@ -228,6 +231,11 @@ function JobsListPage() {
       </header>
 
       <JobRemindersPanel overdue={overdue} soon={soon} />
+      <ChecklistAlertsPanel
+        missed={checklistAlerts.missed}
+        overdue={checklistAlerts.overdue}
+        soon={checklistAlerts.soon}
+      />
 
       {patientsLoading || tasksLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
