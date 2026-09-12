@@ -471,6 +471,56 @@ export type Database = {
           },
         ]
       }
+      checklist_template_versions: {
+        Row: {
+          changed_by: string | null
+          changed_by_email: string | null
+          created_at: string
+          description: string | null
+          id: string
+          items: Json
+          name: string
+          note: string | null
+          specialty: string | null
+          template_id: string
+          version: number
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_email?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          items: Json
+          name: string
+          note?: string | null
+          specialty?: string | null
+          template_id: string
+          version: number
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_email?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          name?: string
+          note?: string | null
+          specialty?: string | null
+          template_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_templates: {
         Row: {
           created_at: string
