@@ -62,6 +62,37 @@ export const createChecklistTemplate = createServerFn({ method: "POST" })
     return row;
   });
 
+// Any clinical member of staff can edit a checklist template, including the
+// built-in ones, so units can keep them aligned with local guidelines.
+export const updateChecklistTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        name: z.string().trim().min(2).max(120),
+        description: z.string().trim().max(2000).nullish(),
+        specialty: z.string().trim().max(120).nullish(),
+        items: zItems,
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: row, error } = await context.supabase
+      .from("checklist_templates")
+      .update({
+        name: data.name,
+        description: data.description ?? null,
+        specialty: data.specialty ?? null,
+        items: data.items,
+      } as never)
+      .eq("id", data.id)
+      .select()
+      .single();
+    if (error) throw safeDbError(error);
+    return row;
+  });
+
 export const archiveChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))

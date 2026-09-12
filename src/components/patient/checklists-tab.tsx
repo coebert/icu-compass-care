@@ -9,6 +9,7 @@ import {
   listChecklistTemplates,
   listPatientChecklists,
   setChecklistItem,
+  updateChecklistTemplate,
 } from "@/lib/checklists.functions";
 import { draftChecklist } from "@/lib/checklist-ai.functions";
 import {
@@ -48,6 +49,7 @@ import {
   CircleDashed,
   ClipboardList,
   MinusCircle,
+  Pencil,
   Plus,
   Sparkles,
   Trash2,
@@ -119,7 +121,8 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
 
   const active = listQ.data ?? [];
   const activeKeys = useMemo(() => new Set(active.map((c) => c.template_key)), [active]);
-  const available = (templatesQ.data ?? []).filter((t) => !activeKeys.has(t.key));
+  const allTemplates = templatesQ.data ?? [];
+  const selected = allTemplates.find((t) => t.id === templateId) ?? null;
 
   return (
     <div className="space-y-4">
@@ -136,24 +139,26 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
         <CardContent className="flex flex-wrap items-center gap-2">
           <Select value={templateId} onValueChange={setTemplateId}>
             <SelectTrigger className="w-full min-w-0 sm:w-[320px]">
-              <SelectValue placeholder={available.length ? "Choose a checklist…" : "All checklists activated"} />
+              <SelectValue placeholder="Choose a checklist…" />
             </SelectTrigger>
             <SelectContent>
-              {available.map((t) => (
+              {allTemplates.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}
                   {t.specialty ? ` · ${t.specialty}` : ""}
+                  {activeKeys.has(t.key) ? " · already active" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button
             onClick={() => templateId && activateM.mutate(templateId)}
-            disabled={!templateId || activateM.isPending}
+            disabled={!templateId || activateM.isPending || (selected ? activeKeys.has(selected.key) : false)}
           >
             <Plus className="mr-1.5 h-4 w-4" /> Activate
           </Button>
-          <NewTemplateDialog />
+          {selected && <TemplateDialog template={selected} />}
+          <TemplateDialog />
         </CardContent>
       </Card>
 
@@ -276,18 +281,43 @@ function ItemNote({ value, onSave }: { value: string; onSave: (note: string | nu
   );
 }
 
-// Lets a unit add its own checklist for future use; one item per line,
-// optional guidance after a "|".
-function NewTemplateDialog() {
+type TemplateRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  specialty: string | null;
+  items: unknown;
+};
+
+function templateToLines(items: unknown): string {
+  return parseChecklistItems(items)
+    .map((i) => (i.hint ? `${i.label} | ${i.hint}` : i.label))
+    .join("\n");
+}
+
+// Add a new checklist, or edit an existing one (including the standard
+// checklists) so a unit can keep them in line with local guidelines.
+// One item per line, optional guidance after a "|".
+function TemplateDialog({ template }: { template?: TemplateRow | null }) {
+  const isEdit = !!template;
   const qc = useQueryClient();
   const create = useServerFn(createChecklistTemplate);
+  const update = useServerFn(updateChecklistTemplate);
   const draft = useServerFn(draftChecklist);
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [specialty, setSpecialty] = useState("");
-  const [description, setDescription] = useState("");
-  const [lines, setLines] = useState("");
+  const [name, setName] = useState(template?.name ?? "");
+  const [specialty, setSpecialty] = useState(template?.specialty ?? "");
+  const [description, setDescription] = useState(template?.description ?? "");
+  const [lines, setLines] = useState(template ? templateToLines(template.items) : "");
   const [topic, setTopic] = useState("");
+
+  const reset = () => {
+    setName(template?.name ?? "");
+    setSpecialty(template?.specialty ?? "");
+    setDescription(template?.description ?? "");
+    setLines(template ? templateToLines(template.items) : "");
+    setTopic("");
+  };
 
   const draftM = useMutation({
     mutationFn: () =>
@@ -304,7 +334,7 @@ function NewTemplateDialog() {
     onError: (e: Error) => toast.error(e.message || "Could not draft a checklist"),
   });
 
-  const createM = useMutation({
+  const saveM = useMutation({
     mutationFn: () => {
       const items = lines
         .split("\n")
@@ -320,41 +350,55 @@ function NewTemplateDialog() {
         })
         .filter((i) => i.label !== "");
       if (items.length === 0) throw new Error("Add at least one checklist item");
-      return create({
-        data: {
-          name: name.trim(),
-          specialty: specialty.trim() || null,
-          description: description.trim() || null,
-          items,
-        },
-      });
+      const payload = {
+        name: name.trim(),
+        specialty: specialty.trim() || null,
+        description: description.trim() || null,
+        items,
+      };
+      return isEdit
+        ? update({ data: { id: template!.id, ...payload } })
+        : create({ data: payload });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["checklist-templates"] });
       setOpen(false);
-      setName("");
-      setSpecialty("");
-      setDescription("");
-      setLines("");
+      if (!isEdit) reset();
       setTopic("");
-      toast.success("Checklist created");
+      toast.success(isEdit ? "Checklist updated" : "Checklist created");
     },
-    onError: (e: Error) => toast.error(e.message || "Could not create checklist"),
+    onError: (e: Error) =>
+      toast.error(e.message || (isEdit ? "Could not update checklist" : "Could not create checklist")),
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) reset();
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <Plus className="mr-1.5 h-4 w-4" /> New checklist
-        </Button>
+        {isEdit ? (
+          <Button variant="outline">
+            <Pencil className="mr-1.5 h-4 w-4" /> Edit
+          </Button>
+        ) : (
+          <Button variant="outline">
+            <Plus className="mr-1.5 h-4 w-4" /> New checklist
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>New checklist</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit checklist" : "New checklist"}</DialogTitle>
           <DialogDescription>
-            Available to every patient in the units you work in. One item per line; add optional
-            guidance after a vertical bar, e.g. "Sputum sample | culture and sensitivity".
+            {isEdit
+              ? "Changes apply to checklists activated from now on; checklists already open on a patient keep their current items."
+              : "Available to every patient in the units you work in."}{" "}
+            One item per line; add optional guidance after a vertical bar, e.g. "Sputum sample |
+            culture and sensitivity".
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -412,10 +456,10 @@ function NewTemplateDialog() {
             Cancel
           </Button>
           <Button
-            onClick={() => createM.mutate()}
-            disabled={name.trim().length < 2 || createM.isPending}
+            onClick={() => saveM.mutate()}
+            disabled={name.trim().length < 2 || saveM.isPending}
           >
-            Create checklist
+            {isEdit ? "Save changes" : "Create checklist"}
           </Button>
         </DialogFooter>
       </DialogContent>
