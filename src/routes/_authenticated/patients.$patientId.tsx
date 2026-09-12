@@ -35,6 +35,7 @@ import { listInvestigations } from "@/lib/investigations.functions";
 import { listMicrobiology } from "@/lib/microbiology.functions";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { DemographicsTab } from "@/components/patient/demographics-tab";
+import { ChecklistsTab } from "@/components/patient/checklists-tab";
 import { ChartTab } from "@/components/patient/chart-tab";
 import { listChartDays } from "@/lib/chart-days.functions";
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
@@ -67,6 +68,7 @@ const TAB_KEYS = [
   "investigations",
   "microbiology",
   "reviews",
+  "checklists",
   "nursing",
   "allied",
   "timeline",
@@ -428,6 +430,7 @@ function PatientDetail() {
             <TabsTrigger value="investigations">Investigations</TabsTrigger>
             <TabsTrigger value="microbiology">Microbiology</TabsTrigger>
             <TabsTrigger value="reviews">Specialty reviews</TabsTrigger>
+            <TabsTrigger value="checklists">Checklists</TabsTrigger>
             <TabsTrigger value="nursing">Nursing</TabsTrigger>
             <TabsTrigger value="allied">Allied Specialties</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
