@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
+import { assertConfigAdmin } from "@/lib/roles.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { CHECKLIST_ITEM_STATUSES, CHECKLIST_ROLES, slugifyChecklistKey } from "@/lib/checklists";
 
@@ -256,4 +257,56 @@ export const listOpenChecklists = createServerFn({ method: "GET" })
       .order("activated_at", { ascending: true });
     if (error) throw safeDbError(error);
     return data ?? [];
+  });
+
+// ---- Template version history --------------------------------------------
+
+export const listChecklistTemplateVersions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { template_id: string }) =>
+    z.object({ template_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("checklist_template_versions")
+      .select("id, version, name, description, specialty, items, note, changed_by_email, created_at")
+      .eq("template_id", data.template_id)
+      .order("version", { ascending: false })
+      .limit(50);
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+/** Restore an earlier saved version. Administrators only. */
+export const revertChecklistTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { template_id: string; version: number }) =>
+    z
+      .object({ template_id: z.string().uuid(), version: z.number().int().min(1) })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    await assertConfigAdmin(context);
+
+    const { data: snap, error: readErr } = await context.supabase
+      .from("checklist_template_versions")
+      .select("name, description, specialty, items")
+      .eq("template_id", data.template_id)
+      .eq("version", data.version)
+      .single();
+    if (readErr) throw safeDbError(readErr);
+
+    const { data: row, error } = await context.supabase
+      .from("checklist_templates")
+      .update({
+        name: snap.name,
+        description: snap.description,
+        specialty: snap.specialty,
+        items: snap.items,
+      } as never)
+      .eq("id", data.template_id)
+      .select()
+      .single();
+    if (error) throw safeDbError(error);
+    return row;
   });
