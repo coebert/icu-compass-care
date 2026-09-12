@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
-import { assertConfigAdmin } from "@/lib/roles.server";
+import { assertConfigAdmin, loadActor } from "@/lib/roles.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   CHECKLIST_ITEM_STATUSES,
