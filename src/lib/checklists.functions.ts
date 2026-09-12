@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { CHECKLIST_ITEM_STATUSES, slugifyChecklistKey } from "@/lib/checklists";
+import { CHECKLIST_ITEM_STATUSES, CHECKLIST_ROLES, slugifyChecklistKey } from "@/lib/checklists";
 
 const zItems = z
   .array(
@@ -10,6 +10,8 @@ const zItems = z
       key: z.string().trim().min(1).max(60),
       label: z.string().trim().min(1).max(300),
       hint: z.string().trim().max(500).nullish(),
+      responsible: z.enum(CHECKLIST_ROLES).nullish(),
+      accountable: z.enum(CHECKLIST_ROLES).nullish(),
     }),
   )
   .min(1)
@@ -173,6 +175,8 @@ export const setChecklistItem = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         item_key: z.string().trim().min(1).max(60),
         status: z.enum(CHECKLIST_ITEM_STATUSES).optional(),
+        responsible: z.enum(CHECKLIST_ROLES).nullish(),
+        accountable: z.enum(CHECKLIST_ROLES).nullish(),
         note: z.string().trim().max(2000).nullish(),
       })
       .parse(input),
@@ -192,6 +196,14 @@ export const setChecklistItem = createServerFn({ method: "POST" })
 
     state[data.item_key] = {
       status: data.status ?? (prev.status as string) ?? "not_started",
+      responsible:
+        data.responsible !== undefined
+          ? (data.responsible ?? null)
+          : ((prev.responsible as string | null) ?? null),
+      accountable:
+        data.accountable !== undefined
+          ? (data.accountable ?? null)
+          : ((prev.accountable as string | null) ?? null),
       note: data.note !== undefined ? (data.note ?? null) : ((prev.note as string | null) ?? null),
       at: new Date().toISOString(),
       by: context.userId,
