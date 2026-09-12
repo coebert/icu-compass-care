@@ -16,6 +16,8 @@ const draftedItem = z.object({
   hint: z.string().trim().max(300).nullish(),
   responsible: z.enum(CHECKLIST_ROLES).nullish(),
   accountable: z.enum(CHECKLIST_ROLES).nullish(),
+  target_minutes: z.number().int().min(1).max(60 * 24 * 30).nullish(),
+  critical: z.boolean().nullish(),
 });
 
 export const draftChecklistSchema = z.object({
@@ -36,10 +38,12 @@ Rules:
 - Use UK units and terminology, generic drug names, no brand names, no doses unless standard and safe to state.
 - 6 to 18 items. Order them the way a clinician would work through them.
 - Each item also gets a RACI pair: "responsible" (who carries it out) and "accountable" (who owns it, usually a senior decision maker). Choose from exactly these values: bedside_nurse, nurse_in_charge, icu_trainee, icu_consultant, acp, pharmacist, physio, salt, dietitian, microbiology, parent_team, outreach, family. Use null if genuinely unclear.
+- Where an item is genuinely time-critical, give "target_minutes": the number of minutes from starting the checklist by which it should be complete (e.g. 60 for blood cultures and antibiotics in sepsis). Use null when there is no accepted time target.
+- Set "critical": true for the few items that must not be missed (patient safety or a time-critical bundle step), false otherwise.
 - Never include patient-specific or identifiable content, and never invent local hospital policy.
 
 Reply with JSON only, shaped exactly:
-{"name":string,"specialty":string|null,"description":string,"items":[{"label":string,"hint":string,"responsible":string|null,"accountable":string|null}]}`;
+{"name":string,"specialty":string|null,"description":string,"items":[{"label":string,"hint":string,"responsible":string|null,"accountable":string|null,"target_minutes":number|null,"critical":boolean}]}`;
 
 export const draftChecklist = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -103,6 +107,8 @@ export const draftChecklist = createServerFn({ method: "POST" })
         hint: i.hint ?? null,
         responsible: i.responsible ?? null,
         accountable: i.accountable ?? null,
+        target_minutes: i.target_minutes ?? null,
+        critical: i.critical === true,
       })),
     };
   });
