@@ -49,6 +49,7 @@ import {
   ClipboardList,
   MinusCircle,
   Plus,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 
