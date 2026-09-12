@@ -186,10 +186,13 @@ export const updateChecklistTemplate = createServerFn({ method: "POST" })
   });
 
 
+// Archiving a checklist takes it off every patient's picker, so it is an
+// administrator action (also enforced by row level security).
 export const archiveChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
+    await assertConfigAdmin(context);
     const { error } = await context.supabase
       .from("checklist_templates")
       .update({ is_active: false } as never)
@@ -212,13 +215,14 @@ export const listChecklistLibrary = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-// Archive or restore a checklist in the library.
+// Archive or restore a checklist in the library. Administrators only.
 export const setChecklistTemplateActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string; active: boolean }) =>
     z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
   )
   .handler(async ({ context, data }) => {
+    await assertConfigAdmin(context);
     const { error } = await context.supabase
       .from("checklist_templates")
       .update({ is_active: data.active } as never)
