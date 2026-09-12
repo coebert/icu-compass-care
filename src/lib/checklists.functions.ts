@@ -492,11 +492,15 @@ export const reviewChecklistProposal = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw safeDbError(error);
 
-    await writeAudit(context, {
-      action: "update",
+    await writeAudit(context.supabase, {
       entity: "checklists",
-      entityId: data.id,
-      diff: { proposal_review: data.decision, template_id: proposal.template_id ?? null },
+      recordId: data.id,
+      action: "update",
+      source: "app",
+      actor: { id: context.userId },
+      changedFields: ["status"],
+      before: { status: "pending" },
+      after: { status: data.decision, template_id: proposal.template_id ?? null },
     });
 
     return { ok: true, status: data.decision };
