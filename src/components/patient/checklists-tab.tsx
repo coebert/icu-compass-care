@@ -111,7 +111,14 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
   });
 
   const itemM = useMutation({
-    mutationFn: (v: { id: string; item_key: string; status?: ChecklistItemStatus; note?: string | null }) =>
+    mutationFn: (v: {
+      id: string;
+      item_key: string;
+      status?: ChecklistItemStatus;
+      responsible?: ChecklistRole | null;
+      accountable?: ChecklistRole | null;
+      note?: string | null;
+    }) =>
       setItem({ data: v }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message || "Could not save checklist item"),
