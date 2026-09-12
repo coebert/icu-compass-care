@@ -198,6 +198,36 @@ export const archiveChecklistTemplate = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Library view: every checklist, including archived ones, for the library page.
+export const listChecklistLibrary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("checklist_templates")
+      .select(
+        "id, key, name, description, specialty, items, is_active, is_builtin, created_at, updated_at",
+      )
+      .order("name", { ascending: true });
+    if (error) throw safeDbError(error);
+    return data ?? [];
+  });
+
+// Archive or restore a checklist in the library.
+export const setChecklistTemplateActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; active: boolean }) =>
+    z.object({ id: z.string().uuid(), active: z.boolean() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("checklist_templates")
+      .update({ is_active: data.active } as never)
+      .eq("id", data.id);
+    if (error) throw safeDbError(error);
+    return { ok: true };
+  });
+
+
 // ---- Per-patient checklists ----------------------------------------------
 
 export const listPatientChecklists = createServerFn({ method: "GET" })

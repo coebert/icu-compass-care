@@ -438,7 +438,7 @@ function ItemNote({ value, onSave }: { value: string; onSave: (note: string | nu
   );
 }
 
-type TemplateRow = {
+export type TemplateRow = {
   id: string;
   name: string;
   description: string | null;
@@ -469,7 +469,7 @@ function templateToLines(items: unknown): string {
 
 // Version history for a checklist template: every save is recorded, and an
 // administrator can restore an earlier version if a change caused confusion.
-function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
+export function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const list = useServerFn(listChecklistTemplateVersions);
@@ -572,26 +572,54 @@ function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
 // Add a new checklist, or edit an existing one (including the standard
 // checklists) so a unit can keep them in line with local guidelines.
 // One item per line, optional guidance after a "|".
-function TemplateDialog({ template }: { template?: TemplateRow | null }) {
+export type TemplateDraftSeed = {
+  name?: string;
+  specialty?: string;
+  description?: string;
+  lines?: string;
+};
+
+export function TemplateDialog({
+  template,
+  seed,
+  open: openProp,
+  onOpenChange,
+  showTrigger = true,
+}: {
+  template?: TemplateRow | null;
+  /** Prefill for a new checklist, e.g. an uploaded file. */
+  seed?: TemplateDraftSeed | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+}) {
   const isEdit = !!template;
   const qc = useQueryClient();
   const create = useServerFn(createChecklistTemplate);
   const update = useServerFn(updateChecklistTemplate);
   const draft = useServerFn(draftChecklist);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(template?.name ?? "");
-  const [specialty, setSpecialty] = useState(template?.specialty ?? "");
-  const [description, setDescription] = useState(template?.description ?? "");
-  const [lines, setLines] = useState(template ? templateToLines(template.items) : "");
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
+  const [name, setName] = useState(template?.name ?? seed?.name ?? "");
+  const [specialty, setSpecialty] = useState(template?.specialty ?? seed?.specialty ?? "");
+  const [description, setDescription] = useState(template?.description ?? seed?.description ?? "");
+  const [lines, setLines] = useState(
+    template ? templateToLines(template.items) : (seed?.lines ?? ""),
+  );
   const [topic, setTopic] = useState("");
 
   const reset = () => {
-    setName(template?.name ?? "");
-    setSpecialty(template?.specialty ?? "");
-    setDescription(template?.description ?? "");
-    setLines(template ? templateToLines(template.items) : "");
+    setName(template?.name ?? seed?.name ?? "");
+    setSpecialty(template?.specialty ?? seed?.specialty ?? "");
+    setDescription(template?.description ?? seed?.description ?? "");
+    setLines(template ? templateToLines(template.items) : (seed?.lines ?? ""));
     setTopic("");
   };
+
 
   const draftM = useMutation({
     mutationFn: () =>
@@ -660,17 +688,20 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
         if (next) reset();
       }}
     >
-      <DialogTrigger asChild>
-        {isEdit ? (
-          <Button variant="outline">
-            <Pencil className="mr-1.5 h-4 w-4" /> Edit
-          </Button>
-        ) : (
-          <Button variant="outline">
-            <Plus className="mr-1.5 h-4 w-4" /> New checklist
-          </Button>
-        )}
-      </DialogTrigger>
+      {showTrigger ? (
+        <DialogTrigger asChild>
+          {isEdit ? (
+            <Button variant="outline">
+              <Pencil className="mr-1.5 h-4 w-4" /> Edit
+            </Button>
+          ) : (
+            <Button variant="outline">
+              <Plus className="mr-1.5 h-4 w-4" /> New checklist
+            </Button>
+          )}
+        </DialogTrigger>
+      ) : null}
+
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit checklist" : "New checklist"}</DialogTitle>
