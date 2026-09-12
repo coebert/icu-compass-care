@@ -3,6 +3,8 @@ import { safeDbError } from "@/lib/db-error";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { zTimestampNullish } from "@/lib/datetime";
+import { syncTaskToChecklistItem } from "@/lib/checklist-tasks";
+import { writeAudit } from "@/lib/audit";
 
 export const TASK_STATUSES = ["not_started", "in_progress", "completed"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
