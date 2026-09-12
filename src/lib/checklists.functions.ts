@@ -12,10 +12,14 @@ const zItems = z
       hint: z.string().trim().max(500).nullish(),
       responsible: z.enum(CHECKLIST_ROLES).nullish(),
       accountable: z.enum(CHECKLIST_ROLES).nullish(),
+      // Target window in minutes from activation; null = no timed target.
+      target_minutes: z.number().int().min(1).max(60 * 24 * 30).nullish(),
+      critical: z.boolean().nullish(),
     }),
   )
   .min(1)
   .max(60);
+
 
 // ---- Templates ------------------------------------------------------------
 
@@ -177,7 +181,9 @@ export const setChecklistItem = createServerFn({ method: "POST" })
         status: z.enum(CHECKLIST_ITEM_STATUSES).optional(),
         responsible: z.enum(CHECKLIST_ROLES).nullish(),
         accountable: z.enum(CHECKLIST_ROLES).nullish(),
+        due_at: z.string().trim().datetime({ offset: true }).nullish(),
         note: z.string().trim().max(2000).nullish(),
+
       })
       .parse(input),
   )
@@ -204,7 +210,12 @@ export const setChecklistItem = createServerFn({ method: "POST" })
         data.accountable !== undefined
           ? (data.accountable ?? null)
           : ((prev.accountable as string | null) ?? null),
+      due_at:
+        data.due_at !== undefined
+          ? (data.due_at ?? null)
+          : ((prev.due_at as string | null) ?? null),
       note: data.note !== undefined ? (data.note ?? null) : ((prev.note as string | null) ?? null),
+
       at: new Date().toISOString(),
       by: context.userId,
     };
@@ -229,4 +240,20 @@ export const archivePatientChecklist = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw safeDbError(error);
     return { ok: true };
+  });
+
+// Every open checklist across the patients the signed-in member of staff can
+// see, so overdue and missed key items can be surfaced unit-wide. Row level
+// security already limits this to their units.
+export const listOpenChecklists = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("patient_checklists")
+      .select("id, patient_id, name, items, state, activated_at")
+      .is("archived_at", null)
+      .is("completed_at", null)
+      .order("activated_at", { ascending: true });
+    if (error) throw safeDbError(error);
+    return data ?? [];
   });

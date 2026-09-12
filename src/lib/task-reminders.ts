@@ -71,7 +71,7 @@ function write(state: ReminderState) {
 /**
  * Key includes due_at so rescheduling a job legitimately re-arms its reminder.
  */
-export function reminderKey(taskId: string, due: string, level: DueLevel) {
+export function reminderKey(taskId: string, due: string, level: string) {
   return `${taskId}|${due}|${level}`;
 }
 
