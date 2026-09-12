@@ -10,6 +10,7 @@ import {
   listPatientChecklists,
   setChecklistItem,
 } from "@/lib/checklists.functions";
+import { draftChecklist } from "@/lib/checklist-ai.functions";
 import {
   CHECKLIST_ITEM_STATUS_LABEL,
   NEXT_CHECKLIST_STATUS,
