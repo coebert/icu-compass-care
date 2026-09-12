@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.checklist_templates_record_version() FROM PUBLIC, anon, authenticated;

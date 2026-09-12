@@ -7,7 +7,9 @@ import {
   archivePatientChecklist,
   createChecklistTemplate,
   listChecklistTemplates,
+  listChecklistTemplateVersions,
   listPatientChecklists,
+  revertChecklistTemplate,
   setChecklistItem,
   updateChecklistTemplate,
 } from "@/lib/checklists.functions";
@@ -31,6 +33,7 @@ import {
   type ChecklistItemStatus,
   type ChecklistRole,
 } from "@/lib/checklists";
+import { getMe } from "@/lib/me.functions";
 import { fmtDateTime } from "@/lib/icu";
 import { dueRelativeLabel } from "@/lib/task-reminders";
 import { DateTimePicker } from "@/components/ui/date-picker";
@@ -64,6 +67,8 @@ import {
   MinusCircle,
   Pencil,
   Plus,
+  History,
+  RotateCcw,
   Sparkles,
   ShieldAlert,
   Trash2,
@@ -183,6 +188,7 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
             <Plus className="mr-1.5 h-4 w-4" /> Activate
           </Button>
           {selected && <TemplateDialog template={selected} />}
+          {selected && <TemplateHistoryDialog template={selected} />}
           <TemplateDialog />
         </CardContent>
       </Card>
@@ -454,6 +460,108 @@ function itemToLine(i: {
 
 function templateToLines(items: unknown): string {
   return parseChecklistItems(items).map(itemToLine).join("\n");
+}
+
+// Version history for a checklist template: every save is recorded, and an
+// administrator can restore an earlier version if a change caused confusion.
+function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const list = useServerFn(listChecklistTemplateVersions);
+  const revert = useServerFn(revertChecklistTemplate);
+  const meFn = useServerFn(getMe);
+  const me = useQuery({ queryKey: ["me"], queryFn: () => meFn() });
+
+  const versionsQ = useQuery({
+    queryKey: ["checklist-template-versions", template.id],
+    queryFn: () => list({ data: { template_id: template.id } }),
+    enabled: open,
+  });
+
+  const revertM = useMutation({
+    mutationFn: (version: number) => revert({ data: { template_id: template.id, version } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["checklist-templates"] });
+      void qc.invalidateQueries({ queryKey: ["checklist-template-versions", template.id] });
+      toast.success("Earlier version restored");
+      setOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not restore that version"),
+  });
+
+  const versions = versionsQ.data ?? [];
+  const canRevert = me.data?.isAdmin === true;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <History className="mr-1.5 h-4 w-4" /> History
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Version history — {template.name}</DialogTitle>
+          <DialogDescription>
+            Every saved version is kept. Administrators can restore an earlier version; restoring
+            records a new version, so nothing is lost. Checklists already open on a patient keep
+            their current items.
+          </DialogDescription>
+        </DialogHeader>
+        {versionsQ.isLoading ? (
+          <ListSkeleton rows={3} />
+        ) : versions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No saved versions yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {versions.map((v, idx) => {
+              const items = parseChecklistItems(v.items);
+              return (
+                <div key={v.id} className="rounded-md border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">
+                        Version {v.version}
+                        {idx === 0 ? " · current" : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {fmtDateTime(v.created_at)}
+                        {v.changed_by_email ? ` · ${v.changed_by_email}` : ""}
+                        {` · ${items.length} item${items.length === 1 ? "" : "s"}`}
+                      </p>
+                    </div>
+                    {idx > 0 && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={!canRevert || revertM.isPending}
+                        onClick={() => revertM.mutate(v.version)}
+                        title={canRevert ? undefined : "Administrators only"}
+                      >
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Restore
+                      </Button>
+                    )}
+                  </div>
+                  {v.name !== template.name && (
+                    <p className="mt-1 text-xs text-muted-foreground">Named &ldquo;{v.name}&rdquo;</p>
+                  )}
+                  {v.note && <p className="mt-1 text-xs text-muted-foreground">{v.note}</p>}
+                  <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                    {items.map((i) => (
+                      <li key={i.key}>
+                        · {i.label}
+                        {i.hint ? ` — ${i.hint}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // Add a new checklist, or edit an existing one (including the standard
