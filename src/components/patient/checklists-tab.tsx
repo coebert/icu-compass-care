@@ -688,17 +688,20 @@ export function TemplateDialog({
         if (next) reset();
       }}
     >
-      <DialogTrigger asChild>
-        {isEdit ? (
-          <Button variant="outline">
-            <Pencil className="mr-1.5 h-4 w-4" /> Edit
-          </Button>
-        ) : (
-          <Button variant="outline">
-            <Plus className="mr-1.5 h-4 w-4" /> New checklist
-          </Button>
-        )}
-      </DialogTrigger>
+      {showTrigger ? (
+        <DialogTrigger asChild>
+          {isEdit ? (
+            <Button variant="outline">
+              <Pencil className="mr-1.5 h-4 w-4" /> Edit
+            </Button>
+          ) : (
+            <Button variant="outline">
+              <Plus className="mr-1.5 h-4 w-4" /> New checklist
+            </Button>
+          )}
+        </DialogTrigger>
+      ) : null}
+
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit checklist" : "New checklist"}</DialogTitle>
