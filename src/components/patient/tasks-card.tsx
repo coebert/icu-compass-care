@@ -90,7 +90,11 @@ export function OutstandingTasks({ patientId, freeText }: { patientId: string; f
     queryFn: () => listTasks({ data: { patientId } }) as Promise<PatientTask[]>,
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["patient-tasks", patientId] });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["patient-tasks", patientId] });
+    // Jobs created from a checklist item push their status back to the checklist.
+    void qc.invalidateQueries({ queryKey: ["patient-checklists", patientId] });
+  };
 
   const addMut = useMutation({
     mutationFn: () =>
