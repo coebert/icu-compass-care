@@ -210,7 +210,12 @@ export const setChecklistItem = createServerFn({ method: "POST" })
         data.accountable !== undefined
           ? (data.accountable ?? null)
           : ((prev.accountable as string | null) ?? null),
+      due_at:
+        data.due_at !== undefined
+          ? (data.due_at ?? null)
+          : ((prev.due_at as string | null) ?? null),
       note: data.note !== undefined ? (data.note ?? null) : ((prev.note as string | null) ?? null),
+
       at: new Date().toISOString(),
       by: context.userId,
     };
