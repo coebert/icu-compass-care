@@ -12,10 +12,14 @@ const zItems = z
       hint: z.string().trim().max(500).nullish(),
       responsible: z.enum(CHECKLIST_ROLES).nullish(),
       accountable: z.enum(CHECKLIST_ROLES).nullish(),
+      // Target window in minutes from activation; null = no timed target.
+      target_minutes: z.number().int().min(1).max(60 * 24 * 30).nullish(),
+      critical: z.boolean().nullish(),
     }),
   )
   .min(1)
   .max(60);
+
 
 // ---- Templates ------------------------------------------------------------
 
