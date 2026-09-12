@@ -241,3 +241,19 @@ export const archivePatientChecklist = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error);
     return { ok: true };
   });
+
+// Every open checklist across the patients the signed-in member of staff can
+// see, so overdue and missed key items can be surfaced unit-wide. Row level
+// security already limits this to their units.
+export const listOpenChecklists = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("patient_checklists")
+      .select("id, patient_id, name, items, state, activated_at")
+      .is("archived_at", null)
+      .is("completed_at", null)
+      .order("activated_at", { ascending: true });
+    if (error) throw safeDbError(error);
+    return data ?? [];
+  });
