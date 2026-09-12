@@ -18,8 +18,12 @@ import {
   CHECKLIST_ROLE_LABEL,
   NEXT_CHECKLIST_STATUS,
   UNASSIGNED_ROLE,
+  CHECKLIST_ALERT_LABEL,
+  checklistItemAlert,
   effectiveRaci,
+  formatTargetMinutes,
   matchRole,
+  parseTargetMinutes,
   roleLabel,
   checklistProgress,
   parseChecklistItems,
@@ -28,6 +32,8 @@ import {
   type ChecklistRole,
 } from "@/lib/checklists";
 import { fmtDateTime } from "@/lib/icu";
+import { dueRelativeLabel } from "@/lib/task-reminders";
+import { DateTimePicker } from "@/components/ui/date-picker";
 import { ListSkeleton } from "@/components/LoadingSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +65,10 @@ import {
   Pencil,
   Plus,
   Sparkles,
+  ShieldAlert,
   Trash2,
+  AlertTriangle,
+  Clock,
 } from "lucide-react";
 
 const STATUS_ICON: Record<ChecklistItemStatus, React.ReactNode> = {
@@ -117,6 +126,7 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
       status?: ChecklistItemStatus;
       responsible?: ChecklistRole | null;
       accountable?: ChecklistRole | null;
+      due_at?: string | null;
       note?: string | null;
     }) =>
       setItem({ data: v }),
@@ -188,6 +198,10 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
           const items = parseChecklistItems(cl.items);
           const state = parseChecklistState(cl.state);
           const { done, total } = checklistProgress(items, state);
+          const late = items.filter((i) => {
+            const l = checklistItemAlert(i, state, cl.activated_at).level;
+            return l === "overdue" || l === "missed";
+          }).length;
           return (
             <Card key={cl.id}>
               <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
@@ -196,6 +210,11 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                   <CardDescription>Activated {fmtDateTime(cl.activated_at)}</CardDescription>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  {late > 0 && (
+                    <Badge variant="outline" className="border-rose-500/50 text-rose-600 dark:text-rose-400">
+                      {late} late
+                    </Badge>
+                  )}
                   <Badge variant={done === total && total > 0 ? "default" : "secondary"}>
                     {done}/{total}
                   </Badge>
@@ -219,10 +238,19 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                   const st = state[item.key]?.status ?? "not_started";
                   const entry = state[item.key];
                   const raci = effectiveRaci(item, state);
+                  const alert = checklistItemAlert(item, state, cl.activated_at);
+                  const alertTone =
+                    alert.level === "missed"
+                      ? "border-rose-500/60 bg-rose-500/5"
+                      : alert.level === "overdue"
+                        ? "border-rose-500/40 bg-rose-500/5"
+                        : alert.level === "soon"
+                          ? "border-amber-500/40 bg-amber-500/5"
+                          : "";
                   return (
                     <div
                       key={item.key}
-                      className="grid gap-2 rounded-md border p-2.5 md:grid-cols-[1fr_190px_190px] md:items-start"
+                      className={`grid gap-2 rounded-md border p-2.5 md:grid-cols-[1fr_190px_190px] md:items-start ${alertTone}`}
                     >
                       <div className="flex items-start gap-2">
                         <button
@@ -250,12 +278,55 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                             }`}
                           >
                             {item.label}
+                            {item.critical && (
+                              <span className="ml-1.5 rounded-sm bg-muted px-1 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Key
+                              </span>
+                            )}
                           </p>
+                          {alert.level !== "none" && (
+                            <p
+                              className={`mt-0.5 flex items-center gap-1 text-xs font-medium ${
+                                alert.level === "soon"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-rose-600 dark:text-rose-400"
+                              }`}
+                            >
+                              {alert.level === "missed" ? (
+                                <ShieldAlert className="h-3.5 w-3.5" />
+                              ) : alert.level === "overdue" ? (
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                              ) : (
+                                <Clock className="h-3.5 w-3.5" />
+                              )}
+                              {CHECKLIST_ALERT_LABEL[alert.level]}
+                              {alert.dueAt ? ` · ${dueRelativeLabel(alert.dueAt)}` : ""}
+                            </p>
+                          )}
                           {item.hint && <p className="text-xs text-muted-foreground">{item.hint}</p>}
                           <ItemNote
                             value={entry?.note ?? ""}
                             onSave={(note) => itemM.mutate({ id: cl.id, item_key: item.key, note })}
                           />
+                          <div className="mt-1.5">
+                            <p className="mb-1 text-xs text-muted-foreground">
+                              Due by
+                              {item.target_minutes
+                                ? ` (target ${formatTargetMinutes(item.target_minutes)} from activation)`
+                                : ""}
+                            </p>
+                            <DateTimePicker
+                              className="max-w-[280px]"
+                              value={alert.dueAt ?? ""}
+                              onChange={(v) =>
+                                itemM.mutate({
+                                  id: cl.id,
+                                  item_key: item.key,
+                                  due_at: v ? new Date(v).toISOString() : null,
+                                })
+                              }
+                            />
+                          </div>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {CHECKLIST_ITEM_STATUS_LABEL[st]}
                             {entry?.at ? ` · updated ${fmtDateTime(entry.at)}` : ""}
@@ -364,11 +435,20 @@ type TemplateRow = {
   items: unknown;
 };
 
-function itemToLine(i: { label: string; hint?: string | null; responsible?: string | null; accountable?: string | null }): string {
+function itemToLine(i: {
+  label: string;
+  hint?: string | null;
+  responsible?: string | null;
+  accountable?: string | null;
+  target_minutes?: number | null;
+  critical?: boolean | null;
+}): string {
   const parts = [i.label, i.hint ?? ""];
-  if (i.responsible || i.accountable) {
+  if (i.responsible || i.accountable || i.target_minutes || i.critical) {
     parts.push(roleLabel(i.responsible ?? null), roleLabel(i.accountable ?? null));
   }
+  if (i.target_minutes || i.critical) parts.push(formatTargetMinutes(i.target_minutes ?? null));
+  if (i.critical) parts.push("key");
   return parts.join(" | ").replace(/(\s*\|\s*)+$/, "");
 }
 
@@ -420,13 +500,15 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
         .map((l) => l.trim())
         .filter((l) => l !== "")
         .map((l, i) => {
-          const [label, hint, responsible, accountable] = l.split("|");
+          const [label, hint, responsible, accountable, target, flag] = l.split("|");
           return {
             key: `item_${i + 1}`,
             label: (label ?? "").trim(),
             hint: hint && hint.trim() !== "" ? hint.trim() : null,
             responsible: matchRole(responsible),
             accountable: matchRole(accountable),
+            target_minutes: parseTargetMinutes(target),
+            critical: /^(key|critical)$/i.test((flag ?? "").trim()),
           };
         })
         .filter((i) => i.label !== "");
@@ -479,8 +561,10 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
               ? "Changes apply to checklists activated from now on; checklists already open on a patient keep their current items."
               : "Available to every patient in the units you work in."}{" "}
             One item per line, separated by vertical bars: task | guidance | responsible |
-            accountable owner — e.g. "Sputum sample | culture and sensitivity | Bedside nurse | ICU
-            trainee / registrar". Guidance and roles are optional.
+            accountable owner | target time | key — e.g. "Blood cultures | before antibiotics |
+            Bedside nurse | ICU trainee / registrar | 1h | key". Everything after the task is
+            optional; a target time (30m, 1h, 2d) sets the deadline from activation, and "key" marks
+            an item that must not be missed.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -529,7 +613,7 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
           <Textarea
             className="min-h-[160px]"
             placeholder={
-              "Viral swabs sent | respiratory viral PCR | Bedside nurse | ICU trainee / registrar\nChest X-ray reviewed"
+              "Blood cultures | before antibiotics | Bedside nurse | ICU trainee / registrar | 1h | key\nChest X-ray reviewed"
             }
             value={lines}
             onChange={(e) => setLines(e.target.value)}
