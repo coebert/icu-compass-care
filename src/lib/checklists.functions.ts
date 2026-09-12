@@ -424,3 +424,80 @@ export const revertChecklistTemplate = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error);
     return row;
   });
+
+// ---- Change approvals -----------------------------------------------------
+
+/** Queued checklist changes. Staff see their own queue; admins see all. */
+export const listChecklistProposals = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const actor = await loadActor(context);
+    const { data: rows, error } = await context.supabase
+      .from("checklist_template_proposals")
+      .select(
+        "id, template_id, kind, name, description, specialty, items, note, status, proposed_by, proposed_by_email, reviewed_by_email, reviewed_at, review_note, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw safeDbError(error);
+    return { canReview: actor.canConfigure, proposals: rows ?? [] };
+  });
+
+/** Approve (apply) or reject a queued checklist change. Administrators only. */
+export const reviewChecklistProposal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; decision: "approved" | "rejected"; review_note?: string | null }) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        decision: z.enum(["approved", "rejected"]),
+        review_note: z.string().trim().max(1000).nullish(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    await assertConfigAdmin(context);
+
+    const { data: proposal, error: readErr } = await context.supabase
+      .from("checklist_template_proposals")
+      .select("id, template_id, kind, name, description, specialty, items, status")
+      .eq("id", data.id)
+      .single();
+    if (readErr) throw safeDbError(readErr);
+    if (proposal.status !== "pending") throw new Error("This change has already been reviewed");
+
+    if (data.decision === "approved") {
+      const draft = {
+        name: proposal.name as string,
+        description: proposal.description as string | null,
+        specialty: proposal.specialty as string | null,
+        items: proposal.items as z.infer<typeof zItems>,
+      };
+      if (proposal.kind === "update" && proposal.template_id) {
+        await applyUpdate(context, proposal.template_id as string, draft);
+      } else {
+        await applyCreate(context, draft);
+      }
+    }
+
+    const { error } = await context.supabase
+      .from("checklist_template_proposals")
+      .update({
+        status: data.decision,
+        reviewed_by: context.userId,
+        reviewed_by_email: actorEmail(context),
+        reviewed_at: new Date().toISOString(),
+        review_note: data.review_note ?? null,
+      } as never)
+      .eq("id", data.id);
+    if (error) throw safeDbError(error);
+
+    await writeAudit(context, {
+      action: "update",
+      entity: "checklists",
+      entityId: data.id,
+      diff: { proposal_review: data.decision, template_id: proposal.template_id ?? null },
+    });
+
+    return { ok: true, status: data.decision };
+  });
