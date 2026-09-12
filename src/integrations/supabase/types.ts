@@ -471,6 +471,74 @@ export type Database = {
           },
         ]
       }
+      checklist_template_proposals: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          items: Json
+          kind: string
+          name: string
+          note: string | null
+          proposed_by: string | null
+          proposed_by_email: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_email: string | null
+          specialty: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          kind?: string
+          name: string
+          note?: string | null
+          proposed_by?: string | null
+          proposed_by_email?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_email?: string | null
+          specialty?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          kind?: string
+          name?: string
+          note?: string | null
+          proposed_by?: string | null
+          proposed_by_email?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_email?: string | null
+          specialty?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_proposals_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_template_versions: {
         Row: {
           changed_by: string | null
