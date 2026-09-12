@@ -3,7 +3,14 @@ import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { assertConfigAdmin } from "@/lib/roles.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { CHECKLIST_ITEM_STATUSES, CHECKLIST_ROLES, slugifyChecklistKey } from "@/lib/checklists";
+import {
+  CHECKLIST_ITEM_STATUSES,
+  CHECKLIST_ROLES,
+  parseChecklistItems,
+  slugifyChecklistKey,
+} from "@/lib/checklists";
+import { syncChecklistItemTask } from "@/lib/checklist-tasks";
+import { writeAudit } from "@/lib/audit";
 
 const zItems = z
   .array(
