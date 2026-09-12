@@ -73,6 +73,11 @@ export type ChecklistItem = {
   // Default RACI roles suggested by the checklist template.
   responsible?: ChecklistRole | null;
   accountable?: ChecklistRole | null;
+  // Default target window, in minutes from when the checklist was activated
+  // (e.g. 60 for a Sepsis Six item). Null means no timed target.
+  target_minutes?: number | null;
+  // Key items are the ones that must not be missed; they escalate faster.
+  critical?: boolean;
 };
 
 export type ChecklistItemState = {
@@ -80,12 +85,34 @@ export type ChecklistItemState = {
   // Per-patient overrides of the template's default RACI roles.
   responsible?: ChecklistRole | null;
   accountable?: ChecklistRole | null;
+  // Per-patient override of the deadline (ISO, UTC).
+  due_at?: string | null;
   note?: string | null;
   at?: string | null;
   by?: string | null;
 };
 
 export type ChecklistState = Record<string, ChecklistItemState>;
+
+// Accept "90", "90m", "1h", "1.5h", "2 hours" when a target is typed as text.
+export function parseTargetMinutes(value: unknown): number | null {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "") return null;
+  const m = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*(m|min|mins|minutes|h|hr|hrs|hour|hours|d|day|days)?$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const unit = m[2] ?? "m";
+  const mult = unit.startsWith("d") ? 60 * 24 : unit.startsWith("h") ? 60 : 1;
+  return Math.min(Math.round(n * mult), 60 * 24 * 30);
+}
+
+export function formatTargetMinutes(minutes: number | null | undefined): string {
+  if (!minutes) return "";
+  if (minutes % (60 * 24) === 0) return `${minutes / (60 * 24)}d`;
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return `${minutes}m`;
+}
 
 export function parseChecklistItems(value: unknown): ChecklistItem[] {
   if (!Array.isArray(value)) return [];
@@ -97,9 +124,12 @@ export function parseChecklistItems(value: unknown): ChecklistItem[] {
       hint: v.hint != null && String(v.hint).trim() !== "" ? String(v.hint) : null,
       responsible: parseRole(v.responsible),
       accountable: parseRole(v.accountable),
+      target_minutes: parseTargetMinutes(v.target_minutes),
+      critical: v.critical === true,
     }))
     .filter((i) => i.key !== "" && i.label !== "");
 }
+
 
 export function parseChecklistState(value: unknown): ChecklistState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
