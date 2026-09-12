@@ -69,7 +69,7 @@ function ChecklistApprovalsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["checklist-proposals"],
-    queryFn: () => list() as Promise<{ canReview: boolean; proposals: Proposal[] }>,
+    queryFn: () => list() as unknown as Promise<{ canReview: boolean; proposals: Proposal[] }>,
     retry: false,
   });
 
