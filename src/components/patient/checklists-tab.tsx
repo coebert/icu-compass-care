@@ -636,12 +636,17 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
         ? update({ data: { id: template!.id, ...payload } })
         : create({ data: payload });
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ["checklist-templates"] });
+      void qc.invalidateQueries({ queryKey: ["checklist-proposals"] });
       setOpen(false);
       if (!isEdit) reset();
       setTopic("");
-      toast.success(isEdit ? "Checklist updated" : "Checklist created");
+      if (res && (res as { pending?: boolean }).pending) {
+        toast.success("Sent for approval — an administrator will review it before it appears on patient tabs");
+      } else {
+        toast.success(isEdit ? "Checklist updated" : "Checklist created");
+      }
     },
     onError: (e: Error) =>
       toast.error(e.message || (isEdit ? "Could not update checklist" : "Could not create checklist")),
