@@ -469,7 +469,7 @@ function templateToLines(items: unknown): string {
 
 // Version history for a checklist template: every save is recorded, and an
 // administrator can restore an earlier version if a change caused confusion.
-function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
+export function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
   const list = useServerFn(listChecklistTemplateVersions);
