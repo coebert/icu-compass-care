@@ -112,6 +112,10 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["patient-checklists", patientId] });
+    // Checklist items keep a linked job in step, so refresh the job list too.
+    void qc.invalidateQueries({ queryKey: ["patient-tasks", patientId] });
+    void qc.invalidateQueries({ queryKey: ["all-tasks"] });
+    void qc.invalidateQueries({ queryKey: ["open-tasks"] });
   };
 
   const activateM = useMutation({
@@ -163,7 +167,8 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
           <CardDescription>
             Activate the checklists relevant to this patient. Each item can be marked not started, in
             progress, done or not applicable, with a note, and shows who is responsible for doing it
-            and who owns it.
+            and who owns it. Each item you start, complete or give a deadline appears in the patient's
+            job list, stays in step with it both ways, and is written to the audit trail.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">

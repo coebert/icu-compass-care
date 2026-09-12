@@ -1309,6 +1309,8 @@ export type Database = {
           patient_id: string
           position: number
           priority: string
+          source_checklist_id: string | null
+          source_item_key: string | null
           status: string
           updated_at: string
         }
@@ -1324,6 +1326,8 @@ export type Database = {
           patient_id: string
           position?: number
           priority?: string
+          source_checklist_id?: string | null
+          source_item_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -1339,6 +1343,8 @@ export type Database = {
           patient_id?: string
           position?: number
           priority?: string
+          source_checklist_id?: string | null
+          source_item_key?: string | null
           status?: string
           updated_at?: string
         }
@@ -1348,6 +1354,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_tasks_source_checklist_id_fkey"
+            columns: ["source_checklist_id"]
+            isOneToOne: false
+            referencedRelation: "patient_checklists"
             referencedColumns: ["id"]
           },
         ]

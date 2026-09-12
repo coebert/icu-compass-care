@@ -3,7 +3,14 @@ import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { assertConfigAdmin } from "@/lib/roles.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { CHECKLIST_ITEM_STATUSES, CHECKLIST_ROLES, slugifyChecklistKey } from "@/lib/checklists";
+import {
+  CHECKLIST_ITEM_STATUSES,
+  CHECKLIST_ROLES,
+  parseChecklistItems,
+  slugifyChecklistKey,
+} from "@/lib/checklists";
+import { syncChecklistItemTask } from "@/lib/checklist-tasks";
+import { writeAudit } from "@/lib/audit";
 
 const zItems = z
   .array(
@@ -191,7 +198,7 @@ export const setChecklistItem = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: current, error: readErr } = await context.supabase
       .from("patient_checklists")
-      .select("id, state")
+      .select("id, patient_id, name, items, state, activated_at")
       .eq("id", data.id)
       .single();
     if (readErr) throw safeDbError(readErr);
@@ -228,6 +235,34 @@ export const setChecklistItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw safeDbError(error);
+
+    // Keep the patient's job list and the audit trail in step with the item.
+    const entry = state[data.item_key]!;
+    const item = parseChecklistItems(current.items).find((i) => i.key === data.item_key);
+    if (item) {
+      const status = (entry.status as string) as (typeof CHECKLIST_ITEM_STATUSES)[number];
+      const linked = await syncChecklistItemTask(context.supabase, {
+        patientId: current.patient_id as string,
+        checklistId: data.id,
+        checklistName: (current.name as string) ?? "Checklist",
+        item,
+        status,
+        responsible: (entry.responsible as string | null) ?? null,
+        dueAt: (entry.due_at as string | null) ?? null,
+        note: (entry.note as string | null) ?? null,
+        userId: context.userId,
+      });
+      await writeAudit(context.supabase, {
+        entity: "checklists",
+        recordId: data.id,
+        action: "update",
+        source: "app",
+        actor: { id: context.userId },
+        changedFields: [data.item_key],
+        before: { status: (prev.status as string | null) ?? "not_started" },
+        after: { status, item: item.label, linked_task_id: linked.taskId },
+      });
+    }
     return row;
   });
 

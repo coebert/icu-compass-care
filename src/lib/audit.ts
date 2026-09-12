@@ -11,7 +11,13 @@ function formatIbwAudit(heightM: unknown, sex: unknown): string | null {
   return `${formatIbwValue(ibw)} kg (Devine, ${s})`;
 }
 
-export type AuditEntity = "patients" | "investigations" | "referrals" | "microbiology";
+export type AuditEntity =
+  | "patients"
+  | "investigations"
+  | "referrals"
+  | "microbiology"
+  | "checklists"
+  | "patient_tasks";
 export type AuditAction = "insert" | "update" | "delete";
 export type AuditSource = "app" | "bridge";
 
