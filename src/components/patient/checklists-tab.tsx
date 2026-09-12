@@ -119,7 +119,8 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
 
   const active = listQ.data ?? [];
   const activeKeys = useMemo(() => new Set(active.map((c) => c.template_key)), [active]);
-  const available = (templatesQ.data ?? []).filter((t) => !activeKeys.has(t.key));
+  const allTemplates = templatesQ.data ?? [];
+  const selected = allTemplates.find((t) => t.id === templateId) ?? null;
 
   return (
     <div className="space-y-4">
