@@ -235,6 +235,34 @@ export const setChecklistItem = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw safeDbError(error);
+
+    // Keep the patient's job list and the audit trail in step with the item.
+    const entry = state[data.item_key]!;
+    const item = parseChecklistItems(current.items).find((i) => i.key === data.item_key);
+    if (item) {
+      const status = (entry.status as string) as (typeof CHECKLIST_ITEM_STATUSES)[number];
+      const linked = await syncChecklistItemTask(context.supabase, {
+        patientId: current.patient_id as string,
+        checklistId: data.id,
+        checklistName: (current.name as string) ?? "Checklist",
+        item,
+        status,
+        responsible: (entry.responsible as string | null) ?? null,
+        dueAt: (entry.due_at as string | null) ?? null,
+        note: (entry.note as string | null) ?? null,
+        userId: context.userId,
+      });
+      await writeAudit(context.supabase, {
+        entity: "checklists",
+        recordId: data.id,
+        action: "update",
+        source: "app",
+        actor: { id: context.userId },
+        changedFields: [data.item_key],
+        before: { status: (prev.status as string | null) ?? "not_started" },
+        after: { status, item: item.label, linked_task_id: linked.taskId },
+      });
+    }
     return row;
   });
 
