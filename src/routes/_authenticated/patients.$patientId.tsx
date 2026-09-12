@@ -602,6 +602,10 @@ function PatientDetail() {
           <ReviewsTab patientId={patientId} />
         </TabsContent>
 
+        <TabsContent value="checklists" className="mt-4">
+          <ChecklistsTab patientId={patientId} />
+        </TabsContent>
+
         <TabsContent value="nursing" className="mt-4">
           <Card>
             <CardHeader>
