@@ -158,3 +158,16 @@ export function effectiveRaci(
     accountable: entry?.accountable ?? item.accountable ?? null,
   };
 }
+
+// Accept either the role key ("icu_consultant") or its label ("ICU consultant")
+// when a checklist is typed out as text in the template editor.
+export function matchRole(value: string | null | undefined): ChecklistRole | null {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (v === "") return null;
+  const byKey = (CHECKLIST_ROLES as readonly string[]).find((r) => r === v);
+  if (byKey) return byKey as ChecklistRole;
+  const byLabel = (CHECKLIST_ROLES as readonly ChecklistRole[]).find(
+    (r) => CHECKLIST_ROLE_LABEL[r].toLowerCase() === v,
+  );
+  return byLabel ?? null;
+}
