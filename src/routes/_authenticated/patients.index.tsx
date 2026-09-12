@@ -188,6 +188,11 @@ function PatientsBoard() {
     return m;
   }, [latestObs]);
 
+  // Late or missed key items on any active management checklist.
+  const checklistAlerts = useChecklistAlerts();
+
+
+
   const latestKeyInvFn = useServerFn(listLatestKeyInvestigations);
   const { data: latestKeyInv = [] } = useQuery({
     queryKey: ["latest-key-investigations"],
