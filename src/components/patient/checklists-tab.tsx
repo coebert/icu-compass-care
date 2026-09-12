@@ -136,24 +136,26 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
         <CardContent className="flex flex-wrap items-center gap-2">
           <Select value={templateId} onValueChange={setTemplateId}>
             <SelectTrigger className="w-full min-w-0 sm:w-[320px]">
-              <SelectValue placeholder={available.length ? "Choose a checklist…" : "All checklists activated"} />
+              <SelectValue placeholder="Choose a checklist…" />
             </SelectTrigger>
             <SelectContent>
-              {available.map((t) => (
+              {allTemplates.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}
                   {t.specialty ? ` · ${t.specialty}` : ""}
+                  {activeKeys.has(t.key) ? " · already active" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button
             onClick={() => templateId && activateM.mutate(templateId)}
-            disabled={!templateId || activateM.isPending}
+            disabled={!templateId || activateM.isPending || (selected ? activeKeys.has(selected.key) : false)}
           >
             <Plus className="mr-1.5 h-4 w-4" /> Activate
           </Button>
-          <NewTemplateDialog />
+          {selected && <TemplateDialog template={selected} />}
+          <TemplateDialog />
         </CardContent>
       </Card>
 
