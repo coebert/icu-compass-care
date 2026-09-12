@@ -112,6 +112,10 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["patient-checklists", patientId] });
+    // Checklist items keep a linked job in step, so refresh the job list too.
+    void qc.invalidateQueries({ queryKey: ["patient-tasks", patientId] });
+    void qc.invalidateQueries({ queryKey: ["all-tasks"] });
+    void qc.invalidateQueries({ queryKey: ["open-tasks"] });
   };
 
   const activateM = useMutation({
