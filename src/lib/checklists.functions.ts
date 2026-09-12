@@ -29,7 +29,82 @@ const zItems = z
   .max(60);
 
 
+type ChecklistDraft = {
+  name: string;
+  description?: string | null;
+  specialty?: string | null;
+  items: z.infer<typeof zItems>;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Ctx = { supabase: any; userId: string; claims?: { email?: string } };
+
+function actorEmail(context: Ctx): string | null {
+  return context.claims?.email ?? null;
+}
+
+async function applyCreate(context: Ctx, draft: ChecklistDraft) {
+  const base = slugifyChecklistKey(draft.name) || "checklist";
+  const key = `${base}_${Date.now().toString(36)}`;
+  const { data: row, error } = await context.supabase
+    .from("checklist_templates")
+    .insert({
+      key,
+      name: draft.name,
+      description: draft.description ?? null,
+      specialty: draft.specialty ?? null,
+      items: draft.items,
+      is_builtin: false,
+      created_by: context.userId,
+    } as never)
+    .select()
+    .single();
+  if (error) throw safeDbError(error);
+  return row;
+}
+
+async function applyUpdate(context: Ctx, id: string, draft: ChecklistDraft) {
+  const { data: row, error } = await context.supabase
+    .from("checklist_templates")
+    .update({
+      name: draft.name,
+      description: draft.description ?? null,
+      specialty: draft.specialty ?? null,
+      items: draft.items,
+    } as never)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw safeDbError(error);
+  return row;
+}
+
+async function submitProposal(
+  context: Ctx,
+  payload: ChecklistDraft & { template_id: string | null; kind: "create" | "update"; note: string | null },
+) {
+  const { data: row, error } = await context.supabase
+    .from("checklist_template_proposals")
+    .insert({
+      template_id: payload.template_id,
+      kind: payload.kind,
+      name: payload.name,
+      description: payload.description ?? null,
+      specialty: payload.specialty ?? null,
+      items: payload.items,
+      note: payload.note,
+      status: "pending",
+      proposed_by: context.userId,
+      proposed_by_email: actorEmail(context),
+    } as never)
+    .select("id")
+    .single();
+  if (error) throw safeDbError(error);
+  return { pending: true as const, proposal_id: row.id as string };
+}
+
 // ---- Templates ------------------------------------------------------------
+
 
 export const listChecklistTemplates = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
