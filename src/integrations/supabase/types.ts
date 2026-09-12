@@ -471,6 +471,48 @@ export type Database = {
           },
         ]
       }
+      checklist_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_builtin: boolean
+          items: Json
+          key: string
+          name: string
+          specialty: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_builtin?: boolean
+          items?: Json
+          key: string
+          name: string
+          specialty?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_builtin?: boolean
+          items?: Json
+          key?: string
+          name?: string
+          specialty?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crypto_key_escrow: {
         Row: {
           algo: string
@@ -857,6 +899,69 @@ export type Database = {
             columns: ["referral_id"]
             isOneToOne: false
             referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_checklists: {
+        Row: {
+          activated_at: string
+          activated_by: string | null
+          archived_at: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          items: Json
+          name: string
+          patient_id: string
+          state: Json
+          template_id: string | null
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string
+          activated_by?: string | null
+          archived_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          name: string
+          patient_id: string
+          state?: Json
+          template_id?: string | null
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string
+          activated_by?: string | null
+          archived_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          name?: string
+          patient_id?: string
+          state?: Json
+          template_id?: string | null
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_checklists_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
             referencedColumns: ["id"]
           },
         ]
