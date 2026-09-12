@@ -40,6 +40,7 @@ import {
   KeyRound,
   History,
   Building2,
+  ClipboardCheck,
 } from "lucide-react";
 import { AccessReasonDialog } from "@/components/AccessReasonDialog";
 import { RoleChanger } from "@/components/RoleChanger";
