@@ -198,7 +198,7 @@ export const setChecklistItem = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: current, error: readErr } = await context.supabase
       .from("patient_checklists")
-      .select("id, state")
+      .select("id, patient_id, name, items, state, activated_at")
       .eq("id", data.id)
       .single();
     if (readErr) throw safeDbError(readErr);
