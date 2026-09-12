@@ -438,7 +438,7 @@ function ItemNote({ value, onSave }: { value: string; onSave: (note: string | nu
   );
 }
 
-type TemplateRow = {
+export type TemplateRow = {
   id: string;
   name: string;
   description: string | null;
