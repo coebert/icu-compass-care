@@ -136,6 +136,30 @@ export const updatePatientTask = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw safeDbError(error);
+
+    // A job created from a checklist item pushes its status back to the checklist.
+    const source = row as unknown as {
+      source_checklist_id: string | null;
+      source_item_key: string | null;
+      status: TaskStatus;
+    };
+    if (source.source_checklist_id && source.source_item_key && data.status) {
+      await syncTaskToChecklistItem(context.supabase, {
+        checklistId: source.source_checklist_id,
+        itemKey: source.source_item_key,
+        status: source.status,
+        userId: context.userId,
+      });
+    }
+    await writeAudit(context.supabase, {
+      entity: "patient_tasks",
+      recordId: id,
+      action: "update",
+      source: "app",
+      actor: { id: context.userId },
+      changedFields: Object.keys(rest),
+      after: rest as Record<string, unknown>,
+    });
     return row;
   });
 
