@@ -33,6 +33,7 @@ import {
   type ChecklistItemStatus,
   type ChecklistRole,
 } from "@/lib/checklists";
+import { getMe } from "@/lib/me.functions";
 import { fmtDateTime } from "@/lib/icu";
 import { dueRelativeLabel } from "@/lib/task-reminders";
 import { DateTimePicker } from "@/components/ui/date-picker";
@@ -468,7 +469,8 @@ function TemplateHistoryDialog({ template }: { template: TemplateRow }) {
   const qc = useQueryClient();
   const list = useServerFn(listChecklistTemplateVersions);
   const revert = useServerFn(revertChecklistTemplate);
-  const me = useQuery({ queryKey: ["me"], queryFn: () => useMeFn() });
+  const meFn = useServerFn(getMe);
+  const me = useQuery({ queryKey: ["me"], queryFn: () => meFn() });
 
   const versionsQ = useQuery({
     queryKey: ["checklist-template-versions", template.id],
