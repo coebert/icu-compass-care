@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
-import { assertConfigAdmin } from "@/lib/roles.server";
+import { assertConfigAdmin, loadActor } from "@/lib/roles.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   CHECKLIST_ITEM_STATUSES,
@@ -29,7 +29,82 @@ const zItems = z
   .max(60);
 
 
+type ChecklistDraft = {
+  name: string;
+  description?: string | null;
+  specialty?: string | null;
+  items: z.infer<typeof zItems>;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Ctx = { supabase: any; userId: string; claims?: { email?: string } };
+
+function actorEmail(context: Ctx): string | null {
+  return context.claims?.email ?? null;
+}
+
+async function applyCreate(context: Ctx, draft: ChecklistDraft) {
+  const base = slugifyChecklistKey(draft.name) || "checklist";
+  const key = `${base}_${Date.now().toString(36)}`;
+  const { data: row, error } = await context.supabase
+    .from("checklist_templates")
+    .insert({
+      key,
+      name: draft.name,
+      description: draft.description ?? null,
+      specialty: draft.specialty ?? null,
+      items: draft.items,
+      is_builtin: false,
+      created_by: context.userId,
+    } as never)
+    .select()
+    .single();
+  if (error) throw safeDbError(error);
+  return row;
+}
+
+async function applyUpdate(context: Ctx, id: string, draft: ChecklistDraft) {
+  const { data: row, error } = await context.supabase
+    .from("checklist_templates")
+    .update({
+      name: draft.name,
+      description: draft.description ?? null,
+      specialty: draft.specialty ?? null,
+      items: draft.items,
+    } as never)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw safeDbError(error);
+  return row;
+}
+
+async function submitProposal(
+  context: Ctx,
+  payload: ChecklistDraft & { template_id: string | null; kind: "create" | "update"; note: string | null },
+) {
+  const { data: row, error } = await context.supabase
+    .from("checklist_template_proposals")
+    .insert({
+      template_id: payload.template_id,
+      kind: payload.kind,
+      name: payload.name,
+      description: payload.description ?? null,
+      specialty: payload.specialty ?? null,
+      items: payload.items,
+      note: payload.note,
+      status: "pending",
+      proposed_by: context.userId,
+      proposed_by_email: actorEmail(context),
+    } as never)
+    .select("id")
+    .single();
+  if (error) throw safeDbError(error);
+  return { pending: true as const, proposal_id: row.id as string };
+}
+
 // ---- Templates ------------------------------------------------------------
+
 
 export const listChecklistTemplates = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -44,6 +119,8 @@ export const listChecklistTemplates = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Anyone clinical may draft a checklist, but only an administrator's change
+// goes live immediately; everybody else's is queued for approval.
 export const createChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -53,31 +130,30 @@ export const createChecklistTemplate = createServerFn({ method: "POST" })
         description: z.string().trim().max(2000).nullish(),
         specialty: z.string().trim().max(120).nullish(),
         items: zItems,
+        note: z.string().trim().max(1000).nullish(),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const base = slugifyChecklistKey(data.name) || "checklist";
-    const key = `${base}_${Date.now().toString(36)}`;
-    const { data: row, error } = await context.supabase
-      .from("checklist_templates")
-      .insert({
-        key,
+    const actor = await loadActor(context);
+    if (!actor.canConfigure) {
+      return submitProposal(context, {
+        template_id: null,
+        kind: "create",
         name: data.name,
         description: data.description ?? null,
         specialty: data.specialty ?? null,
         items: data.items,
-        is_builtin: false,
-        created_by: context.userId,
-      } as never)
-      .select()
-      .single();
-    if (error) throw safeDbError(error);
-    return row;
+        note: data.note ?? null,
+      });
+    }
+    const row = await applyCreate(context, data);
+    return { pending: false as const, template: row };
   });
 
 // Any clinical member of staff can edit a checklist template, including the
-// built-in ones, so units can keep them aligned with local guidelines.
+// built-in ones, so units can keep them aligned with local guidelines — but
+// the edit only reaches patient tabs once an administrator approves it.
 export const updateChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -88,24 +164,27 @@ export const updateChecklistTemplate = createServerFn({ method: "POST" })
         description: z.string().trim().max(2000).nullish(),
         specialty: z.string().trim().max(120).nullish(),
         items: zItems,
+        note: z.string().trim().max(1000).nullish(),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { data: row, error } = await context.supabase
-      .from("checklist_templates")
-      .update({
+    const actor = await loadActor(context);
+    if (!actor.canConfigure) {
+      return submitProposal(context, {
+        template_id: data.id,
+        kind: "update",
         name: data.name,
         description: data.description ?? null,
         specialty: data.specialty ?? null,
         items: data.items,
-      } as never)
-      .eq("id", data.id)
-      .select()
-      .single();
-    if (error) throw safeDbError(error);
-    return row;
+        note: data.note ?? null,
+      });
+    }
+    const row = await applyUpdate(context, data.id, data);
+    return { pending: false as const, template: row };
   });
+
 
 export const archiveChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -344,4 +423,85 @@ export const revertChecklistTemplate = createServerFn({ method: "POST" })
       .single();
     if (error) throw safeDbError(error);
     return row;
+  });
+
+// ---- Change approvals -----------------------------------------------------
+
+/** Queued checklist changes. Staff see their own queue; admins see all. */
+export const listChecklistProposals = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const actor = await loadActor(context);
+    const { data: rows, error } = await context.supabase
+      .from("checklist_template_proposals")
+      .select(
+        "id, template_id, kind, name, description, specialty, items, note, status, proposed_by, proposed_by_email, reviewed_by_email, reviewed_at, review_note, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw safeDbError(error);
+    return { canReview: actor.canConfigure, proposals: rows ?? [] };
+  });
+
+/** Approve (apply) or reject a queued checklist change. Administrators only. */
+export const reviewChecklistProposal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; decision: "approved" | "rejected"; review_note?: string | null }) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        decision: z.enum(["approved", "rejected"]),
+        review_note: z.string().trim().max(1000).nullish(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    await assertConfigAdmin(context);
+
+    const { data: proposal, error: readErr } = await context.supabase
+      .from("checklist_template_proposals")
+      .select("id, template_id, kind, name, description, specialty, items, status")
+      .eq("id", data.id)
+      .single();
+    if (readErr) throw safeDbError(readErr);
+    if (proposal.status !== "pending") throw new Error("This change has already been reviewed");
+
+    if (data.decision === "approved") {
+      const draft = {
+        name: proposal.name as string,
+        description: proposal.description as string | null,
+        specialty: proposal.specialty as string | null,
+        items: proposal.items as z.infer<typeof zItems>,
+      };
+      if (proposal.kind === "update" && proposal.template_id) {
+        await applyUpdate(context, proposal.template_id as string, draft);
+      } else {
+        await applyCreate(context, draft);
+      }
+    }
+
+    const { error } = await context.supabase
+      .from("checklist_template_proposals")
+      .update({
+        status: data.decision,
+        reviewed_by: context.userId,
+        reviewed_by_email: actorEmail(context),
+        reviewed_at: new Date().toISOString(),
+        review_note: data.review_note ?? null,
+      } as never)
+      .eq("id", data.id);
+    if (error) throw safeDbError(error);
+
+    await writeAudit(context.supabase, {
+      entity: "checklists",
+      recordId: data.id,
+      action: "update",
+      source: "app",
+      actor: { id: context.userId },
+      changedFields: ["status"],
+      before: { status: "pending" },
+      after: { status: data.decision, template_id: proposal.template_id ?? null },
+    });
+
+    return { ok: true, status: data.decision };
   });

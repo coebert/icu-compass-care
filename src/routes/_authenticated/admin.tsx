@@ -40,6 +40,7 @@ import {
   KeyRound,
   History,
   Building2,
+  ClipboardCheck,
 } from "lucide-react";
 import { AccessReasonDialog } from "@/components/AccessReasonDialog";
 import { RoleChanger } from "@/components/RoleChanger";
@@ -252,10 +253,16 @@ function AdminPage() {
             </Link>
           </Button>
           <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
+            <Link to="/checklist-approvals">
+              <ClipboardCheck className="h-4 w-4" /> Checklist approvals
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-11 gap-1.5 sm:h-10">
             <Link to="/patients/sharing">
               <Share2 className="h-4 w-4" /> Partner sharing
             </Link>
           </Button>
+
           <Button className="h-11 gap-1.5 sm:h-10" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" /> New account
           </Button>
