@@ -14,11 +14,18 @@ import {
 import { draftChecklist } from "@/lib/checklist-ai.functions";
 import {
   CHECKLIST_ITEM_STATUS_LABEL,
+  CHECKLIST_ROLES,
+  CHECKLIST_ROLE_LABEL,
   NEXT_CHECKLIST_STATUS,
+  UNASSIGNED_ROLE,
+  effectiveRaci,
+  matchRole,
+  roleLabel,
   checklistProgress,
   parseChecklistItems,
   parseChecklistState,
   type ChecklistItemStatus,
+  type ChecklistRole,
 } from "@/lib/checklists";
 import { fmtDateTime } from "@/lib/icu";
 import { ListSkeleton } from "@/components/LoadingSkeleton";
@@ -104,7 +111,14 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
   });
 
   const itemM = useMutation({
-    mutationFn: (v: { id: string; item_key: string; status?: ChecklistItemStatus; note?: string | null }) =>
+    mutationFn: (v: {
+      id: string;
+      item_key: string;
+      status?: ChecklistItemStatus;
+      responsible?: ChecklistRole | null;
+      accountable?: ChecklistRole | null;
+      note?: string | null;
+    }) =>
       setItem({ data: v }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message || "Could not save checklist item"),
@@ -133,7 +147,8 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
           </CardTitle>
           <CardDescription>
             Activate the checklists relevant to this patient. Each item can be marked not started, in
-            progress, done or not applicable, with a note.
+            progress, done or not applicable, with a note, and shows who is responsible for doing it
+            and who owns it.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
@@ -195,11 +210,20 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
+                <div className="hidden gap-2 px-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[1fr_190px_190px]">
+                  <span>Task</span>
+                  <span>Responsible (does it)</span>
+                  <span>Accountable (owner)</span>
+                </div>
                 {items.map((item) => {
                   const st = state[item.key]?.status ?? "not_started";
                   const entry = state[item.key];
+                  const raci = effectiveRaci(item, state);
                   return (
-                    <div key={item.key} className="rounded-md border p-2.5">
+                    <div
+                      key={item.key}
+                      className="grid gap-2 rounded-md border p-2.5 md:grid-cols-[1fr_190px_190px] md:items-start"
+                    >
                       <div className="flex items-start gap-2">
                         <button
                           type="button"
@@ -238,6 +262,22 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                           </p>
                         </div>
                       </div>
+                      <RolePicker
+                        label={`Responsible for ${item.label}`}
+                        mobileLabel="Responsible"
+                        value={raci.responsible}
+                        onChange={(responsible) =>
+                          itemM.mutate({ id: cl.id, item_key: item.key, responsible })
+                        }
+                      />
+                      <RolePicker
+                        label={`Accountable owner for ${item.label}`}
+                        mobileLabel="Accountable owner"
+                        value={raci.accountable}
+                        onChange={(accountable) =>
+                          itemM.mutate({ id: cl.id, item_key: item.key, accountable })
+                        }
+                      />
                     </div>
                   );
                 })}
@@ -246,6 +286,41 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
           );
         })
       )}
+    </div>
+  );
+}
+
+// Who does the item (responsible) and who owns it (accountable).
+function RolePicker({
+  label,
+  mobileLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  mobileLabel: string;
+  value: ChecklistRole | null;
+  onChange: (role: ChecklistRole | null) => void;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-xs text-muted-foreground md:hidden">{mobileLabel}</p>
+      <Select
+        value={value ?? UNASSIGNED_ROLE}
+        onValueChange={(v) => onChange(v === UNASSIGNED_ROLE ? null : (v as ChecklistRole))}
+      >
+        <SelectTrigger className="h-9 w-full min-w-0 text-xs" aria-label={label}>
+          <SelectValue placeholder="Unassigned" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={UNASSIGNED_ROLE}>Unassigned</SelectItem>
+          {CHECKLIST_ROLES.map((r) => (
+            <SelectItem key={r} value={r}>
+              {CHECKLIST_ROLE_LABEL[r]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -289,10 +364,16 @@ type TemplateRow = {
   items: unknown;
 };
 
+function itemToLine(i: { label: string; hint?: string | null; responsible?: string | null; accountable?: string | null }): string {
+  const parts = [i.label, i.hint ?? ""];
+  if (i.responsible || i.accountable) {
+    parts.push(roleLabel(i.responsible ?? null), roleLabel(i.accountable ?? null));
+  }
+  return parts.join(" | ").replace(/(\s*\|\s*)+$/, "");
+}
+
 function templateToLines(items: unknown): string {
-  return parseChecklistItems(items)
-    .map((i) => (i.hint ? `${i.label} | ${i.hint}` : i.label))
-    .join("\n");
+  return parseChecklistItems(items).map(itemToLine).join("\n");
 }
 
 // Add a new checklist, or edit an existing one (including the standard
@@ -326,9 +407,7 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
       if (!name.trim()) setName(d.name);
       if (!specialty.trim() && d.specialty) setSpecialty(d.specialty);
       if (!description.trim() && d.description) setDescription(d.description);
-      setLines(
-        d.items.map((i) => (i.hint ? `${i.label} | ${i.hint}` : i.label)).join("\n"),
-      );
+      setLines(d.items.map(itemToLine).join("\n"));
       toast.success("Draft ready — review and edit before saving");
     },
     onError: (e: Error) => toast.error(e.message || "Could not draft a checklist"),
@@ -341,11 +420,13 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
         .map((l) => l.trim())
         .filter((l) => l !== "")
         .map((l, i) => {
-          const [label, hint] = l.split("|");
+          const [label, hint, responsible, accountable] = l.split("|");
           return {
             key: `item_${i + 1}`,
             label: (label ?? "").trim(),
-            hint: hint ? hint.trim() : null,
+            hint: hint && hint.trim() !== "" ? hint.trim() : null,
+            responsible: matchRole(responsible),
+            accountable: matchRole(accountable),
           };
         })
         .filter((i) => i.label !== "");
@@ -397,8 +478,9 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
             {isEdit
               ? "Changes apply to checklists activated from now on; checklists already open on a patient keep their current items."
               : "Available to every patient in the units you work in."}{" "}
-            One item per line; add optional guidance after a vertical bar, e.g. "Sputum sample |
-            culture and sensitivity".
+            One item per line, separated by vertical bars: task | guidance | responsible |
+            accountable owner — e.g. "Sputum sample | culture and sensitivity | Bedside nurse | ICU
+            trainee / registrar". Guidance and roles are optional.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -446,7 +528,9 @@ function TemplateDialog({ template }: { template?: TemplateRow | null }) {
           />
           <Textarea
             className="min-h-[160px]"
-            placeholder={"Viral swabs sent | respiratory viral PCR\nChest X-ray reviewed"}
+            placeholder={
+              "Viral swabs sent | respiratory viral PCR | Bedside nurse | ICU trainee / registrar\nChest X-ray reviewed"
+            }
             value={lines}
             onChange={(e) => setLines(e.target.value)}
           />

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callGatewayChat } from "@/lib/ai-gateway.server";
+import { CHECKLIST_ROLES } from "@/lib/checklists";
 
 /**
  * AI checklist drafting.
@@ -13,6 +14,8 @@ import { callGatewayChat } from "@/lib/ai-gateway.server";
 const draftedItem = z.object({
   label: z.string().trim().min(2).max(200),
   hint: z.string().trim().max(300).nullish(),
+  responsible: z.enum(CHECKLIST_ROLES).nullish(),
+  accountable: z.enum(CHECKLIST_ROLES).nullish(),
 });
 
 export const draftChecklistSchema = z.object({
@@ -32,10 +35,11 @@ Rules:
 - Each item gets a short "hint" giving the criteria, threshold, target or trigger that decides it (e.g. "Target MAP >= 65 mmHg", "Steroids if PaO2/FiO2 < 26.6 kPa"). Keep hints under 140 characters.
 - Use UK units and terminology, generic drug names, no brand names, no doses unless standard and safe to state.
 - 6 to 18 items. Order them the way a clinician would work through them.
+- Each item also gets a RACI pair: "responsible" (who carries it out) and "accountable" (who owns it, usually a senior decision maker). Choose from exactly these values: bedside_nurse, nurse_in_charge, icu_trainee, icu_consultant, acp, pharmacist, physio, salt, dietitian, microbiology, parent_team, outreach, family. Use null if genuinely unclear.
 - Never include patient-specific or identifiable content, and never invent local hospital policy.
 
 Reply with JSON only, shaped exactly:
-{"name":string,"specialty":string|null,"description":string,"items":[{"label":string,"hint":string}]}`;
+{"name":string,"specialty":string|null,"description":string,"items":[{"label":string,"hint":string,"responsible":string|null,"accountable":string|null}]}`;
 
 export const draftChecklist = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -94,6 +98,11 @@ export const draftChecklist = createServerFn({ method: "POST" })
       name: result.data.name,
       specialty: result.data.specialty ?? data.specialty ?? null,
       description: result.data.description ?? null,
-      items: result.data.items.map((i) => ({ label: i.label, hint: i.hint ?? null })),
+      items: result.data.items.map((i) => ({
+        label: i.label,
+        hint: i.hint ?? null,
+        responsible: i.responsible ?? null,
+        accountable: i.accountable ?? null,
+      })),
     };
   });
