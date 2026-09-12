@@ -58,6 +58,8 @@ export const Route = createFileRoute("/_authenticated/patients/")({
 });
 
 import type { Patient as DomainPatient } from "@/lib/domain-types";
+import { ChecklistAlertsPanel } from "@/components/ChecklistAlertsPanel";
+import { useChecklistAlerts } from "@/hooks/use-checklist-alerts";
 type Patient = DomainPatient & Record<string, any>;
 
 
@@ -560,6 +562,11 @@ function PatientsBoard() {
     <AcuityContext.Provider value={obsByPatient}>
     <KeyInvestigationsContext.Provider value={keyInvByPatient}>
     <div className="group/board space-y-6" data-density={density}>
+      <ChecklistAlertsPanel
+        missed={checklistAlerts.missed}
+        overdue={checklistAlerts.overdue}
+        showSoon={false}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div>
           <h1 className="text-2xl font-bold">Patient board</h1>
