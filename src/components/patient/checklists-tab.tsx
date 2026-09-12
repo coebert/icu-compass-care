@@ -10,6 +10,7 @@ import {
   listPatientChecklists,
   setChecklistItem,
 } from "@/lib/checklists.functions";
+import { draftChecklist } from "@/lib/checklist-ai.functions";
 import {
   CHECKLIST_ITEM_STATUS_LABEL,
   NEXT_CHECKLIST_STATUS,
@@ -48,6 +49,7 @@ import {
   ClipboardList,
   MinusCircle,
   Plus,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -279,11 +281,28 @@ function ItemNote({ value, onSave }: { value: string; onSave: (note: string | nu
 function NewTemplateDialog() {
   const qc = useQueryClient();
   const create = useServerFn(createChecklistTemplate);
+  const draft = useServerFn(draftChecklist);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [description, setDescription] = useState("");
   const [lines, setLines] = useState("");
+  const [topic, setTopic] = useState("");
+
+  const draftM = useMutation({
+    mutationFn: () =>
+      draft({ data: { topic: topic.trim(), specialty: specialty.trim() || null } }),
+    onSuccess: (d) => {
+      if (!name.trim()) setName(d.name);
+      if (!specialty.trim() && d.specialty) setSpecialty(d.specialty);
+      if (!description.trim() && d.description) setDescription(d.description);
+      setLines(
+        d.items.map((i) => (i.hint ? `${i.label} | ${i.hint}` : i.label)).join("\n"),
+      );
+      toast.success("Draft ready — review and edit before saving");
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not draft a checklist"),
+  });
 
   const createM = useMutation({
     mutationFn: () => {
@@ -317,6 +336,7 @@ function NewTemplateDialog() {
       setSpecialty("");
       setDescription("");
       setLines("");
+      setTopic("");
       toast.success("Checklist created");
     },
     onError: (e: Error) => toast.error(e.message || "Could not create checklist"),
@@ -338,6 +358,37 @@ function NewTemplateDialog() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div className="rounded-md border bg-muted/40 p-3">
+            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              <Sparkles className="h-4 w-4" /> Draft with the AI assistant
+            </p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Describe the checklist you want and it will suggest items with the criteria for
+              each. No patient information is sent.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                className="min-w-0"
+                placeholder="e.g. Sepsis first 6 hours, or DKA management"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && topic.trim().length >= 3 && !draftM.isPending) {
+                    e.preventDefault();
+                    draftM.mutate();
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                className="shrink-0"
+                onClick={() => draftM.mutate()}
+                disabled={topic.trim().length < 3 || draftM.isPending}
+              >
+                {draftM.isPending ? "Drafting…" : "Generate"}
+              </Button>
+            </div>
+          </div>
           <Input placeholder="Checklist name" value={name} onChange={(e) => setName(e.target.value)} />
           <Input
             placeholder="Specialty (optional)"
