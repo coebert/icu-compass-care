@@ -144,7 +144,9 @@ export function parseChecklistState(value: unknown): ChecklistState {
       status,
       responsible: parseRole(r.responsible),
       accountable: parseRole(r.accountable),
+      due_at: r.due_at != null && String(r.due_at).trim() !== "" ? String(r.due_at) : null,
       note: r.note != null ? String(r.note) : null,
+
       at: r.at != null ? String(r.at) : null,
       by: r.by != null ? String(r.by) : null,
     };
