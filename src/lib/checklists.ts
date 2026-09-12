@@ -203,3 +203,127 @@ export function matchRole(value: string | null | undefined): ChecklistRole | nul
   );
   return byLabel ?? null;
 }
+
+// ---- Deadlines and alerts -------------------------------------------------
+//
+// Deadlines are derived, never stored as a separate job: a checklist item is
+// due either at the time a member of staff set for this patient, or at the
+// template's target window measured from when the checklist was activated.
+
+export type ChecklistAlertLevel = "none" | "soon" | "overdue" | "missed";
+
+/** Items due within this window count as "due soon". */
+export const CHECKLIST_SOON_MS = 60 * 60 * 1000;
+/** A key item overdue by longer than this counts as missed. */
+export const CHECKLIST_MISSED_GRACE_MS = 60 * 60 * 1000;
+/** A key item with no timed target counts as missed after this long. */
+export const CHECKLIST_UNTIMED_MISSED_MS = 12 * 60 * 60 * 1000;
+
+/** The effective deadline for an item, or null when it has no timed target. */
+export function checklistItemDueAt(
+  item: ChecklistItem,
+  state: ChecklistState,
+  activatedAt: string | null | undefined,
+): string | null {
+  const override = state[item.key]?.due_at;
+  if (override) return override;
+  if (item.target_minutes && activatedAt) {
+    const t = new Date(activatedAt).getTime();
+    if (!Number.isNaN(t)) return new Date(t + item.target_minutes * 60_000).toISOString();
+  }
+  return null;
+}
+
+export function checklistItemAlert(
+  item: ChecklistItem,
+  state: ChecklistState,
+  activatedAt: string | null | undefined,
+  now: number = Date.now(),
+): { level: ChecklistAlertLevel; dueAt: string | null } {
+  const dueAt = checklistItemDueAt(item, state, activatedAt);
+  const status = state[item.key]?.status ?? "not_started";
+  if (status === "done" || status === "not_applicable") return { level: "none", dueAt };
+
+  if (dueAt) {
+    const t = new Date(dueAt).getTime();
+    if (Number.isNaN(t)) return { level: "none", dueAt: null };
+    const diff = t - now;
+    if (diff < 0) {
+      const late = -diff;
+      if (item.critical && late > CHECKLIST_MISSED_GRACE_MS) return { level: "missed", dueAt };
+      return { level: "overdue", dueAt };
+    }
+    if (diff <= CHECKLIST_SOON_MS) return { level: "soon", dueAt };
+    return { level: "none", dueAt };
+  }
+
+  // No deadline: a key item left outstanding for a long time still counts.
+  if (item.critical && activatedAt) {
+    const started = new Date(activatedAt).getTime();
+    if (!Number.isNaN(started) && now - started > CHECKLIST_UNTIMED_MISSED_MS) {
+      return { level: "missed", dueAt: null };
+    }
+  }
+  return { level: "none", dueAt: null };
+}
+
+export const CHECKLIST_ALERT_RANK: Record<ChecklistAlertLevel, number> = {
+  none: 0,
+  soon: 1,
+  overdue: 2,
+  missed: 3,
+};
+
+export const CHECKLIST_ALERT_LABEL: Record<ChecklistAlertLevel, string> = {
+  none: "",
+  soon: "Due soon",
+  overdue: "Overdue",
+  missed: "Key item missed",
+};
+
+export type ChecklistAlert = {
+  id: string;
+  checklistId: string;
+  patientId: string;
+  checklistName: string;
+  itemKey: string;
+  itemLabel: string;
+  level: Exclude<ChecklistAlertLevel, "none">;
+  dueAt: string | null;
+  critical: boolean;
+  responsible: ChecklistRole | null;
+};
+
+/** Every outstanding alert on one activated checklist. */
+export function checklistAlerts(
+  checklist: {
+    id: string;
+    patient_id: string;
+    name: string;
+    items: unknown;
+    state: unknown;
+    activated_at: string | null;
+  },
+  now: number = Date.now(),
+): ChecklistAlert[] {
+  const items = parseChecklistItems(checklist.items);
+  const state = parseChecklistState(checklist.state);
+  const out: ChecklistAlert[] = [];
+  for (const item of items) {
+    const { level, dueAt } = checklistItemAlert(item, state, checklist.activated_at, now);
+    if (level === "none") continue;
+    out.push({
+      id: `${checklist.id}:${item.key}`,
+      checklistId: checklist.id,
+      patientId: checklist.patient_id,
+      checklistName: checklist.name,
+      itemKey: item.key,
+      itemLabel: item.label,
+      level,
+      dueAt,
+      critical: item.critical === true,
+      responsible: effectiveRaci(item, state).responsible,
+    });
+  }
+  return out;
+}
