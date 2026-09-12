@@ -181,7 +181,9 @@ export const setChecklistItem = createServerFn({ method: "POST" })
         status: z.enum(CHECKLIST_ITEM_STATUSES).optional(),
         responsible: z.enum(CHECKLIST_ROLES).nullish(),
         accountable: z.enum(CHECKLIST_ROLES).nullish(),
+        due_at: z.string().trim().datetime({ offset: true }).nullish(),
         note: z.string().trim().max(2000).nullish(),
+
       })
       .parse(input),
   )
