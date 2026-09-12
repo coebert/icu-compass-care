@@ -41,6 +41,8 @@ import {
   History,
   Building2,
   ClipboardCheck,
+  Library,
+
 } from "lucide-react";
 import { AccessReasonDialog } from "@/components/AccessReasonDialog";
 import { RoleChanger } from "@/components/RoleChanger";
