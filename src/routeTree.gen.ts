@@ -19,6 +19,7 @@ import { Route as AuthenticatedSecurityFaqRouteImport } from './routes/_authenti
 import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
 import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
 import { Route as AuthenticatedJobsRouteImport } from './routes/_authenticated/jobs'
+import { Route as AuthenticatedChecklistLibraryRouteImport } from './routes/_authenticated/checklist-library'
 import { Route as AuthenticatedChecklistApprovalsRouteImport } from './routes/_authenticated/checklist-approvals'
 import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
 import { Route as AuthenticatedAntimicrobialsRouteImport } from './routes/_authenticated/antimicrobials'
@@ -98,6 +99,12 @@ const AuthenticatedJobsRoute = AuthenticatedJobsRouteImport.update({
   path: '/jobs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedChecklistLibraryRoute =
+  AuthenticatedChecklistLibraryRouteImport.update({
+    id: '/checklist-library',
+    path: '/checklist-library',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedChecklistApprovalsRoute =
   AuthenticatedChecklistApprovalsRouteImport.update({
     id: '/checklist-approvals',
@@ -267,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
   '/checklist-approvals': typeof AuthenticatedChecklistApprovalsRoute
+  '/checklist-library': typeof AuthenticatedChecklistLibraryRoute
   '/jobs': typeof AuthenticatedJobsRoute
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/reconcile': typeof AuthenticatedReconcileRoute
@@ -306,6 +314,7 @@ export interface FileRoutesByTo {
   '/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/beds': typeof AuthenticatedBedsRoute
   '/checklist-approvals': typeof AuthenticatedChecklistApprovalsRoute
+  '/checklist-library': typeof AuthenticatedChecklistLibraryRoute
   '/jobs': typeof AuthenticatedJobsRoute
   '/reconcile': typeof AuthenticatedReconcileRoute
   '/security-faq': typeof AuthenticatedSecurityFaqRoute
@@ -346,6 +355,7 @@ export interface FileRoutesById {
   '/_authenticated/antimicrobials': typeof AuthenticatedAntimicrobialsRoute
   '/_authenticated/beds': typeof AuthenticatedBedsRoute
   '/_authenticated/checklist-approvals': typeof AuthenticatedChecklistApprovalsRoute
+  '/_authenticated/checklist-library': typeof AuthenticatedChecklistLibraryRoute
   '/_authenticated/jobs': typeof AuthenticatedJobsRoute
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/reconcile': typeof AuthenticatedReconcileRoute
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/antimicrobials'
     | '/beds'
     | '/checklist-approvals'
+    | '/checklist-library'
     | '/jobs'
     | '/patients'
     | '/reconcile'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/antimicrobials'
     | '/beds'
     | '/checklist-approvals'
+    | '/checklist-library'
     | '/jobs'
     | '/reconcile'
     | '/security-faq'
@@ -465,6 +477,7 @@ export interface FileRouteTypes {
     | '/_authenticated/antimicrobials'
     | '/_authenticated/beds'
     | '/_authenticated/checklist-approvals'
+    | '/_authenticated/checklist-library'
     | '/_authenticated/jobs'
     | '/_authenticated/patients'
     | '/_authenticated/reconcile'
@@ -589,6 +602,13 @@ declare module '@tanstack/react-router' {
       path: '/jobs'
       fullPath: '/jobs'
       preLoaderRoute: typeof AuthenticatedJobsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklist-library': {
+      id: '/_authenticated/checklist-library'
+      path: '/checklist-library'
+      fullPath: '/checklist-library'
+      preLoaderRoute: typeof AuthenticatedChecklistLibraryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/checklist-approvals': {
@@ -823,6 +843,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAntimicrobialsRoute: typeof AuthenticatedAntimicrobialsRoute
   AuthenticatedBedsRoute: typeof AuthenticatedBedsRoute
   AuthenticatedChecklistApprovalsRoute: typeof AuthenticatedChecklistApprovalsRoute
+  AuthenticatedChecklistLibraryRoute: typeof AuthenticatedChecklistLibraryRoute
   AuthenticatedJobsRoute: typeof AuthenticatedJobsRoute
   AuthenticatedPatientsRoute: typeof AuthenticatedPatientsRouteWithChildren
   AuthenticatedReconcileRoute: typeof AuthenticatedReconcileRoute
@@ -837,6 +858,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAntimicrobialsRoute: AuthenticatedAntimicrobialsRoute,
   AuthenticatedBedsRoute: AuthenticatedBedsRoute,
   AuthenticatedChecklistApprovalsRoute: AuthenticatedChecklistApprovalsRoute,
+  AuthenticatedChecklistLibraryRoute: AuthenticatedChecklistLibraryRoute,
   AuthenticatedJobsRoute: AuthenticatedJobsRoute,
   AuthenticatedPatientsRoute: AuthenticatedPatientsRouteWithChildren,
   AuthenticatedReconcileRoute: AuthenticatedReconcileRoute,
