@@ -44,6 +44,8 @@ export const listChecklistTemplates = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Anyone clinical may draft a checklist, but only an administrator's change
+// goes live immediately; everybody else's is queued for approval.
 export const createChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -53,31 +55,30 @@ export const createChecklistTemplate = createServerFn({ method: "POST" })
         description: z.string().trim().max(2000).nullish(),
         specialty: z.string().trim().max(120).nullish(),
         items: zItems,
+        note: z.string().trim().max(1000).nullish(),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const base = slugifyChecklistKey(data.name) || "checklist";
-    const key = `${base}_${Date.now().toString(36)}`;
-    const { data: row, error } = await context.supabase
-      .from("checklist_templates")
-      .insert({
-        key,
+    const actor = await loadActor(context);
+    if (!actor.canConfigure) {
+      return submitProposal(context, {
+        template_id: null,
+        kind: "create",
         name: data.name,
         description: data.description ?? null,
         specialty: data.specialty ?? null,
         items: data.items,
-        is_builtin: false,
-        created_by: context.userId,
-      } as never)
-      .select()
-      .single();
-    if (error) throw safeDbError(error);
-    return row;
+        note: data.note ?? null,
+      });
+    }
+    const row = await applyCreate(context, data);
+    return { pending: false as const, template: row };
   });
 
 // Any clinical member of staff can edit a checklist template, including the
-// built-in ones, so units can keep them aligned with local guidelines.
+// built-in ones, so units can keep them aligned with local guidelines — but
+// the edit only reaches patient tabs once an administrator approves it.
 export const updateChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -88,24 +89,27 @@ export const updateChecklistTemplate = createServerFn({ method: "POST" })
         description: z.string().trim().max(2000).nullish(),
         specialty: z.string().trim().max(120).nullish(),
         items: zItems,
+        note: z.string().trim().max(1000).nullish(),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { data: row, error } = await context.supabase
-      .from("checklist_templates")
-      .update({
+    const actor = await loadActor(context);
+    if (!actor.canConfigure) {
+      return submitProposal(context, {
+        template_id: data.id,
+        kind: "update",
         name: data.name,
         description: data.description ?? null,
         specialty: data.specialty ?? null,
         items: data.items,
-      } as never)
-      .eq("id", data.id)
-      .select()
-      .single();
-    if (error) throw safeDbError(error);
-    return row;
+        note: data.note ?? null,
+      });
+    }
+    const row = await applyUpdate(context, data.id, data);
+    return { pending: false as const, template: row };
   });
+
 
 export const archiveChecklistTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
