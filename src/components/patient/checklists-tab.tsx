@@ -9,6 +9,7 @@ import {
   listChecklistTemplates,
   listPatientChecklists,
   setChecklistItem,
+  updateChecklistTemplate,
 } from "@/lib/checklists.functions";
 import { draftChecklist } from "@/lib/checklist-ai.functions";
 import {
@@ -48,6 +49,7 @@ import {
   CircleDashed,
   ClipboardList,
   MinusCircle,
+  Pencil,
   Plus,
   Sparkles,
   Trash2,
