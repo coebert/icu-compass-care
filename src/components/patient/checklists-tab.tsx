@@ -195,11 +195,20 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
+                <div className="hidden gap-2 px-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[1fr_190px_190px]">
+                  <span>Task</span>
+                  <span>Responsible (does it)</span>
+                  <span>Accountable (owner)</span>
+                </div>
                 {items.map((item) => {
                   const st = state[item.key]?.status ?? "not_started";
                   const entry = state[item.key];
+                  const raci = effectiveRaci(item, state);
                   return (
-                    <div key={item.key} className="rounded-md border p-2.5">
+                    <div
+                      key={item.key}
+                      className="grid gap-2 rounded-md border p-2.5 md:grid-cols-[1fr_190px_190px] md:items-start"
+                    >
                       <div className="flex items-start gap-2">
                         <button
                           type="button"
@@ -238,6 +247,22 @@ export function ChecklistsTab({ patientId }: { patientId: string }) {
                           </p>
                         </div>
                       </div>
+                      <RolePicker
+                        label={`Responsible for ${item.label}`}
+                        mobileLabel="Responsible"
+                        value={raci.responsible}
+                        onChange={(responsible) =>
+                          itemM.mutate({ id: cl.id, item_key: item.key, responsible })
+                        }
+                      />
+                      <RolePicker
+                        label={`Accountable owner for ${item.label}`}
+                        mobileLabel="Accountable owner"
+                        value={raci.accountable}
+                        onChange={(accountable) =>
+                          itemM.mutate({ id: cl.id, item_key: item.key, accountable })
+                        }
+                      />
                     </div>
                   );
                 })}
