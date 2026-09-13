@@ -425,6 +425,14 @@ function TaskItem({ task, onChange }: { task: TaskRow; onChange: () => void }) {
   const [notesDraft, setNotesDraft] = useState(task.notes ?? "");
   const [savedFlash, setSavedFlash] = useState(false);
 
+  // Resync the draft when the stored note changes underneath us (a refetch after
+  // someone else edited the same task). Without this the editor keeps showing a
+  // stale draft and saving it would silently overwrite their change. Skipped
+  // while the editor is open so it never yanks text out from under the typist.
+  useEffect(() => {
+    if (!notesOpen) setNotesDraft(task.notes ?? "");
+  }, [task.notes, notesOpen]);
+
   const statusMut = useMutation({
     mutationFn: (s: TaskStatus) => editTask({ data: { id: task.id, status: s } as never }),
     onSuccess: onChange,
