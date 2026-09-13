@@ -439,7 +439,15 @@ describe("role vocabulary", () => {
     const { data: roles } = await admin.from("user_roles").select("role");
     const distinct = [...new Set((roles ?? []).map((r) => (r as { role: string }).role))].sort();
     for (const role of distinct) {
-      expect(["admin", "clinician"]).toContain(role);
+      // 'admin' is the pre-matrix spelling of the Trust administrator role and
+      // still exists on legacy accounts; the rest are the app_role values.
+      expect([
+        "admin",
+        "clinician",
+        "unit_admin",
+        "trust_admin",
+        "auditor",
+      ]).toContain(role);
     }
   });
 });
