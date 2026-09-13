@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac } from "crypto";
-import { corsHeaders, json, authorize } from "@/lib/api-bridge.server";
+import {
+  corsHeaders,
+  json,
+  authorize,
+  enforceBridgeRateLimit,
+  logSecurityEvent,
+  clientIp,
+} from "@/lib/api-bridge.server";
+import { getAdmin } from "@/lib/admin-db.server";
 
 /**
  * Self-test endpoint for cross-project HMAC signatures.
@@ -32,7 +40,12 @@ export const Route = createFileRoute("/api/public/bridge/verify-signature")({
 
       // Self-signed round trip: sign a synthetic envelope with the current
       // secret, then verify it through the real authorize() path.
-      GET: async () => {
+      GET: async ({ request }) => {
+        // Throttled like every other bridge endpoint: unmetered access here is
+        // an unmonitored oracle for probing crafted signatures/timestamps.
+        const limited = await enforceBridgeRateLimit(request, "/bridge/verify-signature", false);
+        if (!limited.ok) return limited.response;
+
         const secret = process.env.HANDOVER_API_SECRET;
         if (!secret) {
           return json(
@@ -91,9 +104,27 @@ export const Route = createFileRoute("/api/public/bridge/verify-signature")({
       // Validate a signature produced elsewhere (e.g. by the linked project).
       // Send the same headers a real bridge call uses; body is verified verbatim.
       POST: async ({ request }) => {
+        const limited = await enforceBridgeRateLimit(request, "/bridge/verify-signature", false);
+        if (!limited.ok) return limited.response;
+
         const rawBody = await request.text();
         const result = authorize(request, rawBody, { write: false });
-        if (!result.ok) return result.response;
+        if (!result.ok) {
+          // Capture the rejection so repeated probing feeds the same threshold
+          // alerting as failures on the real bridge endpoints.
+          try {
+            await logSecurityEvent(await getAdmin(), {
+              event_type: "signature_invalid",
+              endpoint: "/bridge/verify-signature",
+              method: request.method,
+              ip: clientIp(request),
+              detail: "verify-signature self-test rejection",
+            });
+          } catch {
+            // best-effort logging only
+          }
+          return result.response;
+        }
         return json({
           ok: true,
           signature_valid: true,
