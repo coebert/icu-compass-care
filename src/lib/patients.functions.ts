@@ -344,8 +344,9 @@ export const listRecentFieldChanges = createServerFn({ method: "GET" })
 
 // Status-change history for the Timeline, showing who made each change.
 // record_audit is admin-only via RLS, so this reads through the service-role
-// client, but stays gated behind requireSupabaseAuth (any signed-in clinician
-// may view the shared patient record's status history).
+// client. Because that bypasses RLS, the caller's access to the patient itself
+// is checked first through their own client: if unit-scoping RLS will not show
+// them the patient, they get no status history for it either.
 export type PatientStatusChange = {
   id: string;
   at: string | null;
@@ -357,7 +358,17 @@ export type PatientStatusChange = {
 export const getPatientStatusChanges = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data }): Promise<PatientStatusChange[]> => {
+  .handler(async ({ context, data }): Promise<PatientStatusChange[]> => {
+    // Unit-scope gate: read the patient through the caller's own client so RLS
+    // decides. No visible patient -> no history (never a cross-unit leak).
+    const { data: visible, error: scopeErr } = await context.supabase
+      .from("patients")
+      .select("id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (scopeErr) throw safeDbError(scopeErr, "load the status history");
+    if (!visible) return [];
+
     const supabaseAdmin = await getAdmin();
     const { data: rows, error } = await supabaseAdmin
       .from("record_audit")
