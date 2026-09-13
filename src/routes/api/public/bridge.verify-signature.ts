@@ -114,7 +114,7 @@ export const Route = createFileRoute("/api/public/bridge/verify-signature")({
           // alerting as failures on the real bridge endpoints.
           try {
             await logSecurityEvent(await getAdmin(), {
-              event_type: "signature_invalid",
+              event_type: result.reason,
               endpoint: "/bridge/verify-signature",
               method: request.method,
               ip: clientIp(request),
