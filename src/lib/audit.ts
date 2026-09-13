@@ -68,7 +68,7 @@ export async function writeAudit(
     params.changedFields ??
     (params.action === "update" ? diffFields(params.before, params.after) : []);
   try {
-    await client.from("record_audit").insert({
+    const { error } = await client.from("record_audit").insert({
       entity: params.entity,
       record_id: params.recordId,
       action: params.action,
