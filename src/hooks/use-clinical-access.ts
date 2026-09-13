@@ -12,8 +12,9 @@ export function useClinicalAccess() {
     queryKey: ["me"],
     queryFn: () => me(),
   });
-  // Trust administrators get break-glass VIEW rights (RLS), so they are
-  // included for read surfaces but never gain editing rights.
+  // Trust administrators hold clinical rights in every unit, so canEditClinical
+  // already covers them; the isTrustAdmin term is kept as a belt-and-braces
+  // fallback for older cached ["me"] payloads.
   const hasClinicalAccess = Boolean(profile?.canEditClinical) || Boolean(profile?.isTrustAdmin);
   return { hasClinicalAccess, isLoading, profile };
 }

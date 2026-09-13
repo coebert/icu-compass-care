@@ -81,11 +81,10 @@ describe("useClinicalAccess", () => {
     expect(result.current.hasClinicalAccess).toBe(true);
   });
 
-  // Trust administrators get break-glass VIEW rights only, but the read
-  // surfaces this hook gates are still offered to them.
-  it("returns true for a Trust administrator (view-only break-glass)", () => {
+  // Trust administrators hold full clinical rights across every unit.
+  it("returns true for a Trust administrator", () => {
     useQueryMock.mockReturnValue({
-      data: { roles: ["trust_admin"], canEditClinical: false, isTrustAdmin: true },
+      data: { roles: ["trust_admin"], canEditClinical: true, isTrustAdmin: true },
       isLoading: false,
     });
     const { result } = renderHook(() => useClinicalAccess());

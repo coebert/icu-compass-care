@@ -7,8 +7,8 @@ import { safeDbError } from "@/lib/db-error";
  *   clinician    clinical view + edit, only in the ICU units they are a member of
  *   unit_admin   the same clinical rights, plus accounts / unit configuration
  *                for their own units only
- *   trust_admin  view-only clinical break-glass across every unit, plus
- *                configuration everywhere; never a clinical author
+ *   trust_admin  full clinical view + edit across every unit, plus
+ *                configuration everywhere
  *   auditor      audit trails, access log, edit history and account listings
  *                only — no clinical data at all
  *
@@ -75,7 +75,7 @@ export async function loadActor(context: Ctx): Promise<Actor> {
     isUnitAdmin,
     isTrustAdmin,
     isAuditor,
-    canEditClinical: isClinician || isUnitAdmin,
+    canEditClinical: isClinician || isUnitAdmin || isTrustAdmin,
     canConfigure: isUnitAdmin || isTrustAdmin,
   };
 }
