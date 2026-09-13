@@ -153,7 +153,8 @@ export const updatePatientTask = createServerFn({ method: "POST" })
         userId: context.userId,
       });
     }
-    await writeAudit(context.supabase, {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await writeAudit(supabaseAdmin, {
       entity: "patient_tasks",
       recordId: id,
       action: "update",

@@ -365,7 +365,8 @@ export const setChecklistItem = createServerFn({ method: "POST" })
         note: (entry.note as string | null) ?? null,
         userId: context.userId,
       });
-      await writeAudit(context.supabase, {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await writeAudit(supabaseAdmin, {
         entity: "checklists",
         recordId: data.id,
         action: "update",
@@ -526,7 +527,8 @@ export const reviewChecklistProposal = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw safeDbError(error);
 
-    await writeAudit(context.supabase, {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await writeAudit(supabaseAdmin, {
       entity: "checklists",
       recordId: data.id,
       action: "update",
