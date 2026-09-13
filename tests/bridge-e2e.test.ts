@@ -75,7 +75,24 @@ async function bridge(method: "GET" | "POST", path: string, body = "") {
  * set it. The return shape mirrors `bridge(...)` so callers can treat a seeded
  * create exactly like a bridge create.
  */
+// patients.unit_id is NOT NULL since clinical data became unit-scoped, so
+// fixtures must name a unit. Mirrors the bridge's own defaultUnitId fallback.
+let cachedUnitId: string | undefined;
+async function defaultUnitId(): Promise<string> {
+  if (cachedUnitId) return cachedUnitId;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/icu_units?select=id&order=created_at.asc&limit=1`, {
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+  });
+  const rows = (await res.json()) as Array<{ id: string }>;
+  if (!Array.isArray(rows) || !rows[0]?.id) {
+    throw new Error("no ICU unit exists to seed bridge e2e fixtures against");
+  }
+  cachedUnitId = rows[0].id;
+  return cachedUnitId;
+}
+
 async function seedSharedPatient(fields: Record<string, unknown>) {
+  const unitId = (fields["unit_id"] as string | undefined) ?? (await defaultUnitId());
   const res = await fetch(`${SUPABASE_URL}/rest/v1/patients`, {
     method: "POST",
     headers: {
@@ -84,7 +101,7 @@ async function seedSharedPatient(fields: Record<string, unknown>) {
       "Content-Type": "application/json",
       Prefer: "return=representation",
     },
-    body: JSON.stringify({ ...fields, shared_with_partner: true }),
+    body: JSON.stringify({ ...fields, unit_id: unitId, shared_with_partner: true }),
   });
   const text = await res.text();
   let rows: unknown = null;

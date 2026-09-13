@@ -43,9 +43,11 @@ describe("useClinicalAccess", () => {
     expect(result.current.hasClinicalAccess).toBe(false);
   });
 
-  it("returns false for a non-clinical role", () => {
+  // The hook reads the capability flags getMe derives from the role list
+  // (canEditClinical / isTrustAdmin), not the raw role names.
+  it("returns false for an auditor (no clinical rights)", () => {
     useQueryMock.mockReturnValue({
-      data: { roles: ["viewer"] },
+      data: { roles: ["auditor"], isAuditor: true, canEditClinical: false, isTrustAdmin: false },
       isLoading: false,
     });
     const { result } = renderHook(() => useClinicalAccess());
@@ -53,23 +55,37 @@ describe("useClinicalAccess", () => {
   });
 
   it("returns false when the user has no roles", () => {
-    useQueryMock.mockReturnValue({ data: { roles: [] }, isLoading: false });
+    useQueryMock.mockReturnValue({
+      data: { roles: [], canEditClinical: false, isTrustAdmin: false },
+      isLoading: false,
+    });
     const { result } = renderHook(() => useClinicalAccess());
     expect(result.current.hasClinicalAccess).toBe(false);
   });
 
   it("returns true for a clinician", () => {
     useQueryMock.mockReturnValue({
-      data: { roles: ["clinician"] },
+      data: { roles: ["clinician"], canEditClinical: true, isTrustAdmin: false },
       isLoading: false,
     });
     const { result } = renderHook(() => useClinicalAccess());
     expect(result.current.hasClinicalAccess).toBe(true);
   });
 
-  it("returns true for an admin", () => {
+  it("returns true for a unit administrator", () => {
     useQueryMock.mockReturnValue({
-      data: { roles: ["admin"] },
+      data: { roles: ["unit_admin"], canEditClinical: true, isUnitAdmin: true },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useClinicalAccess());
+    expect(result.current.hasClinicalAccess).toBe(true);
+  });
+
+  // Trust administrators get break-glass VIEW rights only, but the read
+  // surfaces this hook gates are still offered to them.
+  it("returns true for a Trust administrator (view-only break-glass)", () => {
+    useQueryMock.mockReturnValue({
+      data: { roles: ["trust_admin"], canEditClinical: false, isTrustAdmin: true },
       isLoading: false,
     });
     const { result } = renderHook(() => useClinicalAccess());

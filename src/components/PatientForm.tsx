@@ -146,8 +146,10 @@ export function toFormValues(p: Record<string, unknown>): PatientFormValues {
     } else if (key === "tep_exclusions") {
       out.tep_exclusions = parseTepExclusions(v);
     } else if (key === "nok_last_updated" && typeof v === "string") {
-      // datetime-local expects yyyy-MM-ddThh:mm
-      out[key] = v.slice(0, 16) as never;
+      // Keep the full UTC ISO instant. Truncating to "yyyy-MM-ddThh:mm" made
+      // date-fns parseISO read it as LOCAL time, shifting the stamp by the
+      // browser's UTC offset on every load/save round trip.
+      out[key] = v as never;
     } else {
       (out as Record<string, unknown>)[key] = typeof v === "boolean" ? v : String(v);
     }

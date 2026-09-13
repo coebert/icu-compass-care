@@ -52,7 +52,8 @@ export type BridgeHealthResult = {
     keys: string[];
     forbiddenKeysPresent: string[];
     clean: boolean;
-    sample: { full_name: string | null; age: number | null; hospital_number: string | null } | null;
+    // Presence flags only — the health check never echoes real patient values.
+    sample: { hasFullName: boolean; hasAge: boolean; hasHospitalNumber: boolean } | null;
   };
 };
 
@@ -168,12 +169,13 @@ export async function runBridgeHealth(): Promise<BridgeHealthResult> {
     if (first) {
       const keys = Object.keys(first);
       const forbiddenKeysPresent = FORBIDDEN_FIELDS.filter((f) => keys.includes(f));
-      // Only surface the agreed identity fields in the sample to avoid echoing
-      // clinical free-text back into the UI.
+      // Report only WHETHER the agreed identity fields are populated. Echoing
+      // the real values would put live patient identifiers into a diagnostic
+      // object that gets screenshotted and pasted into support threads.
       const sample = {
-        full_name: (first.full_name as string | null) ?? null,
-        age: (first.age as number | null) ?? null,
-        hospital_number: (first.hospital_number as string | null) ?? null,
+        hasFullName: Boolean(first.full_name),
+        hasAge: first.age !== null && first.age !== undefined,
+        hasHospitalNumber: Boolean(first.hospital_number),
       };
       result.samplePayload = {
         source: "/api/public/bridge/patients",

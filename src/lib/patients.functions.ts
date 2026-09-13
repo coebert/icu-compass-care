@@ -239,6 +239,7 @@ export const updatePatient = createServerFn({ method: "POST" })
 
     const supabaseAdmin = await getAdmin();
     const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
+    const rowPlain = decryptPatientRow(row);
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: row.id,
@@ -247,8 +248,14 @@ export const updatePatient = createServerFn({ method: "POST" })
       actor,
       before: current as Record<string, unknown>,
       after: row as Record<string, unknown>,
+      // Diff the readable values: encrypted columns get a fresh nonce on every
+      // write, so a byte-wise diff of the stored rows reports unchanged
+      // encrypted fields as changed.
+      changedFields: diffFields(
+        currentPlain as Record<string, unknown>,
+        rowPlain as Record<string, unknown>,
+      ),
     });
-    const rowPlain = decryptPatientRow(row);
     await writePatientFieldChanges(supabaseAdmin, {
       patientId: row.id,
       before: currentPlain as Record<string, unknown>,
@@ -337,8 +344,9 @@ export const listRecentFieldChanges = createServerFn({ method: "GET" })
 
 // Status-change history for the Timeline, showing who made each change.
 // record_audit is admin-only via RLS, so this reads through the service-role
-// client, but stays gated behind requireSupabaseAuth (any signed-in clinician
-// may view the shared patient record's status history).
+// client. Because that bypasses RLS, the caller's access to the patient itself
+// is checked first through their own client: if unit-scoping RLS will not show
+// them the patient, they get no status history for it either.
 export type PatientStatusChange = {
   id: string;
   at: string | null;
@@ -350,7 +358,17 @@ export type PatientStatusChange = {
 export const getPatientStatusChanges = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data }): Promise<PatientStatusChange[]> => {
+  .handler(async ({ context, data }): Promise<PatientStatusChange[]> => {
+    // Unit-scope gate: read the patient through the caller's own client so RLS
+    // decides. No visible patient -> no history (never a cross-unit leak).
+    const { data: visible, error: scopeErr } = await context.supabase
+      .from("patients")
+      .select("id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (scopeErr) throw safeDbError(scopeErr, "load the status history");
+    if (!visible) return [];
+
     const supabaseAdmin = await getAdmin();
     const { data: rows, error } = await supabaseAdmin
       .from("record_audit")
