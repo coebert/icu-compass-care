@@ -1,0 +1,2 @@
+ALTER TABLE public.record_audit DROP CONSTRAINT IF EXISTS record_audit_entity_check;
+ALTER TABLE public.record_audit ADD CONSTRAINT record_audit_entity_check CHECK (entity = ANY (ARRAY['patients','investigations','referrals','microbiology','checklists','patient_tasks']));

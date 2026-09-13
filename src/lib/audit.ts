@@ -68,7 +68,7 @@ export async function writeAudit(
     params.changedFields ??
     (params.action === "update" ? diffFields(params.before, params.after) : []);
   try {
-    await client.from("record_audit").insert({
+    const { error } = await client.from("record_audit").insert({
       entity: params.entity,
       record_id: params.recordId,
       action: params.action,
@@ -80,8 +80,17 @@ export async function writeAudit(
       before: params.before ?? null,
       after: params.after ?? null,
     });
-  } catch {
+    if (error) {
+      console.error("[audit] failed to write record_audit entry", {
+        entity: params.entity,
+        recordId: params.recordId,
+        action: params.action,
+        error,
+      });
+    }
+  } catch (err) {
     // best-effort; auditing must never break the primary operation
+    console.error("[audit] record_audit insert threw", err);
   }
 }
 
