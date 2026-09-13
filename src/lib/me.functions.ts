@@ -19,7 +19,8 @@ export const getMe = createServerFn({ method: "GET" })
     const isTrustAdmin = list.includes("trust_admin");
     const isUnitAdmin = list.includes("unit_admin");
     const isAuditor = list.includes("auditor");
-    const canEditClinical = list.includes("clinician") || isUnitAdmin;
+    // Trust administrators hold clinical edit rights in every unit.
+    const canEditClinical = list.includes("clinician") || isUnitAdmin || isTrustAdmin;
     return {
       userId: context.userId,
       email: (context.claims.email as string) ?? null,
