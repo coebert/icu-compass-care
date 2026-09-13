@@ -239,6 +239,7 @@ export const updatePatient = createServerFn({ method: "POST" })
 
     const supabaseAdmin = await getAdmin();
     const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
+    const rowPlain = decryptPatientRow(row);
     await writeAudit(supabaseAdmin, {
       entity: "patients",
       recordId: row.id,
@@ -247,8 +248,14 @@ export const updatePatient = createServerFn({ method: "POST" })
       actor,
       before: current as Record<string, unknown>,
       after: row as Record<string, unknown>,
+      // Diff the readable values: encrypted columns get a fresh nonce on every
+      // write, so a byte-wise diff of the stored rows reports unchanged
+      // encrypted fields as changed.
+      changedFields: diffFields(
+        currentPlain as Record<string, unknown>,
+        rowPlain as Record<string, unknown>,
+      ),
     });
-    const rowPlain = decryptPatientRow(row);
     await writePatientFieldChanges(supabaseAdmin, {
       patientId: row.id,
       before: currentPlain as Record<string, unknown>,
