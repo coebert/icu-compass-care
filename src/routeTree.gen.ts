@@ -9,49 +9,53 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedUnitRouteImport } from './routes/_authenticated/unit'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedSecurityFaqRouteImport } from './routes/_authenticated/security-faq'
-import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
-import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
-import { Route as AuthenticatedJobsRouteImport } from './routes/_authenticated/jobs'
-import { Route as AuthenticatedChecklistLibraryRouteImport } from './routes/_authenticated/checklist-library'
-import { Route as AuthenticatedChecklistApprovalsRouteImport } from './routes/_authenticated/checklist-approvals'
-import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
-import { Route as AuthenticatedAntimicrobialsRouteImport } from './routes/_authenticated/antimicrobials'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthenticatedAccessRouteImport } from './routes/_authenticated/access'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAntimicrobialsRouteImport } from './routes/_authenticated/antimicrobials'
+import { Route as AuthenticatedBedsRouteImport } from './routes/_authenticated/beds'
+import { Route as AuthenticatedChecklistApprovalsRouteImport } from './routes/_authenticated/checklist-approvals'
+import { Route as AuthenticatedChecklistLibraryRouteImport } from './routes/_authenticated/checklist-library'
+import { Route as AuthenticatedJobsRouteImport } from './routes/_authenticated/jobs'
+import { Route as AuthenticatedPatientsRouteImport } from './routes/_authenticated/patients'
+import { Route as AuthenticatedReconcileRouteImport } from './routes/_authenticated/reconcile'
+import { Route as AuthenticatedSecurityFaqRouteImport } from './routes/_authenticated/security-faq'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedUnitRouteImport } from './routes/_authenticated/unit'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients.index'
-import { Route as AuthenticatedPatientsSharingRouteImport } from './routes/_authenticated/patients.sharing'
-import { Route as AuthenticatedPatientsHistoryRouteImport } from './routes/_authenticated/patients.history'
-import { Route as AuthenticatedPatientsHandoverPreviewRouteImport } from './routes/_authenticated/patients.handover-preview'
-import { Route as AuthenticatedPatientsHandoverModeRouteImport } from './routes/_authenticated/patients.handover-mode'
-import { Route as AuthenticatedPatientsCompareRouteImport } from './routes/_authenticated/patients.compare'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
-import { Route as ApiPublicHooksHandoverSnapshotRouteImport } from './routes/api/public/hooks/handover-snapshot'
-import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
-import { Route as ApiPublicHealthSchemaRouteImport } from './routes/api/public/health.schema'
-import { Route as ApiPublicBridgeVerifySignatureRouteImport } from './routes/api/public/bridge.verify-signature'
-import { Route as ApiPublicBridgeReferralsRouteImport } from './routes/api/public/bridge.referrals'
-import { Route as ApiPublicBridgePatientsRouteImport } from './routes/api/public/bridge.patients'
-import { Route as ApiPublicBridgeOpenapiRouteImport } from './routes/api/public/bridge.openapi'
-import { Route as ApiPublicBridgeNotificationsRouteImport } from './routes/api/public/bridge.notifications'
-import { Route as ApiPublicBridgeMicrobiologyRouteImport } from './routes/api/public/bridge.microbiology'
-import { Route as ApiPublicBridgeInvestigationsRouteImport } from './routes/api/public/bridge.investigations'
-import { Route as ApiPublicBridgeHealthRouteImport } from './routes/api/public/bridge.health'
-import { Route as ApiPublicBridgeBedsRouteImport } from './routes/api/public/bridge.beds'
-import { Route as ApiPublicBridgeBed_transfers_outRouteImport } from './routes/api/public/bridge.bed_transfers_out'
-import { Route as ApiPublicBridgeBed_outliersRouteImport } from './routes/api/public/bridge.bed_outliers'
-import { Route as ApiPublicBridgeBed_occupanciesRouteImport } from './routes/api/public/bridge.bed_occupancies'
+import { Route as AuthenticatedPatientsCompareRouteImport } from './routes/_authenticated/patients.compare'
+import { Route as AuthenticatedPatientsHandoverModeRouteImport } from './routes/_authenticated/patients.handover-mode'
+import { Route as AuthenticatedPatientsHandoverPreviewRouteImport } from './routes/_authenticated/patients.handover-preview'
+import { Route as AuthenticatedPatientsHistoryRouteImport } from './routes/_authenticated/patients.history'
+import { Route as AuthenticatedPatientsSharingRouteImport } from './routes/_authenticated/patients.sharing'
 import { Route as ApiPublicBridgeAuditRouteImport } from './routes/api/public/bridge.audit'
+import { Route as ApiPublicBridgeBed_occupanciesRouteImport } from './routes/api/public/bridge.bed_occupancies'
+import { Route as ApiPublicBridgeBed_outliersRouteImport } from './routes/api/public/bridge.bed_outliers'
+import { Route as ApiPublicBridgeBed_transfers_outRouteImport } from './routes/api/public/bridge.bed_transfers_out'
+import { Route as ApiPublicBridgeBedsRouteImport } from './routes/api/public/bridge.beds'
+import { Route as ApiPublicBridgeHealthRouteImport } from './routes/api/public/bridge.health'
+import { Route as ApiPublicBridgeInvestigationsRouteImport } from './routes/api/public/bridge.investigations'
+import { Route as ApiPublicBridgeMicrobiologyRouteImport } from './routes/api/public/bridge.microbiology'
+import { Route as ApiPublicBridgeNotificationsRouteImport } from './routes/api/public/bridge.notifications'
+import { Route as ApiPublicBridgeOpenapiRouteImport } from './routes/api/public/bridge.openapi'
+import { Route as ApiPublicBridgePatientsRouteImport } from './routes/api/public/bridge.patients'
+import { Route as ApiPublicBridgeReferralsRouteImport } from './routes/api/public/bridge.referrals'
+import { Route as ApiPublicBridgeVerifySignatureRouteImport } from './routes/api/public/bridge.verify-signature'
+import { Route as ApiPublicHealthSchemaRouteImport } from './routes/api/public/health.schema'
+import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
+import { Route as ApiPublicHooksHandoverSnapshotRouteImport } from './routes/api/public/hooks/handover-snapshot'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -59,61 +63,19 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedUnitRoute = AuthenticatedUnitRouteImport.update({
-  id: '/unit',
-  path: '/unit',
+const AuthenticatedAccessRoute = AuthenticatedAccessRouteImport.update({
+  id: '/access',
+  path: '/access',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSecurityFaqRoute =
-  AuthenticatedSecurityFaqRouteImport.update({
-    id: '/security-faq',
-    path: '/security-faq',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedReconcileRoute = AuthenticatedReconcileRouteImport.update({
-  id: '/reconcile',
-  path: '/reconcile',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPatientsRoute = AuthenticatedPatientsRouteImport.update({
-  id: '/patients',
-  path: '/patients',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedJobsRoute = AuthenticatedJobsRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedChecklistLibraryRoute =
-  AuthenticatedChecklistLibraryRouteImport.update({
-    id: '/checklist-library',
-    path: '/checklist-library',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedChecklistApprovalsRoute =
-  AuthenticatedChecklistApprovalsRouteImport.update({
-    id: '/checklist-approvals',
-    path: '/checklist-approvals',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedBedsRoute = AuthenticatedBedsRouteImport.update({
-  id: '/beds',
-  path: '/beds',
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAntimicrobialsRoute =
@@ -122,14 +84,52 @@ const AuthenticatedAntimicrobialsRoute =
     path: '/antimicrobials',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedBedsRoute = AuthenticatedBedsRouteImport.update({
+  id: '/beds',
+  path: '/beds',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAccessRoute = AuthenticatedAccessRouteImport.update({
-  id: '/access',
-  path: '/access',
+const AuthenticatedChecklistApprovalsRoute =
+  AuthenticatedChecklistApprovalsRouteImport.update({
+    id: '/checklist-approvals',
+    path: '/checklist-approvals',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedChecklistLibraryRoute =
+  AuthenticatedChecklistLibraryRouteImport.update({
+    id: '/checklist-library',
+    path: '/checklist-library',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedJobsRoute = AuthenticatedJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPatientsRoute = AuthenticatedPatientsRouteImport.update({
+  id: '/patients',
+  path: '/patients',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReconcileRoute = AuthenticatedReconcileRouteImport.update({
+  id: '/reconcile',
+  path: '/reconcile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSecurityFaqRoute =
+  AuthenticatedSecurityFaqRouteImport.update({
+    id: '/security-faq',
+    path: '/security-faq',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUnitRoute = AuthenticatedUnitRouteImport.update({
+  id: '/unit',
+  path: '/unit',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPatientsIndexRoute =
@@ -138,28 +138,10 @@ const AuthenticatedPatientsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
-const AuthenticatedPatientsSharingRoute =
-  AuthenticatedPatientsSharingRouteImport.update({
-    id: '/sharing',
-    path: '/sharing',
-    getParentRoute: () => AuthenticatedPatientsRoute,
-  } as any)
-const AuthenticatedPatientsHistoryRoute =
-  AuthenticatedPatientsHistoryRouteImport.update({
-    id: '/history',
-    path: '/history',
-    getParentRoute: () => AuthenticatedPatientsRoute,
-  } as any)
-const AuthenticatedPatientsHandoverPreviewRoute =
-  AuthenticatedPatientsHandoverPreviewRouteImport.update({
-    id: '/handover-preview',
-    path: '/handover-preview',
-    getParentRoute: () => AuthenticatedPatientsRoute,
-  } as any)
-const AuthenticatedPatientsHandoverModeRoute =
-  AuthenticatedPatientsHandoverModeRouteImport.update({
-    id: '/handover-mode',
-    path: '/handover-mode',
+const AuthenticatedPatientsPatientIdRoute =
+  AuthenticatedPatientsPatientIdRouteImport.update({
+    id: '/$patientId',
+    path: '/$patientId',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
 const AuthenticatedPatientsCompareRoute =
@@ -168,83 +150,39 @@ const AuthenticatedPatientsCompareRoute =
     path: '/compare',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
-const AuthenticatedPatientsPatientIdRoute =
-  AuthenticatedPatientsPatientIdRouteImport.update({
-    id: '/$patientId',
-    path: '/$patientId',
+const AuthenticatedPatientsHandoverModeRoute =
+  AuthenticatedPatientsHandoverModeRouteImport.update({
+    id: '/handover-mode',
+    path: '/handover-mode',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
-const ApiPublicHooksHandoverSnapshotRoute =
-  ApiPublicHooksHandoverSnapshotRouteImport.update({
-    id: '/api/public/hooks/handover-snapshot',
-    path: '/api/public/hooks/handover-snapshot',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedPatientsHandoverPreviewRoute =
+  AuthenticatedPatientsHandoverPreviewRouteImport.update({
+    id: '/handover-preview',
+    path: '/handover-preview',
+    getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
-const ApiPublicHooksBridgeSyncRoute =
-  ApiPublicHooksBridgeSyncRouteImport.update({
-    id: '/api/public/hooks/bridge-sync',
-    path: '/api/public/hooks/bridge-sync',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedPatientsHistoryRoute =
+  AuthenticatedPatientsHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
-const ApiPublicHealthSchemaRoute = ApiPublicHealthSchemaRouteImport.update({
-  id: '/api/public/health/schema',
-  path: '/api/public/health/schema',
+const AuthenticatedPatientsSharingRoute =
+  AuthenticatedPatientsSharingRouteImport.update({
+    id: '/sharing',
+    path: '/sharing',
+    getParentRoute: () => AuthenticatedPatientsRoute,
+  } as any)
+const ApiPublicBridgeAuditRoute = ApiPublicBridgeAuditRouteImport.update({
+  id: '/api/public/bridge/audit',
+  path: '/api/public/bridge/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicBridgeVerifySignatureRoute =
-  ApiPublicBridgeVerifySignatureRouteImport.update({
-    id: '/api/public/bridge/verify-signature',
-    path: '/api/public/bridge/verify-signature',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicBridgeReferralsRoute =
-  ApiPublicBridgeReferralsRouteImport.update({
-    id: '/api/public/bridge/referrals',
-    path: '/api/public/bridge/referrals',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicBridgePatientsRoute = ApiPublicBridgePatientsRouteImport.update({
-  id: '/api/public/bridge/patients',
-  path: '/api/public/bridge/patients',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBridgeOpenapiRoute = ApiPublicBridgeOpenapiRouteImport.update({
-  id: '/api/public/bridge/openapi',
-  path: '/api/public/bridge/openapi',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBridgeNotificationsRoute =
-  ApiPublicBridgeNotificationsRouteImport.update({
-    id: '/api/public/bridge/notifications',
-    path: '/api/public/bridge/notifications',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicBridgeMicrobiologyRoute =
-  ApiPublicBridgeMicrobiologyRouteImport.update({
-    id: '/api/public/bridge/microbiology',
-    path: '/api/public/bridge/microbiology',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicBridgeInvestigationsRoute =
-  ApiPublicBridgeInvestigationsRouteImport.update({
-    id: '/api/public/bridge/investigations',
-    path: '/api/public/bridge/investigations',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicBridgeHealthRoute = ApiPublicBridgeHealthRouteImport.update({
-  id: '/api/public/bridge/health',
-  path: '/api/public/bridge/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBridgeBedsRoute = ApiPublicBridgeBedsRouteImport.update({
-  id: '/api/public/bridge/beds',
-  path: '/api/public/bridge/beds',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBridgeBed_transfers_outRoute =
-  ApiPublicBridgeBed_transfers_outRouteImport.update({
-    id: '/api/public/bridge/bed_transfers_out',
-    path: '/api/public/bridge/bed_transfers_out',
+const ApiPublicBridgeBed_occupanciesRoute =
+  ApiPublicBridgeBed_occupanciesRouteImport.update({
+    id: '/api/public/bridge/bed_occupancies',
+    path: '/api/public/bridge/bed_occupancies',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicBridgeBed_outliersRoute =
@@ -253,17 +191,79 @@ const ApiPublicBridgeBed_outliersRoute =
     path: '/api/public/bridge/bed_outliers',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicBridgeBed_occupanciesRoute =
-  ApiPublicBridgeBed_occupanciesRouteImport.update({
-    id: '/api/public/bridge/bed_occupancies',
-    path: '/api/public/bridge/bed_occupancies',
+const ApiPublicBridgeBed_transfers_outRoute =
+  ApiPublicBridgeBed_transfers_outRouteImport.update({
+    id: '/api/public/bridge/bed_transfers_out',
+    path: '/api/public/bridge/bed_transfers_out',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicBridgeAuditRoute = ApiPublicBridgeAuditRouteImport.update({
-  id: '/api/public/bridge/audit',
-  path: '/api/public/bridge/audit',
+const ApiPublicBridgeBedsRoute = ApiPublicBridgeBedsRouteImport.update({
+  id: '/api/public/bridge/beds',
+  path: '/api/public/bridge/beds',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBridgeHealthRoute = ApiPublicBridgeHealthRouteImport.update({
+  id: '/api/public/bridge/health',
+  path: '/api/public/bridge/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBridgeInvestigationsRoute =
+  ApiPublicBridgeInvestigationsRouteImport.update({
+    id: '/api/public/bridge/investigations',
+    path: '/api/public/bridge/investigations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicBridgeMicrobiologyRoute =
+  ApiPublicBridgeMicrobiologyRouteImport.update({
+    id: '/api/public/bridge/microbiology',
+    path: '/api/public/bridge/microbiology',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicBridgeNotificationsRoute =
+  ApiPublicBridgeNotificationsRouteImport.update({
+    id: '/api/public/bridge/notifications',
+    path: '/api/public/bridge/notifications',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicBridgeOpenapiRoute = ApiPublicBridgeOpenapiRouteImport.update({
+  id: '/api/public/bridge/openapi',
+  path: '/api/public/bridge/openapi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBridgePatientsRoute = ApiPublicBridgePatientsRouteImport.update({
+  id: '/api/public/bridge/patients',
+  path: '/api/public/bridge/patients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBridgeReferralsRoute =
+  ApiPublicBridgeReferralsRouteImport.update({
+    id: '/api/public/bridge/referrals',
+    path: '/api/public/bridge/referrals',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicBridgeVerifySignatureRoute =
+  ApiPublicBridgeVerifySignatureRouteImport.update({
+    id: '/api/public/bridge/verify-signature',
+    path: '/api/public/bridge/verify-signature',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHealthSchemaRoute = ApiPublicHealthSchemaRouteImport.update({
+  id: '/api/public/health/schema',
+  path: '/api/public/health/schema',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksBridgeSyncRoute =
+  ApiPublicHooksBridgeSyncRouteImport.update({
+    id: '/api/public/hooks/bridge-sync',
+    path: '/api/public/hooks/bridge-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksHandoverSnapshotRoute =
+  ApiPublicHooksHandoverSnapshotRouteImport.update({
+    id: '/api/public/hooks/handover-snapshot',
+    path: '/api/public/hooks/handover-snapshot',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -534,18 +534,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -555,81 +548,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/unit': {
-      id: '/_authenticated/unit'
-      path: '/unit'
-      fullPath: '/unit'
-      preLoaderRoute: typeof AuthenticatedUnitRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/security-faq': {
-      id: '/_authenticated/security-faq'
-      path: '/security-faq'
-      fullPath: '/security-faq'
-      preLoaderRoute: typeof AuthenticatedSecurityFaqRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/reconcile': {
-      id: '/_authenticated/reconcile'
-      path: '/reconcile'
-      fullPath: '/reconcile'
-      preLoaderRoute: typeof AuthenticatedReconcileRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/patients': {
-      id: '/_authenticated/patients'
-      path: '/patients'
-      fullPath: '/patients'
-      preLoaderRoute: typeof AuthenticatedPatientsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/jobs': {
-      id: '/_authenticated/jobs'
-      path: '/jobs'
-      fullPath: '/jobs'
-      preLoaderRoute: typeof AuthenticatedJobsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/checklist-library': {
-      id: '/_authenticated/checklist-library'
-      path: '/checklist-library'
-      fullPath: '/checklist-library'
-      preLoaderRoute: typeof AuthenticatedChecklistLibraryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/checklist-approvals': {
-      id: '/_authenticated/checklist-approvals'
-      path: '/checklist-approvals'
-      fullPath: '/checklist-approvals'
-      preLoaderRoute: typeof AuthenticatedChecklistApprovalsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/beds': {
-      id: '/_authenticated/beds'
-      path: '/beds'
-      fullPath: '/beds'
-      preLoaderRoute: typeof AuthenticatedBedsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/antimicrobials': {
-      id: '/_authenticated/antimicrobials'
-      path: '/antimicrobials'
-      fullPath: '/antimicrobials'
-      preLoaderRoute: typeof AuthenticatedAntimicrobialsRouteImport
+    '/_authenticated/access': {
+      id: '/_authenticated/access'
+      path: '/access'
+      fullPath: '/access'
+      preLoaderRoute: typeof AuthenticatedAccessRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin': {
@@ -639,11 +576,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/access': {
-      id: '/_authenticated/access'
-      path: '/access'
-      fullPath: '/access'
-      preLoaderRoute: typeof AuthenticatedAccessRouteImport
+    '/_authenticated/antimicrobials': {
+      id: '/_authenticated/antimicrobials'
+      path: '/antimicrobials'
+      fullPath: '/antimicrobials'
+      preLoaderRoute: typeof AuthenticatedAntimicrobialsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/beds': {
+      id: '/_authenticated/beds'
+      path: '/beds'
+      fullPath: '/beds'
+      preLoaderRoute: typeof AuthenticatedBedsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklist-approvals': {
+      id: '/_authenticated/checklist-approvals'
+      path: '/checklist-approvals'
+      fullPath: '/checklist-approvals'
+      preLoaderRoute: typeof AuthenticatedChecklistApprovalsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklist-library': {
+      id: '/_authenticated/checklist-library'
+      path: '/checklist-library'
+      fullPath: '/checklist-library'
+      preLoaderRoute: typeof AuthenticatedChecklistLibraryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/jobs': {
+      id: '/_authenticated/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AuthenticatedJobsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/patients': {
+      id: '/_authenticated/patients'
+      path: '/patients'
+      fullPath: '/patients'
+      preLoaderRoute: typeof AuthenticatedPatientsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reconcile': {
+      id: '/_authenticated/reconcile'
+      path: '/reconcile'
+      fullPath: '/reconcile'
+      preLoaderRoute: typeof AuthenticatedReconcileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/security-faq': {
+      id: '/_authenticated/security-faq'
+      path: '/security-faq'
+      fullPath: '/security-faq'
+      preLoaderRoute: typeof AuthenticatedSecurityFaqRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/unit': {
+      id: '/_authenticated/unit'
+      path: '/unit'
+      fullPath: '/unit'
+      preLoaderRoute: typeof AuthenticatedUnitRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/patients/': {
@@ -653,32 +653,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsIndexRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
-    '/_authenticated/patients/sharing': {
-      id: '/_authenticated/patients/sharing'
-      path: '/sharing'
-      fullPath: '/patients/sharing'
-      preLoaderRoute: typeof AuthenticatedPatientsSharingRouteImport
-      parentRoute: typeof AuthenticatedPatientsRoute
-    }
-    '/_authenticated/patients/history': {
-      id: '/_authenticated/patients/history'
-      path: '/history'
-      fullPath: '/patients/history'
-      preLoaderRoute: typeof AuthenticatedPatientsHistoryRouteImport
-      parentRoute: typeof AuthenticatedPatientsRoute
-    }
-    '/_authenticated/patients/handover-preview': {
-      id: '/_authenticated/patients/handover-preview'
-      path: '/handover-preview'
-      fullPath: '/patients/handover-preview'
-      preLoaderRoute: typeof AuthenticatedPatientsHandoverPreviewRouteImport
-      parentRoute: typeof AuthenticatedPatientsRoute
-    }
-    '/_authenticated/patients/handover-mode': {
-      id: '/_authenticated/patients/handover-mode'
-      path: '/handover-mode'
-      fullPath: '/patients/handover-mode'
-      preLoaderRoute: typeof AuthenticatedPatientsHandoverModeRouteImport
+    '/_authenticated/patients/$patientId': {
+      id: '/_authenticated/patients/$patientId'
+      path: '/$patientId'
+      fullPath: '/patients/$patientId'
+      preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
     '/_authenticated/patients/compare': {
@@ -688,109 +667,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsCompareRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
-    '/_authenticated/patients/$patientId': {
-      id: '/_authenticated/patients/$patientId'
-      path: '/$patientId'
-      fullPath: '/patients/$patientId'
-      preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
+    '/_authenticated/patients/handover-mode': {
+      id: '/_authenticated/patients/handover-mode'
+      path: '/handover-mode'
+      fullPath: '/patients/handover-mode'
+      preLoaderRoute: typeof AuthenticatedPatientsHandoverModeRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
-    '/api/public/hooks/handover-snapshot': {
-      id: '/api/public/hooks/handover-snapshot'
-      path: '/api/public/hooks/handover-snapshot'
-      fullPath: '/api/public/hooks/handover-snapshot'
-      preLoaderRoute: typeof ApiPublicHooksHandoverSnapshotRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/patients/handover-preview': {
+      id: '/_authenticated/patients/handover-preview'
+      path: '/handover-preview'
+      fullPath: '/patients/handover-preview'
+      preLoaderRoute: typeof AuthenticatedPatientsHandoverPreviewRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
     }
-    '/api/public/hooks/bridge-sync': {
-      id: '/api/public/hooks/bridge-sync'
-      path: '/api/public/hooks/bridge-sync'
-      fullPath: '/api/public/hooks/bridge-sync'
-      preLoaderRoute: typeof ApiPublicHooksBridgeSyncRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/patients/history': {
+      id: '/_authenticated/patients/history'
+      path: '/history'
+      fullPath: '/patients/history'
+      preLoaderRoute: typeof AuthenticatedPatientsHistoryRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
     }
-    '/api/public/health/schema': {
-      id: '/api/public/health/schema'
-      path: '/api/public/health/schema'
-      fullPath: '/api/public/health/schema'
-      preLoaderRoute: typeof ApiPublicHealthSchemaRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/patients/sharing': {
+      id: '/_authenticated/patients/sharing'
+      path: '/sharing'
+      fullPath: '/patients/sharing'
+      preLoaderRoute: typeof AuthenticatedPatientsSharingRouteImport
+      parentRoute: typeof AuthenticatedPatientsRoute
     }
-    '/api/public/bridge/verify-signature': {
-      id: '/api/public/bridge/verify-signature'
-      path: '/api/public/bridge/verify-signature'
-      fullPath: '/api/public/bridge/verify-signature'
-      preLoaderRoute: typeof ApiPublicBridgeVerifySignatureRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/referrals': {
-      id: '/api/public/bridge/referrals'
-      path: '/api/public/bridge/referrals'
-      fullPath: '/api/public/bridge/referrals'
-      preLoaderRoute: typeof ApiPublicBridgeReferralsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/patients': {
-      id: '/api/public/bridge/patients'
-      path: '/api/public/bridge/patients'
-      fullPath: '/api/public/bridge/patients'
-      preLoaderRoute: typeof ApiPublicBridgePatientsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/openapi': {
-      id: '/api/public/bridge/openapi'
-      path: '/api/public/bridge/openapi'
-      fullPath: '/api/public/bridge/openapi'
-      preLoaderRoute: typeof ApiPublicBridgeOpenapiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/notifications': {
-      id: '/api/public/bridge/notifications'
-      path: '/api/public/bridge/notifications'
-      fullPath: '/api/public/bridge/notifications'
-      preLoaderRoute: typeof ApiPublicBridgeNotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/microbiology': {
-      id: '/api/public/bridge/microbiology'
-      path: '/api/public/bridge/microbiology'
-      fullPath: '/api/public/bridge/microbiology'
-      preLoaderRoute: typeof ApiPublicBridgeMicrobiologyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/investigations': {
-      id: '/api/public/bridge/investigations'
-      path: '/api/public/bridge/investigations'
-      fullPath: '/api/public/bridge/investigations'
-      preLoaderRoute: typeof ApiPublicBridgeInvestigationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/health': {
-      id: '/api/public/bridge/health'
-      path: '/api/public/bridge/health'
-      fullPath: '/api/public/bridge/health'
-      preLoaderRoute: typeof ApiPublicBridgeHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/beds': {
-      id: '/api/public/bridge/beds'
-      path: '/api/public/bridge/beds'
-      fullPath: '/api/public/bridge/beds'
-      preLoaderRoute: typeof ApiPublicBridgeBedsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/bed_transfers_out': {
-      id: '/api/public/bridge/bed_transfers_out'
-      path: '/api/public/bridge/bed_transfers_out'
-      fullPath: '/api/public/bridge/bed_transfers_out'
-      preLoaderRoute: typeof ApiPublicBridgeBed_transfers_outRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/bridge/bed_outliers': {
-      id: '/api/public/bridge/bed_outliers'
-      path: '/api/public/bridge/bed_outliers'
-      fullPath: '/api/public/bridge/bed_outliers'
-      preLoaderRoute: typeof ApiPublicBridgeBed_outliersRouteImport
+    '/api/public/bridge/audit': {
+      id: '/api/public/bridge/audit'
+      path: '/api/public/bridge/audit'
+      fullPath: '/api/public/bridge/audit'
+      preLoaderRoute: typeof ApiPublicBridgeAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/bridge/bed_occupancies': {
@@ -800,11 +709,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBridgeBed_occupanciesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/bridge/audit': {
-      id: '/api/public/bridge/audit'
-      path: '/api/public/bridge/audit'
-      fullPath: '/api/public/bridge/audit'
-      preLoaderRoute: typeof ApiPublicBridgeAuditRouteImport
+    '/api/public/bridge/bed_outliers': {
+      id: '/api/public/bridge/bed_outliers'
+      path: '/api/public/bridge/bed_outliers'
+      fullPath: '/api/public/bridge/bed_outliers'
+      preLoaderRoute: typeof ApiPublicBridgeBed_outliersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/bed_transfers_out': {
+      id: '/api/public/bridge/bed_transfers_out'
+      path: '/api/public/bridge/bed_transfers_out'
+      fullPath: '/api/public/bridge/bed_transfers_out'
+      preLoaderRoute: typeof ApiPublicBridgeBed_transfers_outRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/beds': {
+      id: '/api/public/bridge/beds'
+      path: '/api/public/bridge/beds'
+      fullPath: '/api/public/bridge/beds'
+      preLoaderRoute: typeof ApiPublicBridgeBedsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/health': {
+      id: '/api/public/bridge/health'
+      path: '/api/public/bridge/health'
+      fullPath: '/api/public/bridge/health'
+      preLoaderRoute: typeof ApiPublicBridgeHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/investigations': {
+      id: '/api/public/bridge/investigations'
+      path: '/api/public/bridge/investigations'
+      fullPath: '/api/public/bridge/investigations'
+      preLoaderRoute: typeof ApiPublicBridgeInvestigationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/microbiology': {
+      id: '/api/public/bridge/microbiology'
+      path: '/api/public/bridge/microbiology'
+      fullPath: '/api/public/bridge/microbiology'
+      preLoaderRoute: typeof ApiPublicBridgeMicrobiologyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/notifications': {
+      id: '/api/public/bridge/notifications'
+      path: '/api/public/bridge/notifications'
+      fullPath: '/api/public/bridge/notifications'
+      preLoaderRoute: typeof ApiPublicBridgeNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/openapi': {
+      id: '/api/public/bridge/openapi'
+      path: '/api/public/bridge/openapi'
+      fullPath: '/api/public/bridge/openapi'
+      preLoaderRoute: typeof ApiPublicBridgeOpenapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/patients': {
+      id: '/api/public/bridge/patients'
+      path: '/api/public/bridge/patients'
+      fullPath: '/api/public/bridge/patients'
+      preLoaderRoute: typeof ApiPublicBridgePatientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/referrals': {
+      id: '/api/public/bridge/referrals'
+      path: '/api/public/bridge/referrals'
+      fullPath: '/api/public/bridge/referrals'
+      preLoaderRoute: typeof ApiPublicBridgeReferralsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/bridge/verify-signature': {
+      id: '/api/public/bridge/verify-signature'
+      path: '/api/public/bridge/verify-signature'
+      fullPath: '/api/public/bridge/verify-signature'
+      preLoaderRoute: typeof ApiPublicBridgeVerifySignatureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/health/schema': {
+      id: '/api/public/health/schema'
+      path: '/api/public/health/schema'
+      fullPath: '/api/public/health/schema'
+      preLoaderRoute: typeof ApiPublicHealthSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/bridge-sync': {
+      id: '/api/public/hooks/bridge-sync'
+      path: '/api/public/hooks/bridge-sync'
+      fullPath: '/api/public/hooks/bridge-sync'
+      preLoaderRoute: typeof ApiPublicHooksBridgeSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/handover-snapshot': {
+      id: '/api/public/hooks/handover-snapshot'
+      path: '/api/public/hooks/handover-snapshot'
+      fullPath: '/api/public/hooks/handover-snapshot'
+      preLoaderRoute: typeof ApiPublicHooksHandoverSnapshotRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
