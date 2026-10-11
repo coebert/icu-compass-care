@@ -40,29 +40,38 @@ async function runValidation(): Promise<SchemaValidationResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = supabaseAdmin as any;
   const problems: SchemaProblem[] = [];
+  let transient = false;
 
   await Promise.all(
     REQUIRED_SCHEMA.map(async ({ table, columns }) => {
-      const { error } = await admin
+      const { error, status } = await admin
         .from(table)
         .select(columns.join(","), { head: true, count: "exact" })
         .limit(1);
-      if (error) problems.push(classify(table, error));
+      if (!error) return;
+      // Backend unreachable / starting up (5xx or empty error): not a schema
+      // problem. Don't block the app; just re-check on a later request.
+      if ((status ?? 0) >= 500 || status === 0 || (!error.code && !error.message)) {
+        transient = true;
+        return;
+      }
+      problems.push(classify(table, error));
     }),
   );
 
+  if (transient) console.warn("[schema] backend unreachable; schema check deferred");
   problems.sort((a, b) => a.table.localeCompare(b.table));
-  return { ok: problems.length === 0, problems, checkedAt: new Date().toISOString() };
+  return { ok: problems.length === 0, problems, checkedAt: new Date().toISOString(), transient } as SchemaValidationResult & { transient: boolean };
 }
 
 let memo: Promise<SchemaValidationResult> | null = null;
 
 // Validate once per worker instance; subsequent calls reuse the result.
-// A failed validation is NOT cached so a mid-flight migration can recover.
+// Failed or deferred validations are NOT cached so they re-check later.
 export function validateSchema(force = false): Promise<SchemaValidationResult> {
   if (force || !memo) {
     memo = runValidation().then((result) => {
-      if (!result.ok) memo = null; // allow re-check after the schema is fixed
+      if (!result.ok || (result as { transient?: boolean }).transient) memo = null;
       return result;
     });
   }
