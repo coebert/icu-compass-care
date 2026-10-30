@@ -99,13 +99,13 @@ export function validateSchema(
   if (inflight) return inflight;
   const run = deps.run ?? runValidation;
   inflight = run()
+    // A thrown probe (backend unreachable) is transient: don't block pages.
     .catch(
-      (e): SchemaValidationResult & { transient: boolean } => ({
+      (): SchemaValidationResult & { transient: boolean } => ({
         ok: true,
         problems: [],
         checkedAt: new Date(now()).toISOString(),
         transient: true,
-        ...(e ? {} : {}),
       }),
     )
     .then((result) => {
