@@ -12,7 +12,6 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getMe } from "@/lib/me.functions";
-import { claimFirstAdmin } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon, Menu, ClipboardList } from "lucide-react";
 import {
@@ -25,7 +24,12 @@ import {
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { CommandMenu } from "@/components/CommandMenu";
-import { deviceHasPasskey, isSessionUnlocked, markSessionUnlocked, lockSession } from "@/lib/passkeys-client";
+import {
+  deviceHasPasskey,
+  fetchSessionState,
+  lockSessionOnServer,
+  sessionHeartbeat,
+} from "@/lib/passkeys-client";
 import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
 import { useJobReminders } from "@/hooks/use-job-reminders";
 import { useChecklistAlerts } from "@/hooks/use-checklist-alerts";
@@ -50,10 +54,11 @@ function AuthenticatedLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const me = useServerFn(getMe);
-  const claim = useServerFn(claimFirstAdmin);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [hydrated, setHydrated] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
+  // Lock state comes from the server (session_guard), never browser storage.
+  const [serverLocked, setServerLocked] = useState(false);
+  const [sessionScope, setSessionScope] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Background due-date reminders for ICU jobs (toasts, deduped + snoozable).
@@ -63,24 +68,18 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     setHydrated(true);
-    setUnlocked(isSessionUnlocked());
+    void supabase.auth.getSession().then(({ data }) => {
+      setSessionScope(sessionIdFromToken(data.session?.access_token));
+    });
   }, []);
-
-  // Bootstrap: if there is no admin yet, promote the first signed-in user.
-  useEffect(() => {
-    claim()
-      .then((r) => {
-        if (r.ok) queryClient.invalidateQueries({ queryKey: ["me"] });
-      })
-      .catch(() => {});
-  }, [claim, queryClient]);
 
   const signOut = useCallback(
     async (reason?: string) => {
       await queryClient.cancelQueries();
       queryClient.clear();
-      lockSession();
-      await supabase.auth.signOut();
+      // Revokes this session server-side, which also ends database access
+      // for any copy of its access token (private.session_active).
+      await supabase.auth.signOut({ scope: "local" });
       navigate({ to: "/auth", replace: true });
       if (reason) toast.info(reason);
     },
@@ -93,7 +92,16 @@ function AuthenticatedLayout() {
   useInactivityTimeout({
     timeoutMs: INACTIVITY_TIMEOUT_MS,
     warnMs: INACTIVITY_WARN_MS,
-    enabled: hydrated,
+    enabled: hydrated && !!sessionScope,
+    scope: sessionScope,
+    // Record genuine activity server-side (throttled). The server never
+    // revives a locked or idle session; if it reports one, react to it.
+    onActivity: () => {
+      void sessionHeartbeat().then((state) => {
+        if (state === "locked") setServerLocked(true);
+        else if (state === "revoked") void signOut("Your session ended. Please sign in again.");
+      });
+    },
     onWarn: () =>
       toast.warning("You'll be signed out soon", {
         description: "Move the mouse or press a key to stay signed in.",
@@ -111,8 +119,13 @@ function AuthenticatedLayout() {
       const expiresAt = data.session?.expires_at;
       if (!data.session || (expiresAt && expiresAt * 1000 <= Date.now())) {
         void signOut("Your session expired. Please sign in again.");
+        return;
       }
+      const state = await fetchSessionState();
+      if (state === "locked") setServerLocked(true);
+      else if (state === "revoked") void signOut("Your session ended. Please sign in again.");
     };
+    void check();
     const id = window.setInterval(check, 30_000);
     return () => window.clearInterval(id);
   }, [hydrated, signOut]);
@@ -130,11 +143,21 @@ function AuthenticatedLayout() {
   });
 
   const deviceEnrolled = !!profile?.userId && deviceHasPasskey(profile.userId);
-  const locked = deviceEnrolled && !unlocked;
+  const locked = serverLocked || profile?.sessionStatus === "locked";
 
-  function lockNow() {
-    lockSession();
-    setUnlocked(false);
+  // A server-locked session on a device without a passkey can only be
+  // resumed by signing in again.
+  useEffect(() => {
+    if (locked && profile?.userId && !deviceEnrolled) {
+      void signOut("This session was locked. Please sign in again.");
+    }
+  }, [locked, deviceEnrolled, profile?.userId, signOut]);
+
+  async function lockNow() {
+    await lockSessionOnServer();
+    setServerLocked(true);
+    await queryClient.cancelQueries();
+    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
   }
 
 
@@ -162,8 +185,8 @@ function AuthenticatedLayout() {
       <PasskeyLockScreen
         displayName={profile?.profile?.display_name ?? profile?.email}
         onUnlocked={() => {
-          markSessionUnlocked();
-          setUnlocked(true);
+          setServerLocked(false);
+          void queryClient.invalidateQueries();
         }}
         onSignOut={() => void signOut()}
       />
@@ -271,7 +294,7 @@ function AuthenticatedLayout() {
               {profile?.profile?.display_name ?? profile?.email}
             </span>
             {deviceEnrolled && (
-              <Button variant="outline" size="sm" onClick={lockNow} className="shrink-0 gap-1.5" aria-label="Lock session">
+              <Button variant="outline" size="sm" onClick={() => void lockNow()} className="shrink-0 gap-1.5" aria-label="Lock session">
                 <Lock className="h-4 w-4" />
                 <span className="hidden whitespace-nowrap lg:inline">Lock now</span>
               </Button>
@@ -300,4 +323,15 @@ function AuthenticatedLayout() {
     </div>
 
   );
+}
+
+/** The auth session id (`session_id` claim) of an access token, for scoping. */
+function sessionIdFromToken(token: string | undefined): string | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.session_id === "string" ? payload.session_id : null;
+  } catch {
+    return null;
+  }
 }
