@@ -36,6 +36,7 @@ const historySearchSchema = z.object({
   shift: fallback(z.string(), "all").default("all"),
   page: fallback(z.number().int(), 1).default(1),
   versionId: fallback(z.string(), "").default(""),
+  legacy: fallback(z.boolean(), false).default(false),
 });
 
 export const Route = createFileRoute("/_authenticated/patients/history")({
@@ -110,6 +111,8 @@ function HandoverHistoryPage() {
   const selectedId = urlSearch.versionId || null;
   const setSelectedId = (id: string | null) => updateSearch({ versionId: id ?? "" });
   const pageSize = 25;
+  // Older combined (all-unit) snapshots are quarantined to Trust admins.
+  const legacy = Boolean(urlSearch.legacy) && Boolean(profile?.isTrustAdmin);
 
   // Debounce the free-text query so we don't hit the server on every keystroke.
   const [debouncedQ, setDebouncedQ] = useState(q);
@@ -120,7 +123,7 @@ function HandoverHistoryPage() {
 
 
   const { data: pageData, isLoading, isFetching } = useQuery({
-    queryKey: ["handover-versions", debouncedQ, from, to, shift, page],
+    queryKey: ["handover-versions", debouncedQ, from, to, shift, page, legacy],
     queryFn: () =>
       list({
         data: {
@@ -130,6 +133,7 @@ function HandoverHistoryPage() {
           shift: shift === "all" ? undefined : shift,
           page,
           pageSize,
+          legacy,
         },
       }),
     placeholderData: (prev) => prev,
@@ -214,6 +218,15 @@ function HandoverHistoryPage() {
               <GitCompareArrows className="h-4 w-4" /> Compare versions
             </Link>
           </Button>
+          {profile?.isTrustAdmin && (
+            <Button
+              variant={legacy ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => updateSearch({ legacy: !legacy, page: 1, versionId: "" })}
+            >
+              {legacy ? "Show unit snapshots" : "Older combined snapshots"}
+            </Button>
+          )}
           {isAdmin && (
             <Button
               variant="outline"
