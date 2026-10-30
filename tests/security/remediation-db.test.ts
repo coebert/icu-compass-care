@@ -454,3 +454,189 @@ describe("Bridge investigation insert after sharing is revoked", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Review round 3
+// ---------------------------------------------------------------------------
+describe("Idle baseline for sessions without a guard row", () => {
+  const OLDU = "00000000-0000-4000-8000-0000000000f1";
+  const OLD_SID = "70000000-0000-4000-8000-0000000000f1";
+  const NEW_SID = "70000000-0000-4000-8000-0000000000f2";
+  const setEnforce = (on: boolean) =>
+    superQ("UPDATE private.security_settings SET enforce_session_baseline = $1", [on]);
+  const seen = (session: string) =>
+    as(OLDU, async (q) => (await q("SELECT id FROM public.patients")).rows.length, { session });
+
+  beforeAll(async () => {
+    await superQ("INSERT INTO auth.users (id, email) VALUES ($1,'f1@example.test')", [OLDU]);
+    await superQ("INSERT INTO auth.sessions (id, user_id, created_at) VALUES ($1,$3, now() - interval '3 hours'), ($2,$3, now())", [OLD_SID, NEW_SID, OLDU]);
+    await superQ("INSERT INTO public.user_roles (user_id, role) VALUES ($1,'clinician')", [OLDU]);
+    await superQ("INSERT INTO public.user_unit_access (user_id, unit_id, reason) VALUES ($1,$2,'synthetic')", [OLDU, UNIT_A]);
+  });
+
+  it("while the switch is off (old client still live), an old session is not locked out", async () => {
+    await setEnforce(false);
+    expect(await seen(OLD_SID)).toBe(2);
+  });
+  it("once enforced, an old valid session with no guard row and no heartbeat is idle-locked", async () => {
+    await setEnforce(true);
+    try {
+      expect(await seen(OLD_SID)).toBe(0);
+      const s = await as(OLDU, async (q) => (await q("SELECT public.session_heartbeat() AS s")).rows[0]!.s, { session: OLD_SID, commit: true });
+      expect(s).toBe("locked");
+      // The heartbeat recorded a lock; it did not initialise the session as active.
+      expect(await seen(OLD_SID)).toBe(0);
+      const s2 = await as(OLDU, async (q) => (await q("SELECT public.session_status() AS s")).rows[0]!.s, { session: OLD_SID });
+      expect(s2).toBe("locked");
+    } finally {
+      await setEnforce(false);
+    }
+  });
+  it("a freshly authenticated session is active, and a refreshed token does not count as activity", async () => {
+    await setEnforce(true);
+    try {
+      // iat in the JWT is ignored; only auth.sessions.created_at / guard rows matter.
+      expect(await seen(NEW_SID)).toBe(2);
+      await superQ("UPDATE auth.sessions SET created_at = now() - interval '1 hour' WHERE id = $1", [NEW_SID]);
+      const fresh = await as(OLDU, async (q) => (await q("SELECT id FROM public.patients")).rows.length, {
+        session: NEW_SID,
+        claims: { iat: Math.floor(Date.now() / 1000) },
+      });
+      expect(fresh).toBe(0);
+    } finally {
+      await setEnforce(false);
+    }
+  });
+  it("clients cannot flip the enforcement switch", async () => {
+    await expect(
+      as(U.trustA, (q) => q("UPDATE private.security_settings SET enforce_session_baseline = false")),
+    ).rejects.toThrow(/permission denied/);
+  });
+});
+
+describe("Authoritative admin transactions", () => {
+  const SUSP = "00000000-0000-4000-8000-0000000000f3";
+  const TRUST_LOCKED_SID = "70000000-0000-4000-8000-0000000000a1";
+  const call = (actor: string, sql: string, opts: Parameters<typeof as>[2] = { claims: freshAmr() }) =>
+    as(actor, (q) => q(sql), opts);
+  const rr = (target: string, roles: string, reason = "synthetic reason", action = "role_changed") =>
+    `SELECT public.admin_replace_user_roles('${target}', ARRAY[${roles}]::public.app_role[], ${reason === null ? "NULL" : `'${reason}'`}, '${action}')`;
+
+  beforeAll(async () => {
+    await superQ("INSERT INTO auth.users (id, email, banned_until) VALUES ($1,'f3@example.test', now() + interval '100 years')", [SUSP]);
+    await superQ("INSERT INTO auth.sessions (id, user_id) VALUES ($1,$2)", [sid(SUSP), SUSP]);
+    await superQ("INSERT INTO public.user_unit_access (user_id, unit_id, reason) VALUES ($1,$2,'synthetic')", [SUSP, UNIT_A]);
+    await superQ("INSERT INTO auth.sessions (id, user_id) VALUES ($1,$2)", [TRUST_LOCKED_SID, U.trustA]);
+    await superQ("INSERT INTO public.session_guard (session_id, user_id, locked_at) VALUES ($1,$2, now())", [TRUST_LOCKED_SID, U.trustA]);
+  });
+
+  it("requires a recent verified re-authentication (not a caller-supplied value)", async () => {
+    await expect(call(U.trustA, rr(U.clinB, "'clinician'"), { claims: staleAmr() })).rejects.toThrow(/REAUTH_REQUIRED/);
+    await expect(call(U.trustA, rr(U.clinB, "'clinician'"), {})).rejects.toThrow(/REAUTH_REQUIRED/);
+  });
+  it("requires a reason", async () => {
+    await expect(call(U.trustA, rr(U.clinB, "'clinician'", "x"))).rejects.toThrow(/REASON_REQUIRED/);
+    await expect(call(U.trustA, `SELECT public.admin_replace_user_roles('${U.clinB}', ARRAY['clinician']::public.app_role[], NULL)`)).rejects.toThrow(/REASON_REQUIRED/);
+  });
+  it("refuses a locked session even with a fresh re-auth stamp", async () => {
+    await expect(
+      call(U.trustA, rr(U.clinB, "'clinician'"), { session: TRUST_LOCKED_SID, claims: freshAmr() }),
+    ).rejects.toThrow(/SESSION_LOCKED/);
+  });
+  it("refuses self-demotion", async () => {
+    await expect(call(U.trustA, rr(U.trustA, "'clinician'"))).rejects.toThrow(/FORBIDDEN_TARGET/);
+  });
+  it("writes a mandatory audit event in the same transaction", async () => {
+    const ev = await as(U.trustA, async (q) => {
+      await q(rr(U.clinB, "'clinician'", "audited change"));
+      return (await q("SELECT action, reason, actor_id FROM public.account_access_events WHERE target_user_id = $1 AND reason = 'audited change'", [U.clinB])).rows;
+    }, { claims: freshAmr() });
+    // authenticated cannot read events directly unless policy allows; fall back to superuser check
+    void ev;
+    await as(U.trustA, (q) => q(rr(U.clinB, "'clinician'", "audited change committed")), { claims: freshAmr(), commit: true });
+    const rows = (await superQ("SELECT action, reason, actor_id FROM public.account_access_events WHERE reason = 'audited change committed'")).rows;
+    expect(rows).toEqual([{ action: "role_changed", reason: "audited change committed", actor_id: U.trustA }]);
+  });
+  it("if the audit insert fails, the role change is rolled back", async () => {
+    await db.exec("BEGIN");
+    try {
+      await db.exec("ALTER TABLE public.account_access_events ADD CONSTRAINT tmp_fail CHECK (action <> 'role_changed') NOT VALID");
+      await db.exec("SAVEPOINT s1");
+      await db.query("SELECT set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify({ sub: U.trustA, role: "authenticated", session_id: sid(U.trustA), ...freshAmr() }),
+      ]);
+      await db.exec("SET LOCAL ROLE authenticated");
+      await expect(db.query(rr(U.clinB, "'unit_admin'"))).rejects.toThrow(/tmp_fail/);
+      await db.exec("ROLLBACK TO SAVEPOINT s1");
+      await db.exec("RESET ROLE");
+      const roles = (await db.query<{ role: string }>("SELECT role FROM public.user_roles WHERE user_id = $1", [U.clinB])).rows.map((r) => r.role);
+      expect(roles).toEqual(["clinician"]);
+    } finally {
+      await db.exec("ROLLBACK");
+    }
+  });
+  it("refuses to assign roles or units to a suspended account except controlled reinstatement", async () => {
+    await expect(call(U.trustA, rr(SUSP, "'clinician'"))).rejects.toThrow(/TARGET_SUSPENDED/);
+    await expect(
+      call(U.trustA, `SELECT public.admin_set_unit_access('${SUSP}', '${UNIT_B}', true, 'synthetic grant')`),
+    ).rejects.toThrow(/TARGET_SUSPENDED/);
+    await expect(call(U.trustA, rr(SUSP, "'clinician'", "reinstating", "reinstated"))).resolves.toBeDefined();
+    await expect(call(U.trustA, rr(U.clinB, "'clinician'", "bogus", "reinstated"))).rejects.toThrow(/not suspended/);
+  });
+  it("unit membership changes go through the audited RPC; direct revoke is refused", async () => {
+    await expect(
+      as(U.unitAdminA, (q) => q("DELETE FROM public.user_unit_access WHERE user_id = $1", [U.clinA])),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      call(U.unitAdminA, `SELECT public.admin_set_unit_access('${U.clinB}', '${UNIT_B}', false, 'out of scope')`),
+    ).rejects.toThrow(/FORBIDDEN_TARGET/);
+    await expect(
+      call(U.unitAdminA, `SELECT public.admin_set_unit_access('${U.noUnit}', '${UNIT_A}', true, 'synthetic grant')`),
+    ).resolves.toBeDefined();
+    await expect(
+      call(U.unitAdminA, `SELECT public.admin_set_unit_access('${U.noUnit}', '${UNIT_A}', true, 'synthetic grant')`, { claims: staleAmr() }),
+    ).rejects.toThrow(/REAUTH_REQUIRED/);
+  });
+  it("transitional direct unit-access insert needs reauth and a reason", async () => {
+    await expect(
+      as(U.unitAdminA, (q) => q("INSERT INTO public.user_unit_access (user_id, unit_id, reason) VALUES ($1,$2,'synthetic')", [U.noUnit, UNIT_A])),
+    ).rejects.toThrow(/row-level security/);
+    await expect(
+      as(U.unitAdminA, (q) => q("INSERT INTO public.user_unit_access (user_id, unit_id) VALUES ($1,$2)", [U.noUnit, UNIT_A]), { claims: freshAmr() }),
+    ).rejects.toThrow(/row-level security/);
+  });
+  it("server-side (service role) changes are still audited", async () => {
+    await superQ("SET ROLE service_role");
+    try {
+      await superQ("INSERT INTO public.user_unit_access (user_id, unit_id, reason) VALUES ($1,$2,'svc synthetic')", [U.clinB, UNIT_A]);
+    } finally {
+      await superQ("RESET ROLE");
+    }
+    const rows = (await superQ("SELECT action FROM public.account_access_events WHERE target_user_id = $1 AND reason = 'svc synthetic'", [U.clinB])).rows;
+    expect(rows).toEqual([{ action: "access_change" }]);
+    await superQ("DELETE FROM public.user_unit_access WHERE user_id = $1 AND unit_id = $2", [U.clinB, UNIT_A]);
+  });
+});
+
+describe("Last-admin protection counts only enabled accounts", () => {
+  it("a banned account holding a Trust role does not satisfy the guard", async () => {
+    await expect(
+      as(null, async () => {
+        await db.exec("RESET ROLE");
+        await superQ("DELETE FROM public.user_roles WHERE user_id = $1", [U.trustInA]);
+        await superQ("UPDATE auth.users SET banned_until = now() + interval '100 years' WHERE id = $1", [U.trustB]);
+        await superQ("DELETE FROM public.user_roles WHERE user_id = $1", [U.trustA]);
+      }),
+    ).rejects.toThrow(/LAST_TRUST_ADMIN/);
+  });
+  it("a soft-deleted account does not count either; cascade delete is guarded", async () => {
+    await expect(
+      as(null, async () => {
+        await db.exec("RESET ROLE");
+        await superQ("DELETE FROM public.user_roles WHERE user_id = $1", [U.trustInA]);
+        await superQ("UPDATE auth.users SET deleted_at = now() WHERE id = $1", [U.trustB]);
+        await superQ("DELETE FROM auth.users WHERE id = $1", [U.trustA]);
+      }),
+    ).rejects.toThrow(/LAST_TRUST_ADMIN/);
+  });
+});
