@@ -69,7 +69,11 @@ describe("performLock", () => {
       rpcStatus: async () => ({ data: null, error: { message: "x" } }),
       signOutLocal: async () => ({ error: { message: "offline" } }),
     });
-    expect(await performLock(d)).toEqual({ kind: "signed_out", serverConfirmed: false, signOutError: true });
+    expect(await performLock(d)).toEqual({
+      kind: "signed_out",
+      serverConfirmed: false,
+      signOutError: true,
+    });
   });
   it("purges cached patient data even when everything else fails", async () => {
     const qc = new QueryClient();

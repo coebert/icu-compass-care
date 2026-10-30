@@ -11,17 +11,32 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { performLock, uiActionFor, SESSION_CHANNEL, type SessionBroadcast, type SessionState } from "@/lib/session-lock";
+import {
+  performLock,
+  uiActionFor,
+  SESSION_CHANNEL,
+  type SessionBroadcast,
+  type SessionState,
+} from "@/lib/session-lock";
 import { getMe } from "@/lib/me.functions";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon, Menu, ClipboardList } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  HeartPulse,
+  LogOut,
+  Users,
+  Shield,
+  ShieldCheck,
+  User,
+  RefreshCw,
+  BedDouble,
+  Lock,
+  LayoutDashboard,
+  History,
+  Command as CommandIcon,
+  Menu,
+  ClipboardList,
+} from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
 import { PasskeyLockScreen } from "@/components/PasskeyLockScreen";
 import { CommandMenu } from "@/components/CommandMenu";
@@ -34,7 +49,6 @@ import {
 import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
 import { useJobReminders } from "@/hooks/use-job-reminders";
 import { useChecklistAlerts } from "@/hooks/use-checklist-alerts";
-
 
 // Automatically end a session after this much inactivity, warning shortly
 // before. Clinical data must not stay editable on an unattended workstation.
@@ -139,8 +153,7 @@ function AuthenticatedLayout() {
       toast.warning("You'll be signed out soon", {
         description: "Move the mouse or press a key to stay signed in.",
       }),
-    onTimeout: () =>
-      void signOut("Signed out after inactivity. Please sign in again."),
+    onTimeout: () => void signOut("Signed out after inactivity. Please sign in again."),
   });
 
   // 2) Session-expiry guard: if the Supabase session lapses (e.g. the device
@@ -212,8 +225,6 @@ function AuthenticatedLayout() {
     });
   }
 
-
-
   const navItems = [
     { to: "/patients", label: "Patients", icon: Users },
     { to: "/patients/history", label: "History", icon: History },
@@ -242,11 +253,7 @@ function AuthenticatedLayout() {
             Patient information is hidden until the server confirms this session is still valid.
           </p>
           <div className="flex justify-center gap-2">
-            <Button
-              onClick={() => void fetchSessionState().then(applyState)}
-            >
-              Try again
-            </Button>
+            <Button onClick={() => void fetchSessionState().then(applyState)}>Try again</Button>
             <Button variant="outline" onClick={() => void signOut()}>
               Sign out
             </Button>
@@ -268,8 +275,6 @@ function AuthenticatedLayout() {
       />
     );
   }
-
-
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -300,17 +305,12 @@ function AuthenticatedLayout() {
                   const matches = navItems.filter(
                     (n) => pathname === n.to || pathname.startsWith(n.to + "/"),
                   );
-                  const best = matches.reduce(
-                    (a, b) => (b.to.length > a.to.length ? b : a),
-                    { to: "" } as { to: string },
-                  );
+                  const best = matches.reduce((a, b) => (b.to.length > a.to.length ? b : a), {
+                    to: "",
+                  } as { to: string });
                   const active = best.to === item.to;
                   return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setMobileNavOpen(false)}
-                    >
+                    <Link key={item.to} to={item.to} onClick={() => setMobileNavOpen(false)}>
                       <Button
                         variant={active ? "secondary" : "ghost"}
                         className="w-full justify-start gap-2"
@@ -340,10 +340,9 @@ function AuthenticatedLayout() {
               const matches = navItems.filter(
                 (n) => pathname === n.to || pathname.startsWith(n.to + "/"),
               );
-              const best = matches.reduce(
-                (a, b) => (b.to.length > a.to.length ? b : a),
-                { to: "" } as { to: string },
-              );
+              const best = matches.reduce((a, b) => (b.to.length > a.to.length ? b : a), {
+                to: "",
+              } as { to: string });
               const active = best.to === item.to;
               return (
                 <Link key={item.to} to={item.to}>
@@ -370,12 +369,24 @@ function AuthenticatedLayout() {
               {profile?.profile?.display_name ?? profile?.email}
             </span>
             {deviceEnrolled && (
-              <Button variant="outline" size="sm" onClick={() => void lockNow()} className="shrink-0 gap-1.5" aria-label="Lock session">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void lockNow()}
+                className="shrink-0 gap-1.5"
+                aria-label="Lock session"
+              >
                 <Lock className="h-4 w-4" />
                 <span className="hidden whitespace-nowrap lg:inline">Lock now</span>
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => void signOut()} className="shrink-0 gap-1.5" aria-label="Sign out">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void signOut()}
+              className="shrink-0 gap-1.5"
+              aria-label="Sign out"
+            >
               <LogOut className="h-4 w-4" />
               <span className="hidden whitespace-nowrap lg:inline">Sign out</span>
             </Button>
@@ -384,7 +395,6 @@ function AuthenticatedLayout() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-
         <Outlet />
       </main>
       <CommandMenu />
@@ -397,7 +407,6 @@ function AuthenticatedLayout() {
         <span>K to jump</span>
       </div>
     </div>
-
   );
 }
 

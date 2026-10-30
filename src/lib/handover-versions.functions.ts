@@ -100,10 +100,7 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
     const q = data.q?.trim();
     if (q) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let idQuery = (context.supabase as any)
-        .from(table)
-        .select("id, search_text")
-        .limit(2000);
+      let idQuery = (context.supabase as any).from(table).select("id, search_text").limit(2000);
       if (data.from) idQuery = idQuery.gte("local_date", data.from);
       if (data.to) idQuery = idQuery.lte("local_date", data.to);
       const { data: idxRows, error: idxErr } = await idQuery;
@@ -144,9 +141,7 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
 // handover can be re-rendered and re-exported.
 export const getHandoverVersion = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { id: string }) =>
-    z.object({ id: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
     // RLS decides: unit snapshots for unit members / Trust admins; legacy
     // mixed-unit rows only for Trust admins.

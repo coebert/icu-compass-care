@@ -6,11 +6,7 @@
 // the admin client. Import it inside a handler with `await import(...)`.
 
 import { getAdmin } from "@/lib/admin-db.server";
-import {
-  decideShiftGate,
-  labelFor,
-  type ShiftKey,
-} from "@/lib/handover-shift";
+import { decideShiftGate, labelFor, type ShiftKey } from "@/lib/handover-shift";
 
 export type { ShiftKey } from "@/lib/handover-shift";
 
@@ -25,7 +21,6 @@ const PATIENT_SELECT =
 function textField(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
-
 
 // Concatenate the fields a clinician might search old handovers by (patient
 // identifiers plus the free-text clinical summary columns).
@@ -93,7 +88,6 @@ export async function captureHandoverSnapshot(
     return { ok: true, captured: false, skipped: decision.reason };
   }
   const shift: ShiftKey = decision.shift;
-
 
   const admin = await getAdmin();
 

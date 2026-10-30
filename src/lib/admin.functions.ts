@@ -84,29 +84,29 @@ export const listStaff = createServerFn({ method: "GET" })
     const visible = (id: string) => {
       if (actor.isTrustAdmin || actor.isAuditor) return true;
       if (id === actor.userId) return true;
-      return (grants ?? []).some(
-        (g) => g.user_id === id && actor.unitIds.includes(g.unit_id),
-      );
+      return (grants ?? []).some((g) => g.user_id === id && actor.unitIds.includes(g.unit_id));
     };
-    return (profiles ?? []).filter((p) => visible(p.id)).map((p) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const au = authById.get(p.id) as any;
-      const bannedUntil = au?.banned_until ? Date.parse(au.banned_until) : null;
-      return {
-        id: p.id,
-        display_name: p.display_name,
-        email: (au?.email as string | undefined) ?? null,
-        job_title: p.job_title ?? null,
-        roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
-        units: (grants ?? [])
-          .filter((g) => g.user_id === p.id)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((g) => ({ unit_id: g.unit_id, label: (g as any).icu_units?.code ?? null })),
-        suspended: Boolean(bannedUntil && bannedUntil > now),
-        last_sign_in_at: (au?.last_sign_in_at as string | undefined) ?? null,
-        created_at: (au?.created_at as string | undefined) ?? p.created_at ?? null,
-      };
-    });
+    return (profiles ?? [])
+      .filter((p) => visible(p.id))
+      .map((p) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const au = authById.get(p.id) as any;
+        const bannedUntil = au?.banned_until ? Date.parse(au.banned_until) : null;
+        return {
+          id: p.id,
+          display_name: p.display_name,
+          email: (au?.email as string | undefined) ?? null,
+          job_title: p.job_title ?? null,
+          roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
+          units: (grants ?? [])
+            .filter((g) => g.user_id === p.id)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((g) => ({ unit_id: g.unit_id, label: (g as any).icu_units?.code ?? null })),
+          suspended: Boolean(bannedUntil && bannedUntil > now),
+          last_sign_in_at: (au?.last_sign_in_at as string | undefined) ?? null,
+          created_at: (au?.created_at as string | undefined) ?? p.created_at ?? null,
+        };
+      });
   });
 
 // Recent onboarding / access-removal history (admin only).
@@ -127,15 +127,12 @@ export const listAccessEvents = createServerFn({ method: "GET" })
       .from("user_unit_access")
       .select("user_id, unit_id");
     const inScope = new Set(
-      (grants ?? [])
-        .filter((g) => actor.unitIds.includes(g.unit_id))
-        .map((g) => g.user_id),
+      (grants ?? []).filter((g) => actor.unitIds.includes(g.unit_id)).map((g) => g.user_id),
     );
     return (data ?? [])
       .filter(
         (e) =>
-          e.actor_id === actor.userId ||
-          (e.target_user_id ? inScope.has(e.target_user_id) : false),
+          e.actor_id === actor.userId || (e.target_user_id ? inScope.has(e.target_user_id) : false),
       )
       .slice(0, 100);
   });

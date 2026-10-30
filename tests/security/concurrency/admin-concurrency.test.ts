@@ -20,7 +20,14 @@ const amr = () => [{ method: "password", timestamp: Math.floor(Date.now() / 1000
 // "<socket dir>:<port>" — local socket only, never a network address.
 function connect() {
   const [host, port] = URL_!.split(":");
-  return postgres({ host, port: Number(port), user: "postgres", database: "postgres", max: 1, onnotice: () => {} });
+  return postgres({
+    host,
+    port: Number(port),
+    user: "postgres",
+    database: "postgres",
+    max: 1,
+    onnotice: () => {},
+  });
 }
 
 let admin: ReturnType<typeof postgres>;
@@ -49,7 +56,9 @@ d("admin changes under real concurrency", () => {
     await admin`INSERT INTO public.icu_units (id, name, code) VALUES (${UNIT}, 'U', 'U')`;
     await admin`INSERT INTO public.user_roles (user_id, role) VALUES (${T1},'trust_admin'), (${T2},'trust_admin'), (${UA},'unit_admin'), (${C1},'clinician')`;
     await admin`INSERT INTO public.user_unit_access (user_id, unit_id) VALUES (${UA}, ${UNIT}), (${C1}, ${UNIT})`;
-    for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql") && x.includes("security_remediation")).sort()) {
+    for (const f of readdirSync(dir)
+      .filter((x) => x.endsWith(".sql") && x.includes("security_remediation"))
+      .sort()) {
       await admin.unsafe(readFileSync(join(dir, f), "utf8"));
     }
   }, 60_000);
@@ -69,7 +78,10 @@ d("admin changes under real concurrency", () => {
         await asUser(tx, T2);
         await tx.unsafe(rr(T1, "'clinician'"));
       })
-      .then(() => "ok", (e: Error) => e.message);
+      .then(
+        () => "ok",
+        (e: Error) => e.message,
+      );
     await first;
     const res = await second;
     expect(res).toMatch(/FORBIDDEN_TARGET|LAST_TRUST_ADMIN/);
@@ -89,7 +101,10 @@ d("admin changes under real concurrency", () => {
         await asUser(tx, UA);
         await tx.unsafe(rr(C1, "'unit_admin'"));
       })
-      .then(() => "ok", (e: Error) => e.message);
+      .then(
+        () => "ok",
+        (e: Error) => e.message,
+      );
     await revoke;
     expect(await act).toMatch(/FORBIDDEN_TARGET/);
     const c1 = await admin`SELECT role FROM public.user_roles WHERE user_id = ${C1}`;

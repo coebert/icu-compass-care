@@ -25,7 +25,11 @@ function classify(table: string, error: { code?: string; message?: string }): Sc
   const code = error.code ?? "";
   const message = error.message ?? "unknown error";
   // 42P01 = undefined_table, PGRST205 = table not found in schema cache
-  if (code === "42P01" || code === "PGRST205" || /does not exist/i.test(message) && /relation|table/i.test(message)) {
+  if (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    (/does not exist/i.test(message) && /relation|table/i.test(message))
+  ) {
     return { table, kind: "missing_table", detail: `Table "${table}" is missing` };
   }
   // 42703 = undefined_column, PGRST204 = column not found in schema cache
@@ -62,7 +66,12 @@ async function runValidation(): Promise<SchemaValidationResult> {
 
   if (transient) console.warn("[schema] backend unreachable; schema check deferred");
   problems.sort((a, b) => a.table.localeCompare(b.table));
-  return { ok: problems.length === 0, problems, checkedAt: new Date().toISOString(), transient } as SchemaValidationResult & { transient: boolean };
+  return {
+    ok: problems.length === 0,
+    problems,
+    checkedAt: new Date().toISOString(),
+    transient,
+  } as SchemaValidationResult & { transient: boolean };
 }
 
 // Cache + coalesce: concurrent callers share one in-flight probe; successful
@@ -100,14 +109,12 @@ export function validateSchema(
   const run = deps.run ?? runValidation;
   inflight = run()
     // A thrown probe (backend unreachable) is transient: don't block pages.
-    .catch(
-      (): SchemaValidationResult & { transient: boolean } => ({
-        ok: true,
-        problems: [],
-        checkedAt: new Date(now()).toISOString(),
-        transient: true,
-      }),
-    )
+    .catch((): SchemaValidationResult & { transient: boolean } => ({
+      ok: true,
+      problems: [],
+      checkedAt: new Date(now()).toISOString(),
+      transient: true,
+    }))
     .then((result) => {
       const transient = Boolean((result as { transient?: boolean }).transient);
       if (result.ok && !transient) {

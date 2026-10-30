@@ -4,7 +4,11 @@ const mod = await import("@/lib/schema-validation.server");
 const { validateSchema, __resetSchemaCache, nextBackoffMs, SUCCESS_TTL_MS } = mod;
 
 const ok = { ok: true, problems: [], checkedAt: "x" };
-const bad = { ok: false, problems: [{ table: "t", kind: "missing_table" as const, detail: "d" }], checkedAt: "x" };
+const bad = {
+  ok: false,
+  problems: [{ table: "t", kind: "missing_table" as const, detail: "d" }],
+  checkedAt: "x",
+};
 
 beforeEach(() => __resetSchemaCache());
 

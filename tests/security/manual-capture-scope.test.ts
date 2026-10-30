@@ -22,7 +22,10 @@ function builder(table: keyof typeof db) {
       const rows = db[table];
       const r = upsertRow!;
       const i = rows.findIndex(
-        (x) => x["unit_id"] === r["unit_id"] && x["local_date"] === r["local_date"] && x["shift"] === r["shift"],
+        (x) =>
+          x["unit_id"] === r["unit_id"] &&
+          x["local_date"] === r["local_date"] &&
+          x["shift"] === r["shift"],
       );
       const saved = { ...r, id: i >= 0 ? rows[i]!["id"] : `v-${String(r["unit_id"])}` };
       if (i >= 0) rows[i] = saved;
@@ -38,7 +41,9 @@ function builder(table: keyof typeof db) {
 vi.mock("@/lib/admin-db.server", () => ({
   getAdmin: async () => ({ from: (t: keyof typeof db) => builder(t) }),
 }));
-vi.mock("@/lib/patient-crypto.server", () => ({ decryptPatientRows: (r: Row[] | null) => r ?? [] }));
+vi.mock("@/lib/patient-crypto.server", () => ({
+  decryptPatientRows: (r: Row[] | null) => r ?? [],
+}));
 vi.mock("@/lib/crypto.server", () => ({ encryptField: (v: string) => `enc(${v.length})` }));
 
 const { captureHandoverSnapshot } = await import("@/lib/handover-snapshot.server");
@@ -82,6 +87,8 @@ describe("manual handover capture scope", () => {
   it("Trust-wide (no unit filter) capture covers every unit", async () => {
     const r = await captureHandoverSnapshot({ force: true, now: NOW });
     expect(r.patient_count).toBe(3);
-    expect(new Set(db.handover_unit_versions.map((v) => v["unit_id"]))).toEqual(new Set(["uA", "uB"]));
+    expect(new Set(db.handover_unit_versions.map((v) => v["unit_id"]))).toEqual(
+      new Set(["uA", "uB"]),
+    );
   });
 });
