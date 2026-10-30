@@ -174,7 +174,7 @@ function AccessAdminPage() {
       role: UiRole;
       unit_ids: string[];
       reason: string;
-    }) => createFn({ data: v }),
+    }) => withReauth(() => createFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Account created", { description: "Share the temporary password securely." });
