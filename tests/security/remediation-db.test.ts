@@ -8,6 +8,7 @@ import { join } from "node:path";
 
 const MIG_DIR = join(__dirname, "../../drizzle/migrations");
 function migrationSql(): string {
+  if (process.env["REMEDIATION_SQL"]) return readFileSync(process.env["REMEDIATION_SQL"], "utf8");
   const file = readdirSync(MIG_DIR).find((f) => f.includes("security_remediation_f1_f6"));
   if (!file) throw new Error("remediation migration not found");
   return readFileSync(join(MIG_DIR, file), "utf8");
