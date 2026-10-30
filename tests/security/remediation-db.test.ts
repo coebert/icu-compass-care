@@ -141,36 +141,43 @@ describe("F1/F2 target-aware account management", () => {
     expect(await can(U.clinA, U.clinB)).toBe(false);
   });
 
-  it("unit admin role replacement for a same-unit clinician is atomic", async () => {
-    const roles = await as(U.unitAdminA, async (q) => {
-      await q("SELECT public.replace_user_roles($1, ARRAY['unit_admin']::public.app_role[])", [U.clinA]);
-      return (await q("SELECT role FROM public.user_roles WHERE user_id = $1", [U.clinA])).rows.map((r) => r.role);
-    });
-    expect(roles).toEqual(["unit_admin"]);
+  const rr = (target: string, roles: string, action = "role_changed") =>
+    `SELECT public.admin_replace_user_roles('${target}', ARRAY[${roles}]::public.app_role[], 'synthetic test reason', '${action}')`;
+  it("unit admin role replacement for a same-unit clinician is atomic and audited", async () => {
+    const out = await as(U.unitAdminA, async (q) => {
+      await q(rr(U.clinA, "'unit_admin'"));
+      const roles = (await q("SELECT role FROM public.user_roles WHERE user_id = $1", [U.clinA])).rows.map((r) => r.role);
+      return roles;
+    }, { claims: freshAmr() });
+    expect(out).toEqual(["unit_admin"]);
   });
   it("unit admin cannot hand out trust_admin, even to a manageable account", async () => {
     await expect(
-      as(U.unitAdminA, (q) => q("SELECT public.replace_user_roles($1, ARRAY['trust_admin']::public.app_role[])", [U.clinA])),
+      as(U.unitAdminA, (q) => q(rr(U.clinA, "'trust_admin'")), { claims: freshAmr() }),
     ).rejects.toThrow(/FORBIDDEN_ROLE/);
   });
   it("unit admin cannot demote a same-unit Trust admin via RPC", async () => {
     await expect(
-      as(U.unitAdminA, (q) => q("SELECT public.replace_user_roles($1, ARRAY['clinician']::public.app_role[])", [U.trustInA])),
+      as(U.unitAdminA, (q) => q(rr(U.trustInA, "'clinician'")), { claims: freshAmr() }),
     ).rejects.toThrow(/FORBIDDEN_TARGET/);
   });
-  it("unit admin direct Data API delete of a Trust admin's role affects zero rows", async () => {
-    const n = await as(U.unitAdminA, async (q) => {
-      const r = await q("DELETE FROM public.user_roles WHERE user_id = $1 RETURNING id", [U.trustInA]);
-      return r.rows.length;
-    });
-    expect(n).toBe(0);
-  });
-  it("unit admin cannot add a Trust admin or auditor to a unit, but can add a clinician", async () => {
+  it("direct Data API writes to roles are refused outright", async () => {
     await expect(
-      as(U.unitAdminA, (q) => q("INSERT INTO public.user_unit_access (user_id, unit_id) VALUES ($1, $2)", [U.noUnit, UNIT_A])),
+      as(U.unitAdminA, (q) => q("DELETE FROM public.user_roles WHERE user_id = $1 RETURNING id", [U.trustInA])),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      as(U.trustA, (q) => q("INSERT INTO public.user_roles (user_id, role) VALUES ($1,'trust_admin')", [U.clinA]), { claims: freshAmr() }),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      as(U.trustA, (q) => q("SELECT public.replace_user_roles($1, ARRAY['clinician']::public.app_role[])", [U.clinA])),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it("unit admin cannot add a Trust admin or auditor to a unit, but can add a clinician (reauth + reason)", async () => {
+    await expect(
+      as(U.unitAdminA, (q) => q("INSERT INTO public.user_unit_access (user_id, unit_id, reason) VALUES ($1, $2, 'synthetic')", [U.noUnit, UNIT_A]), { claims: freshAmr() }),
     ).resolves.toBeDefined();
     await expect(
-      as(U.unitAdminA, (q) => q("INSERT INTO public.user_unit_access (user_id, unit_id) VALUES ($1, $2)", [U.trustB, UNIT_A])),
+      as(U.unitAdminA, (q) => q("INSERT INTO public.user_unit_access (user_id, unit_id, reason) VALUES ($1, $2, 'synthetic')", [U.trustB, UNIT_A]), { claims: freshAmr() }),
     ).rejects.toThrow(/row-level security/);
   });
 
@@ -201,7 +208,7 @@ describe("F1/F2 target-aware account management", () => {
   });
   it("a Trust admin can still demote another while one remains", async () => {
     await expect(
-      as(U.trustA, (q) => q("SELECT public.replace_user_roles($1, ARRAY['clinician']::public.app_role[])", [U.trustInA])),
+      as(U.trustA, (q) => q(rr(U.trustInA, "'clinician'")), { claims: freshAmr() }),
     ).resolves.toBeDefined();
   });
 
