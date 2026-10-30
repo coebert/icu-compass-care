@@ -10,6 +10,7 @@ import {
   finishPasskeyUnlock,
 } from "@/lib/passkeys.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { interpretSessionRpc, type SessionState } from "@/lib/session-lock";
 
 export function passkeysSupported() {
   return typeof window !== "undefined" && browserSupportsWebAuthn();
@@ -45,7 +46,6 @@ export function clearDevicePasskey(userId: string) {
 }
 
 export type { SessionState } from "@/lib/session-lock";
-import { interpretSessionRpc, type SessionState } from "@/lib/session-lock";
 
 /** Ask the server for this session's lock state. Errors => "unknown" (fail closed). */
 export async function fetchSessionState(): Promise<SessionState> {
