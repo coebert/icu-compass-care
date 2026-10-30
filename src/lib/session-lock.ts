@@ -92,3 +92,20 @@ export function uiActionFor(state: SessionState): "none" | "lock" | "sign_out" |
 }
 
 export const SESSION_CHANNEL = "icu-session";
+
+export type ScopeTransition = "none" | "init" | "new_session" | "signed_out";
+
+/**
+ * Decide how the authenticated layout reacts to an auth event. A different
+ * session id (e.g. password reauthentication creates a new session) must not
+ * inherit the old session's lock state, inactivity deadline or cached data.
+ */
+export function scopeTransition(
+  prevScope: string | null,
+  event: string,
+  nextScope: string | null,
+): ScopeTransition {
+  if (event === "SIGNED_OUT" || !nextScope) return prevScope ? "signed_out" : "none";
+  if (!prevScope) return "init";
+  return nextScope === prevScope ? "none" : "new_session";
+}

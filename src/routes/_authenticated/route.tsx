@@ -8,11 +8,12 @@ import {
 } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   performLock,
+  scopeTransition,
   uiActionFor,
   SESSION_CHANNEL,
   type SessionBroadcast,
@@ -77,6 +78,7 @@ function AuthenticatedLayout() {
   // (fail closed) until a re-check succeeds.
   const [stateUnknown, setStateUnknown] = useState(false);
   const [sessionScope, setSessionScope] = useState<string | null>(null);
+  const scopeRef = useRef<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Background due-date reminders for ICU jobs (toasts, deduped + snoozable).
@@ -87,7 +89,11 @@ function AuthenticatedLayout() {
   useEffect(() => {
     setHydrated(true);
     void supabase.auth.getSession().then(({ data }) => {
-      setSessionScope(sessionIdFromToken(data.session?.access_token));
+      const initial = sessionIdFromToken(data.session?.access_token);
+      if (scopeRef.current === null) {
+        scopeRef.current = initial;
+        setSessionScope(initial);
+      }
     });
   }, []);
 
@@ -123,6 +129,30 @@ function AuthenticatedLayout() {
     },
     [purgeClinicalCache, signOut],
   );
+
+  // A new auth session (e.g. after password reauthentication) must not inherit
+  // the previous session's lock state, inactivity deadline or cached data.
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      const next = sessionIdFromToken(session?.access_token);
+      const t = scopeTransition(scopeRef.current, event, next);
+      if (t === "none") return;
+      scopeRef.current = next;
+      setSessionScope(next);
+      if (t !== "new_session") return;
+      setServerLocked(false);
+      setStateUnknown(false);
+      // Defer: never call auth APIs synchronously inside the auth callback.
+      window.setTimeout(() => {
+        void (async () => {
+          await purgeClinicalCache();
+          await queryClient.invalidateQueries({ queryKey: ["me"] });
+          applyState(await fetchSessionState());
+        })();
+      }, 0);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [purgeClinicalCache, queryClient, applyState]);
 
   // Cross-tab: a lock or sign-out in another tab purges cached data here too.
   useEffect(() => {
