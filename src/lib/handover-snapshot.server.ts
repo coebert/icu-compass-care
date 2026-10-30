@@ -88,6 +88,12 @@ export async function captureHandoverSnapshot(
 
   const admin = await getAdmin();
 
+  // One snapshot PER UNIT: a saved handover only ever contains the patients of
+  // the unit it belongs to, so unit-scoped RLS on handover_unit_versions
+  // decides who can list, count, search or open it.
+  const { data: units, error: unitErr } = await admin.from("icu_units").select("id, code");
+  if (unitErr) throw new Error(unitErr.message);
+
   const { data: patients, error } = await admin
     .from("patients")
     .select(PATIENT_SELECT)
@@ -98,35 +104,41 @@ export async function captureHandoverSnapshot(
   // Snapshots are rendered later as PDFs, so store readable values — never
   // ciphertext — and never the fingerprint columns.
   const rows = decryptPatientRows(patients as Array<Record<string, unknown>> | null);
-  const label = labelFor(parts, shift);
-
-  const { data: inserted, error: upErr } = await admin
-    .from("handover_versions")
-    .upsert(
-      {
-        local_date: parts.isoDate,
-        shift,
-        captured_at: now.toISOString(),
-        label,
-        patient_count: rows.length,
-        // Saved handovers are a full copy of the clinical record, so the
-        // payload and its search index are stored as AES-256-GCM ciphertext
-        // rather than readable jsonb/text.
-        snapshot: { enc: encryptField(JSON.stringify(rows)) } as unknown as never,
-        search_text: encryptField(buildSearchText(rows)) ?? "",
-      },
-      { onConflict: "local_date,shift" },
-    )
-    .select("id")
-    .single();
-  if (upErr) throw new Error(upErr.message);
-
+  const baseLabel = labelFor(parts, shift);
+  let total = 0;
+  let firstId: string | undefined;
+  for (const unit of units ?? []) {
+    const unitRows = rows.filter((r) => r["unit_id"] === unit.id);
+    total += unitRows.length;
+    const { data: inserted, error: upErr } = await admin
+      .from("handover_unit_versions")
+      .upsert(
+        {
+          unit_id: unit.id,
+          local_date: parts.isoDate,
+          shift,
+          captured_at: now.toISOString(),
+          label: unit.code ? `${unit.code} · ${baseLabel}` : baseLabel,
+          patient_count: unitRows.length,
+          snapshot: { enc: encryptField(JSON.stringify(unitRows)) } as unknown as never,
+          search_text: encryptField(buildSearchText(unitRows)) ?? "",
+          updated_at: now.toISOString(),
+        },
+        { onConflict: "local_date,shift,unit_id" },
+      )
+      .select("id")
+      .single();
+    if (upErr) throw new Error(upErr.message);
+    firstId ??= inserted?.id as string | undefined;
+  }
+  const inserted = { id: firstId };
+  const rowsCount = total;
   return {
     ok: true,
     captured: true,
     shift,
     local_date: parts.isoDate,
-    patient_count: rows.length,
+    patient_count: rowsCount,
     id: inserted?.id as string | undefined,
   };
 }

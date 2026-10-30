@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertAdmin } from "@/lib/roles.server";
+import { assertConfigAdmin } from "@/lib/roles.server";
 import { decryptFieldSafe } from "@/lib/crypto.server";
 
 // Saved snapshots are stored encrypted as { enc: "enc:v1:..." }. Legacy rows
@@ -28,7 +28,14 @@ export type HandoverVersionSummary = {
   captured_at: string;
   label: string;
   patient_count: number;
+  /** Unit the snapshot belongs to; null only for quarantined legacy rows. */
+  unit_id: string | null;
 };
+
+// Unit-scoped snapshots (RLS: private.can_view_unit). Legacy mixed-unit rows
+// stay in handover_versions, readable by Trust administrators only.
+const UNIT_TABLE = "handover_unit_versions" as const;
+const LEGACY_TABLE = "handover_versions" as const;
 
 export type HandoverVersionPage = {
   rows: HandoverVersionSummary[];
@@ -52,6 +59,7 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
       shift?: string;
       page?: number;
       pageSize?: number;
+      legacy?: boolean;
     }) =>
       z
         .object({
@@ -61,6 +69,7 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
           shift: z.string().optional(),
           page: z.number().int().min(1).optional(),
           pageSize: z.number().int().min(1).max(100).optional(),
+          legacy: z.boolean().optional(),
         })
         .parse(input ?? {}),
   )
@@ -70,9 +79,14 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
     const fromIdx = (page - 1) * pageSize;
     const toIdx = fromIdx + pageSize - 1;
 
-    let query = context.supabase
-      .from("handover_versions")
-      .select("id, local_date, shift, captured_at, label, patient_count", {
+    const table = data.legacy ? LEGACY_TABLE : UNIT_TABLE;
+    const columns = data.legacy
+      ? "id, local_date, shift, captured_at, label, patient_count"
+      : "id, local_date, shift, captured_at, label, patient_count, unit_id";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (context.supabase as any)
+      .from(table)
+      .select(columns, {
         count: "exact",
       })
       .order("local_date", { ascending: false })
@@ -83,8 +97,9 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
     // the (small) set of version indexes and restricting to the matching ids.
     const q = data.q?.trim();
     if (q) {
-      let idQuery = context.supabase
-        .from("handover_versions")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let idQuery = (context.supabase as any)
+        .from(table)
         .select("id, search_text")
         .limit(2000);
       if (data.from) idQuery = idQuery.gte("local_date", data.from);
@@ -93,10 +108,10 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
       if (idxErr) throw safeDbError(idxErr, "search saved handover versions");
       const needle = q.toLowerCase();
       const matching = (idxRows ?? [])
-        .filter((r) =>
+        .filter((r: { search_text: string }) =>
           (decryptFieldSafe(r.search_text) ?? "").toLowerCase().includes(needle),
         )
-        .map((r) => r.id);
+        .map((r: { id: string }) => r.id);
       if (matching.length === 0) {
         return { rows: [], total: 0, page, pageSize, pageCount: 1 };
       }
@@ -112,7 +127,10 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
     if (error) throw safeDbError(error, "load saved handover versions");
     const total = count ?? 0;
     return {
-      rows: (rows ?? []) as HandoverVersionSummary[],
+      rows: ((rows ?? []) as HandoverVersionSummary[]).map((r) => ({
+        ...r,
+        unit_id: r.unit_id ?? null,
+      })),
       total,
       page,
       pageSize,
@@ -128,12 +146,23 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
     z.object({ id: z.string().uuid() }).parse(input),
   )
   .handler(async ({ context, data }) => {
-    const { data: row, error } = await context.supabase
-      .from("handover_versions")
+    // RLS decides: unit snapshots for unit members / Trust admins; legacy
+    // mixed-unit rows only for Trust admins.
+    let { data: row, error } = await context.supabase
+      .from(UNIT_TABLE)
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw safeDbError(error, "load the saved handover version");
+    if (!row) {
+      const legacy = await context.supabase
+        .from(LEGACY_TABLE)
+        .select("*")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (legacy.error) throw safeDbError(legacy.error, "load the saved handover version");
+      row = legacy.data as typeof row;
+    }
     if (!row) throw new Error("Saved handover version not found");
     // Hand the readable snapshot back so the saved handover can be re-rendered,
     // and never return the encrypted search index.
@@ -147,7 +176,7 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
 export const captureHandoverVersionNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertConfigAdmin(context);
     const { captureHandoverSnapshot } = await import("@/lib/handover-snapshot.server");
     return captureHandoverSnapshot({ force: true });
   });

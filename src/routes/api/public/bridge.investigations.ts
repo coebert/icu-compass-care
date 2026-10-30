@@ -85,25 +85,19 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         }
 
         const supabaseAdmin = await getAdmin();
-        const record = { ...parsed, result_at: parsed.result_at || new Date().toISOString() };
-
-        const { data, error } = await supabaseAdmin
-          .from("investigations")
-          .insert(record)
-          .select()
-          .maybeSingle();
-
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
-        if (data) {
-          await writeAudit(supabaseAdmin, {
-            entity: "investigations",
-            recordId: data.id,
-            action: "insert",
-            source: "bridge",
-            actor: auth.actor,
-            after: data as Record<string, unknown>,
-          });
-        }
+        const { bridgeInsertInvestigation } = await import("@/lib/bridge-sharing.server");
+        const outcome = await bridgeInsertInvestigation(supabaseAdmin, parsed);
+        if (outcome.kind === "error") return (console.error("[bridge]", outcome.error), json({ error: "Internal server error" }, 500));
+        if (outcome.kind === "not_found") return json({ error: "Patient not found" }, 404);
+        const data = outcome.row;
+        await writeAudit(supabaseAdmin, {
+          entity: "investigations",
+          recordId: data["id"] as string,
+          action: "insert",
+          source: "bridge",
+          actor: auth.actor,
+          after: data,
+        });
         await logSync(supabaseAdmin, { direction: "push", entity: "investigations", record_count: 1, actor: auth.actor });
         return json({ investigation: data });
       },
