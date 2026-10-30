@@ -38,6 +38,8 @@ type Options = {
   /** Called (throttled by `activityPingMs`) on genuine user activity. */
   onActivity?: () => void;
   activityPingMs?: number;
+  /** Per-session scope (the auth session id) so a new sign-in starts fresh. */
+  scope?: string | null;
   enabled?: boolean;
 };
 
@@ -63,9 +65,9 @@ export function resolveLastActivity(
   return stored == null ? memoryLast : Math.max(stored, memoryLast);
 }
 
-function readStorage(): string | null | undefined {
+function readStorage(key: string): string | null | undefined {
   try {
-    return localStorage.getItem(ACTIVITY_KEY);
+    return localStorage.getItem(key);
   } catch {
     return undefined; // unavailable
   }
@@ -78,6 +80,7 @@ export function useInactivityTimeout({
   onWarn,
   onActivity,
   activityPingMs = 60_000,
+  scope,
   enabled = true,
 }: Options) {
   const onTimeoutRef = useRef(onTimeout);
@@ -88,7 +91,8 @@ export function useInactivityTimeout({
   onActivityRef.current = onActivity;
 
   useEffect(() => {
-    if (!enabled || typeof window === "undefined") return;
+    if (!enabled || !scope || typeof window === "undefined") return;
+    const key = `${ACTIVITY_KEY}:${scope}`;
 
     let warned = false;
     let fired = false;
@@ -98,12 +102,12 @@ export function useInactivityTimeout({
     // Seed from the stored value if valid; only a missing value (first load of
     // a brand-new session) starts the clock at now. A reload keeps the old
     // clock, so an expired session times out immediately.
-    const storedAtMount = readStorage();
+    const storedAtMount = readStorage(key);
     const parsedAtMount = storedAtMount === undefined ? null : parseStored(storedAtMount, now0);
     let memoryLast = parsedAtMount ?? now0;
     if (parsedAtMount == null && storedAtMount !== undefined) {
       try {
-        localStorage.setItem(ACTIVITY_KEY, String(memoryLast));
+        localStorage.setItem(key, String(memoryLast));
       } catch {
         /* ignore */
       }
@@ -112,7 +116,7 @@ export function useInactivityTimeout({
     const check = () => {
       if (fired) return;
       const now = Date.now();
-      const idle = now - resolveLastActivity(readStorage(), memoryLast, now);
+      const idle = now - resolveLastActivity(readStorage(key), memoryLast, now);
       if (idle >= timeoutMs) {
         fired = true;
         onTimeoutRef.current();
@@ -126,7 +130,7 @@ export function useInactivityTimeout({
       if (fired || document.visibilityState === "hidden") return;
       const now = Date.now();
       // Never resurrect: activity after the deadline does not extend it.
-      if (now - resolveLastActivity(readStorage(), memoryLast, now) >= timeoutMs) {
+      if (now - resolveLastActivity(readStorage(key), memoryLast, now) >= timeoutMs) {
         check();
         return;
       }
@@ -135,7 +139,7 @@ export function useInactivityTimeout({
       if (now - lastWrite >= WRITE_THROTTLE_MS) {
         lastWrite = now;
         try {
-          localStorage.setItem(ACTIVITY_KEY, String(now));
+          localStorage.setItem(key, String(now));
         } catch {
           /* in-memory clock already updated */
         }
@@ -147,7 +151,7 @@ export function useInactivityTimeout({
     };
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === ACTIVITY_KEY || e.key === null) warned = false;
+      if (e.key === key || e.key === null) warned = false;
     };
 
     ACTIVITY_EVENTS.forEach((evt) =>
@@ -162,5 +166,5 @@ export function useInactivityTimeout({
       window.removeEventListener("storage", handleStorage);
       window.clearInterval(interval);
     };
-  }, [enabled, timeoutMs, warnMs, activityPingMs]);
+  }, [enabled, scope, timeoutMs, warnMs, activityPingMs]);
 }
