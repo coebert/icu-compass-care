@@ -2359,6 +2359,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_replace_user_roles: {
+        Args: {
+          _action?: string
+          _reason: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _target: string
+        }
+        Returns: undefined
+      }
+      admin_set_unit_access: {
+        Args: {
+          _grant: boolean
+          _reason: string
+          _target: string
+          _unit: string
+        }
+        Returns: undefined
+      }
       audit_field_change_metadata: {
         Args: { _limit?: number; _patient_id?: string }
         Returns: {

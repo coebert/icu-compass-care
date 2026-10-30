@@ -6,11 +6,7 @@
 // the admin client. Import it inside a handler with `await import(...)`.
 
 import { getAdmin } from "@/lib/admin-db.server";
-import {
-  decideShiftGate,
-  labelFor,
-  type ShiftKey,
-} from "@/lib/handover-shift";
+import { decideShiftGate, labelFor, type ShiftKey } from "@/lib/handover-shift";
 
 export type { ShiftKey } from "@/lib/handover-shift";
 
@@ -25,7 +21,6 @@ const PATIENT_SELECT =
 function textField(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
-
 
 // Concatenate the fields a clinician might search old handovers by (patient
 // identifiers plus the free-text clinical summary columns).
@@ -74,7 +69,16 @@ export type CaptureResult = {
 // Re-runs for the same date+shift overwrite the existing row (idempotent), so a
 // cron retry never creates duplicates.
 export async function captureHandoverSnapshot(
-  opts: { force?: boolean; now?: Date } = {},
+  opts: {
+    force?: boolean;
+    now?: Date;
+    /**
+     * Units to capture. Omitted = every unit (scheduled job / Trust admin).
+     * A manual capture by a unit administrator passes only their units, so it
+     * can neither overwrite nor report on any other unit.
+     */
+    unitIds?: readonly string[];
+  } = {},
 ): Promise<CaptureResult> {
   const now = opts.now ?? new Date();
 
@@ -85,19 +89,28 @@ export async function captureHandoverSnapshot(
   }
   const shift: ShiftKey = decision.shift;
 
-
   const admin = await getAdmin();
 
   // One snapshot PER UNIT: a saved handover only ever contains the patients of
   // the unit it belongs to, so unit-scoped RLS on handover_unit_versions
   // decides who can list, count, search or open it.
-  const { data: units, error: unitErr } = await admin.from("icu_units").select("id, code");
+  if (opts.unitIds && opts.unitIds.length === 0) {
+    return { ok: true, captured: false, skipped: "no units in scope" };
+  }
+  let unitQuery = admin.from("icu_units").select("id, code").order("id", { ascending: true });
+  if (opts.unitIds) unitQuery = unitQuery.in("id", [...opts.unitIds]);
+  const { data: units, error: unitErr } = await unitQuery;
   if (unitErr) throw new Error(unitErr.message);
+  const scopedUnitIds = (units ?? []).map((u: { id: string }) => u.id);
+  if (scopedUnitIds.length === 0) {
+    return { ok: true, captured: false, skipped: "no units in scope" };
+  }
 
   const { data: patients, error } = await admin
     .from("patients")
     .select(PATIENT_SELECT)
     .in("status", ["admitted", "referred"])
+    .in("unit_id", scopedUnitIds)
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
 

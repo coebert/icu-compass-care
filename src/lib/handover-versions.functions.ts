@@ -90,18 +90,17 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
         count: "exact",
       })
       .order("local_date", { ascending: false })
-      .order("shift", { ascending: false })
-      .range(fromIdx, toIdx);
+      .order("shift", { ascending: false });
+    // Deterministic tie-break so pages never repeat or skip rows.
+    if (!data.legacy) query = query.order("unit_id", { ascending: true });
+    query = query.order("id", { ascending: true }).range(fromIdx, toIdx);
 
     // The search index is encrypted, so a text query is resolved by decrypting
     // the (small) set of version indexes and restricting to the matching ids.
     const q = data.q?.trim();
     if (q) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let idQuery = (context.supabase as any)
-        .from(table)
-        .select("id, search_text")
-        .limit(2000);
+      let idQuery = (context.supabase as any).from(table).select("id, search_text").limit(2000);
       if (data.from) idQuery = idQuery.gte("local_date", data.from);
       if (data.to) idQuery = idQuery.lte("local_date", data.to);
       const { data: idxRows, error: idxErr } = await idQuery;
@@ -142,12 +141,11 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
 // handover can be re-rendered and re-exported.
 export const getHandoverVersion = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { id: string }) =>
-    z.object({ id: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
     // RLS decides: unit snapshots for unit members / Trust admins; legacy
     // mixed-unit rows only for Trust admins.
+    // eslint-disable-next-line prefer-const -- row is reassigned on the legacy fallback
     let { data: row, error } = await context.supabase
       .from(UNIT_TABLE)
       .select("*")
@@ -176,7 +174,12 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
 export const captureHandoverVersionNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertConfigAdmin(context);
+    const actor = await assertConfigAdmin(context);
     const { captureHandoverSnapshot } = await import("@/lib/handover-snapshot.server");
-    return captureHandoverSnapshot({ force: true });
+    // Trust admins may capture every unit; a unit administrator only their own
+    // units (counts and ids returned are for those units only).
+    return captureHandoverSnapshot({
+      force: true,
+      ...(actor.isTrustAdmin ? {} : { unitIds: actor.unitIds }),
+    });
   });

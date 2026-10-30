@@ -35,7 +35,13 @@ import { RoleChanger } from "@/components/RoleChanger";
 import { useClinicalAccess } from "@/hooks/use-clinical-access";
 import { listStaff, createStaff, setStaffRole, setStaffSuspended } from "@/lib/admin.functions";
 import { listUnits, grantUnitAccess, revokeUnitAccess } from "@/lib/units.functions";
-import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLE_ORDER, primaryRoleLabel, type UiRole } from "@/lib/roles";
+import {
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  ROLE_ORDER,
+  primaryRoleLabel,
+  type UiRole,
+} from "@/lib/roles";
 import { fmtDateTime } from "@/lib/icu";
 
 export const Route = createFileRoute("/_authenticated/access")({
@@ -128,7 +134,8 @@ function AccessAdminPage() {
   };
 
   const roleMut = useMutation({
-    mutationFn: (v: { user_id: string; role: UiRole; reason: string }) => withReauth(() => roleFn({ data: v })),
+    mutationFn: (v: { user_id: string; role: UiRole; reason: string }) =>
+      withReauth(() => roleFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Role updated");
@@ -148,7 +155,7 @@ function AccessAdminPage() {
 
   const grantMut = useMutation({
     mutationFn: (v: { user_id: string; unit_id: string; reason: string }) =>
-      grantFn({ data: v }),
+      withReauth(() => grantFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Added to unit");
@@ -157,7 +164,8 @@ function AccessAdminPage() {
   });
 
   const revokeMut = useMutation({
-    mutationFn: (v: { user_id: string; unit_id: string }) => revokeFn({ data: v }),
+    mutationFn: (v: { user_id: string; unit_id: string; reason: string }) =>
+      withReauth(() => revokeFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Removed from unit");
@@ -184,10 +192,7 @@ function AccessAdminPage() {
 
   // Hospitals, each with its ICU units and the staff attached to those units.
   const hospitals = useMemo(() => {
-    const byHospital = new Map<
-      string,
-      { id: string; name: string; code: string; units: Unit[] }
-    >();
+    const byHospital = new Map<string, { id: string; name: string; code: string; units: Unit[] }>();
     for (const u of units) {
       const key = u.hospitals?.id ?? u.hospital_id;
       const entry = byHospital.get(key) ?? {
@@ -225,9 +230,9 @@ function AccessAdminPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">Hospital &amp; ICU unit access</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Patient records are scoped to ICU units. Add a member to a unit to let them work
-            there, change their role to change what they can do, or revoke access the moment
-            someone leaves. Every change records a reason in the access change log.
+            Patient records are scoped to ICU units. Add a member to a unit to let them work there,
+            change their role to change what they can do, or revoke access the moment someone
+            leaves. Every change records a reason in the access change log.
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
@@ -279,9 +284,7 @@ function AccessAdminPage() {
                       <div className="ml-auto flex flex-wrap gap-2">
                         <AddMemberDialog
                           unitLabel={`${h.name} — ${u.name}`}
-                          candidates={staff.filter(
-                            (s) => !s.units.some((x) => x.unit_id === u.id),
-                          )}
+                          candidates={staff.filter((s) => !s.units.some((x) => x.unit_id === u.id))}
                           pending={grantMut.isPending}
                           onAdd={(userId, reason) =>
                             void grantMut.mutate({ user_id: userId, unit_id: u.id, reason })
@@ -378,8 +381,7 @@ function AccessAdminPage() {
                                     }
                                   >
                                     <Button variant="outline" size="sm" className="gap-1.5">
-                                      <RotateCcw className="h-4 w-4" aria-hidden="true" />{" "}
-                                      Reinstate
+                                      <RotateCcw className="h-4 w-4" aria-hidden="true" /> Reinstate
                                     </Button>
                                   </AccessReasonDialog>
                                 ) : (
@@ -409,8 +411,8 @@ function AccessAdminPage() {
                                   confirmLabel="Remove from unit"
                                   destructive
                                   pending={revokeMut.isPending}
-                                  onConfirm={() =>
-                                    void revokeMut.mutate({ user_id: s.id, unit_id: u.id })
+                                  onConfirm={(reason) =>
+                                    void revokeMut.mutate({ user_id: s.id, unit_id: u.id, reason })
                                   }
                                 >
                                   <Button

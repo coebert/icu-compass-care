@@ -3,13 +3,12 @@
 // can still embed the app while any other site is refused. Script/style
 // sources are deliberately not restricted: the app relies on framework inline
 // bootstrap scripts, and a broken CSP would lock clinicians out.
-export const FRAME_ANCESTORS = [
-  "'self'",
-  "https://lovable.dev",
-  "https://*.lovable.dev",
-  "https://*.lovable.app",
-  "https://*.lovableproject.com",
-];
+//
+// Only the exact Lovable editor origins may frame the app. Wildcards such as
+// *.lovable.app or *.lovableproject.com are deliberately NOT allowed: those
+// host arbitrary third-party Lovable apps, any of which could otherwise frame
+// this clinical UI (clickjacking).
+export const FRAME_ANCESTORS = ["'self'", "https://lovable.dev", "https://www.lovable.dev"];
 
 export const SECURITY_HEADERS: Record<string, string> = {
   "Content-Security-Policy": [

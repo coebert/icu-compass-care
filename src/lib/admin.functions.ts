@@ -44,7 +44,7 @@ async function logAccessEvent(
 ) {
   const claimEmail = context.claims?.["email"];
   const supabaseAdmin = await getAdmin();
-  await supabaseAdmin.from("account_access_events").insert({
+  const { error } = await supabaseAdmin.from("account_access_events").insert({
     action: input.action,
     target_user_id: input.target_user_id ?? null,
     target_email: input.target_email ?? null,
@@ -55,6 +55,7 @@ async function logAccessEvent(
     actor_id: context.userId,
     actor_email: typeof claimEmail === "string" ? claimEmail : null,
   });
+  if (error) throw safeDbError(error, "record the audit entry");
 }
 
 const reasonSchema = z.string().trim().min(3).max(300);
@@ -83,29 +84,29 @@ export const listStaff = createServerFn({ method: "GET" })
     const visible = (id: string) => {
       if (actor.isTrustAdmin || actor.isAuditor) return true;
       if (id === actor.userId) return true;
-      return (grants ?? []).some(
-        (g) => g.user_id === id && actor.unitIds.includes(g.unit_id),
-      );
+      return (grants ?? []).some((g) => g.user_id === id && actor.unitIds.includes(g.unit_id));
     };
-    return (profiles ?? []).filter((p) => visible(p.id)).map((p) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const au = authById.get(p.id) as any;
-      const bannedUntil = au?.banned_until ? Date.parse(au.banned_until) : null;
-      return {
-        id: p.id,
-        display_name: p.display_name,
-        email: (au?.email as string | undefined) ?? null,
-        job_title: p.job_title ?? null,
-        roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
-        units: (grants ?? [])
-          .filter((g) => g.user_id === p.id)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((g) => ({ unit_id: g.unit_id, label: (g as any).icu_units?.code ?? null })),
-        suspended: Boolean(bannedUntil && bannedUntil > now),
-        last_sign_in_at: (au?.last_sign_in_at as string | undefined) ?? null,
-        created_at: (au?.created_at as string | undefined) ?? p.created_at ?? null,
-      };
-    });
+    return (profiles ?? [])
+      .filter((p) => visible(p.id))
+      .map((p) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const au = authById.get(p.id) as any;
+        const bannedUntil = au?.banned_until ? Date.parse(au.banned_until) : null;
+        return {
+          id: p.id,
+          display_name: p.display_name,
+          email: (au?.email as string | undefined) ?? null,
+          job_title: p.job_title ?? null,
+          roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
+          units: (grants ?? [])
+            .filter((g) => g.user_id === p.id)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((g) => ({ unit_id: g.unit_id, label: (g as any).icu_units?.code ?? null })),
+          suspended: Boolean(bannedUntil && bannedUntil > now),
+          last_sign_in_at: (au?.last_sign_in_at as string | undefined) ?? null,
+          created_at: (au?.created_at as string | undefined) ?? p.created_at ?? null,
+        };
+      });
   });
 
 // Recent onboarding / access-removal history (admin only).
@@ -126,15 +127,12 @@ export const listAccessEvents = createServerFn({ method: "GET" })
       .from("user_unit_access")
       .select("user_id, unit_id");
     const inScope = new Set(
-      (grants ?? [])
-        .filter((g) => actor.unitIds.includes(g.unit_id))
-        .map((g) => g.user_id),
+      (grants ?? []).filter((g) => actor.unitIds.includes(g.unit_id)).map((g) => g.user_id),
     );
     return (data ?? [])
       .filter(
         (e) =>
-          e.actor_id === actor.userId ||
-          (e.target_user_id ? inScope.has(e.target_user_id) : false),
+          e.actor_id === actor.userId || (e.target_user_id ? inScope.has(e.target_user_id) : false),
       )
       .slice(0, 100);
   });
@@ -179,68 +177,62 @@ export const createStaff = createServerFn({ method: "POST" })
     });
     if (error) throw safeDbError(error);
     const newId = created.user!.id;
-    // profile is auto-created by trigger; ensure display name + role
-    await supabaseAdmin
-      .from("profiles")
-      .update({ display_name: data.display_name, job_title: data.job_title ?? null })
-      .eq("id", newId);
-    const { error: roleErr } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: newId, role: data.role });
-    if (roleErr) throw safeDbError(roleErr);
-    if (unitIds.length > 0) {
-      const { error: unitErr } = await supabaseAdmin.from("user_unit_access").insert(
-        unitIds.map((unit_id) => ({
-          user_id: newId,
-          unit_id,
-          granted_by: context.userId,
-          reason: data.reason,
-        })),
-      );
-      if (unitErr) throw safeDbError(unitErr);
+    try {
+      // profile is auto-created by trigger; set display name + job title
+      await supabaseAdmin
+        .from("profiles")
+        .update({ display_name: data.display_name, job_title: data.job_title ?? null })
+        .eq("id", newId);
+      // Units first (so a unit administrator's scope covers the new account),
+      // then the role — both through the caller's authoritative, audited RPCs.
+      for (const unitId of unitIds) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: unitErr } = await (context.supabase as any).rpc("admin_set_unit_access", {
+          _target: newId,
+          _unit: unitId,
+          _grant: true,
+          _reason: data.reason,
+        });
+        if (unitErr) {
+          const { friendlyAdminError } = await import("@/lib/admin-errors");
+          throw friendlyAdminError(unitErr);
+        }
+      }
+      await replaceRoles(context, newId, [data.role as AppRole], data.reason, "provisioned");
+    } catch (e) {
+      // Compensate: never leave a half-provisioned login behind.
+      await supabaseAdmin.auth.admin.deleteUser(newId).catch(() => undefined);
+      throw e;
     }
-    await logAccessEvent(context, {
-      action: "provisioned",
-      target_user_id: newId,
-      target_email: data.email,
-      target_display_name: data.display_name,
-      role: data.role,
-      reason: data.reason,
-      note: data.job_title ?? null,
-    });
     return { ok: true, id: newId };
   });
 
-function friendlyRoleError(error: { message?: string } | null | undefined): Error {
-  const msg = error?.message ?? "";
-  if (msg.includes("LAST_TRUST_ADMIN")) {
-    return new Error("At least one Trust administrator must remain. Appoint another first.");
-  }
-  if (msg.includes("FORBIDDEN_TARGET")) {
-    return new Error("Forbidden: that account is outside your administrative scope");
-  }
-  if (msg.includes("FORBIDDEN_ROLE")) {
-    return new Error("Forbidden: only a Trust administrator can assign that role");
-  }
-  return safeDbError(error as never);
-}
+type RoleAction = "role_changed" | "suspended" | "reinstated" | "deprovisioned" | "provisioned";
 
 /**
- * Atomically replace a target's roles. Runs through the CALLER's client: the
- * database function re-checks target scope + assignable roles and protects
- * the last Trust administrator under an advisory lock, all in one transaction.
+ * Atomically replace a target's roles through the CALLER's client. The
+ * database takes the admin lock first, then re-checks session, recent
+ * re-authentication, reason, target scope, assignable roles, suspension and
+ * last-admin protection, and writes the audit event in the same transaction.
  */
 async function replaceRoles(
   context: { supabase: unknown },
   targetUserId: string,
   roles: AppRole[],
+  reason: string,
+  action: RoleAction,
 ): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (context.supabase as any).rpc("replace_user_roles", {
+  const { error } = await (context.supabase as any).rpc("admin_replace_user_roles", {
     _target: targetUserId,
     _roles: roles,
+    _reason: reason,
+    _action: action,
   });
-  if (error) throw friendlyRoleError(error);
+  if (error) {
+    const { friendlyAdminError } = await import("@/lib/admin-errors");
+    throw friendlyAdminError(error);
+  }
 }
 
 // Change a staff member's role (admin only).
@@ -261,18 +253,8 @@ export const setStaffRole = createServerFn({ method: "POST" })
     assertAssignableRole(actor, data.role as AppRole);
     if (data.user_id === context.userId) throw new Error("You cannot change your own role");
     await assertCanManageAccount(context, data.user_id);
-    await replaceRoles(context, data.user_id, [data.role as AppRole]);
-    const supabaseAdmin = await getAdmin();
-    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
-    await logAccessEvent(context, {
-      action: "role_changed",
-      target_user_id: data.user_id,
-      target_email: target?.user?.email ?? null,
-      target_display_name:
-        (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null,
-      role: data.role,
-      reason: data.reason,
-    });
+    // Audited inside the same database transaction as the change.
+    await replaceRoles(context, data.user_id, [data.role as AppRole], data.reason, "role_changed");
     return { ok: true };
   });
 
@@ -296,34 +278,36 @@ export const setStaffSuspended = createServerFn({ method: "POST" })
     if (data.user_id === context.userId) throw new Error("You cannot suspend your own account");
     const role = (data.role ?? "clinician") as AppRole;
     if (!data.suspended) assertAssignableRole(actor, role);
-    if (data.suspended) {
-      // Authorised and last-admin-checked inside the database before any change.
-      await assertCanManageAccount(context, data.user_id);
-      await replaceRoles(context, data.user_id, []);
-    }
+    await assertCanManageAccount(context, data.user_id);
     const supabaseAdmin = await getAdmin();
-    if (!data.suspended) {
-      // A suspended account holds no roles, so target scope is judged on its
-      // unit memberships (non-privileged by construction).
-      await assertCanManageAccount(context, data.user_id);
+    if (data.suspended) {
+      // 1) Strip roles (authorised, last-ENABLED-admin protected, audited) …
+      await replaceRoles(context, data.user_id, [], data.reason, "suspended");
+      // 2) … then block sign-in / refresh. Any still-unexpired access token
+      //    reaches no role-gated data because the roles are already gone.
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+        ban_duration: SUSPEND_DURATION,
+      });
+      if (error) throw safeDbError(error);
+      return { ok: true };
     }
-    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
+    // Controlled reinstatement: roles are restored (audited) while the account
+    // is still suspended, then the ban is lifted. If lifting fails, the roles
+    // are stripped again so a banned account never keeps them.
+    await replaceRoles(context, data.user_id, [role], data.reason, "reinstated");
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
-      ban_duration: data.suspended ? SUSPEND_DURATION : "none",
+      ban_duration: "none",
     });
-    if (error) throw safeDbError(error);
-    // On suspension the ban blocks sign-in and refresh; the already-stripped
-    // roles mean any still-unexpired access token reaches no role-gated data.
-    if (!data.suspended) await replaceRoles(context, data.user_id, [role]);
-    await logAccessEvent(context, {
-      action: data.suspended ? "suspended" : "reinstated",
-      target_user_id: data.user_id,
-      target_email: target?.user?.email ?? null,
-      target_display_name:
-        (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null,
-      role: data.suspended ? null : role,
-      reason: data.reason,
-    });
+    if (error) {
+      await replaceRoles(
+        context,
+        data.user_id,
+        [],
+        "Automatic rollback: reinstatement could not lift the suspension",
+        "suspended",
+      ).catch(() => undefined);
+      throw safeDbError(error);
+    }
     return { ok: true };
   });
 
@@ -376,21 +360,11 @@ export const deleteStaff = createServerFn({ method: "POST" })
     await assertCanManageAccount(context, data.user_id);
     // Strip roles first: atomic, authorised and last-admin protected in the
     // database. The deletion cascade is guarded by the same trigger.
-    await replaceRoles(context, data.user_id, []);
+    // Audited (with the target's email) in the same transaction as the strip.
+    await replaceRoles(context, data.user_id, [], data.reason, "deprovisioned");
     const supabaseAdmin = await getAdmin();
-    const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
-    const email = target?.user?.email ?? null;
-    const displayName =
-      (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null;
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     if (error) throw safeDbError(error);
-    await logAccessEvent(context, {
-      action: "deprovisioned",
-      target_user_id: null,
-      target_email: email,
-      target_display_name: displayName,
-      reason: data.reason,
-    });
     return { ok: true };
   });
 
