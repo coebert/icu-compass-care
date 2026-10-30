@@ -145,6 +145,7 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     // RLS decides: unit snapshots for unit members / Trust admins; legacy
     // mixed-unit rows only for Trust admins.
+    // eslint-disable-next-line prefer-const -- row is reassigned on the legacy fallback
     let { data: row, error } = await context.supabase
       .from(UNIT_TABLE)
       .select("*")
