@@ -7,7 +7,10 @@ DIR="$(mktemp -d /tmp/icu-pg-XXXX)"
 PORT="${PGTEST_PORT:-55432}"
 RUNAS=()
 if [ "$(id -u)" = "0" ]; then
-  id pgtest >/dev/null 2>&1 || useradd -M -s /bin/false pgtest
+  if ! id pgtest >/dev/null 2>&1; then
+    if command -v useradd >/dev/null; then useradd -M -s /bin/false pgtest
+    else echo "pgtest:x:65432:65432::/tmp:/bin/false" >> /etc/passwd; echo "pgtest:x:65432:" >> /etc/group; fi
+  fi
   chown -R pgtest "$DIR"
   RUNAS=(runuser -u pgtest --)
 fi
