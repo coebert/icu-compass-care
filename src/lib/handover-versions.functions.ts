@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertTrustAdmin } from "@/lib/roles.server";
+import { assertConfigAdmin } from "@/lib/roles.server";
 import { decryptFieldSafe } from "@/lib/crypto.server";
 
 // Saved snapshots are stored encrypted as { enc: "enc:v1:..." }. Legacy rows
@@ -176,7 +176,7 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
 export const captureHandoverVersionNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertTrustAdmin(context);
+    await assertConfigAdmin(context);
     const { captureHandoverSnapshot } = await import("@/lib/handover-snapshot.server");
     return captureHandoverSnapshot({ force: true });
   });
