@@ -50,12 +50,13 @@ export async function bridgeUpdateSharedPatient(
     return { kind: "conflict", current };
   }
 
-  // Compare-and-set: still shared AND unchanged since we read it.
+  // Compare-and-set: still shared, same unit AND unchanged since we read it.
   const { data: updated, error: upErr } = await admin
     .from("patients")
     .update(payload as never)
     .eq("id", args.id)
     .eq("shared_with_partner", true)
+    .eq("unit_id", current.unit_id)
     .eq("updated_at", current.updated_at)
     .select()
     .maybeSingle();
@@ -73,7 +74,9 @@ export async function bridgeUpdateSharedPatient(
 export async function bridgeInsertInvestigation(
   admin: AdminClient,
   rec: { patient_id: string; category: string; findings: string; result_at?: string | null },
-): Promise<{ kind: "created"; row: Row } | { kind: "not_found" } | { kind: "error"; error: unknown }> {
+): Promise<
+  { kind: "created"; row: Row } | { kind: "not_found" } | { kind: "error"; error: unknown }
+> {
   const { data, error } = await admin.rpc("bridge_insert_investigation", {
     _patient_id: rec.patient_id,
     _category: rec.category,

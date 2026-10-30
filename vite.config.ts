@@ -48,6 +48,17 @@ export default defineConfig({
   },
   vite: {
     plugins: [stripTsdSourceAttr()],
+    // Pre-bundle router internals at startup. Discovering them mid-session made
+    // Vite re-optimise and reload, leaving the page with two React copies
+    // ("resolveDispatcher().use" is null) and a blank screen.
+    optimizeDeps: {
+      include: [
+        "@tanstack/router-core",
+        "@tanstack/router-core/isServer",
+        "@tanstack/router-core/ssr/client",
+        "seroval",
+      ],
+    },
     resolve: {
       alias: {
         // @simplewebauthn/server pulls in @peculiar/* packages that import

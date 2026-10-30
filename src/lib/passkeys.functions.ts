@@ -25,9 +25,7 @@ function getRp() {
   const request = getRequest();
   const origin =
     request?.headers.get("origin") ??
-    (request?.headers.get("host")
-      ? `https://${request.headers.get("host")}`
-      : undefined);
+    (request?.headers.get("host") ? `https://${request.headers.get("host")}` : undefined);
   if (!origin) throw new Error("Unable to determine request origin");
   const rpID = new URL(origin).hostname;
   return { origin, rpID };
@@ -36,9 +34,67 @@ function getRp() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyDb = any;
 
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+function sessionIdOf(claims: unknown): string {
+  const sid = (claims as Record<string, unknown> | undefined)?.["session_id"];
+  if (typeof sid !== "string" || !/^[0-9a-f-]{36}$/i.test(sid)) throw new Error("No session");
+  return sid;
+}
+
+async function admin(): Promise<AnyDb> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+/** Issue a challenge bound to user + session + purpose + expiry (server-only write). */
+async function issueChallenge(
+  userId: string,
+  sessionId: string,
+  purpose: string,
+  challenge: string,
+) {
+  const db = await admin();
+  const { error } = await db.from("webauthn_challenges").upsert({
+    user_id: userId,
+    session_id: sessionId,
+    challenge,
+    purpose,
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + CHALLENGE_TTL_MS).toISOString(),
+  });
+  if (error) throw safeDbError(error, "start passkey verification");
+}
+
+/** Single-use consume: deletes the row and returns it only if every binding matches. */
+async function consumeChallenge(
+  userId: string,
+  sessionId: string,
+  purpose: string,
+): Promise<string> {
+  const db = await admin();
+  const { data } = await db
+    .from("webauthn_challenges")
+    .delete()
+    .eq("user_id", userId)
+    .select("challenge, purpose, session_id, expires_at")
+    .maybeSingle();
+  const { challengeIsValid } = await import("@/lib/passkey-policy");
+  if (!data || !challengeIsValid(data, { sessionId, purpose })) {
+    throw new Error("No active passkey challenge for this session");
+  }
+  return data.challenge as string;
+}
+
 export const startPasskeyRegistration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    // Enrolment is a credential change: active (unlocked) session AND a
+    // verified recent re-authentication. A locked session can never enrol.
+    const { assertSessionActive, assertRecentReauth } = await import("@/lib/roles.server");
+    await assertSessionActive(context);
+    assertRecentReauth(context.claims as Record<string, unknown>);
+    const sessionId = sessionIdOf(context.claims);
     const { rpID } = getRp();
     const { generateRegistrationOptions } = await loadWebauthn();
     const db = context.supabase as AnyDb;
@@ -66,11 +122,7 @@ export const startPasskeyRegistration = createServerFn({ method: "POST" })
       },
     });
 
-    await db.from("webauthn_challenges").upsert({
-      user_id: context.userId,
-      challenge: options.challenge,
-      purpose: "registration",
-    });
+    await issueChallenge(context.userId, sessionId, "registration", options.challenge);
 
     return options;
   });
@@ -80,29 +132,23 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
       .object({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         response: z.any(),
         deviceLabel: z.string().trim().max(120).optional(),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
+    const { assertSessionActive, assertRecentReauth } = await import("@/lib/roles.server");
+    await assertSessionActive(context);
+    assertRecentReauth(context.claims as Record<string, unknown>);
+    const sessionId = sessionIdOf(context.claims);
     const { origin, rpID } = getRp();
     const { verifyRegistrationResponse, isoBase64URL } = await loadWebauthn();
-    const db = context.supabase as AnyDb;
-
-    const { data: ch } = await db
-      .from("webauthn_challenges")
-      .select("challenge, purpose")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (!ch || ch.purpose !== "registration") {
-      throw new Error("No active registration challenge");
-    }
+    const expectedChallenge = await consumeChallenge(context.userId, sessionId, "registration");
 
     const verification = await verifyRegistrationResponse({
       response: data.response,
-      expectedChallenge: ch.challenge,
+      expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
       requireUserVerification: false,
@@ -114,6 +160,7 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
 
     const { credential } = verification.registrationInfo;
 
+    const db = await admin();
     const { error } = await db.from("webauthn_credentials").insert({
       user_id: context.userId,
       credential_id: credential.id,
@@ -124,17 +171,16 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
     });
     if (error) throw safeDbError(error, "register your passkey");
 
-    await db.from("webauthn_challenges").delete().eq("user_id", context.userId);
-
     return { ok: true };
   });
 
 export const startPasskeyUnlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const sessionId = sessionIdOf(context.claims);
     const { rpID } = getRp();
     const { generateAuthenticationOptions } = await loadWebauthn();
-    const db = context.supabase as AnyDb;
+    const db = await admin();
 
     const { data: creds } = await db
       .from("webauthn_credentials")
@@ -148,42 +194,26 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
     const options = await generateAuthenticationOptions({
       rpID,
       userVerification: "required",
-      allowCredentials: creds.map(
-        (c: { credential_id: string; transports: string[] }) => ({
-          id: c.credential_id,
-          transports: c.transports as AnyDb,
-        }),
-      ),
+      allowCredentials: creds.map((c: { credential_id: string; transports: string[] }) => ({
+        id: c.credential_id,
+        transports: c.transports as AnyDb,
+      })),
     });
 
-    await db.from("webauthn_challenges").upsert({
-      user_id: context.userId,
-      challenge: options.challenge,
-      purpose: "authentication",
-    });
+    await issueChallenge(context.userId, sessionId, "authentication", options.challenge);
 
     return options;
   });
 
 export const finishPasskeyUnlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    z.object({ response: z.any() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ response: z.any() }).parse(input))
   .handler(async ({ context, data }) => {
+    const sessionId = sessionIdOf(context.claims);
     const { origin, rpID } = getRp();
     const { verifyAuthenticationResponse, isoBase64URL } = await loadWebauthn();
-    const db = context.supabase as AnyDb;
-
-    const { data: ch } = await db
-      .from("webauthn_challenges")
-      .select("challenge, purpose")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (!ch || ch.purpose !== "authentication") {
-      throw new Error("No active unlock challenge");
-    }
+    const db = await admin();
+    const expectedChallenge = await consumeChallenge(context.userId, sessionId, "authentication");
 
     const credentialId = data.response?.id as string;
     const { data: cred } = await db
@@ -196,7 +226,7 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
 
     const verification = await verifyAuthenticationResponse({
       response: data.response,
-      expectedChallenge: ch.challenge,
+      expectedChallenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
       requireUserVerification: true,
@@ -216,7 +246,7 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
     // longer permitted to update (RLS column grants restrict authenticated
     // UPDATE to device_label only). Persist the verification result with the
     // service-role client so the signature counter cannot be tampered with.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = db;
     await supabaseAdmin
       .from("webauthn_credentials")
       .update({
@@ -225,13 +255,9 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
       })
       .eq("id", cred.id);
 
-    await db.from("webauthn_challenges").delete().eq("user_id", context.userId);
-
     // Server-side unlock of THIS session only (session_id from the verified
     // JWT). Only the service role may call session_unlock, so a client can
     // never clear its own lock without passing the passkey check above.
-    const sessionId = (context.claims as Record<string, unknown> | undefined)?.["session_id"];
-    if (typeof sessionId !== "string") throw new Error("No session to unlock");
     const { data: unlocked, error: unlockErr } = await supabaseAdmin.rpc("session_unlock", {
       _session_id: sessionId,
       _user_id: context.userId,
@@ -264,6 +290,8 @@ export const deletePasskey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
+    const { assertSessionActive } = await import("@/lib/roles.server");
+    await assertSessionActive(context);
     const db = context.supabase as AnyDb;
     const { error } = await db
       .from("webauthn_credentials")

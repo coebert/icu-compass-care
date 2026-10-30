@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { withReauth } from "@/lib/reauth";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -127,7 +128,7 @@ function AccessAdminPage() {
   };
 
   const roleMut = useMutation({
-    mutationFn: (v: { user_id: string; role: UiRole; reason: string }) => roleFn({ data: v }),
+    mutationFn: (v: { user_id: string; role: UiRole; reason: string }) => withReauth(() => roleFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Role updated");
@@ -137,7 +138,7 @@ function AccessAdminPage() {
 
   const suspendMut = useMutation({
     mutationFn: (v: { user_id: string; suspended: boolean; reason: string }) =>
-      suspendFn({ data: v }),
+      withReauth(() => suspendFn({ data: v })),
     onSuccess: (_d, v) => {
       refresh();
       toast.success(v.suspended ? "Access revoked immediately" : "Access reinstated");
@@ -173,7 +174,7 @@ function AccessAdminPage() {
       role: UiRole;
       unit_ids: string[];
       reason: string;
-    }) => createFn({ data: v }),
+    }) => withReauth(() => createFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Account created", { description: "Share the temporary password securely." });

@@ -22,6 +22,13 @@
       "when": 1793362392439,
       "tag": "0002_security_remediation_apply",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793363603319,
+      "tag": "0003_security_remediation_review_fixes",
+      "breakpoints": true
     }
   ]
 }

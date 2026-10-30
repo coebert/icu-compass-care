@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReauthDialog } from "@/components/ReauthDialog";
 import {
   Outlet,
   Link,
@@ -158,6 +159,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster richColors position="top-right" />
+      <ReauthDialog />
     </QueryClientProvider>
   );
 }

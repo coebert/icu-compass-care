@@ -9,9 +9,12 @@ import { join } from "node:path";
 const MIG_DIR = join(__dirname, "../../drizzle/migrations");
 function migrationSql(): string {
   if (process.env["REMEDIATION_SQL"]) return readFileSync(process.env["REMEDIATION_SQL"], "utf8");
-  const file = readdirSync(MIG_DIR).find((f) => f.includes("security_remediation_apply"));
-  if (!file) throw new Error("remediation migration not found");
-  return readFileSync(join(MIG_DIR, file), "utf8");
+  // Apply every security-remediation migration in journal order (0002, 0003, ...).
+  const files = readdirSync(MIG_DIR)
+    .filter((f) => f.endsWith(".sql") && f.includes("security_remediation"))
+    .sort();
+  if (!files.some((f) => f.includes("security_remediation_apply"))) throw new Error("remediation migration not found");
+  return files.map((f) => readFileSync(join(MIG_DIR, f), "utf8")).join("\n;\n");
 }
 
 const U = {
@@ -40,7 +43,7 @@ type Q = { rows: Record<string, unknown>[] };
 async function as<T>(
   user: string | null,
   fn: (q: (sql: string, p?: unknown[]) => Promise<Q>) => Promise<T>,
-  opts: { session?: string | null; commit?: boolean } = {},
+  opts: { session?: string | null; commit?: boolean; claims?: Record<string, unknown> } = {},
 ): Promise<T> {
   const session = opts.session === undefined && user ? sid(user) : opts.session;
   let out!: T;
@@ -49,7 +52,7 @@ async function as<T>(
   try {
     if (user) {
       await db.query("SELECT set_config('request.jwt.claims', $1, true)", [
-        JSON.stringify({ sub: user, role: "authenticated", session_id: session ?? undefined }),
+        JSON.stringify({ sub: user, role: "authenticated", session_id: session ?? undefined, ...(opts.claims ?? {}) }),
       ]);
       await db.exec("SET LOCAL ROLE authenticated");
     } else {
@@ -325,5 +328,122 @@ describe("F5 bridge investigation insert gated on sharing", () => {
     await expect(
       as(U.clinA, (q) => q("SELECT public.bridge_insert_investigation($1,'x','y',NULL)", [PAT_SHARED])),
     ).rejects.toThrow(/permission denied/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review round 2 (commit 047c510 findings)
+// ---------------------------------------------------------------------------
+const LOCKED_SID = "60000000-0000-4000-8000-0000000000c1";
+const freshAmr = () => ({ amr: [{ method: "password", timestamp: Math.floor(Date.now() / 1000) - 30 }] });
+const staleAmr = () => ({ amr: [{ method: "password", timestamp: Math.floor(Date.now() / 1000) - 3600 }] });
+
+describe("Passkey enrolment cannot bypass a locked session", () => {
+  beforeAll(async () => {
+    await superQ("INSERT INTO auth.sessions (id, user_id) VALUES ($1, $2)", [LOCKED_SID, U.clinA]);
+    await superQ("INSERT INTO public.session_guard (session_id, user_id, locked_at) VALUES ($1, $2, now())", [LOCKED_SID, U.clinA]);
+  });
+  const insertCred = (opts: Parameters<typeof as>[2]) =>
+    as(U.clinA, (q) => q(
+      "INSERT INTO public.webauthn_credentials (user_id, credential_id, public_key) VALUES ($1, $2, 'pk')",
+      [U.clinA, `cred-${Math.random()}`],
+    ), opts);
+
+  it("a locked session cannot enrol a passkey, even with a fresh re-auth stamp", async () => {
+    await expect(insertCred({ session: LOCKED_SID, claims: freshAmr() })).rejects.toThrow(/row-level security/);
+  });
+  it("an active session without recent re-authentication cannot enrol", async () => {
+    await expect(insertCred({ claims: staleAmr() })).rejects.toThrow(/row-level security/);
+    await expect(insertCred({})).rejects.toThrow(/row-level security/);
+  });
+  it("an active, recently re-authenticated session can enrol its own passkey", async () => {
+    await expect(insertCred({ claims: freshAmr() })).resolves.toBeDefined();
+  });
+  it("nobody can enrol a passkey for another user", async () => {
+    await expect(
+      as(U.clinA, (q) => q("INSERT INTO public.webauthn_credentials (user_id, credential_id, public_key) VALUES ($1,'x','pk')", [U.clinB]), { claims: freshAmr() }),
+    ).rejects.toThrow(/row-level security/);
+  });
+  it("a locked session cannot write a challenge, and clients can never claim a session binding", async () => {
+    await expect(
+      as(U.clinA, (q) => q("INSERT INTO public.webauthn_challenges (user_id, challenge, purpose) VALUES ($1,'c','registration')", [U.clinA]), { session: LOCKED_SID }),
+    ).rejects.toThrow(/row-level security/);
+    await expect(
+      as(U.clinA, (q) => q("INSERT INTO public.webauthn_challenges (user_id, challenge, purpose, session_id) VALUES ($1,'c','authentication',$2)", [U.clinA, sid(U.clinA)])),
+    ).rejects.toThrow(/row-level security/);
+  });
+  it("signature counters cannot be edited by the user", async () => {
+    await expect(
+      as(U.clinA, (q) => q("UPDATE public.webauthn_credentials SET counter = 0 WHERE user_id = $1", [U.clinA])),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it("a locked session cannot delete passkeys", async () => {
+    await superQ("INSERT INTO public.webauthn_credentials (user_id, credential_id, public_key) VALUES ($1,'keep-me','pk')", [U.clinA]);
+    const n = await as(U.clinA, async (q) => (await q("DELETE FROM public.webauthn_credentials WHERE credential_id = 'keep-me' RETURNING id")).rows.length, { session: LOCKED_SID });
+    expect(n).toBe(0);
+  });
+});
+
+describe("Raw audit_log is scoped to current clinical access", () => {
+  const DEMOTED = "00000000-0000-4000-8000-0000000000e1";
+  const ROLELESS = "00000000-0000-4000-8000-0000000000e2";
+  const MOVED = "00000000-0000-4000-8000-0000000000e3";
+  const ownRows = (user: string, opts: Parameters<typeof as>[2] = {}) =>
+    as(user, async (q) => (await q("SELECT id FROM public.audit_log")).rows.length, opts);
+
+  beforeAll(async () => {
+    for (const id of [DEMOTED, ROLELESS, MOVED]) {
+      await superQ("INSERT INTO auth.users (id, email) VALUES ($1, $2)", [id, `${id.slice(-3)}@example.test`]);
+      await superQ("INSERT INTO auth.sessions (id, user_id) VALUES ($1, $2)", [sid(id), id]);
+    }
+    // Former clinicians: one now auditor, one with no role, one moved to unit B.
+    await superQ("INSERT INTO public.user_roles (user_id, role) VALUES ($1,'auditor'), ($2,'clinician')", [DEMOTED, MOVED]);
+    await superQ("INSERT INTO public.user_unit_access (user_id, unit_id) VALUES ($1,$3), ($2,$3), ($4,$5)", [DEMOTED, ROLELESS, UNIT_A, MOVED, UNIT_B]);
+    // Historical PHI diffs each of them authored on unit A's patient, plus clinA's.
+    for (const author of [DEMOTED, ROLELESS, MOVED, U.clinA]) {
+      await superQ("INSERT INTO public.audit_log (user_id, action, entity, entity_id, diff) VALUES ($1,'update','patients',$2,'{\"full_name\":\"A.A.\"}')", [author, PAT_A]);
+    }
+    await superQ("INSERT INTO public.audit_log (user_id, action, entity, entity_id, diff) VALUES ($1,'update','chart_scan',NULL,'{}')", [U.clinA]);
+  });
+
+  it("an active in-scope clinician still sees their own patient audit rows", async () => {
+    expect(await ownRows(U.clinA)).toBe(1);
+  });
+  it("a former clinician now auditor cannot read raw diffs, only metadata", async () => {
+    expect(await ownRows(DEMOTED)).toBe(0);
+    const meta = await as(DEMOTED, async (q) => (await q("SELECT * FROM public.audit_log_metadata(500)")).rows);
+    expect(meta.length).toBeGreaterThan(0);
+    expect(Object.keys(meta[0]!)).not.toContain("diff");
+  });
+  it("a roleless (revoked) former clinician sees nothing", async () => {
+    expect(await ownRows(ROLELESS)).toBe(0);
+  });
+  it("a clinician moved to another unit loses old-unit audit rows", async () => {
+    expect(await ownRows(MOVED)).toBe(0);
+  });
+  it("a locked session cannot read its own audit rows", async () => {
+    expect(await ownRows(U.clinA, { session: LOCKED_SID })).toBe(0);
+  });
+  it("Trust admins can read the full audit log", async () => {
+    expect(await ownRows(U.trustA)).toBeGreaterThanOrEqual(5);
+  });
+  it("a locked session cannot append audit entries", async () => {
+    await expect(
+      as(U.clinA, (q) => q("INSERT INTO public.audit_log (user_id, action, entity) VALUES ($1,'view','x')", [U.clinA]), { session: LOCKED_SID }),
+    ).rejects.toThrow(/row-level security/);
+  });
+});
+
+describe("Bridge investigation insert after sharing is revoked", () => {
+  it("a formerly-shared patient gets no new investigations", async () => {
+    await superQ("UPDATE public.patients SET shared_with_partner = false WHERE id = $1", [PAT_SHARED]);
+    await superQ("SET ROLE service_role");
+    try {
+      const r = await superQ("SELECT id FROM public.bridge_insert_investigation($1,'Bloods','synthetic',NULL)", [PAT_SHARED]);
+      expect(r.rows.length).toBe(0);
+    } finally {
+      await superQ("RESET ROLE");
+      await superQ("UPDATE public.patients SET shared_with_partner = true WHERE id = $1", [PAT_SHARED]);
+    }
   });
 });
