@@ -138,6 +138,7 @@ $$;
 -- ---- existing policies the migration replaces (names as on live) ----
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own roles" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Administrators and auditors can view roles" ON public.user_roles FOR SELECT TO authenticated USING (private.is_trust_admin(auth.uid()) OR private.is_auditor(auth.uid()) OR private.shares_admin_unit(auth.uid(), user_id));
 CREATE POLICY "Trust admins can grant any role" ON public.user_roles FOR INSERT TO authenticated WITH CHECK (private.is_trust_admin(auth.uid()));
 CREATE POLICY "Trust admins can revoke any role" ON public.user_roles FOR DELETE TO authenticated USING (private.is_trust_admin(auth.uid()));
 CREATE POLICY "Unit admins can grant unit roles" ON public.user_roles FOR INSERT TO authenticated
