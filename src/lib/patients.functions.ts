@@ -11,6 +11,7 @@ import {
 } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
 import { normalizeBed } from "@/lib/icu-beds";
+import { loadActor } from "@/lib/roles.server";
 import {
   decryptPatientRow,
   decryptPatientRows,
