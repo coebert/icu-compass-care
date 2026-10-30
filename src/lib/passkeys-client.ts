@@ -44,26 +44,32 @@ export function clearDevicePasskey(userId: string) {
   setDevicePasskey(userId, false);
 }
 
-export type SessionState = "active" | "locked" | "revoked" | "no_session";
+export type { SessionState } from "@/lib/session-lock";
+import { interpretSessionRpc, type SessionState } from "@/lib/session-lock";
 
-/** Ask the server for this session's lock state (read-only). */
+/** Ask the server for this session's lock state. Errors => "unknown" (fail closed). */
 export async function fetchSessionState(): Promise<SessionState> {
-  const { data, error } = await supabase.rpc("session_status");
-  if (error) return "active"; // transient: the database still enforces the lock
-  return (data as SessionState) ?? "active";
+  try {
+    return interpretSessionRpc(await supabase.rpc("session_status"));
+  } catch {
+    return "unknown";
+  }
 }
 
 /** Record genuine user activity; never revives a locked/idle session. */
 export async function sessionHeartbeat(): Promise<SessionState> {
-  const { data, error } = await supabase.rpc("session_heartbeat");
-  if (error) return "active";
-  return (data as SessionState) ?? "active";
+  try {
+    return interpretSessionRpc(await supabase.rpc("session_heartbeat"));
+  } catch {
+    return "unknown";
+  }
 }
 
-/** Lock this session on the server. Unlock needs a verified passkey or a fresh sign-in. */
-export async function lockSessionOnServer(): Promise<void> {
-  await supabase.rpc("session_lock");
-}
+/** Raw lock/status RPCs for performLock (src/lib/session-lock.ts). */
+export const sessionRpc = {
+  lock: async () => supabase.rpc("session_lock"),
+  status: async () => supabase.rpc("session_status"),
+};
 
 export async function registerPasskey(userId: string, deviceLabel?: string) {
   const { withReauth } = await import("@/lib/reauth");
