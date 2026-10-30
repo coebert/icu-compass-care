@@ -17,7 +17,7 @@ Applied live: 0002, 0003, 0004 (0001 is comment-only). The published frontend is
 ## Publish steps (in order)
 1. Publish the reviewed frontend.
 2. Wait for old tabs to refresh (about 1 hour, the token lifetime).
-3. Apply the follow-up SQL below as one migration. NOT applied yet.
+3. Run `docs/security/postpublish-cleanup.sql` (authoritative, supersedes the sketch below). NOT applied yet.
 
 ```sql
 -- a) Enforce the idle baseline for sessions with no activity record.
@@ -43,3 +43,8 @@ Statement a) is a data change on a one-row settings table; it can also be run as
   - No `script-src`/`style-src` restriction is set, because the framework uses inline bootstrap scripts. CSP therefore does not mitigate XSS here.
   - The headers are applied by app middleware. Assets served directly by the hosting edge may not carry them.
 - **Concurrency:** tested with two real connections on a throwaway local PostgreSQL 17 (`tests/security/concurrency/run.sh`), not on the live database.
+
+## Round 4 (30/10/2026)
+- Live state: 0002, 0003, 0004 applied; `enforce_session_baseline = false`; old reason-less role RPC not executable by users; direct role writes and unit-access deletes revoked; 4 role/membership guard triggers present.
+- Password resets are Trust-admin-only (server check + recent reauth). Unit admins see a prompt to ask a Trust admin. Code-only change, no database change.
+- A new auth session (password reauth) resets lock state, the inactivity deadline and cached data in the client. Code-only change.
