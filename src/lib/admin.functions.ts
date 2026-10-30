@@ -312,13 +312,9 @@ export const setStaffSuspended = createServerFn({ method: "POST" })
       ban_duration: data.suspended ? SUSPEND_DURATION : "none",
     });
     if (error) throw safeDbError(error);
-    if (data.suspended) {
-      // End every live session for the account immediately.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabaseAdmin.auth.admin as any).signOut?.(data.user_id, "global").catch?.(() => {});
-    } else {
-      await replaceRoles(context, data.user_id, [role]);
-    }
+    // On suspension the ban blocks sign-in and refresh; the already-stripped
+    // roles mean any still-unexpired access token reaches no role-gated data.
+    if (!data.suspended) await replaceRoles(context, data.user_id, [role]);
     await logAccessEvent(context, {
       action: data.suspended ? "suspended" : "reinstated",
       target_user_id: data.user_id,
