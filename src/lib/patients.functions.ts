@@ -291,18 +291,39 @@ export const deletePatient = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Audit history for a patient record (most recent first).
+// Audit history for a patient record (most recent first). Metadata only:
+// who / when / which fields — never the before/after payloads. Served by the
+// database's explicit-column projection (audit_record_metadata), which only
+// auditors and Trust administrators may call.
 export const getPatientAudit = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
-      .from("record_audit")
-      .select("*")
-      .eq("entity", "patients")
-      .eq("record_id", data.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const actor = await loadActor(context);
+    if (!actor.isAuditor && !actor.isTrustAdmin) return [];
+    const { data: rows, error } = await context.supabase.rpc("audit_record_metadata", {
+      _entity: "patients",
+      _record_id: data.id,
+      _limit: 50,
+    });
+    if (error) throw safeDbError(error);
+    return rows ?? [];
+  });
+
+// Auditor view of field-level edit history: field names, actors and times
+// only. Old/new values are never returned to auditors.
+export const listFieldChangeMetadata = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { patientId?: string } | undefined) =>
+    z.object({ patientId: z.string().uuid().optional() }).parse(input ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const actor = await loadActor(context);
+    if (!actor.isAuditor && !actor.isTrustAdmin) throw new Error("Forbidden: auditors only");
+    const { data: rows, error } = await context.supabase.rpc("audit_field_change_metadata", {
+      _patient_id: data.patientId ?? undefined,
+      _limit: 200,
+    });
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
@@ -312,9 +333,11 @@ export const getPatientFieldChanges = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ context, data }) => {
+    // RLS: only staff who can see this patient (auditors excluded — they use
+    // listFieldChangeMetadata). Explicit columns, values decrypted below.
     const { data: rows, error } = await context.supabase
       .from("patient_field_changes")
-      .select("*")
+      .select("id, patient_id, field_name, old_value, new_value, changed_by, changed_by_email, changed_at")
       .eq("patient_id", data.id)
       .order("changed_at", { ascending: false })
       .limit(100);
