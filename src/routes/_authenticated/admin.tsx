@@ -1,4 +1,5 @@
 import { ListSkeleton } from "@/components/LoadingSkeleton";
+import { withReauth } from "@/lib/reauth";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -182,7 +183,7 @@ function AdminPage() {
 
   const roleMut = useMutation({
     mutationFn: (v: { user_id: string; role: UiRole; reason: string }) =>
-      setRole({ data: v }),
+      withReauth(() => setRole({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Role updated");
@@ -196,7 +197,7 @@ function AdminPage() {
       suspended: boolean;
       role?: UiRole;
       reason: string;
-    }) => setSuspended({ data: v }),
+    }) => withReauth(() => setSuspended({ data: v })),
     onSuccess: (_d, v) => {
       refresh();
       toast.success(v.suspended ? "Access revoked immediately" : "Access reinstated");
@@ -206,7 +207,7 @@ function AdminPage() {
 
   const passwordMut = useMutation({
     mutationFn: (v: { user_id: string; password: string; reason: string }) =>
-      resetPassword({ data: v }),
+      withReauth(() => resetPassword({ data: v })),
     onSuccess: () => {
       refresh();
       setNewPassword("");
@@ -216,7 +217,7 @@ function AdminPage() {
   });
 
   const removeMut = useMutation({
-    mutationFn: (v: { user_id: string; reason: string }) => remove({ data: v }),
+    mutationFn: (v: { user_id: string; reason: string }) => withReauth(() => remove({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Account removed");

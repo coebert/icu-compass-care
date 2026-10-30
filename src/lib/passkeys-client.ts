@@ -66,7 +66,8 @@ export async function lockSessionOnServer(): Promise<void> {
 }
 
 export async function registerPasskey(userId: string, deviceLabel?: string) {
-  const options = await startPasskeyRegistration();
+  const { withReauth } = await import("@/lib/reauth");
+  const options = await withReauth(() => startPasskeyRegistration());
   const response = await startRegistration({ optionsJSON: options });
   await finishPasskeyRegistration({ data: { response, deviceLabel } });
   setDevicePasskey(userId, true);
