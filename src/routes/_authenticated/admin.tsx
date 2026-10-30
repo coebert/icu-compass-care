@@ -155,7 +155,7 @@ function AdminPage() {
 
   const createMut = useMutation({
     mutationFn: () =>
-      create({
+      withReauth(() => create({
         data: {
           email,
           password,
@@ -165,7 +165,7 @@ function AdminPage() {
           reason,
           unit_ids: newUnitIds,
         },
-      }),
+      })),
     onSuccess: () => {
       refresh();
       setOpen(false);
