@@ -44,7 +44,7 @@ async function logAccessEvent(
 ) {
   const claimEmail = context.claims?.["email"];
   const supabaseAdmin = await getAdmin();
-  await supabaseAdmin.from("account_access_events").insert({
+  const { error } = await supabaseAdmin.from("account_access_events").insert({
     action: input.action,
     target_user_id: input.target_user_id ?? null,
     target_email: input.target_email ?? null,
@@ -55,6 +55,7 @@ async function logAccessEvent(
     actor_id: context.userId,
     actor_email: typeof claimEmail === "string" ? claimEmail : null,
   });
+  if (error) throw safeDbError(error, "record the audit entry");
 }
 
 const reasonSchema = z.string().trim().min(3).max(300);
@@ -211,36 +212,32 @@ export const createStaff = createServerFn({ method: "POST" })
     return { ok: true, id: newId };
   });
 
-function friendlyRoleError(error: { message?: string } | null | undefined): Error {
-  const msg = error?.message ?? "";
-  if (msg.includes("LAST_TRUST_ADMIN")) {
-    return new Error("At least one Trust administrator must remain. Appoint another first.");
-  }
-  if (msg.includes("FORBIDDEN_TARGET")) {
-    return new Error("Forbidden: that account is outside your administrative scope");
-  }
-  if (msg.includes("FORBIDDEN_ROLE")) {
-    return new Error("Forbidden: only a Trust administrator can assign that role");
-  }
-  return safeDbError(error as never);
-}
+type RoleAction = "role_changed" | "suspended" | "reinstated" | "deprovisioned" | "provisioned";
 
 /**
- * Atomically replace a target's roles. Runs through the CALLER's client: the
- * database function re-checks target scope + assignable roles and protects
- * the last Trust administrator under an advisory lock, all in one transaction.
+ * Atomically replace a target's roles through the CALLER's client. The
+ * database takes the admin lock first, then re-checks session, recent
+ * re-authentication, reason, target scope, assignable roles, suspension and
+ * last-admin protection, and writes the audit event in the same transaction.
  */
 async function replaceRoles(
   context: { supabase: unknown },
   targetUserId: string,
   roles: AppRole[],
+  reason: string,
+  action: RoleAction,
 ): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (context.supabase as any).rpc("replace_user_roles", {
+  const { error } = await (context.supabase as any).rpc("admin_replace_user_roles", {
     _target: targetUserId,
     _roles: roles,
+    _reason: reason,
+    _action: action,
   });
-  if (error) throw friendlyRoleError(error);
+  if (error) {
+    const { friendlyAdminError } = await import("@/lib/admin-errors");
+    throw friendlyAdminError(error);
+  }
 }
 
 // Change a staff member's role (admin only).
