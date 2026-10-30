@@ -311,7 +311,9 @@ export const setStaffSuspended = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Set a new temporary password for a staff member (admin only).
+// Set a new temporary password for a staff member. Trust administrators only:
+// a unit-scoped check followed by a separate auth-service call could race a
+// concurrent promotion of the target, so unit admins must ask a Trust admin.
 export const resetStaffPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -324,12 +326,7 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    await assertConfigAdmin(context);
-    assertRecentReauth(context.claims);
-    if (data.user_id === context.userId) {
-      throw new Error("Change your own password from My profile instead");
-    }
-    await assertCanManageAccount(context, data.user_id);
+    await authorizePasswordReset(context, data.user_id);
     const supabaseAdmin = await getAdmin();
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
