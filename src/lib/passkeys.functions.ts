@@ -227,6 +227,19 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
 
     await db.from("webauthn_challenges").delete().eq("user_id", context.userId);
 
+    // Server-side unlock of THIS session only (session_id from the verified
+    // JWT). Only the service role may call session_unlock, so a client can
+    // never clear its own lock without passing the passkey check above.
+    const sessionId = (context.claims as Record<string, unknown> | undefined)?.["session_id"];
+    if (typeof sessionId !== "string") throw new Error("No session to unlock");
+    const { data: unlocked, error: unlockErr } = await supabaseAdmin.rpc("session_unlock", {
+      _session_id: sessionId,
+      _user_id: context.userId,
+    });
+    if (unlockErr || unlocked !== true) {
+      throw new Error("This session has ended. Please sign in again.");
+    }
+
     return { ok: true };
   });
 

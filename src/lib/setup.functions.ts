@@ -8,6 +8,9 @@ import { getAdmin } from "@/lib/admin-db.server";
 // safe to leave in place. Requires no auth because there is no one to authorise.
 export const setupStatus = createServerFn({ method: "GET" }).handler(async () => {
   const supabaseAdmin = await getAdmin();
+  const { data: sealed, error: sealErr } = await supabaseAdmin.rpc("bootstrap_sealed");
+  if (sealErr) throw safeDbError(sealErr, "check setup status");
+  if (sealed) return { needsSetup: false };
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
   if (error) throw safeDbError(error, "check setup status");
   return { needsSetup: (data?.users?.length ?? 0) === 0 };
@@ -35,6 +38,14 @@ export const bootstrapAdmin = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabaseAdmin = await getAdmin();
+    // Permanent seal: once bootstrap has happened (or any account existed when
+    // the seal was introduced) this flow can never reopen, even if roles or
+    // accounts are later removed.
+    const { data: sealed, error: sealErr } = await supabaseAdmin.rpc("bootstrap_sealed");
+    if (sealErr) throw safeDbError(sealErr, "complete setup");
+    if (sealed) {
+      throw new Error("Setup already completed. Ask an administrator to create your account.");
+    }
     const { data: existing, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
       perPage: 1,
@@ -52,14 +63,13 @@ export const bootstrapAdmin = createServerFn({ method: "POST" })
     if (error) throw safeDbError(error, "create the admin account");
     const id = created.user!.id;
     await supabaseAdmin.from("profiles").update({ display_name: data.display_name }).eq("id", id);
-    // The founding account needs both: Trust administrator for platform-wide
-    // configuration, and unit administrator so it can also run a unit clinically.
-    const { error: roleErr } = await supabaseAdmin
-      .from("user_roles")
-      .insert([
-        { user_id: id, role: "trust_admin" },
-        { user_id: id, role: "unit_admin" },
-      ]);
-    if (roleErr) throw safeDbError(roleErr, "assign the administrator roles");
+    // Roles + seal are written in ONE locked transaction. A concurrent second
+    // bootstrap fails here (other account exists / already sealed) and its
+    // just-created account is removed again.
+    const { error: bootErr } = await supabaseAdmin.rpc("complete_bootstrap", { _user: id });
+    if (bootErr) {
+      await supabaseAdmin.auth.admin.deleteUser(id).catch(() => {});
+      throw new Error("Setup already completed. Ask an administrator to create your account.");
+    }
     return { ok: true };
   });
