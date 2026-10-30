@@ -147,7 +147,7 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
 
     const options = await generateAuthenticationOptions({
       rpID,
-      userVerification: "preferred",
+      userVerification: "required",
       allowCredentials: creds.map(
         (c: { credential_id: string; transports: string[] }) => ({
           id: c.credential_id,
@@ -199,7 +199,7 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
       expectedChallenge: ch.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
-      requireUserVerification: false,
+      requireUserVerification: true,
       credential: {
         id: cred.credential_id,
         publicKey: isoBase64URL.toBuffer(cred.public_key),
