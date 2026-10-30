@@ -90,8 +90,10 @@ export const listHandoverVersions = createServerFn({ method: "GET" })
         count: "exact",
       })
       .order("local_date", { ascending: false })
-      .order("shift", { ascending: false })
-      .range(fromIdx, toIdx);
+      .order("shift", { ascending: false });
+    // Deterministic tie-break so pages never repeat or skip rows.
+    if (!data.legacy) query = query.order("unit_id", { ascending: true });
+    query = query.order("id", { ascending: true }).range(fromIdx, toIdx);
 
     // The search index is encrypted, so a text query is resolved by decrypting
     // the (small) set of version indexes and restricting to the matching ids.
@@ -176,7 +178,12 @@ export const getHandoverVersion = createServerFn({ method: "GET" })
 export const captureHandoverVersionNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertConfigAdmin(context);
+    const actor = await assertConfigAdmin(context);
     const { captureHandoverSnapshot } = await import("@/lib/handover-snapshot.server");
-    return captureHandoverSnapshot({ force: true });
+    // Trust admins may capture every unit; a unit administrator only their own
+    // units (counts and ids returned are for those units only).
+    return captureHandoverSnapshot({
+      force: true,
+      ...(actor.isTrustAdmin ? {} : { unitIds: actor.unitIds }),
+    });
   });
