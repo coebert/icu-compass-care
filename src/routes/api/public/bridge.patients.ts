@@ -9,6 +9,7 @@ import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp
 import { diffFields, writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
+import { bridgeUpdateSharedPatient, stripSharingFlags } from "@/lib/bridge-sharing.server";
 
 // The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
 // the partner system is trusted, may send longer names, treats every field as
@@ -152,53 +153,43 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         const record = clean(columns);
 
         if (record.id) {
-          // Load the current row for conflict detection + audit "before" snapshot.
-          const { data: current, error: readErr } = await supabaseAdmin
-            .from("patients")
-            .select("*")
-            .eq("id", record.id as string)
-            .maybeSingle();
-          if (readErr) return (console.error("[bridge]", readErr), json({ error: "Internal server error" }, 500));
-          if (!current) return json({ error: "Patient not found" }, 404);
-
-          // Optimistic concurrency: reject stale writes so the caller can reconcile.
-          if (expected_updated_at && current.updated_at !== expected_updated_at) {
+          const outcome = await bridgeUpdateSharedPatient(supabaseAdmin, {
+            id: record.id as string,
+            expectedUpdatedAt: expected_updated_at,
+            payload: encryptPatientPayload(record) as Record<string, unknown>,
+          });
+          if (outcome.kind === "error") {
+            return (console.error("[bridge]", outcome.error), json({ error: "Internal server error" }, 500));
+          }
+          // Not shared (or sharing revoked, or nonexistent): identical answer,
+          // no clinical data, no hint the record exists.
+          if (outcome.kind === "not_found") return json({ error: "Patient not found" }, 404);
+          if (outcome.kind === "conflict") {
             return json(
               {
                 error: "conflict",
                 message: "This patient was modified since you last loaded it.",
-                current: decryptPatientRow(current as Record<string, unknown>),
+                current: stripSharingFlags(decryptPatientRow(outcome.current)),
                 your_expected_updated_at: expected_updated_at,
               },
               409,
             );
           }
-
-          const { data, error } = await supabaseAdmin
-            .from("patients")
-            .update(encryptPatientPayload(record) as never)
-            .eq("id", record.id as string)
-            .select()
-            .maybeSingle();
-          if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
-          if (!data) return json({ error: "Patient not found" }, 404);
+          const { before: current, after: data } = outcome;
 
           await writeAudit(supabaseAdmin, {
             entity: "patients",
-            recordId: data.id,
+            recordId: data["id"] as string,
             action: "update",
             source: "bridge",
             actor: auth.actor,
-            before: current as Record<string, unknown>,
-            after: data as Record<string, unknown>,
+            before: current,
+            after: data,
             // Ciphertext can't be diffed byte-wise; compare readable values.
-            changedFields: diffFields(
-              decryptPatientRow(current as Record<string, unknown>),
-              decryptPatientRow(data as Record<string, unknown>),
-            ),
+            changedFields: diffFields(decryptPatientRow(current), decryptPatientRow(data)),
           });
           await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
-          return json({ patient: decryptPatientRow(data as Record<string, unknown>) });
+          return json({ patient: stripSharingFlags(decryptPatientRow(data)) });
         }
 
         // Bridge writes are unit-scoped too: partner pushes land in the local
@@ -224,7 +215,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           after: data as Record<string, unknown>,
         });
         await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
-        return json({ patient: decryptPatientRow(data as Record<string, unknown>) });
+        return json({ patient: stripSharingFlags(decryptPatientRow(data as Record<string, unknown>)) });
       },
     },
   },
