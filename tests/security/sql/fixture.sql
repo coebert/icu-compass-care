@@ -10,11 +10,12 @@ CREATE SCHEMA auth;
 CREATE SCHEMA private;
 GRANT USAGE ON SCHEMA public, auth, private TO anon, authenticated, service_role;
 
-CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
+CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, raw_user_meta_data jsonb, banned_until timestamptz, deleted_at timestamptz);
 CREATE TABLE auth.sessions (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  not_after timestamptz
+  not_after timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
   SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
@@ -100,7 +101,8 @@ CREATE TABLE public.webauthn_challenges (
 );
 CREATE TABLE public.account_access_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), action text NOT NULL, actor_id uuid,
-  created_at timestamptz NOT NULL DEFAULT now()
+  target_user_id uuid, target_email text, target_display_name text, role text, reason text, note text,
+  actor_email text, created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Mirror Supabase's default broad table grants (RLS is the gate).
