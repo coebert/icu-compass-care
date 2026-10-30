@@ -50,12 +50,13 @@ export async function bridgeUpdateSharedPatient(
     return { kind: "conflict", current };
   }
 
-  // Compare-and-set: still shared AND unchanged since we read it.
+  // Compare-and-set: still shared, same unit AND unchanged since we read it.
   const { data: updated, error: upErr } = await admin
     .from("patients")
     .update(payload as never)
     .eq("id", args.id)
     .eq("shared_with_partner", true)
+    .eq("unit_id", current.unit_id)
     .eq("updated_at", current.updated_at)
     .select()
     .maybeSingle();
