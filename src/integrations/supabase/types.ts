@@ -2295,19 +2295,25 @@ export type Database = {
         Row: {
           challenge: string
           created_at: string
+          expires_at: string
           purpose: string
+          session_id: string | null
           user_id: string
         }
         Insert: {
           challenge: string
           created_at?: string
+          expires_at?: string
           purpose: string
+          session_id?: string | null
           user_id: string
         }
         Update: {
           challenge?: string
           created_at?: string
+          expires_at?: string
           purpose?: string
+          session_id?: string | null
           user_id?: string
         }
         Relationships: []
