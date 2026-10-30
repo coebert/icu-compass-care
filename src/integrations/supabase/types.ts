@@ -699,6 +699,56 @@ export type Database = {
           },
         ]
       }
+      handover_unit_versions: {
+        Row: {
+          captured_at: string
+          created_at: string
+          id: string
+          label: string
+          local_date: string
+          patient_count: number
+          search_text: string
+          shift: string
+          snapshot: Json
+          unit_id: string
+          updated_at: string
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          label: string
+          local_date: string
+          patient_count?: number
+          search_text?: string
+          shift: string
+          snapshot?: Json
+          unit_id: string
+          updated_at?: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          label?: string
+          local_date?: string
+          patient_count?: number
+          search_text?: string
+          shift?: string
+          snapshot?: Json
+          unit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_unit_versions_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "icu_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handover_versions: {
         Row: {
           captured_at: string
@@ -2155,6 +2205,33 @@ export type Database = {
           },
         ]
       }
+      session_guard: {
+        Row: {
+          created_at: string
+          last_activity_at: string
+          locked_at: string | null
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          last_activity_at?: string
+          locked_at?: string | null
+          session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          last_activity_at?: string
+          locked_at?: string | null
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2276,6 +2353,69 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      audit_field_change_metadata: {
+        Args: { _limit?: number; _patient_id?: string }
+        Returns: {
+          changed_at: string
+          changed_by: string
+          changed_by_email: string
+          field_name: string
+          id: string
+          patient_id: string
+        }[]
+      }
+      audit_log_metadata: {
+        Args: { _limit?: number }
+        Returns: {
+          action: Database["public"]["Enums"]["audit_action"]
+          created_at: string
+          entity: string
+          entity_id: string
+          id: string
+          user_id: string
+        }[]
+      }
+      audit_record_metadata: {
+        Args: { _entity?: string; _limit?: number; _record_id?: string }
+        Returns: {
+          action: string
+          actor_email: string
+          actor_id: string
+          actor_role: string
+          changed_fields: string[]
+          created_at: string
+          entity: string
+          id: string
+          record_id: string
+          source: string
+        }[]
+      }
+      bootstrap_sealed: { Args: never; Returns: boolean }
+      bridge_insert_investigation: {
+        Args: {
+          _category: string
+          _findings: string
+          _patient_id: string
+          _result_at: string
+        }
+        Returns: {
+          category: string
+          created_at: string
+          created_by: string | null
+          findings: string
+          id: string
+          patient_id: string
+          result_at: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "investigations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      can_manage_account: { Args: { _target: string }; Returns: boolean }
       check_bridge_lockout: {
         Args: { _ip: string }
         Returns: {
@@ -2291,6 +2431,7 @@ export type Database = {
           retry_after: number
         }[]
       }
+      complete_bootstrap: { Args: { _user: string }; Returns: undefined }
       record_bridge_security_event: {
         Args: {
           _actor_email?: string
@@ -2318,6 +2459,20 @@ export type Database = {
           locked: boolean
           retry_after: number
         }[]
+      }
+      replace_user_roles: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _target: string
+        }
+        Returns: undefined
+      }
+      session_heartbeat: { Args: never; Returns: string }
+      session_lock: { Args: never; Returns: string }
+      session_status: { Args: never; Returns: string }
+      session_unlock: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: boolean
       }
       to_initials: { Args: { _name: string }; Returns: string }
     }
