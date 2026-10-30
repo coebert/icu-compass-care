@@ -17,6 +17,12 @@ const UNIT = "10000000-0000-4000-8000-0000000000aa";
 const sid = (u: string) => u.replace(/^0/, "5");
 const amr = () => [{ method: "password", timestamp: Math.floor(Date.now() / 1000) - 10 }];
 
+// "<socket dir>:<port>" — local socket only, never a network address.
+function connect() {
+  const [host, port] = URL_!.split(":");
+  return postgres({ host, port: Number(port), user: "postgres", database: "postgres", max: 1, onnotice: () => {} });
+}
+
 let admin: ReturnType<typeof postgres>;
 let a: ReturnType<typeof postgres>;
 let b: ReturnType<typeof postgres>;
@@ -31,9 +37,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 d("admin changes under real concurrency", () => {
   beforeAll(async () => {
-    admin = postgres(URL_!, { max: 1, onnotice: () => {} });
-    a = postgres(URL_!, { max: 1, onnotice: () => {} });
-    b = postgres(URL_!, { max: 1, onnotice: () => {} });
+    admin = connect();
+    a = connect();
+    b = connect();
     const dir = join(__dirname, "../../../drizzle/migrations");
     await admin.unsafe(readFileSync(join(__dirname, "../sql/fixture.sql"), "utf8"));
     for (const id of [T1, T2, UA, C1]) {

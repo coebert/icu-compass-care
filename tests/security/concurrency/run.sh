@@ -17,6 +17,6 @@ fi
 "${RUNAS[@]}" initdb -D "$DIR/data" -U postgres -A trust >/dev/null
 "${RUNAS[@]}" pg_ctl -D "$DIR/data" -o "-p $PORT -k $DIR -c listen_addresses=''" -l "$DIR/log" -w start >/dev/null
 trap '"${RUNAS[@]}" pg_ctl -D "$DIR/data" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"' EXIT
-export CONCURRENCY_PG_URL="postgres://postgres@localhost:$PORT/postgres?host=$DIR"
+export CONCURRENCY_PG_URL="$DIR:$PORT"
 cd "$ROOT"
 bunx vitest run tests/security/concurrency/admin-concurrency.test.ts
