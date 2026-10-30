@@ -9,10 +9,14 @@ import { safeDbError } from "@/lib/db-error";
 export const getMe = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [{ data: profile }, { data: roles }, { data: units }] = await Promise.all([
+    const [{ data: profile }, { data: roles }, { data: units }, { data: sessionStatus }] = await Promise.all([
       context.supabase.from("profiles").select("*").eq("id", context.userId).maybeSingle(),
       context.supabase.from("user_roles").select("role").eq("user_id", context.userId),
       context.supabase.from("user_unit_access").select("unit_id").eq("user_id", context.userId),
+      // Server/database-held lock + idle state for THIS session (see
+      // session_guard). The UI shows the lock screen from this, never from
+      // browser storage.
+      context.supabase.rpc("session_status"),
     ]);
     // 'admin' is the pre-matrix spelling of the Trust administrator role.
     const list = (roles ?? []).map((r) => (r.role === "admin" ? "trust_admin" : r.role));
@@ -23,6 +27,11 @@ export const getMe = createServerFn({ method: "GET" })
     const canEditClinical = list.includes("clinician") || isUnitAdmin || isTrustAdmin;
     return {
       userId: context.userId,
+      sessionStatus: (typeof sessionStatus === "string" ? sessionStatus : "active") as
+        | "active"
+        | "locked"
+        | "revoked"
+        | "no_session",
       email: (context.claims.email as string) ?? null,
       profile,
       roles: list,

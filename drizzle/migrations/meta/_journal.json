@@ -8,6 +8,20 @@
       "when": 1793361036339,
       "tag": "0000_scope_reference_table_reads_to_staff",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793362314209,
+      "tag": "0001_security_remediation_f1_f6",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793362392439,
+      "tag": "0002_security_remediation_apply",
+      "breakpoints": true
     }
   ]
 }

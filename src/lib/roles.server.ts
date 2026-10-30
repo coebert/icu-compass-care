@@ -43,13 +43,64 @@ type Ctx = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any;
   userId: string;
+  claims?: Record<string, unknown> | null;
 };
+
+/**
+ * Server/database-enforced session state. A session that was locked (manual
+ * lock, passkey lock screen) or has been idle past the limit is refused here
+ * as well as by every role-gated RLS policy (private.has_role checks
+ * private.session_active()). Browser storage plays no part in this decision.
+ */
+export async function assertSessionActive(context: Ctx): Promise<void> {
+  const { data, error } = await context.supabase.rpc("session_status");
+  if (error) throw safeDbError(error, "verify your session");
+  if (data !== "active") {
+    throw new Error(
+      data === "locked"
+        ? "SESSION_LOCKED: this session is locked. Unlock or sign in again."
+        : "SESSION_ENDED: this session is no longer valid. Please sign in again.",
+    );
+  }
+}
+
+/** How recent a genuine re-authentication must be for sensitive admin actions. */
+export const REAUTH_MAX_AGE_SECONDS = 10 * 60;
+
+/**
+ * Require a recent, verified re-authentication. Reads the `amr` claim of the
+ * signature-verified access token: Supabase Auth stamps it with the time the
+ * user actually proved a credential (password / OTP / MFA). Token refreshes
+ * keep the original stamp, so only a fresh sign-in satisfies this — nothing
+ * the caller supplies in the request body is trusted.
+ */
+export function assertRecentReauth(
+  claims: Record<string, unknown> | null | undefined,
+  nowSeconds = Math.floor(Date.now() / 1000),
+  maxAgeSeconds = REAUTH_MAX_AGE_SECONDS,
+): void {
+  const amr = Array.isArray(claims?.["amr"]) ? (claims!["amr"] as unknown[]) : [];
+  const strong = new Set(["password", "otp", "totp", "mfa/totp", "webauthn", "mfa/webauthn", "magiclink"]);
+  const newest = amr.reduce<number>((acc, entry) => {
+    if (!entry || typeof entry !== "object") return acc;
+    const m = (entry as { method?: unknown }).method;
+    const t = (entry as { timestamp?: unknown }).timestamp;
+    if (typeof m !== "string" || !strong.has(m) || typeof t !== "number") return acc;
+    return Math.max(acc, t);
+  }, 0);
+  if (!newest || nowSeconds - newest > maxAgeSeconds || newest > nowSeconds + 60) {
+    throw new Error(
+      "REAUTH_REQUIRED: please confirm your password to continue with this administrative action.",
+    );
+  }
+}
 
 /**
  * Load the caller's roles and unit memberships through their own client, so
  * RLS ("users can view own roles" / "own unit access") is what answers.
  */
 export async function loadActor(context: Ctx): Promise<Actor> {
+  await assertSessionActive(context);
   const [rolesRes, unitsRes] = await Promise.all([
     context.supabase.from("user_roles").select("role").eq("user_id", context.userId),
     context.supabase.from("user_unit_access").select("unit_id").eq("user_id", context.userId),
@@ -126,28 +177,23 @@ export function assertAssignableRole(actor: Actor, role: AppRole): void {
 }
 
 /**
- * A unit administrator may only manage accounts that belong to one of their own
- * units. Uses the service-role client because the target's memberships are not
- * otherwise readable. Returns the target's unit ids.
+ * Target-aware authorisation for every global account action (role change,
+ * password reset, suspension, deletion). The decision is made by the database
+ * (private.can_manage_account) through the CALLER's own client, so it is the
+ * same rule RLS applies to direct Data API writes:
+ *   - Trust admins may manage any account except their own;
+ *   - unit admins may manage only non-privileged accounts (no trust_admin /
+ *     legacy admin / auditor role) that have at least one unit and whose
+ *     units all fall inside the unit admin's own units.
  */
-export async function assertCanManageAccount(
-  actor: Actor,
-  targetUserId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabaseAdmin: any,
-): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .from("user_unit_access")
-    .select("unit_id")
-    .eq("user_id", targetUserId);
-  if (error) throw safeDbError(error, "verify unit access");
-  const targetUnits = (data ?? []).map((u: { unit_id: string }) => u.unit_id);
-  if (actor.isTrustAdmin) return targetUnits;
-  const shares = targetUnits.some((unitId: string) => actor.unitIds.includes(unitId));
-  if (!shares) {
-    throw new Error("Forbidden: that account belongs to units outside your administrative scope");
+export async function assertCanManageAccount(context: Ctx, targetUserId: string): Promise<void> {
+  const { data, error } = await context.supabase.rpc("can_manage_account", {
+    _target: targetUserId,
+  });
+  if (error) throw safeDbError(error, "verify account permissions");
+  if (data !== true) {
+    throw new Error("Forbidden: that account is outside your administrative scope");
   }
-  return targetUnits;
 }
 
 /**

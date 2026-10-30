@@ -147,7 +147,7 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
 
     const options = await generateAuthenticationOptions({
       rpID,
-      userVerification: "preferred",
+      userVerification: "required",
       allowCredentials: creds.map(
         (c: { credential_id: string; transports: string[] }) => ({
           id: c.credential_id,
@@ -199,7 +199,7 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
       expectedChallenge: ch.challenge,
       expectedOrigin: origin,
       expectedRPID: rpID,
-      requireUserVerification: false,
+      requireUserVerification: true,
       credential: {
         id: cred.credential_id,
         publicKey: isoBase64URL.toBuffer(cred.public_key),
@@ -226,6 +226,19 @@ export const finishPasskeyUnlock = createServerFn({ method: "POST" })
       .eq("id", cred.id);
 
     await db.from("webauthn_challenges").delete().eq("user_id", context.userId);
+
+    // Server-side unlock of THIS session only (session_id from the verified
+    // JWT). Only the service role may call session_unlock, so a client can
+    // never clear its own lock without passing the passkey check above.
+    const sessionId = (context.claims as Record<string, unknown> | undefined)?.["session_id"];
+    if (typeof sessionId !== "string") throw new Error("No session to unlock");
+    const { data: unlocked, error: unlockErr } = await supabaseAdmin.rpc("session_unlock", {
+      _session_id: sessionId,
+      _user_id: context.userId,
+    });
+    if (unlockErr || unlocked !== true) {
+      throw new Error("This session has ended. Please sign in again.");
+    }
 
     return { ok: true };
   });
