@@ -185,3 +185,12 @@ CREATE POLICY "Administrators and auditors can read audit log" ON public.audit_l
   USING (private.is_trust_admin(auth.uid()) OR private.is_auditor(auth.uid()) OR private.shares_admin_unit(auth.uid(), user_id));
 CREATE POLICY "Audit insertable by authenticated" ON public.audit_log FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 ALTER TABLE public.account_access_events ENABLE ROW LEVEL SECURITY;
+
+-- Passkey baseline policies (names as on live).
+ALTER TABLE public.webauthn_credentials ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage their own passkeys - select" ON public.webauthn_credentials FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own passkeys - insert" ON public.webauthn_credentials FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users manage their own passkeys - update" ON public.webauthn_credentials FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users manage their own passkeys - delete" ON public.webauthn_credentials FOR DELETE TO authenticated USING (auth.uid() = user_id);
+ALTER TABLE public.webauthn_challenges ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage their own challenges - all" ON public.webauthn_challenges FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
