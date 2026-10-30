@@ -2,6 +2,7 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+import { applySecurityHeaders } from "./lib/security-headers";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -28,7 +29,18 @@ const schemaGuardMiddleware = createMiddleware().server(async ({ next }) => {
   return next();
 });
 
+const securityHeadersMiddleware = createMiddleware().server(async ({ next }) => {
+  const result = await next();
+  const res = result instanceof Response ? result : result.response;
+  try {
+    applySecurityHeaders(res.headers);
+  } catch {
+    // Immutable headers (e.g. some proxied responses): leave untouched.
+  }
+  return result;
+});
+
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
-  requestMiddleware: [errorMiddleware, schemaGuardMiddleware],
+  requestMiddleware: [securityHeadersMiddleware, errorMiddleware, schemaGuardMiddleware],
 }));
