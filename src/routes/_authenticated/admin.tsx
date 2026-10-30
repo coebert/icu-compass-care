@@ -327,6 +327,7 @@ function AdminPage() {
                       />
                     )}
 
+                    {isTrustAdmin ? (
                     <AccessReasonDialog
                       title="Set a temporary password?"
                       description={`${who} will be able to sign in with the password you set here. Share it securely and ask them to change it.`}
@@ -368,6 +369,21 @@ function AdminPage() {
                         <KeyRound className="h-4 w-4" /> Password
                       </Button>
                     </AccessReasonDialog>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() =>
+                          toast.info("Password resets are done by Trust administrators", {
+                            description: `Ask a Trust administrator to set a temporary password for ${who}.`,
+                          })
+                        }
+                        aria-label={`Ask a Trust administrator to reset the password for ${who}`}
+                      >
+                        <KeyRound className="h-4 w-4" /> Password
+                      </Button>
+                    )}
 
                     {s.suspended ? (
                       <AccessReasonDialog
