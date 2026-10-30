@@ -86,6 +86,18 @@ CREATE TABLE public.audit_log (
   user_id uuid, action public.audit_action NOT NULL, entity text NOT NULL, entity_id uuid,
   diff jsonb, created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Passkey tables as on live (baseline 20260711092842 + 20260713083039).
+CREATE TABLE public.webauthn_credentials (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  credential_id text NOT NULL UNIQUE, public_key text NOT NULL,
+  counter bigint NOT NULL DEFAULT 0, transports text[] NOT NULL DEFAULT '{}',
+  device_label text, created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz
+);
+CREATE TABLE public.webauthn_challenges (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  challenge text NOT NULL, purpose text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE public.account_access_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), action text NOT NULL, actor_id uuid,
   created_at timestamptz NOT NULL DEFAULT now()
