@@ -1,56 +1,73 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Auto sign-out on inactivity.
+ * Auto sign-out on inactivity (browser side).
  *
- * Watches real user interaction (pointer, keyboard, scroll, touch) and fires
- * `onTimeout` after `timeoutMs` of no activity, with an optional `onWarn`
- * callback fired `warnMs` before the timeout so the UI can warn the user.
+ * This is a convenience layer only. The authoritative idle limit is enforced
+ * by the database (session_guard + private.session_active): once a session has
+ * had no recorded activity for the limit, every role-gated request is refused
+ * regardless of what this hook or browser storage says.
  *
- * Activity is shared across tabs via a single localStorage key so that:
- *  - interacting in one tab keeps every other tab alive, and
- *  - the timer reflects the most recent activity in ANY tab.
- *
- * The actual sign-out (clearing caches, `supabase.auth.signOut()`, redirect to
- * /auth) is left to the caller's `onTimeout` handler. Sign-out in one tab
- * propagates to the others through Supabase's `onAuthStateChange` (wired in the
- * root route), which reruns the protected-route gate and redirects to /auth.
+ * Activity is shared across tabs via one localStorage key. Rules:
+ *  - mounting / reloading does NOT count as activity, so a reload can never
+ *    revive an expired session;
+ *  - if storage is unavailable, an in-memory clock is used (never "now");
+ *  - a stored timestamp in the future (tampering / clock skew) is ignored.
  */
 
-const ACTIVITY_KEY = "icu:last-activity";
+export const ACTIVITY_KEY = "icu:last-activity";
 
-// Only persist activity at most once per second to avoid hammering
-// localStorage on continuous events like mousemove/scroll.
 const WRITE_THROTTLE_MS = 1000;
+const FUTURE_TOLERANCE_MS = 5000;
 
 const ACTIVITY_EVENTS = [
   "mousedown",
-  "mousemove",
   "keydown",
   "scroll",
   "touchstart",
   "click",
   "wheel",
+  "mousemove",
 ] as const;
 
 type Options = {
-  /** Idle time before sign-out, in milliseconds. */
   timeoutMs: number;
-  /** How long before the timeout to fire `onWarn`. Set 0 to disable. */
   warnMs?: number;
   onTimeout: () => void;
   onWarn?: () => void;
-  /** When false the watcher is inert (e.g. while signed out). */
+  /** Called (throttled by `activityPingMs`) on genuine user activity. */
+  onActivity?: () => void;
+  activityPingMs?: number;
   enabled?: boolean;
 };
 
-function readLastActivity(): number {
+function parseStored(raw: string | null, now: number): number | null {
+  if (raw == null) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n > now + FUTURE_TOLERANCE_MS) return null;
+  return n;
+}
+
+/**
+ * Most recent trustworthy activity time. Prefers the shared stored value but
+ * never lets it move later than real activity seen in this tab could justify
+ * when storage is unreadable.
+ */
+export function resolveLastActivity(
+  storedRaw: string | null | undefined,
+  memoryLast: number,
+  now: number,
+): number {
+  const stored = storedRaw === undefined ? null : parseStored(storedRaw, now);
+  return stored == null ? memoryLast : Math.max(stored, memoryLast);
+}
+
+function readStorage(): string | null | undefined {
   try {
-    const raw = localStorage.getItem(ACTIVITY_KEY);
-    const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) ? parsed : Date.now();
+    return localStorage.getItem(ACTIVITY_KEY);
   } catch {
-    return Date.now();
+    return undefined; // unavailable
   }
 }
 
@@ -59,12 +76,16 @@ export function useInactivityTimeout({
   warnMs = 60_000,
   onTimeout,
   onWarn,
+  onActivity,
+  activityPingMs = 60_000,
   enabled = true,
 }: Options) {
   const onTimeoutRef = useRef(onTimeout);
   const onWarnRef = useRef(onWarn);
+  const onActivityRef = useRef(onActivity);
   onTimeoutRef.current = onTimeout;
   onWarnRef.current = onWarn;
+  onActivityRef.current = onActivity;
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
@@ -72,32 +93,59 @@ export function useInactivityTimeout({
     let warned = false;
     let fired = false;
     let lastWrite = 0;
-
-    const markActive = (ts = Date.now()) => {
-      warned = false;
+    let lastPing = 0;
+    const now0 = Date.now();
+    // Seed from the stored value if valid; only a missing value (first load of
+    // a brand-new session) starts the clock at now. A reload keeps the old
+    // clock, so an expired session times out immediately.
+    const storedAtMount = readStorage();
+    const parsedAtMount = storedAtMount === undefined ? null : parseStored(storedAtMount, now0);
+    let memoryLast = parsedAtMount ?? now0;
+    if (parsedAtMount == null && storedAtMount !== undefined) {
       try {
-        localStorage.setItem(ACTIVITY_KEY, String(ts));
+        localStorage.setItem(ACTIVITY_KEY, String(memoryLast));
       } catch {
-        /* storage unavailable — fall back to in-memory timing */
+        /* ignore */
+      }
+    }
+
+    const check = () => {
+      if (fired) return;
+      const now = Date.now();
+      const idle = now - resolveLastActivity(readStorage(), memoryLast, now);
+      if (idle >= timeoutMs) {
+        fired = true;
+        onTimeoutRef.current();
+      } else if (warnMs > 0 && idle >= timeoutMs - warnMs && !warned) {
+        warned = true;
+        onWarnRef.current?.();
       }
     };
-
-    // Seed the timer with "now" so a freshly loaded session starts fresh.
-    markActive();
 
     const handleActivity = () => {
       if (fired || document.visibilityState === "hidden") return;
       const now = Date.now();
-      if (now - lastWrite < WRITE_THROTTLE_MS) {
-        warned = false;
+      // Never resurrect: activity after the deadline does not extend it.
+      if (now - resolveLastActivity(readStorage(), memoryLast, now) >= timeoutMs) {
+        check();
         return;
       }
-      lastWrite = now;
-      markActive(now);
+      memoryLast = now;
+      warned = false;
+      if (now - lastWrite >= WRITE_THROTTLE_MS) {
+        lastWrite = now;
+        try {
+          localStorage.setItem(ACTIVITY_KEY, String(now));
+        } catch {
+          /* in-memory clock already updated */
+        }
+      }
+      if (onActivityRef.current && now - lastPing >= activityPingMs) {
+        lastPing = now;
+        onActivityRef.current();
+      }
     };
 
-    // Activity in another tab (or a sign-out clearing storage) resets the warn
-    // flag here too, keeping every tab in sync.
     const handleStorage = (e: StorageEvent) => {
       if (e.key === ACTIVITY_KEY || e.key === null) warned = false;
     };
@@ -106,25 +154,13 @@ export function useInactivityTimeout({
       window.addEventListener(evt, handleActivity, { passive: true }),
     );
     window.addEventListener("storage", handleStorage);
-
-    const interval = window.setInterval(() => {
-      if (fired) return;
-      const idle = Date.now() - readLastActivity();
-      if (idle >= timeoutMs) {
-        fired = true;
-        onTimeoutRef.current();
-      } else if (warnMs > 0 && idle >= timeoutMs - warnMs && !warned) {
-        warned = true;
-        onWarnRef.current?.();
-      }
-    }, 1000);
+    check();
+    const interval = window.setInterval(check, 1000);
 
     return () => {
-      ACTIVITY_EVENTS.forEach((evt) =>
-        window.removeEventListener(evt, handleActivity),
-      );
+      ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, handleActivity));
       window.removeEventListener("storage", handleStorage);
       window.clearInterval(interval);
     };
-  }, [enabled, timeoutMs, warnMs]);
+  }, [enabled, timeoutMs, warnMs, activityPingMs]);
 }
