@@ -9,10 +9,10 @@ RUNAS=()
 if [ "$(id -u)" = "0" ]; then
   if ! id pgtest >/dev/null 2>&1; then
     if command -v useradd >/dev/null; then useradd -M -s /bin/false pgtest
-    else echo "pgtest:x:65432:65432::/tmp:/bin/false" >> /etc/passwd; echo "pgtest:x:65432:" >> /etc/group; fi
+    else echo "pgtest:x:65432:65432::/tmp:/bin/false" >> /etc/passwd; grep -q "^pgtest:" /etc/group || echo "pgtest:x:65432:" >> /etc/group; fi
   fi
   chown -R pgtest "$DIR"
-  RUNAS=(runuser -u pgtest --)
+  RUNAS=(setpriv --reuid=pgtest --regid=pgtest --clear-groups --)
 fi
 "${RUNAS[@]}" initdb -D "$DIR/data" -U postgres -A trust >/dev/null
 "${RUNAS[@]}" pg_ctl -D "$DIR/data" -o "-p $PORT -k $DIR -c listen_addresses=''" -l "$DIR/log" -w start >/dev/null
