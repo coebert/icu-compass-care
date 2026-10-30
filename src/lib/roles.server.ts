@@ -203,3 +203,20 @@ export async function assertCanManageAccount(context: Ctx, targetUserId: string)
 export async function assertAdmin(context: Ctx): Promise<Actor> {
   return assertConfigAdmin(context);
 }
+
+/**
+ * Password reset gate: Trust administrator (active session, checked by
+ * loadActor) plus recent verified reauthentication; never your own account.
+ */
+export async function authorizePasswordReset(
+  context: Ctx,
+  targetUserId: string,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): Promise<Actor> {
+  const actor = await assertTrustAdmin(context);
+  assertRecentReauth(context.claims, nowSeconds);
+  if (targetUserId === context.userId) {
+    throw new Error("Change your own password from My profile instead");
+  }
+  return actor;
+}

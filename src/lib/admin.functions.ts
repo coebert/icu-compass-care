@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { safeDbError } from "@/lib/db-error";
 import {
+  authorizePasswordReset,
   APP_ROLES,
   assertAssignableRole,
   assertCanManageAccount,
