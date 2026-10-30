@@ -11,6 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { performLock, uiActionFor, SESSION_CHANNEL, type SessionBroadcast, type SessionState } from "@/lib/session-lock";
 import { getMe } from "@/lib/me.functions";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, LogOut, Users, Shield, ShieldCheck, User, RefreshCw, BedDouble, Lock, LayoutDashboard, History, Command as CommandIcon, Menu, ClipboardList } from "lucide-react";
@@ -27,7 +28,7 @@ import { CommandMenu } from "@/components/CommandMenu";
 import {
   deviceHasPasskey,
   fetchSessionState,
-  lockSessionOnServer,
+  sessionRpc,
   sessionHeartbeat,
 } from "@/lib/passkeys-client";
 import { useInactivityTimeout } from "@/hooks/use-inactivity-timeout";
@@ -58,6 +59,9 @@ function AuthenticatedLayout() {
   const [hydrated, setHydrated] = useState(false);
   // Lock state comes from the server (session_guard), never browser storage.
   const [serverLocked, setServerLocked] = useState(false);
+  // Server could not confirm this session's state: clinical content is hidden
+  // (fail closed) until a re-check succeeds.
+  const [stateUnknown, setStateUnknown] = useState(false);
   const [sessionScope, setSessionScope] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -86,6 +90,38 @@ function AuthenticatedLayout() {
     [queryClient, navigate],
   );
 
+  const purgeClinicalCache = useCallback(async () => {
+    await queryClient.cancelQueries();
+    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+  }, [queryClient]);
+
+  const applyState = useCallback(
+    (state: SessionState) => {
+      const action = uiActionFor(state);
+      if (action === "none") {
+        setStateUnknown(false);
+        return;
+      }
+      void purgeClinicalCache();
+      if (action === "lock") setServerLocked(true);
+      else if (action === "sign_out") void signOut("Your session ended. Please sign in again.");
+      else setStateUnknown(true);
+    },
+    [purgeClinicalCache, signOut],
+  );
+
+  // Cross-tab: a lock or sign-out in another tab purges cached data here too.
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel(SESSION_CHANNEL);
+    ch.onmessage = (ev: MessageEvent<SessionBroadcast>) => {
+      void purgeClinicalCache();
+      if (ev.data?.type === "lock") setServerLocked(true);
+      else if (ev.data?.type === "signed_out") void signOut("You were signed out in another tab.");
+    };
+    return () => ch.close();
+  }, [purgeClinicalCache, signOut]);
+
   // 1) Idle auto sign-out: after INACTIVITY_TIMEOUT_MS with no interaction,
   //    end the session and bounce to /auth so no further patient editing is
   //    possible until re-authentication. A warning fires one minute earlier.
@@ -97,10 +133,7 @@ function AuthenticatedLayout() {
     // Record genuine activity server-side (throttled). The server never
     // revives a locked or idle session; if it reports one, react to it.
     onActivity: () => {
-      void sessionHeartbeat().then((state) => {
-        if (state === "locked") setServerLocked(true);
-        else if (state === "revoked") void signOut("Your session ended. Please sign in again.");
-      });
+      void sessionHeartbeat().then(applyState);
     },
     onWarn: () =>
       toast.warning("You'll be signed out soon", {
@@ -121,14 +154,12 @@ function AuthenticatedLayout() {
         void signOut("Your session expired. Please sign in again.");
         return;
       }
-      const state = await fetchSessionState();
-      if (state === "locked") setServerLocked(true);
-      else if (state === "revoked") void signOut("Your session ended. Please sign in again.");
+      applyState(await fetchSessionState());
     };
     void check();
     const id = window.setInterval(check, 30_000);
     return () => window.clearInterval(id);
-  }, [hydrated, signOut]);
+  }, [hydrated, signOut, applyState]);
 
   const { data: profile } = useQuery({
     queryKey: ["me"],
@@ -154,10 +185,31 @@ function AuthenticatedLayout() {
   }, [locked, deviceEnrolled, profile?.userId, signOut]);
 
   async function lockNow() {
-    await lockSessionOnServer();
-    setServerLocked(true);
-    await queryClient.cancelQueries();
-    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+    const outcome = await performLock({
+      purgeCache: purgeClinicalCache,
+      broadcast: (msg) => {
+        if (typeof BroadcastChannel === "undefined") return;
+        const ch = new BroadcastChannel(SESSION_CHANNEL);
+        ch.postMessage(msg);
+        ch.close();
+      },
+      rpcLock: sessionRpc.lock,
+      rpcStatus: sessionRpc.status,
+      signOutLocal: () => supabase.auth.signOut({ scope: "local" }),
+    });
+    if (outcome.kind === "locked") {
+      setServerLocked(true);
+      return;
+    }
+    // The server could not confirm the lock, so we do NOT claim it is locked:
+    // the session was ended on this device instead.
+    queryClient.clear();
+    navigate({ to: "/auth", replace: true });
+    toast.warning("Could not lock on the server, so you have been signed out", {
+      description: outcome.signOutError
+        ? "This device could not reach the server. Sign in again when connected; close the browser if this is a shared computer."
+        : "Sign in again to continue.",
+    });
   }
 
 
@@ -179,6 +231,30 @@ function AuthenticatedLayout() {
   ];
 
   if (!hydrated) return null;
+
+  if (stateUnknown && !locked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-6">
+        <div className="max-w-sm space-y-4 rounded-lg border bg-background p-6 text-center">
+          <Lock className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
+          <h1 className="text-lg font-semibold">Can't confirm your session</h1>
+          <p className="text-sm text-muted-foreground">
+            Patient information is hidden until the server confirms this session is still valid.
+          </p>
+          <div className="flex justify-center gap-2">
+            <Button
+              onClick={() => void fetchSessionState().then(applyState)}
+            >
+              Try again
+            </Button>
+            <Button variant="outline" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (locked) {
     return (
