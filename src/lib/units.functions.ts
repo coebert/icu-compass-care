@@ -52,6 +52,26 @@ export const listUnitAccess = createServerFn({ method: "GET" })
     return rows.filter((r) => actor.unitIds.includes(r.unit_id));
   });
 
+async function setUnitAccess(
+  context: { supabase: unknown },
+  userId: string,
+  unitId: string,
+  grant: boolean,
+  reason: string,
+): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (context.supabase as any).rpc("admin_set_unit_access", {
+    _target: userId,
+    _unit: unitId,
+    _grant: grant,
+    _reason: reason,
+  });
+  if (error) {
+    const { friendlyAdminError } = await import("@/lib/admin-errors");
+    throw friendlyAdminError(error);
+  }
+}
+
 export const grantUnitAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -67,29 +87,26 @@ export const grantUnitAccess = createServerFn({ method: "POST" })
     const actor = await assertConfigAdmin(context);
     // A unit administrator can only add people to their own units.
     assertUnitScope(actor, data.unit_id);
-    const { error } = await context.supabase.from("user_unit_access").insert({
-      user_id: data.user_id,
-      unit_id: data.unit_id,
-      reason: data.reason,
-      granted_by: context.userId,
-    });
-    if (error) throw safeDbError(error);
+    // Authoritative: the database re-checks session, recent re-auth, reason,
+    // target scope and suspension under a lock, and audits in the same txn.
+    await setUnitAccess(context, data.user_id, data.unit_id, true, data.reason);
     return { ok: true };
   });
 
 export const revokeUnitAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ user_id: z.string().uuid(), unit_id: z.string().uuid() }).parse(input),
+    z
+      .object({
+        user_id: z.string().uuid(),
+        unit_id: z.string().uuid(),
+        reason: z.string().trim().min(3, "Record why access is being removed.").max(300),
+      })
+      .parse(input),
   )
   .handler(async ({ context, data }) => {
     const actor = await assertConfigAdmin(context);
     assertUnitScope(actor, data.unit_id);
-    const { error } = await context.supabase
-      .from("user_unit_access")
-      .delete()
-      .eq("user_id", data.user_id)
-      .eq("unit_id", data.unit_id);
-    if (error) throw safeDbError(error);
+    await setUnitAccess(context, data.user_id, data.unit_id, false, data.reason);
     return { ok: true };
   });

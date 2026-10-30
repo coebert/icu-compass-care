@@ -148,7 +148,7 @@ function AccessAdminPage() {
 
   const grantMut = useMutation({
     mutationFn: (v: { user_id: string; unit_id: string; reason: string }) =>
-      grantFn({ data: v }),
+      withReauth(() => grantFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Added to unit");
@@ -157,7 +157,8 @@ function AccessAdminPage() {
   });
 
   const revokeMut = useMutation({
-    mutationFn: (v: { user_id: string; unit_id: string }) => revokeFn({ data: v }),
+    mutationFn: (v: { user_id: string; unit_id: string; reason: string }) =>
+      withReauth(() => revokeFn({ data: v })),
     onSuccess: () => {
       refresh();
       toast.success("Removed from unit");
@@ -409,8 +410,8 @@ function AccessAdminPage() {
                                   confirmLabel="Remove from unit"
                                   destructive
                                   pending={revokeMut.isPending}
-                                  onConfirm={() =>
-                                    void revokeMut.mutate({ user_id: s.id, unit_id: u.id })
+                                  onConfirm={(reason) =>
+                                    void revokeMut.mutate({ user_id: s.id, unit_id: u.id, reason })
                                   }
                                 >
                                   <Button
