@@ -25,9 +25,7 @@ function getRp() {
   const request = getRequest();
   const origin =
     request?.headers.get("origin") ??
-    (request?.headers.get("host")
-      ? `https://${request.headers.get("host")}`
-      : undefined);
+    (request?.headers.get("host") ? `https://${request.headers.get("host")}` : undefined);
   if (!origin) throw new Error("Unable to determine request origin");
   const rpID = new URL(origin).hostname;
   return { origin, rpID };
@@ -50,7 +48,12 @@ async function admin(): Promise<AnyDb> {
 }
 
 /** Issue a challenge bound to user + session + purpose + expiry (server-only write). */
-async function issueChallenge(userId: string, sessionId: string, purpose: string, challenge: string) {
+async function issueChallenge(
+  userId: string,
+  sessionId: string,
+  purpose: string,
+  challenge: string,
+) {
   const db = await admin();
   const { error } = await db.from("webauthn_challenges").upsert({
     user_id: userId,
@@ -64,7 +67,11 @@ async function issueChallenge(userId: string, sessionId: string, purpose: string
 }
 
 /** Single-use consume: deletes the row and returns it only if every binding matches. */
-async function consumeChallenge(userId: string, sessionId: string, purpose: string): Promise<string> {
+async function consumeChallenge(
+  userId: string,
+  sessionId: string,
+  purpose: string,
+): Promise<string> {
   const db = await admin();
   const { data } = await db
     .from("webauthn_challenges")
@@ -125,7 +132,6 @@ export const finishPasskeyRegistration = createServerFn({ method: "POST" })
   .inputValidator((input) =>
     z
       .object({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         response: z.any(),
         deviceLabel: z.string().trim().max(120).optional(),
       })
@@ -188,12 +194,10 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
     const options = await generateAuthenticationOptions({
       rpID,
       userVerification: "required",
-      allowCredentials: creds.map(
-        (c: { credential_id: string; transports: string[] }) => ({
-          id: c.credential_id,
-          transports: c.transports as AnyDb,
-        }),
-      ),
+      allowCredentials: creds.map((c: { credential_id: string; transports: string[] }) => ({
+        id: c.credential_id,
+        transports: c.transports as AnyDb,
+      })),
     });
 
     await issueChallenge(context.userId, sessionId, "authentication", options.challenge);
@@ -203,10 +207,7 @@ export const startPasskeyUnlock = createServerFn({ method: "POST" })
 
 export const finishPasskeyUnlock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    z.object({ response: z.any() }).parse(input),
-  )
+  .inputValidator((input) => z.object({ response: z.any() }).parse(input))
   .handler(async ({ context, data }) => {
     const sessionId = sessionIdOf(context.claims);
     const { origin, rpID } = getRp();

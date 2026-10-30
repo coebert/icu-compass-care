@@ -74,7 +74,9 @@ export async function bridgeUpdateSharedPatient(
 export async function bridgeInsertInvestigation(
   admin: AdminClient,
   rec: { patient_id: string; category: string; findings: string; result_at?: string | null },
-): Promise<{ kind: "created"; row: Row } | { kind: "not_found" } | { kind: "error"; error: unknown }> {
+): Promise<
+  { kind: "created"; row: Row } | { kind: "not_found" } | { kind: "error"; error: unknown }
+> {
   const { data, error } = await admin.rpc("bridge_insert_investigation", {
     _patient_id: rec.patient_id,
     _category: rec.category,
