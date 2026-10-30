@@ -46,7 +46,8 @@ async function runValidation(): Promise<SchemaValidationResult> {
     REQUIRED_SCHEMA.map(async ({ table, columns }) => {
       const { error, status } = await admin
         .from(table)
-        .select(columns.join(","), { head: true, count: "exact" })
+        // head-only, NO count: avoids a full exact count per table.
+        .select(columns.join(","), { head: true })
         .limit(1);
       if (!error) return;
       // Backend unreachable / starting up (5xx or empty error): not a schema
@@ -64,18 +65,62 @@ async function runValidation(): Promise<SchemaValidationResult> {
   return { ok: problems.length === 0, problems, checkedAt: new Date().toISOString(), transient } as SchemaValidationResult & { transient: boolean };
 }
 
-let memo: Promise<SchemaValidationResult> | null = null;
+// Cache + coalesce: concurrent callers share one in-flight probe; successful
+// results are cached for SUCCESS_TTL_MS; failed/deferred results are cached
+// too, with exponential backoff, so neither page loads nor the public health
+// endpoint can fan out repeated probes to the database.
+export const SUCCESS_TTL_MS = 60 * 60 * 1000;
+export const FAILURE_BASE_MS = 30 * 1000;
+export const FAILURE_MAX_MS = 10 * 60 * 1000;
 
-// Validate once per worker instance; subsequent calls reuse the result.
-// Failed or deferred validations are NOT cached so they re-check later.
-export function validateSchema(force = false): Promise<SchemaValidationResult> {
-  if (force || !memo) {
-    memo = runValidation().then((result) => {
-      if (!result.ok || (result as { transient?: boolean }).transient) memo = null;
+type Cache = { result: SchemaValidationResult; expiresAt: number } | null;
+let cache: Cache = null;
+let inflight: Promise<SchemaValidationResult> | null = null;
+let failures = 0;
+
+/** Test hook. */
+export function __resetSchemaCache() {
+  cache = null;
+  inflight = null;
+  failures = 0;
+}
+
+export function nextBackoffMs(failureCount: number): number {
+  return Math.min(FAILURE_MAX_MS, FAILURE_BASE_MS * 2 ** Math.max(0, failureCount - 1));
+}
+
+export function validateSchema(
+  _force = false,
+  deps: { run?: () => Promise<SchemaValidationResult>; now?: () => number } = {},
+): Promise<SchemaValidationResult> {
+  void _force; // forced re-checks are no longer honoured: cache/backoff always apply
+  const now = deps.now ?? Date.now;
+  if (cache && cache.expiresAt > now()) return Promise.resolve(cache.result);
+  if (inflight) return inflight;
+  const run = deps.run ?? runValidation;
+  inflight = run()
+    .catch(
+      (e): SchemaValidationResult & { transient: boolean } => ({
+        ok: true,
+        problems: [],
+        checkedAt: new Date(now()).toISOString(),
+        transient: true,
+        ...(e ? {} : {}),
+      }),
+    )
+    .then((result) => {
+      const transient = Boolean((result as { transient?: boolean }).transient);
+      if (result.ok && !transient) {
+        failures = 0;
+        cache = { result, expiresAt: now() + SUCCESS_TTL_MS };
+      } else {
+        failures += 1;
+        cache = { result, expiresAt: now() + nextBackoffMs(failures) };
+      }
+      inflight = null;
       return result;
     });
-  }
-  return memo;
+  return inflight;
 }
 
 export function formatSchemaError(result: SchemaValidationResult): string {
