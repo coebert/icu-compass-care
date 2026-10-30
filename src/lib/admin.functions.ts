@@ -7,6 +7,7 @@ import {
   assertAssignableRole,
   assertCanManageAccount,
   assertConfigAdmin,
+  assertRecentReauth,
   assertOversight,
   assertUnitScope,
   type AppRole,
@@ -158,6 +159,7 @@ export const createStaff = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const actor = await assertConfigAdmin(context);
+    assertRecentReauth(context.claims);
     assertAssignableRole(actor, data.role as AppRole);
     // A unit administrator may only place people in units they administer, and
     // defaults to their own units when none are named.
@@ -209,6 +211,38 @@ export const createStaff = createServerFn({ method: "POST" })
     return { ok: true, id: newId };
   });
 
+function friendlyRoleError(error: { message?: string } | null | undefined): Error {
+  const msg = error?.message ?? "";
+  if (msg.includes("LAST_TRUST_ADMIN")) {
+    return new Error("At least one Trust administrator must remain. Appoint another first.");
+  }
+  if (msg.includes("FORBIDDEN_TARGET")) {
+    return new Error("Forbidden: that account is outside your administrative scope");
+  }
+  if (msg.includes("FORBIDDEN_ROLE")) {
+    return new Error("Forbidden: only a Trust administrator can assign that role");
+  }
+  return safeDbError(error as never);
+}
+
+/**
+ * Atomically replace a target's roles. Runs through the CALLER's client: the
+ * database function re-checks target scope + assignable roles and protects
+ * the last Trust administrator under an advisory lock, all in one transaction.
+ */
+async function replaceRoles(
+  context: { supabase: unknown },
+  targetUserId: string,
+  roles: AppRole[],
+): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (context.supabase as any).rpc("replace_user_roles", {
+    _target: targetUserId,
+    _roles: roles,
+  });
+  if (error) throw friendlyRoleError(error);
+}
+
 // Change a staff member's role (admin only).
 export const setStaffRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -217,31 +251,18 @@ export const setStaffRole = createServerFn({ method: "POST" })
       .object({
         user_id: z.string().uuid(),
         role: roleSchema,
-        // ICU units the new account may work in. Required for clinical roles:
-        // without a membership the account can reach no patient data at all.
-        unit_ids: z.array(z.string().uuid()).max(50).optional(),
         reason: reasonSchema,
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
     const actor = await assertConfigAdmin(context);
+    assertRecentReauth(context.claims);
     assertAssignableRole(actor, data.role as AppRole);
-    // A unit administrator may only place people in units they administer, and
-    // defaults to their own units when none are named.
-    const unitIds =
-      data.unit_ids && data.unit_ids.length > 0
-        ? data.unit_ids
-        : actor.isTrustAdmin
-          ? []
-          : actor.unitIds;
-    for (const unitId of unitIds) assertUnitScope(actor, unitId);
+    if (data.user_id === context.userId) throw new Error("You cannot change your own role");
+    await assertCanManageAccount(context, data.user_id);
+    await replaceRoles(context, data.user_id, [data.role as AppRole]);
     const supabaseAdmin = await getAdmin();
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: data.user_id, role: data.role });
-    if (error) throw safeDbError(error);
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     await logAccessEvent(context, {
       action: "role_changed",
@@ -255,8 +276,8 @@ export const setStaffRole = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Suspend or reinstate access (admin only). Suspension takes effect immediately:
-// sign-in and token refresh are blocked, and clinical roles are stripped.
+// Suspend or reinstate access (admin only). Suspension strips roles first
+// (atomic, last-admin protected) and then blocks sign-in / token refresh.
 export const setStaffSuspended = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -271,25 +292,32 @@ export const setStaffSuspended = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const actor = await assertConfigAdmin(context);
-    if (data.role) assertAssignableRole(actor, data.role as AppRole);
+    assertRecentReauth(context.claims);
     if (data.user_id === context.userId) throw new Error("You cannot suspend your own account");
+    const role = (data.role ?? "clinician") as AppRole;
+    if (!data.suspended) assertAssignableRole(actor, role);
+    if (data.suspended) {
+      // Authorised and last-admin-checked inside the database before any change.
+      await assertCanManageAccount(context, data.user_id);
+      await replaceRoles(context, data.user_id, []);
+    }
     const supabaseAdmin = await getAdmin();
-    await assertCanManageAccount(actor, data.user_id, supabaseAdmin);
+    if (!data.suspended) {
+      // A suspended account holds no roles, so target scope is judged on its
+      // unit memberships (non-privileged by construction).
+      await assertCanManageAccount(context, data.user_id);
+    }
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
       ban_duration: data.suspended ? SUSPEND_DURATION : "none",
     });
     if (error) throw safeDbError(error);
     if (data.suspended) {
-      // Remove all role grants so nothing is authorised even if a session lingers.
-      await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
+      // End every live session for the account immediately.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabaseAdmin.auth.admin as any).signOut?.(data.user_id, "global").catch?.(() => {});
     } else {
-      const role = data.role ?? "clinician";
-      await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
-      const { error: roleErr } = await supabaseAdmin
-        .from("user_roles")
-        .insert({ user_id: data.user_id, role });
-      if (roleErr) throw safeDbError(roleErr);
+      await replaceRoles(context, data.user_id, [role]);
     }
     await logAccessEvent(context, {
       action: data.suspended ? "suspended" : "reinstated",
@@ -297,7 +325,7 @@ export const setStaffSuspended = createServerFn({ method: "POST" })
       target_email: target?.user?.email ?? null,
       target_display_name:
         (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null,
-      role: data.suspended ? null : (data.role ?? "clinician"),
+      role: data.suspended ? null : role,
       reason: data.reason,
     });
     return { ok: true };
@@ -316,9 +344,13 @@ export const resetStaffPassword = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const actor = await assertConfigAdmin(context);
+    await assertConfigAdmin(context);
+    assertRecentReauth(context.claims);
+    if (data.user_id === context.userId) {
+      throw new Error("Change your own password from My profile instead");
+    }
+    await assertCanManageAccount(context, data.user_id);
     const supabaseAdmin = await getAdmin();
-    await assertCanManageAccount(actor, data.user_id, supabaseAdmin);
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
       password: data.password,
@@ -342,15 +374,18 @@ export const deleteStaff = createServerFn({ method: "POST" })
     z.object({ user_id: z.string().uuid(), reason: reasonSchema }).parse(input),
   )
   .handler(async ({ context, data }) => {
-    const actor = await assertConfigAdmin(context);
+    await assertConfigAdmin(context);
+    assertRecentReauth(context.claims);
     if (data.user_id === context.userId) throw new Error("You cannot delete your own account");
+    await assertCanManageAccount(context, data.user_id);
+    // Strip roles first: atomic, authorised and last-admin protected in the
+    // database. The deletion cascade is guarded by the same trigger.
+    await replaceRoles(context, data.user_id, []);
     const supabaseAdmin = await getAdmin();
-    await assertCanManageAccount(actor, data.user_id, supabaseAdmin);
     const { data: target } = await supabaseAdmin.auth.admin.getUserById(data.user_id);
     const email = target?.user?.email ?? null;
     const displayName =
       (target?.user?.user_metadata?.["display_name"] as string | undefined) ?? null;
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
     if (error) throw safeDbError(error);
     await logAccessEvent(context, {
@@ -363,22 +398,6 @@ export const deleteStaff = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Bootstrap: promote the very first user to admin if there are no admins yet.
-// Safe because it only succeeds when zero admins exist.
-export const claimFirstAdmin = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const supabaseAdmin = await getAdmin();
-    const { count, error: countErr } = await supabaseAdmin
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .in("role", ["admin", "trust_admin"]);
-    if (countErr) throw safeDbError(countErr);
-    if ((count ?? 0) > 0) return { ok: false, reason: "admin_exists" as const };
-    const { error } = await supabaseAdmin.from("user_roles").insert([
-      { user_id: context.userId, role: "trust_admin" },
-      { user_id: context.userId, role: "unit_admin" },
-    ]);
-    if (error) throw safeDbError(error);
-    return { ok: true };
-  });
+// First-admin bootstrap is no longer available to signed-in users: it lives
+// only in the unauthenticated /setup flow, which the database seals
+// permanently (private.bootstrap_state) once any account exists.
