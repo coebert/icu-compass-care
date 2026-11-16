@@ -313,7 +313,7 @@ const bedMoveSchema = z
   .max(2);
 
 // One move, or an exact two-bed swap, or an undo — all in ONE database
-// transaction with every involved revision checked. If the database routine
+// transaction with every involved revision checked and the audit written. If the database routine
 // isn't installed yet this refuses; it never falls back to separate writes.
 export const movePatientBeds = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -333,24 +333,8 @@ export const movePatientBeds = createServerFn({ method: "POST" })
     }
     const results = (Array.isArray(out) ? out : []) as BedMoveResult[];
     if (results.length !== data.moves.length) throw bedMoveError("failed");
-    // Audit the intended final positions only (never the transient cleared bed).
-    const supabaseAdmin = await getAdmin();
-    const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
-    for (const r of results) {
-      const before = { bed: r.previous_bed, location_type: r.previous_location_type };
-      const after = { bed: r.bed, location_type: r.location_type };
-      await writeAudit(supabaseAdmin, {
-        entity: "patients",
-        recordId: r.id,
-        action: "update",
-        source: "app",
-        actor,
-        before,
-        after,
-        changedFields: diffFields(before, after),
-      });
-      await writePatientFieldChanges(supabaseAdmin, { patientId: r.id, before, after, actor });
-    }
+    // The routine audits the intended final positions itself, inside the same
+    // transaction (so a direct call can't skip it). No second audit here.
     return results;
   });
 
