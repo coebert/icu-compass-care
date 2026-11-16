@@ -10,7 +10,10 @@ import { createHmac } from "crypto";
  * replaced with in-memory spies, so this never touches live data.
  */
 
-const security = vi.hoisted(() => ({ events: [] as Array<Record<string, unknown>>, limiterCalls: 0 }));
+const security = vi.hoisted(() => ({
+  events: [] as Array<Record<string, unknown>>,
+  limiterCalls: 0,
+}));
 
 vi.mock("@/lib/admin-db.server", () => ({ getAdmin: async () => ({}) }));
 vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
@@ -28,13 +31,21 @@ vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
 });
 
 const SECRET = "synthetic-test-secret-not-a-real-value";
-const ACTOR = JSON.stringify({ id: "00000000-0000-0000-0000-000000000002", email: "t@synthetic", role: "clinician" });
+const ACTOR = JSON.stringify({
+  id: "00000000-0000-0000-0000-000000000002",
+  email: "t@synthetic",
+  role: "clinician",
+});
 
 function sign(secret: string, ts: string, actor: string, body: string) {
   return createHmac("sha256", secret).update(`${ts}.${actor}.${body}`).digest("hex");
 }
 
-async function post(handler: (ctx: { request: Request }) => Promise<Response>, h: Record<string, string>, body: string) {
+async function post(
+  handler: (ctx: { request: Request }) => Promise<Response>,
+  h: Record<string, string>,
+  body: string,
+) {
   const request = new Request("http://isolated.test/api/public/bridge/verify-signature", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...h },
@@ -47,7 +58,9 @@ async function post(handler: (ctx: { request: Request }) => Promise<Response>, h
 async function loadPost() {
   const mod = await import("@/routes/api/public/bridge.verify-signature");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (mod.Route as any).options.server.handlers.POST as (ctx: { request: Request }) => Promise<Response>;
+  return (mod.Route as any).options.server.handlers.POST as (ctx: {
+    request: Request;
+  }) => Promise<Response>;
 }
 
 describe("bridge signed-envelope tamper detection (isolated)", () => {
@@ -79,7 +92,10 @@ describe("bridge signed-envelope tamper detection (isolated)", () => {
     // Both requests were rate-limited; only the tampered one was logged as a security event.
     expect(security.limiterCalls).toBe(2);
     expect(security.events).toHaveLength(1);
-    expect(security.events[0]).toMatchObject({ event_type: "signature_failure", endpoint: "/bridge/verify-signature" });
+    expect(security.events[0]).toMatchObject({
+      event_type: "signature_failure",
+      endpoint: "/bridge/verify-signature",
+    });
   });
 
   it("rejects a tampered actor envelope and a signature made with the wrong secret", async () => {
@@ -88,7 +104,11 @@ describe("bridge signed-envelope tamper detection (isolated)", () => {
     const body = "{}";
     const sig = sign(SECRET, ts, ACTOR, body);
     const escalated = ACTOR.replace('"clinician"', '"trust_admin"');
-    const a = await post(POST, { "x-timestamp": ts, "x-actor": escalated, "x-signature": sig }, body);
+    const a = await post(
+      POST,
+      { "x-timestamp": ts, "x-actor": escalated, "x-signature": sig },
+      body,
+    );
     expect(a.status).toBe(401);
     expect(a.json.error).toBe("Invalid signature");
 
@@ -101,7 +121,11 @@ describe("bridge signed-envelope tamper detection (isolated)", () => {
     const POST = await loadPost();
     const ts = String(Math.floor(Date.now() / 1000) - 3600);
     const body = "{}";
-    const r = await post(POST, { "x-timestamp": ts, "x-actor": ACTOR, "x-signature": sign(SECRET, ts, ACTOR, body) }, body);
+    const r = await post(
+      POST,
+      { "x-timestamp": ts, "x-actor": ACTOR, "x-signature": sign(SECRET, ts, ACTOR, body) },
+      body,
+    );
     expect(r.status).toBe(401);
     expect(r.json.error).toBe("Stale or invalid timestamp");
   });
