@@ -57,7 +57,6 @@ export const inboundSyncLogActor: BridgeActor = {
   email: bridgeSystemActor.email,
   role: INBOUND_SYNC_ACTOR_ROLE,
 };
-const auditActor = { id: bridgeSystemActor.id, email: bridgeSystemActor.email, role: INBOUND_SYNC_ACTOR_ROLE };
 
 function errorCode(e: unknown): SyncErrorCode {
   if (e instanceof BridgeFetchError || e instanceof ContractError || e instanceof ImportStepError) {
@@ -81,31 +80,27 @@ type ImportSpec = {
   entity: Exclude<SyncResource, "patients">;
   source: SyncV1Resource;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apply: (admin: any, records: Record<string, unknown>[], unitId: () => Promise<string>) => Promise<ImportCounts>;
+  apply: (admin: any, records: Record<string, unknown>[]) => Promise<ImportCounts>;
 };
 
+// The bridge unit is resolved by the database inside each import helper;
+// nothing here chooses or passes a unit.
 export const IMPORT_SPECS: ImportSpec[] = [
-  {
-    entity: "referrals",
-    source: "referrals",
-    apply: (admin, records) => importReferrals(admin, records, auditActor),
-  },
+  { entity: "referrals", source: "referrals", apply: (admin, records) => importReferrals(admin, records) },
   {
     entity: "investigations",
     source: "investigations",
-    apply: async (admin, records, unitId) =>
-      importResults(admin, "investigations", records, records.length ? await unitId() : "", auditActor),
+    apply: (admin, records) => importResults(admin, "investigations", records),
   },
   {
     entity: "microbiology",
     source: "microbiology",
-    apply: async (admin, records, unitId) =>
-      importResults(admin, "microbiology", records, records.length ? await unitId() : "", auditActor),
+    apply: (admin, records) => importResults(admin, "microbiology", records),
   },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function syncResource(admin: any, spec: ImportSpec, unitId: () => Promise<string>): Promise<EntitySyncResult> {
+export async function syncResource(admin: any, spec: ImportSpec): Promise<EntitySyncResult> {
   const result: EntitySyncResult = {
     entity: spec.entity,
     fetched: 0,
@@ -118,7 +113,7 @@ export async function syncResource(admin: any, spec: ImportSpec, unitId: () => P
   try {
     const { records } = await fetchSyncV1(spec.source);
     result.fetched = records.length;
-    const counts = await spec.apply(admin, records, unitId);
+    const counts = await spec.apply(admin, records);
     Object.assign(result, counts);
     result.error = countsCode(counts);
     if (result.error) {
@@ -159,10 +154,8 @@ export async function syncResource(admin: any, spec: ImportSpec, unitId: () => P
 export async function runBridgeSync(adminOverride?: any): Promise<SyncRunResult> {
   const startedAt = new Date().toISOString();
   const admin = adminOverride ?? (await getAdmin());
-  let unit: Promise<string> | null = null;
-  const unitId = () => (unit ??= resolveBridgeUnitId(admin));
   const results: EntitySyncResult[] = [];
-  for (const spec of IMPORT_SPECS) results.push(await syncResource(admin, spec, unitId));
+  for (const spec of IMPORT_SPECS) results.push(await syncResource(admin, spec));
   return {
     ok: results.every((r) => !r.error),
     startedAt,
