@@ -8,9 +8,13 @@
 --    removed from both ends, then upper-case. No prefix stripping, no padding.
 -- 2. public.move_patient_beds(jsonb): one atomic, revision-checked move or
 --    pair swap (also used for undo).
--- 3. Partner import helpers for the sync v1 contract:
---    public.bridge_import_referral / public.bridge_import_result, and a
---    referrals-only updated_at trigger that can keep the SOURCE revision.
+--    The intended final operation is audited INSIDE the same transaction
+--    (record_audit + patient_field_changes, actor taken from auth.uid()), so a
+--    direct authenticated RPC call cannot skip the audit, and an audit failure
+--    rolls back both halves of a swap. The transient cleared bed is never
+--    recorded.
+-- Depends on: drizzle 0002-0004 (private.session_active, can_edit_unit).
+-- Followed by 0006 (bridge import provenance) and 0007 (wardable fence).
 --
 -- Non-destructive: no rows are changed or removed. The preflight aborts the
 -- whole migration if existing data would violate the new rule; it never
@@ -120,6 +124,8 @@ DECLARE
   v_a jsonb;
   v_b jsonb;
   v_out jsonb;
+  v_email text;
+  v_changed text[];
 BEGIN
   IF v_uid IS NULL OR NOT private.session_active() THEN
     RAISE EXCEPTION 'not_authorised' USING ERRCODE = 'PT403';
@@ -272,7 +278,34 @@ BEGIN
     RAISE EXCEPTION 'bed_occupied' USING ERRCODE = 'PT409';
   END;
 
-  -- Final positions only (the intended operation), for the caller's audit.
+  -- Audit the intended final operation only (never the transient cleared bed),
+  -- in this transaction: if either audit insert fails, every change above
+  -- rolls back with it.
+  SELECT u.email INTO v_email FROM auth.users u WHERE u.id = v_uid;
+  FOR v_p IN
+    SELECT p.id, p.bed, p.location_type::text AS loc, p.updated_at
+    FROM public.patients p WHERE p.id = ANY (v_ids) ORDER BY p.id
+  LOOP
+    v_c := v_cur -> v_p.id::text;
+    v_changed := ARRAY[]::text[];
+    IF (v_c ->> 'bed') IS DISTINCT FROM v_p.bed THEN v_changed := v_changed || 'bed'; END IF;
+    IF (v_c ->> 'loc') IS DISTINCT FROM v_p.loc THEN v_changed := v_changed || 'location_type'; END IF;
+    INSERT INTO public.record_audit
+      (entity, record_id, action, source, actor_id, actor_role, actor_email, changed_fields, before, after)
+    VALUES ('patients', v_p.id, 'update', 'app', v_uid, NULL, v_email, v_changed,
+            jsonb_build_object('bed', v_c -> 'bed', 'location_type', v_c -> 'loc'),
+            jsonb_build_object('bed', v_p.bed, 'location_type', v_p.loc,
+                               'operation', CASE WHEN v_n = 2 THEN 'swap' ELSE 'move' END));
+    IF 'bed' = ANY (v_changed) THEN
+      INSERT INTO public.patient_field_changes (patient_id, field_name, old_value, new_value, changed_by, changed_by_email)
+      VALUES (v_p.id, 'bed', nullif(v_c ->> 'bed', ''), nullif(v_p.bed, ''), v_uid, v_email);
+    END IF;
+    IF 'location_type' = ANY (v_changed) THEN
+      INSERT INTO public.patient_field_changes (patient_id, field_name, old_value, new_value, changed_by, changed_by_email)
+      VALUES (v_p.id, 'location_type', v_c ->> 'loc', v_p.loc, v_uid, v_email);
+    END IF;
+  END LOOP;
+
   SELECT jsonb_agg(jsonb_build_object(
            'id', p.id,
            'bed', p.bed,
@@ -290,176 +323,3 @@ END
 $$;
 REVOKE ALL ON FUNCTION public.move_patient_beds(jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.move_patient_beds(jsonb) TO authenticated;
-
--- ---------------------------------------------------------------------------
--- Referrals: keep the SOURCE revision on bridge imports only.
--- Replaces only the referrals updated_at trigger; patients and every other
--- table keep update_updated_at_column() unchanged.
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION private.referrals_touch_updated_at()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path = ''
-AS $$
-BEGIN
-  -- Set (transaction-local) only inside public.bridge_import_referral, and
-  -- only honoured when the source revision moves forward.
-  IF coalesce(current_setting('app.bridge_source_revision', true), '') = 'on'
-     AND NEW.updated_at > OLD.updated_at THEN
-    RETURN NEW;
-  END IF;
-  NEW.updated_at := now();
-  RETURN NEW;
-END
-$$;
-CREATE OR REPLACE TRIGGER referrals_set_updated_at
-  BEFORE UPDATE ON public.referrals
-  FOR EACH ROW EXECUTE FUNCTION private.referrals_touch_updated_at();
-
--- Allowlisted referral import with compare-and-set on the local revision.
--- _expected_updated_at NULL = "expect no local row" (insert only).
--- Returns 'inserted' | 'updated' | 'unchanged' | 'conflict'.
-CREATE OR REPLACE FUNCTION public.bridge_import_referral(_rec jsonb, _expected_updated_at timestamptz)
-RETURNS text
-LANGUAGE plpgsql
-VOLATILE
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_clean jsonb;
-  v_row public.referrals;
-  v_cur timestamptz;
-BEGIN
-  -- Explicit allowlist: *_enc, *_hash, created_by/updated_by/deleted_by,
-  -- origin_booking_id and previous_referral_id can never be written here.
-  v_clean := jsonb_build_object(
-    'id', _rec -> 'id', 'created_at', _rec -> 'created_at', 'updated_at', _rec -> 'updated_at',
-    'deleted_at', _rec -> 'deleted_at', 'status', _rec -> 'status',
-    'referral_received_at', _rec -> 'referral_received_at', 'age', _rec -> 'age', 'sex', _rec -> 'sex',
-    'current_ward', _rec -> 'current_ward', 'current_bed', _rec -> 'current_bed',
-    'referring_specialty', _rec -> 'referring_specialty', 'reason_category', _rec -> 'reason_category',
-    'ceiling_of_care', _rec -> 'ceiling_of_care', 'resus_status', _rec -> 'resus_status',
-    'dnacpr_respect', _rec -> 'dnacpr_respect',
-    'anticipated_interventions', coalesce(_rec -> 'anticipated_interventions', '[]'::jsonb),
-    'allergies', _rec -> 'allergies', 'weight_kg', _rec -> 'weight_kg',
-    'admission_urgency', _rec -> 'admission_urgency', 'infection_status', _rec -> 'infection_status',
-    'news2_score', _rec -> 'news2_score');
-  v_row := jsonb_populate_record(NULL::public.referrals, v_clean);
-  IF v_row.id IS NULL OR v_row.updated_at IS NULL OR v_row.created_at IS NULL
-     OR v_row.status IS NULL OR v_row.referral_received_at IS NULL OR v_row.dnacpr_respect IS NULL THEN
-    RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
-  END IF;
-
-  IF _expected_updated_at IS NULL THEN
-    INSERT INTO public.referrals (
-      id, created_at, updated_at, deleted_at, status, referral_received_at, age, sex,
-      current_ward, current_bed, referring_specialty, reason_category, ceiling_of_care,
-      resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg,
-      admission_urgency, infection_status, news2_score)
-    VALUES (
-      v_row.id, v_row.created_at, v_row.updated_at, v_row.deleted_at, v_row.status,
-      v_row.referral_received_at, v_row.age, v_row.sex, v_row.current_ward, v_row.current_bed,
-      v_row.referring_specialty, v_row.reason_category, v_row.ceiling_of_care, v_row.resus_status,
-      v_row.dnacpr_respect, v_row.anticipated_interventions, v_row.allergies, v_row.weight_kg,
-      v_row.admission_urgency, v_row.infection_status, v_row.news2_score)
-    ON CONFLICT (id) DO NOTHING;
-    IF FOUND THEN RETURN 'inserted'; END IF;
-    RETURN 'conflict';
-  END IF;
-
-  SELECT r.updated_at INTO v_cur FROM public.referrals r WHERE r.id = v_row.id FOR UPDATE;
-  IF NOT FOUND OR v_cur IS DISTINCT FROM _expected_updated_at THEN
-    RETURN 'conflict';
-  END IF;
-  IF v_row.updated_at <= v_cur THEN
-    RETURN 'unchanged';
-  END IF;
-  PERFORM set_config('app.bridge_source_revision', 'on', true);
-  UPDATE public.referrals SET
-    deleted_at = v_row.deleted_at, status = v_row.status,
-    referral_received_at = v_row.referral_received_at, age = v_row.age, sex = v_row.sex,
-    current_ward = v_row.current_ward, current_bed = v_row.current_bed,
-    referring_specialty = v_row.referring_specialty, reason_category = v_row.reason_category,
-    ceiling_of_care = v_row.ceiling_of_care, resus_status = v_row.resus_status,
-    dnacpr_respect = v_row.dnacpr_respect, anticipated_interventions = v_row.anticipated_interventions,
-    allergies = v_row.allergies, weight_kg = v_row.weight_kg,
-    admission_urgency = v_row.admission_urgency, infection_status = v_row.infection_status,
-    news2_score = v_row.news2_score,
-    updated_at = v_row.updated_at
-  WHERE id = v_row.id;
-  PERFORM set_config('app.bridge_source_revision', 'off', true);
-  RETURN 'updated';
-END
-$$;
-REVOKE ALL ON FUNCTION public.bridge_import_referral(jsonb, timestamptz) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.bridge_import_referral(jsonb, timestamptz) TO service_role;
-
--- New-id-only result import, linked to an EXISTING patient that is in the
--- bridge unit and still shared. The patient row is held FOR SHARE until the
--- transaction ends, so a concurrent sharing revocation waits rather than
--- racing the insert. Returns 'inserted' | 'identical' | 'conflict' |
--- 'parent_unavailable'. Never creates or edits a patient; never overwrites.
-CREATE OR REPLACE FUNCTION public.bridge_import_result(_kind text, _rec jsonb, _unit_id uuid)
-RETURNS text
-LANGUAGE plpgsql
-VOLATILE
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-DECLARE
-  v_id uuid;
-  v_pid uuid;
-  v_type text := _rec ->> 'type';
-  v_findings text := _rec ->> 'findings';
-  v_result_at timestamptz;
-  v_created timestamptz;
-  v_updated timestamptz;
-  v_e record;
-BEGIN
-  BEGIN
-    v_id := (_rec ->> 'id')::uuid;
-    v_pid := (_rec ->> 'patient_id')::uuid;
-    v_result_at := (_rec ->> 'result_at')::timestamptz;
-    v_created := (_rec ->> 'created_at')::timestamptz;
-    v_updated := (_rec ->> 'updated_at')::timestamptz;
-  EXCEPTION WHEN others THEN
-    RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
-  END;
-  IF _kind NOT IN ('investigations', 'microbiology') OR _unit_id IS NULL
-     OR v_id IS NULL OR v_pid IS NULL OR v_result_at IS NULL OR v_created IS NULL OR v_updated IS NULL
-     OR coalesce(btrim(v_type), '') = '' OR coalesce(btrim(v_findings), '') = '' THEN
-    RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
-  END IF;
-
-  PERFORM 1 FROM public.patients p
-   WHERE p.id = v_pid AND p.unit_id = _unit_id AND p.shared_with_partner
-   FOR SHARE;
-  IF NOT FOUND THEN
-    RETURN 'parent_unavailable';
-  END IF;
-
-  IF _kind = 'investigations' THEN
-    INSERT INTO public.investigations (id, patient_id, category, findings, result_at, created_at, updated_at)
-    VALUES (v_id, v_pid, v_type, v_findings, v_result_at, v_created, v_updated)
-    ON CONFLICT (id) DO NOTHING;
-    IF FOUND THEN RETURN 'inserted'; END IF;
-    SELECT i.patient_id, i.category AS kind_value, i.findings, i.result_at INTO v_e
-      FROM public.investigations i WHERE i.id = v_id;
-  ELSE
-    INSERT INTO public.microbiology_results (id, patient_id, specimen_type, findings, result_at, created_at, updated_at)
-    VALUES (v_id, v_pid, v_type, v_findings, v_result_at, v_created, v_updated)
-    ON CONFLICT (id) DO NOTHING;
-    IF FOUND THEN RETURN 'inserted'; END IF;
-    SELECT m.patient_id, m.specimen_type AS kind_value, m.findings, m.result_at INTO v_e
-      FROM public.microbiology_results m WHERE m.id = v_id;
-  END IF;
-  IF v_e.patient_id = v_pid AND v_e.kind_value = v_type AND v_e.findings = v_findings
-     AND v_e.result_at = v_result_at THEN
-    RETURN 'identical';
-  END IF;
-  RETURN 'conflict';
-END
-$$;
-REVOKE ALL ON FUNCTION public.bridge_import_result(text, jsonb, uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.bridge_import_result(text, jsonb, uuid) TO service_role;
