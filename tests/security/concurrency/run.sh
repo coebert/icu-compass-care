@@ -26,7 +26,7 @@ cd "$ROOT"
 for TEST in tests/security/concurrency/admin-concurrency.test.ts tests/security/concurrency/bed-concurrency.test.ts; do
   DIR="$(mktemp -d /tmp/icu-pg-XXXX)"
   [ "$(id -u)" = "0" ] && chown -R pgtest "$DIR"
-  "${RUNAS[@]}" initdb -D "$DIR/data" -U postgres -A trust >/dev/null
+  "${RUNAS[@]}" initdb -D "$DIR/data" -U postgres -A trust -E UTF8 --locale=C >/dev/null
   "${RUNAS[@]}" pg_ctl -D "$DIR/data" -o "-p $PORT -k $DIR -c listen_addresses=''" -l "$DIR/log" -w start >/dev/null
   export CONCURRENCY_PG_URL="$DIR:$PORT"
   bunx vitest run "$TEST"

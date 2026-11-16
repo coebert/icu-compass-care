@@ -17,6 +17,14 @@
 -- tidies data itself.
 -- =============================================================================
 
+-- The trim set below uses non-ASCII whitespace characters.
+DO $$
+BEGIN
+  IF current_setting('server_encoding') <> 'UTF8' THEN
+    RAISE EXCEPTION 'bed preflight failed: database encoding must be UTF8. Nothing was changed.';
+  END IF;
+END $$;
+
 -- ---------------------------------------------------------------------------
 -- Bed normalisation (must match src/lib/icu-beds.ts normalizeBed)
 -- ---------------------------------------------------------------------------
