@@ -6,7 +6,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Button } from "@/components/ui/button";
 import { BedDouble, Home, MoveRight } from "lucide-react";
 import { listBeds, type Bed } from "@/lib/beds.functions";
-import { updatePatient } from "@/lib/patients.functions";
+import { movePatientBeds } from "@/lib/patients.functions";
+import { BED_MOVE_RELOAD, readBedMoveError } from "@/lib/bed-moves";
 import { normalizeBed } from "@/lib/icu-beds";
 import { toast } from "sonner";
 
@@ -26,12 +27,15 @@ type MoveTarget =
 export function MoveToBedMenu({
   patientId,
   currentBed,
+  updatedAt,
   patientName,
   occupantsByBed,
   onMoved,
 }: {
   patientId: string;
   currentBed: string | null | undefined;
+  /** Revision the board showed; the move is refused if it has changed since. */
+  updatedAt: string;
   patientName: string;
   /** Map of normalized bed label → occupant count, so we can flag conflicts. */
   occupantsByBed?: Map<string, number>;
@@ -41,7 +45,7 @@ export function MoveToBedMenu({
   const qc = useQueryClient();
 
   const listBedsFn = useServerFn(listBeds);
-  const updatePatientFn = useServerFn(updatePatient);
+  const moveFn = useServerFn(movePatientBeds);
 
   const { data: beds = [] } = useQuery({
     queryKey: ["beds"],
@@ -52,12 +56,17 @@ export function MoveToBedMenu({
 
   const mut = useMutation({
     mutationFn: (target: MoveTarget) =>
-      updatePatientFn({
+      moveFn({
         data: {
-          id: patientId,
-          bed: target.kind === "bed" ? target.label : null,
-          location_type: "icu",
-        } as never,
+          moves: [
+            {
+              id: patientId,
+              expected_updated_at: updatedAt,
+              location_type: "icu",
+              bed: target.kind === "bed" ? target.label : null,
+            },
+          ],
+        },
       }),
     onSuccess: (_res, target) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
@@ -69,8 +78,11 @@ export function MoveToBedMenu({
       );
       onMoved?.();
     },
-    onError: (e: Error) =>
-      toast.error("Could not move patient", { description: e.message, duration: 10000 }),
+    onError: (e: unknown) => {
+      const { code, message } = readBedMoveError(e);
+      if (BED_MOVE_RELOAD.has(code)) void qc.invalidateQueries({ queryKey: ["patients"] });
+      toast.error("Could not move patient", { description: message, duration: 10000 });
+    },
   });
 
   function notify_success(msg: string) {
@@ -109,9 +121,9 @@ export function MoveToBedMenu({
                   <CommandItem
                     key={b.id}
                     value={`bed ${b.label}${b.is_side_room ? " side room" : ""}`}
-                    disabled={mut.isPending || isCurrent}
+                    disabled={mut.isPending || isCurrent || occ > 0}
                     onSelect={() => {
-                      if (isCurrent) return;
+                      if (isCurrent || occ > 0) return;
                       setOpen(false);
                       mut.mutate({ kind: "bed", label: b.label });
                     }}

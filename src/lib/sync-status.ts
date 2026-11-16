@@ -13,6 +13,13 @@ export const SYNC_ERROR_CODES = [
   "malformed_record",
   "local_read_failed",
   "partial_write_failure",
+  "contract_mismatch",
+  "pagination_invalid",
+  "snapshot_changed",
+  "budget_exceeded",
+  "record_conflict",
+  "unlinked_records",
+  "import_unavailable",
   "unexpected",
 ] as const;
 export type SyncErrorCode = (typeof SYNC_ERROR_CODES)[number];
@@ -25,6 +32,13 @@ export const SYNC_ERROR_TEXT: Record<SyncErrorCode | "unknown", string> = {
   malformed_record: "The partner system sent a record in an unexpected format.",
   local_read_failed: "Local records could not be read for comparison.",
   partial_write_failure: "Some records could not be saved. The rest were updated.",
+  contract_mismatch: "The partner system sent a different data format than agreed. Nothing was imported.",
+  pagination_invalid: "The partner system's pages didn't line up. Nothing was imported.",
+  snapshot_changed: "The partner data changed part-way through. Nothing was imported; it will retry.",
+  budget_exceeded: "The partner sent more than one update can safely take. Nothing was imported.",
+  record_conflict: "Some records differ from the copy here and were not overwritten. The rest were updated.",
+  unlinked_records: "Some results are for patients not shared to this unit and were not imported.",
+  import_unavailable: "Importing is switched off until a pending database update is applied.",
   unexpected: "The update stopped unexpectedly.",
   unknown: "The update failed (details withheld).",
 };
@@ -40,8 +54,21 @@ export function safeSyncErrorCode(message: unknown): SyncErrorCode | "unknown" {
  * READ/WRITE role, so a partner request can never produce an event with it. */
 export const INBOUND_SYNC_ACTOR_ROLE = "inbound_sync";
 
+/**
+ * Streams this app is the source of truth for. Nothing is imported for them;
+ * the partner reads them from here. Shown as "Managed in Handover Hub", never
+ * as a sync success or a never-synced alarm.
+ */
+export const SOURCE_OWNED_RESOURCES: readonly SyncResource[] = ["patients"];
+export const isSourceOwned = (r: SyncResource) => SOURCE_OWNED_RESOURCES.includes(r);
+
+/** Codes meaning "some records were not taken", as opposed to a failed pass. */
+const INCOMPLETE_CODES = new Set<string>(["partial_write_failure", "record_conflict", "unlinked_records"]);
+
 export type ResourceEvidence = {
   entity: SyncResource;
+  /** Recorded here; never imported. */
+  sourceOwned?: boolean;
   /** The evidence query for this resource failed. */
   unavailable: boolean;
   lastAttemptAt: string | null;
@@ -51,17 +78,25 @@ export type ResourceEvidence = {
   lastSuccessCount: number | null;
 };
 
-export type ResourceState = "ok" | "delayed" | "incomplete" | "failed" | "never" | "unavailable";
+export type ResourceState =
+  | "ok"
+  | "source_owned"
+  | "delayed"
+  | "incomplete"
+  | "failed"
+  | "never"
+  | "unavailable";
 
 export function resourceState(
   r: ResourceEvidence,
   now: number,
   delayedAfterMinutes: number,
 ): ResourceState {
+  if (r.sourceOwned) return "source_owned";
   if (r.unavailable) return "unavailable";
   if (!r.lastAttemptAt) return "never";
   if (r.lastAttemptOk === false) {
-    return r.lastAttemptCode === "partial_write_failure" ? "incomplete" : "failed";
+    return INCOMPLETE_CODES.has(r.lastAttemptCode ?? "") ? "incomplete" : "failed";
   }
   const last = r.lastSuccessAt ? Date.parse(r.lastSuccessAt) : NaN;
   if (!Number.isFinite(last)) return "never";
@@ -70,6 +105,7 @@ export function resourceState(
 
 const SEVERITY: Record<ResourceState, number> = {
   ok: 0,
+  source_owned: 0,
   delayed: 2,
   never: 2,
   incomplete: 3,
@@ -88,6 +124,7 @@ export function overallState(states: ResourceState[]): ResourceState {
 
 export const RESOURCE_STATE_TEXT: Record<ResourceState, string> = {
   ok: "Up to date",
+  source_owned: "Managed in Handover Hub",
   delayed: "Delayed",
   incomplete: "Incomplete",
   failed: "Last update failed",

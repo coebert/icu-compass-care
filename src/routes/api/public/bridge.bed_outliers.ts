@@ -48,6 +48,8 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
           bed_outliers,
           unassigned: board.unassigned,
           ward_outliers,
+          unit: board.unit,
+          unit_code: board.unit_code,
           generated_at: board.generated_at,
         });
       },

@@ -62,3 +62,20 @@ export async function defaultUnitId(supabase: SupabaseClient): Promise<string | 
   if (error) throw error;
   return (data as { id: string } | null)?.id ?? null;
 }
+
+/**
+ * The single unit the partner bridge serves. Strict: a lookup error or a
+ * missing unit is an error, never a fallback to "any unit".
+ */
+export async function resolveBridgeUnitId(supabase: SupabaseClient): Promise<string> {
+  const { data, error } = await supabase
+    .from("icu_units")
+    .select("id, code")
+    .eq("code", SEED_UNIT_CODE)
+    .maybeSingle();
+  const row = data as { id?: unknown; code?: unknown } | null;
+  if (error || !row || typeof row.id !== "string" || row.code !== SEED_UNIT_CODE) {
+    throw new Error("bridge_unit_unavailable");
+  }
+  return row.id;
+}

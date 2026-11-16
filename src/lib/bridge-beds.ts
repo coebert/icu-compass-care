@@ -45,6 +45,8 @@ export type BridgeBedSlot = {
 
 export type BridgeBedBoard = {
   unit: string;
+  /** Stable code of the resolved bridge unit (the display name may change). */
+  unit_code: string;
   side_rooms: string[];
   bed_board: BridgeBedSlot[];
   /** Shared identities only. */
@@ -161,11 +163,14 @@ export async function buildBridgeBedBoard(supabaseAdmin: any): Promise<BridgeBed
 
   const { data: unit, error: unitErr } = await supabaseAdmin
     .from("icu_units")
-    .select("id")
+    .select("id, code")
     .eq("code", SEED_UNIT_CODE)
     .maybeSingle();
-  if (unitErr || !unit || typeof unit.id !== "string") fail("unit_unavailable");
+  if (unitErr || !unit || typeof unit.id !== "string" || unit.code !== SEED_UNIT_CODE) {
+    fail("unit_unavailable");
+  }
   const unitId: string = unit.id;
+  const unitCode: string = unit.code;
 
   const { data: bedRows, error: bedErr } = await supabaseAdmin
     .from("icu_beds")
@@ -259,6 +264,7 @@ export async function buildBridgeBedBoard(supabaseAdmin: any): Promise<BridgeBed
 
   return {
     unit: BED_BOARD_UNIT_LABEL,
+    unit_code: unitCode,
     side_rooms: roster.filter((b) => b.is_side_room).map((b) => b.label),
     bed_board,
     unassigned,

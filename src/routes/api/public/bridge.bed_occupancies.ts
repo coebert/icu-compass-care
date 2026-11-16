@@ -40,6 +40,8 @@ export const Route = createFileRoute("/api/public/bridge/bed_occupancies")({
           bed_occupancies,
           occupancies: bed_occupancies,
           stats: board.stats,
+          unit: board.unit,
+          unit_code: board.unit_code,
           generated_at: board.generated_at,
         });
       },

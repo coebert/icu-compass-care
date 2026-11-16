@@ -1,3 +1,5 @@
+import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
+
 // Partner-sharing gate for bridge writes. Every read used for a conflict
 // answer and every mutation is filtered on shared_with_partner = true IN THE
 // SAME STATEMENT, so revoking sharing between the check and the write can't
@@ -24,47 +26,74 @@ export function stripSharingFlags<T extends Row>(row: T): T {
 export type BridgeUpdateOutcome =
   | { kind: "updated"; before: Row; after: Row }
   | { kind: "conflict"; current: Row }
+  /** Another active patient in this unit holds the requested bed. No identity is returned. */
+  | { kind: "bed_conflict" }
   | { kind: "not_found" }
   | { kind: "error"; error: unknown };
 
-async function readShared(admin: AdminClient, id: string) {
+// Every read the partner can learn from is limited to the bridge unit AND
+// the sharing flag, so another unit's (or a withheld) patient is
+// indistinguishable from one that doesn't exist.
+async function readShared(admin: AdminClient, id: string, unitId: string) {
   return admin
     .from("patients")
     .select("*")
     .eq("id", id)
+    .eq("unit_id", unitId)
     .eq("shared_with_partner", true)
     .maybeSingle();
 }
 
+export const isBedConflict = isBedUniqueViolation;
+
 export async function bridgeUpdateSharedPatient(
   admin: AdminClient,
-  args: { id: string; expectedUpdatedAt?: string; payload: Row },
+  args: { id: string; unitId: string; expectedUpdatedAt?: string; payload: Row },
 ): Promise<BridgeUpdateOutcome> {
   const payload: Row = { ...args.payload };
   for (const k of PROTECTED_WRITE_COLUMNS) delete payload[k];
 
-  const { data: current, error: readErr } = await readShared(admin, args.id);
+  const { data: current, error: readErr } = await readShared(admin, args.id, args.unitId);
   if (readErr) return { kind: "error", error: readErr };
   if (!current) return { kind: "not_found" };
   if (args.expectedUpdatedAt && current.updated_at !== args.expectedUpdatedAt) {
     return { kind: "conflict", current };
   }
 
-  // Compare-and-set: still shared, same unit AND unchanged since we read it.
+  // Friendly early answer for a bed already held in this unit; the unique
+  // active-bed index is the real guarantee once the staged migration is live.
+  const touchesBed = ["bed", "location_type", "status"].some((k) => k in payload);
+  if (touchesBed) {
+    const merged = { ...current, ...payload };
+    try {
+      if (occupiesBed(merged) && (await bedTakenInUnit(admin, args.unitId, merged.bed as string, args.id))) {
+        return { kind: "bed_conflict" };
+      }
+    } catch (e) {
+      return { kind: "error", error: e };
+    }
+  }
+
+  // Compare-and-set: still shared, still in the bridge unit AND unchanged
+  // since we read it.
   const { data: updated, error: upErr } = await admin
     .from("patients")
     .update(payload as never)
     .eq("id", args.id)
     .eq("shared_with_partner", true)
-    .eq("unit_id", current.unit_id)
+    .eq("unit_id", args.unitId)
     .eq("updated_at", current.updated_at)
     .select()
     .maybeSingle();
-  if (upErr) return { kind: "error", error: upErr };
+  if (upErr) {
+    if (isBedConflict(upErr)) return { kind: "bed_conflict" };
+    return { kind: "error", error: upErr };
+  }
   if (updated) return { kind: "updated", before: current, after: updated };
 
-  // Lost the race: re-read under the sharing filter. Revoked -> not found.
-  const { data: fresh, error: freshErr } = await readShared(admin, args.id);
+  // Lost the race: re-read under the same unit + sharing filter. Revoked or
+  // moved out of the unit -> not found.
+  const { data: fresh, error: freshErr } = await readShared(admin, args.id, args.unitId);
   if (freshErr) return { kind: "error", error: freshErr };
   if (!fresh) return { kind: "not_found" };
   return { kind: "conflict", current: fresh };

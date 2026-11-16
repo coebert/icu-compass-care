@@ -22,12 +22,16 @@ export type EntityRecon = {
   remoteCount: number;
   matched: number;
   mismatches: ReconRow[];
+  /** False = review only; the partner's rows are never copied here. */
+  importable: boolean;
   error?: string;
 };
 
 export type ReconcileResult = {
   applied: number;
   failed: number;
+  skipped: number;
+  conflicts: number;
   errors: string[];
 };
 
@@ -42,19 +46,20 @@ export const getReconciliation = createServerFn({ method: "GET" })
     return buildReconciliation();
   });
 
-// Pull the partner's copy of one or more rows into this backend (admin only).
+// Pull partner referrals through the validated import (admin only). Other
+// entities are review-only and cannot be pulled.
 export const reconcilePartner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
-        entity: z.enum(["notifications", "referrals", "audit_log"]),
+        entity: z.literal("referrals"),
         ids: z.union([z.literal("all"), z.array(z.string().uuid()).min(1).max(500)]),
       })
       .parse(input),
   )
   .handler(async ({ context, data }): Promise<ReconcileResult> => {
     await assertAdmin(context);
-    const { reconcilePull } = await import("@/lib/reconcile.server");
-    return reconcilePull(data.entity, data.ids);
+    const { reconcilePullReferrals } = await import("@/lib/reconcile.server");
+    return reconcilePullReferrals(data.ids);
   });

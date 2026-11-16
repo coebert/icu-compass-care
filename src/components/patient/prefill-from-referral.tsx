@@ -10,6 +10,7 @@ import {
 import {
   referralCandidateSummary,
   PREFILL_FIELD_LABEL,
+  type PrefillDecision,
   PREFILL_STALE_MESSAGE,
 } from "@/lib/referral-prefill";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ type PrefillPreview = {
   applied_fields: string[];
   skipped_fields: string[];
   patch: Record<string, string | boolean>;
+  decisions?: PrefillDecision[];
   patient_updated_at: string;
   referral_updated_at: string | null;
 };
@@ -72,6 +74,8 @@ export function PrefillFromReferral({
   // Set when "Confirm" was refused because the record changed after preview.
   const [stale, setStale] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  // Referral-documented decisions the user has explicitly ticked.
+  const [accepted, setAccepted] = useState<string[]>([]);
   const listFn = useServerFn(listReferralCandidates);
   const previewFn = useServerFn(previewReferralPrefill);
   const prefillFn = useServerFn(prefillPatientFromReferral);
@@ -104,22 +108,26 @@ export function PrefillFromReferral({
     setStep("pick");
     setStale(false);
     setApplyError(null);
+    setAccepted([]);
   };
 
   const reloadPreview = async () => {
     setStale(false);
     setApplyError(null);
+    // A decision must be re-ticked against the fresh preview.
+    setAccepted([]);
     await previewQ.refetch();
   };
 
   const prefillMut = useMutation({
-    mutationFn: (p: { referral_id: string; preview: PrefillPreview }) =>
+    mutationFn: (p: { referral_id: string; preview: PrefillPreview; accept: string[] }) =>
       prefillFn({
         data: {
           patient_id: patientId,
           referral_id: p.referral_id,
           expected_patient_updated_at: p.preview.patient_updated_at,
           expected_referral_updated_at: p.preview.referral_updated_at,
+          accept_decisions: p.accept as "dnacpr_decision"[],
         },
       }),
     onSuccess: (res: { applied_fields: string[]; skipped_fields: string[] }) => {
@@ -175,8 +183,9 @@ export function PrefillFromReferral({
             <>
               <p className="text-sm text-muted-foreground">
                 Select the referral that matches this patient. Only blank fields are filled —
-                existing entries are never overwritten. Free-text history from the referral is
-                populated separately by the referring app.
+                existing entries are never overwritten. Filled text is marked as referral
+                information that needs review. Detailed referral history stays in Critical Care
+                Connect.
               </p>
               {candidatesQ.isPending && (
                 <p role="status" className="text-sm text-muted-foreground">
@@ -323,6 +332,48 @@ export function PrefillFromReferral({
                       </div>
                     )}
                   </div>
+                  {(preview.decisions ?? []).length > 0 && (
+                    <fieldset className="space-y-2">
+                      <legend className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                        Decision recorded on the referral — not applied unless you tick it
+                      </legend>
+                      {(preview.decisions ?? []).map((d) => {
+                        const id = `prefill-decision-${d.field}`;
+                        const on = accepted.includes(d.field);
+                        return (
+                          <label
+                            key={d.field}
+                            htmlFor={id}
+                            className="flex cursor-pointer items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm"
+                          >
+                            <input
+                              id={id}
+                              type="checkbox"
+                              className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
+                              checked={on}
+                              onChange={(e) =>
+                                setAccepted((cur) =>
+                                  e.target.checked
+                                    ? [...cur, d.field]
+                                    : cur.filter((x) => x !== d.field),
+                                )
+                              }
+                            />
+                            <span>
+                              <span className="block font-medium">
+                                Also record {PREFILL_FIELD_LABEL[d.field] ?? d.field}:{" "}
+                                {d.value ? "Yes" : "No"}
+                              </span>
+                              <span className="block text-muted-foreground">
+                                {d.label} This field is currently blank here. Only tick if you
+                                have confirmed it.
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </fieldset>
+                  )}
                   {preview.skipped_fields.length > 0 && (
                     <div>
                       <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
@@ -357,7 +408,7 @@ export function PrefillFromReferral({
                   onClick={() => {
                     if (!selected || !preview) return;
                     setApplyError(null);
-                    prefillMut.mutate({ referral_id: selected, preview });
+                    prefillMut.mutate({ referral_id: selected, preview, accept: accepted });
                   }}
                 >
                   {prefillMut.isPending ? "Prefilling…" : "Confirm prefill"}

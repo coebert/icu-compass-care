@@ -4,7 +4,14 @@ import * as React from "react";
 import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listPatients, createPatient, updatePatient } from "@/lib/patients.functions";
+import { listPatients, createPatient, updatePatient, movePatientBeds } from "@/lib/patients.functions";
+import {
+  BED_MOVE_RELOAD,
+  readBedMoveError,
+  undoMoves,
+  type BedMove,
+  type BedMoveResult,
+} from "@/lib/bed-moves";
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PreviousAdmissionBanner } from "@/components/PreviousAdmissionBanner";
@@ -99,6 +106,7 @@ function PatientsBoard() {
   const list = useServerFn(listPatients);
   const create = useServerFn(createPatient);
   const update = useServerFn(updatePatient);
+  const moveBeds = useServerFn(movePatientBeds);
   const beds = useServerFn(listBeds);
   const urlSearch = Route.useSearch();
   const navigate = useNavigate();
@@ -157,7 +165,8 @@ function PatientsBoard() {
     key: string;
     at: number;
     label: string;
-    previous: { id: string; bed: string | null; location_type: string }[];
+    /** What the move produced; Undo is checked against these revisions. */
+    results: BedMoveResult[];
   };
   const [recentMoves, setRecentMoves] = useState<RecentMove[]>([]);
   const pushRecentMove = (m: RecentMove) =>
@@ -249,79 +258,44 @@ function PatientsBoard() {
     onError: (e: Error) => toast.error("Could not add patient", { description: e.message }),
   });
 
-  // A snapshot of where each affected patient was BEFORE a move, used to undo.
-  type BedSnapshot = { id: string; bed: string | null; location_type: string };
+  // Moves, swaps and undos go through ONE atomic, revision-checked server
+  // action. If it refuses, nothing changed; refetch where the board is stale.
+  const onBedMoveError = (title: string) => (e: unknown) => {
+    const { code, message } = readBedMoveError(e);
+    if (BED_MOVE_RELOAD.has(code)) void qc.invalidateQueries({ queryKey: ["patients"] });
+    toast.error(title, { description: message });
+  };
 
   const undoMut = useMutation({
-    mutationFn: (previous: BedSnapshot[]) =>
-      Promise.all(
-        previous.map((p) =>
-          update({
-            data: {
-              id: p.id,
-              bed: p.bed,
-              location_type: p.location_type,
-            } as never,
-          }),
-        ),
-      ),
-    onSuccess: () => {
+    mutationFn: (m: { key?: string; results: BedMoveResult[] }) =>
+      moveBeds({ data: { moves: undoMoves(m.results) } }),
+    onSuccess: (_res, m) => {
+      if (m.key) clearRecentMove(m.key);
       qc.invalidateQueries({ queryKey: ["patients"] });
       toast.success("Move undone", { description: "The bed assignment was restored." });
     },
-    onError: (e: Error) => {
-      qc.invalidateQueries({ queryKey: ["patients"] });
-      toast.error("Could not undo move", { description: e.message });
+    onError: (e, m) => {
+      // A later move happened: undoing would overwrite it, so the undo is retired.
+      if (m.key && readBedMoveError(e).code === "conflict") clearRecentMove(m.key);
+      onBedMoveError("Could not undo move")(e);
     },
   });
 
   const moveMut = useMutation({
-    mutationFn: ({ moves }: {
-      moves: { id: string; bed: string; expected_updated_at?: string }[];
-      summary?: string;
-      previous?: BedSnapshot[];
-    }) =>
-      Promise.all(
-        moves.map((m) =>
-          update({
-            data: {
-              id: m.id,
-              bed: m.bed,
-              location_type: "icu",
-              expected_updated_at: m.expected_updated_at,
-            } as never,
-          }),
-        ),
-      ),
-    onSuccess: (_res, { summary, previous }) => {
+    mutationFn: ({ moves }: { moves: BedMove[]; summary?: string }) =>
+      moveBeds({ data: { moves } }) as Promise<BedMoveResult[]>,
+    onSuccess: (results, { summary }) => {
       qc.invalidateQueries({ queryKey: ["patients"] });
+      const key = `${results.map((r) => r.id).join(",")}-${Date.now()}`;
       toast.success("Move saved", {
         description: summary ?? "The bed board has been updated.",
-        ...(previous && previous.length > 0
-          ? {
-              action: {
-                label: "Undo",
-                onClick: () => undoMut.mutate(previous),
-              },
-              duration: 10000,
-            }
-          : {}),
+        action: { label: "Undo", onClick: () => undoMut.mutate({ key, results }) },
+        duration: 10000,
       });
-      if (previous && previous.length > 0) {
-        pushRecentMove({
-          key: `${previous.map((p) => p.id).join(",")}-${Date.now()}`,
-          at: Date.now(),
-          label: summary ?? "Bed move",
-          previous,
-        });
-      }
+      pushRecentMove({ key, at: Date.now(), label: summary ?? "Bed move", results });
     },
-    onError: (e: Error) => {
-      qc.invalidateQueries({ queryKey: ["patients"] });
-      toast.error("Could not move patient", { description: e.message });
-    },
+    onError: onBedMoveError("Could not move patient"),
   });
-
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -569,40 +543,44 @@ function PatientsBoard() {
       return;
     }
 
-    // Only swap for a clean 1:1 move; if the bed already holds someone, add the
-    // dragged patient there too rather than forcing a swap into a shared bed.
+    // An occupied bed means a swap: exactly one occupant, and the dragged
+    // patient must be leaving a real ICU bed for them to take. Anything else
+    // is refused here (and by the database).
     const occupant = occupants.length === 1 ? occupants[0] : null;
+    if (occupants.length > 1) {
+      toast.error("That bed is double-booked", {
+        description: "Sort out that bed first, then try again.",
+      });
+      return;
+    }
 
-    const moves: { id: string; bed: string; expected_updated_at?: string }[] = [
-      { id: dragged.id, bed: targetBed, expected_updated_at: dragged.updated_at },
+    const moves: BedMove[] = [
+      { id: dragged.id, bed: targetBed, location_type: "icu", expected_updated_at: dragged.updated_at },
     ];
-    // Snapshot the pre-move positions so the "Undo" action can restore them.
-    const previous: BedSnapshot[] = [
-      { id: dragged.id, bed: dragged.bed ?? null, location_type: dragged.location_type },
-    ];
-
     let summary = `${dragged.full_name ?? "Patient"} moved to ${targetLabel}.`;
 
     if (occupant) {
-      // Swap only makes sense when the dragged patient vacates a real ICU bed.
       const draggedHadBed = dragged.location_type === "icu" && normalizeBed(dragged.bed);
-      if (draggedHadBed) {
-        // The displaced occupant must also be eligible for the bed they'd take.
-        const swapEligibility = checkBedEligibility(occupant, dragged.bed!, bedRoster);
-        if (!swapEligibility.ok) {
-          toast.error(`Can't swap with ${occupant.full_name ?? "patient"}`, {
-            description: swapEligibility.reason,
-          });
-          return;
-        }
-        moves.push({ id: occupant.id, bed: dragged.bed!, expected_updated_at: occupant.updated_at });
-        previous.push({ id: occupant.id, bed: occupant.bed ?? null, location_type: occupant.location_type });
-        const fromLabel = isSideRoom(dragged.bed, bedRoster) ? `Side room ${dragged.bed}` : `Bed ${dragged.bed}`;
-        summary = `${dragged.full_name ?? "Patient"} and ${occupant.full_name ?? "patient"} swapped between ${fromLabel} and ${targetLabel}.`;
+      if (!draggedHadBed) {
+        toast.error(`${targetLabel} is occupied`, {
+          description: "Only two patients already in ICU beds can swap. Move the current patient first.",
+        });
+        return;
       }
+      // The displaced occupant must also be eligible for the bed they'd take.
+      const swapEligibility = checkBedEligibility(occupant, dragged.bed!, bedRoster);
+      if (!swapEligibility.ok) {
+        toast.error(`Can't swap with ${occupant.full_name ?? "patient"}`, {
+          description: swapEligibility.reason,
+        });
+        return;
+      }
+      moves.push({ id: occupant.id, bed: dragged.bed!, location_type: "icu", expected_updated_at: occupant.updated_at });
+      const fromLabel = isSideRoom(dragged.bed, bedRoster) ? `Side room ${dragged.bed}` : `Bed ${dragged.bed}`;
+      summary = `${dragged.full_name ?? "Patient"} and ${occupant.full_name ?? "patient"} swapped between ${fromLabel} and ${targetLabel}.`;
     }
 
-    moveMut.mutate({ moves, summary, previous });
+    moveMut.mutate({ moves, summary });
   }
 
   return (
@@ -766,8 +744,7 @@ function PatientsBoard() {
               <RecentMovesStrip
                 moves={recentMoves}
                 onRevert={(m) => {
-                  undoMut.mutate(m.previous);
-                  clearRecentMove(m.key);
+                  undoMut.mutate({ key: m.key, results: m.results });
                 }}
                 onDismiss={clearRecentMove}
               />
@@ -1034,6 +1011,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
             <MoveToBedMenu
               patientId={p.id}
               currentBed={p.bed}
+              updatedAt={p.updated_at}
               patientName={name}
             />
           )}
@@ -1705,7 +1683,7 @@ type RecentMove = {
   key: string;
   at: number;
   label: string;
-  previous: { id: string; bed: string | null; location_type: string }[];
+  results: BedMoveResult[];
 };
 
 function RecentMovesStrip({
