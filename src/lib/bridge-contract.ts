@@ -187,6 +187,19 @@ export function parseLegacyRecords(
   body: unknown,
   limit = LEGACY_REVIEW_LIMIT,
 ): Record<string, unknown>[] {
+  return parseLegacyReview(body, limit).records;
+}
+
+/**
+ * Same checks, plus whether the partner PROVED the list is complete
+ * (pagination.complete === true and next_cursor === null). A shorter list
+ * without that proof may still have been capped by the partner's own row
+ * limit, so a caller must not claim "only here" or "in sync" from it.
+ */
+export function parseLegacyReview(
+  body: unknown,
+  limit = LEGACY_REVIEW_LIMIT,
+): { records: Record<string, unknown>[]; complete: boolean } {
   if (!isPlainObject(body) || !Array.isArray(body.records)) return fail("malformed_response");
   const pg = body.pagination;
   if (
@@ -204,7 +217,7 @@ export function parseLegacyRecords(
     if (!isPlainObject(r) || typeof r.id !== "string" || r.id === "")
       return fail("malformed_record");
   }
-  return body.records as Record<string, unknown>[];
+  return { records: body.records as Record<string, unknown>[], complete: provenComplete };
 }
 
 // ------------------------------------------------------- canonical records ---

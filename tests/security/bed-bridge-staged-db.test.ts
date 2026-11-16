@@ -18,6 +18,7 @@ export const STAGED_FILES = [
   "0007_bridge_wardable_fence.sql",
   "0008_bridge_read_exports.sql",
   "0009_referral_prefill_atomic.sql",
+  "0010_bridge_referral_review.sql",
 ].map((f) => join(STAGED_DIR, f));
 export const STAGED_SQL = STAGED_FILES[0]!;
 export const stagedSql = (): string =>
@@ -484,6 +485,9 @@ describe("function permissions on a fresh schema", () => {
     ["public.apply_referral_prefill(uuid,uuid,jsonb)", "anon", false],
     ["public.apply_referral_prefill(uuid,uuid,jsonb)", "authenticated", false],
     ["public.apply_referral_prefill(uuid,uuid,jsonb)", "service_role", true],
+    ["public.bridge_referral_review(integer)", "anon", false],
+    ["public.bridge_referral_review(integer)", "authenticated", false],
+    ["public.bridge_referral_review(integer)", "service_role", true],
     ["private.bridge_unit_id()", "authenticated", false],
     ["private.bridge_unit_id()", "anon", false],
   ] as const)("%s for %s = %s", async (fn, role, ok) => {
@@ -505,9 +509,9 @@ describe("function permissions on a fresh schema", () => {
   it("helpers run with an empty search_path", async () => {
     const r = await superQ(
       `SELECT p.proname, p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-        WHERE p.proname IN ('bridge_import_referral','bridge_import_result','bridge_insert_investigation','bridge_set_wardable','bridge_unit_id','apply_referral_prefill')`,
+        WHERE p.proname IN ('bridge_import_referral','bridge_import_result','bridge_insert_investigation','bridge_set_wardable','bridge_unit_id','apply_referral_prefill','bridge_referral_review')`,
     );
-    expect(r.rows).toHaveLength(6);
+    expect(r.rows).toHaveLength(7);
     for (const row of r.rows) expect(row.proconfig).toEqual(['search_path=""']);
   });
 });

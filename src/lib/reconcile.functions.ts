@@ -1,11 +1,36 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertAdmin } from "@/lib/roles.server";
+import { assertReconcileAccess } from "@/lib/roles.server";
 
 export type ReconEntity = "notifications" | "referrals" | "audit_log";
 
-export type ReconState = "matched" | "diverged" | "local_only" | "remote_only";
+export type ReconState =
+  | "matched"
+  /** The partner has a newer version that the checked import will apply. */
+  | "diverged"
+  | "local_only"
+  | "remote_only"
+  /** Ownership conflict: the import will refuse it; a person must review. */
+  | "conflict"
+  /** Copies differ, but the partner's isn't newer: pulling changes nothing. */
+  | "held";
+
+/** Why a row is in its state. Client-safe codes only; no record values. */
+export type ReconReason =
+  | "new_on_partner"
+  | "partner_deletion"
+  | "partner_newer"
+  | "not_imported"
+  | "local_edit"
+  | "local_missing"
+  | "watermark_reused"
+  | "partner_not_newer"
+  | "deletion_stands"
+  | "imported_not_listed"
+  | "local_record"
+  | "partner_list_unconfirmed"
+  | "review_only";
 
 export type ReconRow = {
   id: string;
@@ -14,6 +39,9 @@ export type ReconRow = {
   localVersion: string | null;
   remoteVersion: string | null;
   state: ReconState;
+  reason: ReconReason;
+  /** True only when the checked import would actually change something. */
+  pullable: boolean;
 };
 
 export type EntityRecon = {
@@ -24,6 +52,11 @@ export type EntityRecon = {
   mismatches: ReconRow[];
   /** False = review only; the partner's rows are never copied here. */
   importable: boolean;
+  /**
+   * False when the partner did not prove its list is complete: "only here"
+   * and "everything in sync" can't be claimed from it.
+   */
+  partnerListComplete: boolean;
   error?: string;
 };
 
@@ -35,18 +68,19 @@ export type ReconcileResult = {
   errors: string[];
 };
 
-// assertAdmin is imported from roles.server (see import at top).
-
-// Review synced state across both projects (admin only).
+// Trust administrators only: the review reads every unit's notifications and
+// audit metadata, and pulling writes referrals, so a unit administrator's
+// scope is not enough.
+// Review synced state across both projects.
 export const getReconciliation = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<EntityRecon[]> => {
-    await assertAdmin(context);
+    await assertReconcileAccess(context);
     const { buildReconciliation } = await import("@/lib/reconcile.server");
     return buildReconciliation();
   });
 
-// Pull partner referrals through the validated import (admin only). Other
+// Pull partner referrals through the validated import (Trust admin only). Other
 // entities are review-only and cannot be pulled.
 export const reconcilePartner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -59,7 +93,7 @@ export const reconcilePartner = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }): Promise<ReconcileResult> => {
-    await assertAdmin(context);
+    await assertReconcileAccess(context);
     const { reconcilePullReferrals } = await import("@/lib/reconcile.server");
     return reconcilePullReferrals(data.ids);
   });

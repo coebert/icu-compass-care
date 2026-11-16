@@ -264,9 +264,10 @@ function AuthenticatedLayout() {
       ? [
           { to: "/admin", label: "Staff", icon: Shield },
           { to: "/beds", label: "Beds", icon: BedDouble },
-          { to: "/reconcile", label: "Sync", icon: RefreshCw },
         ]
       : []),
+    // Cross-unit review: Trust administrators only (enforced on the server).
+    ...(profile?.isTrustAdmin ? [{ to: "/reconcile", label: "Sync", icon: RefreshCw }] : []),
     { to: "/security-faq", label: "Security", icon: ShieldCheck },
     { to: "/settings", label: "My profile", icon: User },
   ];

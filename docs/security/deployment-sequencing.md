@@ -57,7 +57,7 @@ Status at 16/11/2026 (read from repository and live metadata only):
 | --- | --- |
 | drizzle `0002`, `0003`, `0004` security remediation | APPLIED to live |
 | `docs/security/postpublish-cleanup.sql` | STAGED, not applied |
-| `docs/security/staged-migrations/0005`–`0009` (below) | STAGED, not applied; tested only on PGlite and throwaway PostgreSQL |
+| `docs/security/staged-migrations/0005`–`0010` (below) | STAGED, not applied; tested only on PGlite and throwaway PostgreSQL |
 | Hub frontend/server changes since the last publish | NOT published |
 | Critical Care Connect (CCC) receiver changes | owned by the CCC team; must be live before the Hub publish (step 1) |
 
@@ -87,6 +87,14 @@ given; each aborts without changes if its preflight fails):
    under locks (referral, then patient) in the same transaction as the write,
    `record_audit` and `patient_field_changes`. Service role only; adds a
    function only.
+6. `docs/security/staged-migrations/0010_bridge_referral_review.sql` —
+   `bridge_referral_review(integer)`: read-only helper for the Trust-admin
+   Sync review page. One statement returns every referral id known here
+   (local rows and import-ledger entries, including watermarks) with the
+   allowlisted comparable fields and whether the ledger still trusts the
+   local copy, as a single jsonb value (not shortened by a REST row cap);
+   above the limit it returns `complete:false` and no rows. Never returns
+   receiver revisions. Service role only; adds a function only; writes nothing.
 
 0006 also keeps a minimal tombstone watermark (id, source revision, source
 deleted_at; no clinical content) for a referral deleted in CCC before Hub
@@ -100,8 +108,9 @@ current (shared-only) rule; the partner clinical READ feeds (investigations,
 microbiology, referrals, notifications, audit) answer 503 "Service
 unavailable" — never an unscoped or empty list — until 0008 exists; and
 "Confirm prefill" answers "isn't available right now" and writes nothing
-until 0009 exists. The currently published (old) Hub frontend keeps working
-after 0005–0009 are applied: they add functions, a private ledger and one
+until 0009 exists; the Sync review page shows referrals as "can't be compared
+yet" (never "in sync") until 0010 exists. The currently published (old) Hub
+frontend keeps working after 0005–0010 are applied: they add functions, a private ledger and one
 index, and change no existing table grants.
 
 ### Release order (paired; receiver before producer)
@@ -114,7 +123,7 @@ index, and change no existing table grants.
    feeds (`?sync=1`, explicit `deleted_at: null`, minimal tombstones) must be
    live too; legacy feeds stay unchanged. CCC must not yet call the wardable
    endpoint.
-2. **Hub database.** Apply 0005 → 0006 → 0007 → 0008 → 0009 in that order,
+2. **Hub database.** Apply 0005 → 0006 → 0007 → 0008 → 0009 → 0010 in that order,
    then run the verification queries below.
 3. **Hub publish (producer).** Publish the Hub frontend/server.
 4. **Enable CCC use** of the wardable endpoint and confirm the first sync
@@ -131,7 +140,10 @@ SELECT indexname FROM pg_indexes WHERE indexname = 'patients_active_unit_bed_uni
 SELECT p.proname, p.prosecdef, p.proconfig FROM pg_proc p
  WHERE p.proname IN ('move_patient_beds','bridge_import_referral','bridge_import_result',
                      'bridge_insert_investigation','bridge_set_wardable','bridge_unit_id',
-                     'apply_referral_prefill');
+                     'apply_referral_prefill','bridge_referral_review');
+SELECT has_function_privilege('authenticated','public.bridge_referral_review(integer)','EXECUTE') AS must_be_false,
+       has_function_privilege('anon','public.bridge_referral_review(integer)','EXECUTE') AS must_be_false_2,
+       has_function_privilege('service_role','public.bridge_referral_review(integer)','EXECUTE') AS must_be_true;
 SELECT has_function_privilege('authenticated','public.apply_referral_prefill(uuid,uuid,jsonb)','EXECUTE') AS must_be_false,
        has_function_privilege('anon','public.apply_referral_prefill(uuid,uuid,jsonb)','EXECUTE') AS must_be_false_2,
        has_function_privilege('service_role','public.apply_referral_prefill(uuid,uuid,jsonb)','EXECUTE') AS must_be_true;
@@ -150,4 +162,6 @@ SELECT has_table_privilege('authenticated','private.bridge_referral_provenance',
 
 Existing local referral copies have no import provenance, so after 0006 the
 first import of each reports a conflict for review (never adopted). That is
-intended; resolving them is a reviewed, separate step.
+intended; resolving them is a reviewed, separate step. The Sync review page
+(Trust administrators only) lists them as "Needs review" with no Pull button,
+even when their content equals the partner's.

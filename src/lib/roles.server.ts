@@ -80,7 +80,15 @@ export function assertRecentReauth(
   maxAgeSeconds = REAUTH_MAX_AGE_SECONDS,
 ): void {
   const amr = Array.isArray(claims?.["amr"]) ? (claims!["amr"] as unknown[]) : [];
-  const strong = new Set(["password", "otp", "totp", "mfa/totp", "webauthn", "mfa/webauthn", "magiclink"]);
+  const strong = new Set([
+    "password",
+    "otp",
+    "totp",
+    "mfa/totp",
+    "webauthn",
+    "mfa/webauthn",
+    "magiclink",
+  ]);
   const newest = amr.reduce<number>((acc, entry) => {
     if (!entry || typeof entry !== "object") return acc;
     const m = (entry as { method?: unknown }).method;
@@ -143,6 +151,15 @@ export async function assertTrustAdmin(context: Ctx): Promise<Actor> {
   const actor = await loadActor(context);
   if (!actor.isTrustAdmin) throw new Error("Forbidden: Trust administrators only");
   return actor;
+}
+
+/**
+ * Cross-project sync review and referral pull. The review reads every unit's
+ * notifications and audit metadata through the service role, and a pull
+ * writes referrals, so this is Trust-wide: unit administrators are refused.
+ */
+export async function assertReconcileAccess(context: Ctx): Promise<Actor> {
+  return assertTrustAdmin(context);
 }
 
 /** Oversight surfaces (audit, access log, bridge security): admins + auditors. */

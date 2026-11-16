@@ -10,7 +10,7 @@ import type { SyncErrorCode } from "@/lib/sync-status";
 import {
   ContractError,
   LEGACY_REVIEW_LIMIT,
-  parseLegacyRecords,
+  parseLegacyReview,
   parseSyncPage,
   SyncPageCollector,
   SYNC_V1_BUDGET,
@@ -168,14 +168,15 @@ export function legacyReviewPath(resource: "notifications" | "audit"): string {
  * Legacy `{records:[...]}` review feeds (cross-app reconciliation review only;
  * never imported). We ask for at most LEGACY_REVIEW_LIMIT rows; a malformed
  * feed, or one that may have been cut short at that bound, fails instead of
- * looking empty or complete.
+ * looking empty or complete. `complete` is true only when the partner proved
+ * it; a shorter unproven list may still have been capped on their side.
  */
-async function fetchLegacy(
-  resource: "notifications" | "audit",
-): Promise<Record<string, unknown>[]> {
+export type LegacyReview = { records: Record<string, unknown>[]; complete: boolean };
+
+async function fetchLegacy(resource: "notifications" | "audit"): Promise<LegacyReview> {
   const body = await getJson(legacyReviewPath(resource));
   try {
-    return parseLegacyRecords(body, LEGACY_REVIEW_LIMIT);
+    return parseLegacyReview(body, LEGACY_REVIEW_LIMIT);
   } catch (e) {
     return asFetchError(e);
   }

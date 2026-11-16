@@ -193,7 +193,9 @@ def check_reconcile(page, vp):
     assert "/auth" not in page.url, f"reconcile redirected to /auth: {page.url}"
 
     heading = page.get_by_role("heading", name="Cross-project sync review")
-    fallback = page.get_by_text("You do not have permission to review cross-project sync.")
+    # Denied / failed-load states render as an alert card (with "Try again"
+    # when the failure isn't a permission refusal).
+    fallback = page.get_by_role("alert").first
 
     # The full sync UI renders only when the partner bridge is reachable. In
     # environments where it is not, the route still loads for an authenticated
