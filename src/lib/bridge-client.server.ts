@@ -3,6 +3,7 @@
 // requests with the shared HANDOVER_API_SECRET.
 import { createHmac } from "crypto";
 import type { Database } from "@/integrations/supabase/types";
+import type { SyncErrorCode } from "@/lib/sync-status";
 
 export type PatientRow = Database["public"]["Tables"]["patients"]["Row"];
 export type InvestigationRow = Database["public"]["Tables"]["investigations"]["Row"];
@@ -19,11 +20,17 @@ const SYSTEM_ACTOR = {
   role: "admin",
 } as const;
 
+export class BridgeFetchError extends Error {
+  constructor(readonly code: SyncErrorCode) {
+    super(code);
+    this.name = "BridgeFetchError";
+  }
+}
+
 function config(): { baseUrl: string; secret: string } {
   const baseUrl = process.env.PARTNER_BRIDGE_URL;
   const secret = process.env.HANDOVER_API_SECRET;
-  if (!baseUrl) throw new Error("PARTNER_BRIDGE_URL is not configured");
-  if (!secret) throw new Error("HANDOVER_API_SECRET is not configured");
+  if (!baseUrl || !secret) throw new BridgeFetchError("not_configured");
   return { baseUrl: baseUrl.replace(/\/$/, ""), secret };
 }
 
@@ -43,63 +50,99 @@ function signedHeaders(rawBody: string): Record<string, string> {
   };
 }
 
-async function getJson<T>(path: string): Promise<T> {
+// Errors carry a code only: the partner's response body can contain record
+// values and must never reach logs, the sync-event table or the UI.
+async function getJson(path: string): Promise<unknown> {
   const { baseUrl } = config();
-  const res = await fetch(`${baseUrl}${path}`, {
-    method: "GET",
-    headers: signedHeaders(""),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Partner bridge GET ${path} failed [${res.status}]: ${body}`);
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}${path}`, { method: "GET", headers: signedHeaders("") });
+  } catch {
+    throw new BridgeFetchError("partner_unreachable");
   }
-  return (await res.json()) as T;
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => {});
+    console.error("[bridge-client] partner GET failed", path, res.status);
+    throw new BridgeFetchError("partner_http_error");
+  }
+  try {
+    return await res.json();
+  } catch {
+    throw new BridgeFetchError("malformed_response");
+  }
+}
+
+/**
+ * The expected list must be present and an array of objects with a text id.
+ * A missing/null/non-array list is malformed, NOT "no records" — otherwise a
+ * broken partner response would look like a successful empty pull.
+ */
+export function expectRecords<T>(body: unknown, key: string): T[] {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new BridgeFetchError("malformed_response");
+  }
+  const list = (body as Record<string, unknown>)[key];
+  if (!Array.isArray(list)) throw new BridgeFetchError("malformed_response");
+  for (const item of list) {
+    const rec = item as Record<string, unknown> | null;
+    if (
+      !rec ||
+      typeof rec !== "object" ||
+      Array.isArray(rec) ||
+      typeof rec.id !== "string" ||
+      rec.id === "" ||
+      !(
+        rec.updated_at === undefined ||
+        rec.updated_at === null ||
+        typeof rec.updated_at === "string"
+      )
+    ) {
+      throw new BridgeFetchError("malformed_record");
+    }
+  }
+  return list as T[];
 }
 
 // Pull the full patient list from the partner backend.
 export async function fetchPartnerPatients(): Promise<PatientRow[]> {
-  const data = await getJson<{ patients: PatientRow[] | null }>("/api/public/bridge/patients");
-  return data.patients ?? [];
+  return expectRecords<PatientRow>(await getJson("/api/public/bridge/patients"), "patients");
 }
 
 // Pull the full investigation list from the partner backend.
 export async function fetchPartnerInvestigations(): Promise<InvestigationRow[]> {
-  const data = await getJson<{ investigations: InvestigationRow[] | null }>(
-    "/api/public/bridge/investigations",
+  return expectRecords<InvestigationRow>(
+    await getJson("/api/public/bridge/investigations"),
+    "investigations",
   );
-  return data.investigations ?? [];
 }
 
 // Pull the partner backend's notifications for cross-project review.
 export async function fetchPartnerNotifications(): Promise<NotificationRow[]> {
-  const data = await getJson<{ notifications: NotificationRow[] | null }>(
-    "/api/public/bridge/notifications",
-  );
-  return data.notifications ?? [];
+  const data = (await getJson("/api/public/bridge/notifications")) as {
+    notifications?: NotificationRow[] | null;
+  } | null;
+  return data?.notifications ?? [];
 }
 
-// Pull the partner backend's referrals for cross-project review.
+// Pull the partner backend's referrals.
 export async function fetchPartnerReferrals(): Promise<ReferralRow[]> {
-  const data = await getJson<{ referrals: ReferralRow[] | null }>(
-    "/api/public/bridge/referrals",
-  );
-  return data.referrals ?? [];
+  return expectRecords<ReferralRow>(await getJson("/api/public/bridge/referrals"), "referrals");
 }
 
 // Pull the partner backend's audit log for cross-project review.
 export async function fetchPartnerAuditLog(): Promise<AuditLogRow[]> {
-  const data = await getJson<{ audit_log: AuditLogRow[] | null }>(
-    "/api/public/bridge/audit",
-  );
-  return data.audit_log ?? [];
+  const data = (await getJson("/api/public/bridge/audit")) as {
+    audit_log?: AuditLogRow[] | null;
+  } | null;
+  return data?.audit_log ?? [];
 }
 
 // Pull the full microbiology-results list from the partner backend.
 export async function fetchPartnerMicrobiology(): Promise<MicrobiologyRow[]> {
-  const data = await getJson<{ microbiology: MicrobiologyRow[] | null }>(
-    "/api/public/bridge/microbiology",
+  return expectRecords<MicrobiologyRow>(
+    await getJson("/api/public/bridge/microbiology"),
+    "microbiology",
   );
-  return data.microbiology ?? [];
 }
 
 export const bridgeSystemActor = SYSTEM_ACTOR;

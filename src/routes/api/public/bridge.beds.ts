@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
-import { buildBridgeBedBoard } from "@/lib/bridge-beds";
+import { bedBoardUnavailableResponse, buildBridgeBedBoard } from "@/lib/bridge-beds";
 
 /**
  * Read-only bridge endpoint exposing the Radnor Critical Care bed board to the
@@ -26,7 +26,8 @@ export const Route = createFileRoute("/api/public/bridge/beds")({
         try {
           board = await buildBridgeBedBoard(supabaseAdmin);
         } catch (error) {
-          return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+          // Fail closed: never claim capacity from a doubtful snapshot.
+          return bedBoardUnavailableResponse(error);
         }
 
         await logSync(supabaseAdmin, {

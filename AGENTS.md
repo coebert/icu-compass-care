@@ -15,3 +15,6 @@
 - Session state errors are "unknown" and fail closed (src/lib/session-lock.ts); a lock is only shown after server confirmation, otherwise sign out. Why: never claim protection that failed.
 - Tests that touch the connected live backend are excluded unless ALLOW_LIVE_BACKEND_TESTS=1 (vitest.config.ts). Why: no staging copy exists.
 - Untrusted input is size-checked before Zod (src/lib/input-bounds.ts): global function middleware for every server function, plus `readBodyLimited` + bounds on partner write routes. Why: Zod 3 has no fix for GHSA-mrhx-c7xc-m3w5 and `.max()` still validates every element.
+- Partner bed board counts occupancy from minimal non-identifying facts for all active ICU rows; identity comes only from still-shared rows; any doubt returns a safe 503 (src/lib/bridge-beds.ts). Why: a withheld patient must never look like a free bed.
+- Inbound sync logs one event per resource per pass, tagged actor_role `inbound_sync`, with safe codes only; status reads latest attempt and success per resource (src/lib/sync-status*.ts). Why: one healthy stream must not hide another's failure, and no PHI in logs.
+- Writes based on a preview compare-and-set on the previewed `updated_at` (e.g. src/lib/referral-prefill.server.ts). Why: a concurrent edit must force reload and reconfirm.

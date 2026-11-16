@@ -118,7 +118,8 @@ function composeTepDetails(ref: ReferralPrefillSource): string | null {
 
 function composeDnacprDetails(ref: ReferralPrefillSource): string | null {
   if (ref.resus_status === "dnacpr") return "DNACPR documented on critical care referral.";
-  if (ref.dnacpr_respect === true) return "ReSPECT / DNACPR form recorded on critical care referral.";
+  if (ref.dnacpr_respect === true)
+    return "ReSPECT / DNACPR form recorded on critical care referral.";
   return null;
 }
 
@@ -217,3 +218,15 @@ export function referralCandidateSummary(r: {
   if (r.current_ward) bits.push(r.current_ward);
   return bits.join(" · ") || "Referral";
 }
+
+/**
+ * Shown when "Confirm prefill" is pressed on a preview that no longer matches
+ * the record (someone edited the patient, or the referral re-synced, after the
+ * preview was loaded). Nothing is written; the user must reload and reconfirm.
+ */
+export const PREFILL_STALE_MESSAGE =
+  "This record changed after the preview was shown. Nothing was changed — reload the preview and confirm again.";
+
+/** Referral columns read for preview and apply (structured fields only). */
+export const REFERRAL_PREFILL_COLUMNS =
+  "id, updated_at, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency";
