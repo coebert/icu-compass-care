@@ -7,10 +7,10 @@ import {
   logSync,
   logSecurityEvent,
   clientIp,
-  sharedPatientIds,
   consumeWriteNonce,
 } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
+import { bridgeExport, isUuid } from "@/lib/bridge-exports.server";
 import { getAdmin } from "@/lib/admin-db.server";
 import { readBodyLimited } from "@/lib/request-body.server";
 import {
@@ -41,12 +41,8 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         const patientId = url.searchParams.get("patient_id");
         const category = url.searchParams.get("category");
 
-        // Gate to patients an admin has shared. If none are shared, or the
-        // requested patient isn't shared, return an empty set — never leak
-        // investigations for non-shared patients.
-        const allowedIds = await sharedPatientIds(supabaseAdmin);
-        const scopedIds = patientId ? allowedIds.filter((id) => id === patientId) : allowedIds;
-        if (scopedIds.length === 0) {
+        // A patient id that is not a UUID can never match a shared patient.
+        if (patientId !== null && !isUuid(patientId)) {
           await logSync(supabaseAdmin, {
             direction: "pull",
             entity: "investigations",
@@ -56,23 +52,20 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
           return json({ investigations: [] });
         }
 
-        let query = supabaseAdmin
-          .from("investigations")
-          .select("*")
-          .in("patient_id", scopedIds)
-          .order("result_at", { ascending: false });
-        if (category) query = query.eq("category", category);
-
-        const { data, error } = await query;
-        if (error)
-          return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        // Unit + still-shared parent checked in the same statement that reads
+        // the rows (0008_bridge_read_exports.sql).
+        const out = await bridgeExport(supabaseAdmin, "bridge_export_investigations", {
+          _patient_id: patientId,
+          _category: category,
+        });
+        if (!out.ok) return json({ error: "Service unavailable" }, out.status);
         await logSync(supabaseAdmin, {
           direction: "pull",
           entity: "investigations",
-          record_count: data?.length ?? 0,
+          record_count: out.rows.length,
           actor: auth.actor,
         });
-        return json({ investigations: data });
+        return json({ investigations: out.rows });
       },
 
       // Add a new investigation result (append-only)

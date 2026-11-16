@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { corsHeaders, json, authorizeBridge, sharedPatientIds, logSync } from "@/lib/api-bridge.server";
+import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
+import { bridgeExport } from "@/lib/bridge-exports.server";
 
 // Read-only bridge endpoint exposing this backend's microbiology results so the
-// partner project can review and reconcile the synced set.
+// partner project can review and reconcile the synced set. Only results whose
+// patient is in the bridge unit and still shared, checked in the same database
+// statement that reads them.
 export const Route = createFileRoute("/api/public/bridge/microbiology")({
   server: {
     handlers: {
@@ -14,22 +17,15 @@ export const Route = createFileRoute("/api/public/bridge/microbiology")({
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
-        // Only expose microbiology for patients an admin has shared.
-        const allowedIds = await sharedPatientIds(supabaseAdmin);
-        if (allowedIds.length === 0) {
-          await logSync(supabaseAdmin, { direction: "pull", entity: "microbiology", record_count: 0, actor: auth.actor });
-          return json({ microbiology: [] });
-        }
-
-        const { data, error } = await supabaseAdmin
-          .from("microbiology_results")
-          .select("*")
-          .in("patient_id", allowedIds)
-          .order("updated_at", { ascending: false })
-          .limit(5000);
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
-        await logSync(supabaseAdmin, { direction: "pull", entity: "microbiology", record_count: data?.length ?? 0, actor: auth.actor });
-        return json({ microbiology: data });
+        const out = await bridgeExport(supabaseAdmin, "bridge_export_microbiology");
+        if (!out.ok) return json({ error: "Service unavailable" }, out.status);
+        await logSync(supabaseAdmin, {
+          direction: "pull",
+          entity: "microbiology",
+          record_count: out.rows.length,
+          actor: auth.actor,
+        });
+        return json({ microbiology: out.rows });
       },
     },
   },
