@@ -540,7 +540,8 @@ describe("bridge_import_referral — provenance and ownership", () => {
       refRec({ id, anticipated_interventions: "niv" }),
       { id, updated_at: "2026-03-05T00:00:00Z", deleted_at: null },
     ];
-    for (const b of bad) await expect(importReferral(b)).rejects.toThrow(/invalid_record/);
+    for (const [i, b] of bad.entries())
+      await expect(importReferral(b), `case ${i}`).rejects.toThrow(/invalid_record/);
     expect(await localRef(id)).toBeUndefined();
   });
   it("audit failure rolls back the content and the provenance", async () => {
