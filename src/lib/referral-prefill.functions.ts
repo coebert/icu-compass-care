@@ -6,6 +6,8 @@ import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   computeReferralPrefill,
+  partnerReferralUrl,
+  prefillLinkState,
   REFERRAL_PREFILL_COLUMNS,
   PREFILL_DECISION_FIELDS,
   type ReferralPrefillSource,
@@ -43,7 +45,7 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
       .from("patients")
       .select(
         withCryptoColumns(
-          "updated_at, current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
+          "updated_at, source_referral_id, current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
         ),
       )
       .eq("id", data.patient_id)
@@ -51,6 +53,19 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
     if (pErr) throw safeDbError(pErr);
     if (!patient) throw new Error("Patient not found");
     const patientPlain = decryptPatientRow(patient as unknown as Record<string, unknown>);
+
+    // No preview (and no referral content) unless the patient is already
+    // linked to exactly this referral. The link is confirmed in CCC.
+    const link = prefillLinkState(
+      (patient as unknown as { source_referral_id: unknown }).source_referral_id,
+      data.referral_id,
+    );
+    if (link !== "linked") {
+      return {
+        link,
+        partner_referral_url: partnerReferralUrl(process.env.PARTNER_BRIDGE_URL, data.referral_id),
+      } as const;
+    }
 
     const { data: ref, error: rErr } = await context.supabase
       .from("referrals")
@@ -82,6 +97,7 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
     });
 
     return {
+      link: "linked" as const,
       applied_fields: plan.applied_fields,
       skipped_fields: plan.skipped_fields,
       patch: plan.patch,
@@ -111,3 +127,11 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }) => applyReferralPrefill(context, data));
+
+// Where "Open in Critical Care Connect" links point: the partner origin only.
+export const getPartnerReferralBase = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const probe = partnerReferralUrl(process.env.PARTNER_BRIDGE_URL, "00000000-0000-4000-8000-000000000000");
+    return { origin: probe ? new URL(probe).origin : null };
+  });

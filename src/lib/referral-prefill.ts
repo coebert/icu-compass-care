@@ -244,3 +244,40 @@ export const PREFILL_STALE_MESSAGE =
 /** Referral columns read for preview and apply (structured fields only). */
 export const REFERRAL_PREFILL_COLUMNS =
   "id, updated_at, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency";
+
+/**
+ * Shown when the patient isn't already linked to the chosen referral. This
+ * app never infers who a referral is about from age, ward or initials; the
+ * match is confirmed in Critical Care Connect (exact hospital number against
+ * the fresh Hub record), which then records the link.
+ */
+export const REFERRAL_LINK_REQUIRED_MESSAGE =
+  "This patient isn't linked to that referral, so nothing can be copied here. Open the referral in Critical Care Connect to confirm the match.";
+
+export type PrefillLinkState = "linked" | "unlinked" | "mismatch";
+
+/** linked only when the patient already points at exactly this referral. */
+export function prefillLinkState(sourceReferralId: unknown, referralId: string): PrefillLinkState {
+  if (typeof sourceReferralId !== "string" || sourceReferralId === "") return "unlinked";
+  return sourceReferralId.toLowerCase() === referralId.toLowerCase() ? "linked" : "mismatch";
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Link to a referral in Critical Care Connect: the partner origin plus the
+ * opaque referral id only. No patient identifier is ever put in the URL.
+ * null when the partner address isn't a valid https origin.
+ */
+export function partnerReferralUrl(partnerBase: string | null | undefined, referralId: string): string | null {
+  if (!partnerBase || !UUID_RE.test(referralId)) return null;
+  let origin: string;
+  try {
+    const u = new URL(partnerBase);
+    if (u.protocol !== "https:") return null;
+    origin = u.origin;
+  } catch {
+    return null;
+  }
+  return `${origin}/referrals/${referralId.toLowerCase()}`;
+}
