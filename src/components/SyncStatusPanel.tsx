@@ -122,8 +122,9 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
   const data = status.data;
   if (!status.isError && (!data || data.access === "restricted")) return null;
 
-  // A failed status query is itself shown — never hidden or shown as healthy.
-  const granted = !status.isError && data && data.access === "granted" ? data : null;
+  type Granted = Extract<SyncStatus, { access: "granted" }>;
+  const granted: Granted | null =
+    !status.isError && data && data.access === "granted" ? (data as Granted) : null;
   // A failed status query is itself shown — never hidden or shown as healthy.
   const loadFailed = granted === null;
   const rows = granted
