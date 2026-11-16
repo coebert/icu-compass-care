@@ -80,7 +80,10 @@ const SEVERITY: Record<ResourceState, number> = {
 /** Worst state wins: one healthy stream can never hide another's failure. */
 export function overallState(states: ResourceState[]): ResourceState {
   if (states.length === 0) return "unavailable";
-  return states.reduce((worst, s) => (SEVERITY[s] > SEVERITY[worst] ? s : worst), "ok" as ResourceState);
+  return states.reduce(
+    (worst, s) => (SEVERITY[s] > SEVERITY[worst] ? s : worst),
+    "ok" as ResourceState,
+  );
 }
 
 export const RESOURCE_STATE_TEXT: Record<ResourceState, string> = {

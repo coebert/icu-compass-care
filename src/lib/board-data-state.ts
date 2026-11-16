@@ -18,7 +18,9 @@ export function queryDataState(q: {
   dataUpdatedAt: number;
 }): QueryDataState {
   if (q.data === undefined) return q.isError ? { kind: "failed" } : { kind: "loading" };
-  return q.isError ? { kind: "stale", lastGoodAt: q.dataUpdatedAt } : { kind: "ready", lastGoodAt: q.dataUpdatedAt };
+  return q.isError
+    ? { kind: "stale", lastGoodAt: q.dataUpdatedAt }
+    : { kind: "ready", lastGoodAt: q.dataUpdatedAt };
 }
 
 /** Bed availability can only be acted on when every input is fresh. */
@@ -60,7 +62,8 @@ export function splitOccupancy<P extends BedPatient>(
       continue;
     }
     (allByBed.get(key) ?? allByBed.set(key, []).get(key)!).push(p);
-    if (visibleIds.has(p.id)) (visibleByBed.get(key) ?? visibleByBed.set(key, []).get(key)!).push(p);
+    if (visibleIds.has(p.id))
+      (visibleByBed.get(key) ?? visibleByBed.set(key, []).get(key)!).push(p);
   }
   const hiddenBeds = new Set<string>();
   for (const [key, list] of allByBed) {

@@ -215,7 +215,9 @@ export async function buildBridgeBedBoard(supabaseAdmin: any): Promise<BridgeBed
     if (!Array.isArray(idRows)) fail("identity_unavailable");
     let rows: BridgePatient[];
     try {
-      rows = decryptPatientRows(idRows as Array<Record<string, unknown>>) as unknown as BridgePatient[];
+      rows = decryptPatientRows(
+        idRows as Array<Record<string, unknown>>,
+      ) as unknown as BridgePatient[];
     } catch {
       fail("identity_unavailable");
     }

@@ -64,8 +64,10 @@ function world(opts: {
   identityError?: boolean;
 }) {
   return fakeSupabase((c: FakeCall): FakeResult => {
-    if (c.table === "icu_units") return opts.unitError ? { error: { message: "x" } } : { data: { id: UNIT } };
-    if (c.table === "icu_beds") return opts.rosterError ? { error: { message: "x" } } : { data: opts.roster ?? roster };
+    if (c.table === "icu_units")
+      return opts.unitError ? { error: { message: "x" } } : { data: { id: UNIT } };
+    if (c.table === "icu_beds")
+      return opts.rosterError ? { error: { message: "x" } } : { data: opts.roster ?? roster };
     if (c.table === "patients" && c.columns === OCCUPANCY_FACT_COLUMNS) {
       return opts.factError
         ? { error: { message: "x" } }
@@ -92,7 +94,12 @@ describe("bridge bed board — physical occupancy vs shared identity", () => {
   it("shows a withheld patient's bed as occupied with no occupant, never vacant", async () => {
     const db = world({ facts: [{ id: "w1", bed: "2", shared_with_partner: false }] });
     const board = await buildBridgeBedBoard(db);
-    expect(board.bed_board[1]).toEqual({ bed: "2", is_side_room: false, occupied: true, occupant: null });
+    expect(board.bed_board[1]).toEqual({
+      bed: "2",
+      is_side_room: false,
+      occupied: true,
+      occupant: null,
+    });
     expect(board.stats).toEqual({ total_beds: 3, occupied: 1, available: 2, unassigned: 0 });
     // No identity read at all when nothing is shared.
     expect(db.calls.filter((c) => c.table === "patients" && c.columns === "*")).toHaveLength(0);
@@ -123,12 +130,28 @@ describe("bridge bed board — physical occupancy vs shared identity", () => {
     expect(hasFilter(idQuery, "eq", "unit_id", UNIT)).toBe(true);
     expect(Object.keys(board.bed_board[0].occupant!).sort()).toEqual(
       [
-        "id", "full_name", "hospital_number", "age", "status", "bed", "admission_date",
-        "tep_in_place", "dnacpr_decision", "outstanding_tasks", "wardable", "wardable_at", "updated_at",
+        "id",
+        "full_name",
+        "hospital_number",
+        "age",
+        "status",
+        "bed",
+        "admission_date",
+        "tep_in_place",
+        "dnacpr_decision",
+        "outstanding_tasks",
+        "wardable",
+        "wardable_at",
+        "updated_at",
       ].sort(),
     );
     expect(board.bed_board[0].occupant!.id).toBe("s1");
-    expect(board.bed_board[2]).toEqual({ bed: "3", is_side_room: false, occupied: true, occupant: null });
+    expect(board.bed_board[2]).toEqual({
+      bed: "3",
+      is_side_room: false,
+      occupied: true,
+      occupant: null,
+    });
     expect(board.stats.occupied).toBe(2);
     expect(board.stats.available).toBe(1);
   });
@@ -149,9 +172,17 @@ describe("bridge bed board — physical occupancy vs shared identity", () => {
   });
 
   it("treats a patient un-shared between the two reads as withheld, still occupied", async () => {
-    const db = world({ facts: [{ id: "s1", bed: "2", shared_with_partner: true }], identities: [] });
+    const db = world({
+      facts: [{ id: "s1", bed: "2", shared_with_partner: true }],
+      identities: [],
+    });
     const board = await buildBridgeBedBoard(db);
-    expect(board.bed_board[1]).toEqual({ bed: "2", is_side_room: false, occupied: true, occupant: null });
+    expect(board.bed_board[1]).toEqual({
+      bed: "2",
+      is_side_room: false,
+      occupied: true,
+      occupant: null,
+    });
   });
 
   it("keeps the response shape and adds an ISO generated_at", async () => {
@@ -174,20 +205,28 @@ describe("bridge bed board — physical occupancy vs shared identity", () => {
 
 describe("bridge bed board — fails closed instead of claiming capacity", () => {
   it("roster read error does not fall back to defaults", async () => {
-    expect(await reason(buildBridgeBedBoard(world({ facts: [], rosterError: true })))).toBe("roster_unavailable");
+    expect(await reason(buildBridgeBedBoard(world({ facts: [], rosterError: true })))).toBe(
+      "roster_unavailable",
+    );
   });
   it("duplicate normalised roster labels", async () => {
     const dup = [
       { label: "3", is_side_room: false, position: 1 },
       { label: " 3 ", is_side_room: false, position: 2 },
     ];
-    expect(await reason(buildBridgeBedBoard(world({ facts: [], roster: dup })))).toBe("roster_duplicate_label");
+    expect(await reason(buildBridgeBedBoard(world({ facts: [], roster: dup })))).toBe(
+      "roster_duplicate_label",
+    );
   });
   it("malformed roster rows", async () => {
-    expect(await reason(buildBridgeBedBoard(world({ facts: [], roster: [{ label: "", is_side_room: false }] })))).toBe(
+    expect(
+      await reason(
+        buildBridgeBedBoard(world({ facts: [], roster: [{ label: "", is_side_room: false }] })),
+      ),
+    ).toBe("roster_malformed");
+    expect(await reason(buildBridgeBedBoard(world({ facts: [], roster: { label: "1" } })))).toBe(
       "roster_malformed",
     );
-    expect(await reason(buildBridgeBedBoard(world({ facts: [], roster: { label: "1" } })))).toBe("roster_malformed");
   });
   it("two active patients assigned to the same slot (normalised)", async () => {
     const facts = [
@@ -197,10 +236,14 @@ describe("bridge bed board — fails closed instead of claiming capacity", () =>
     expect(await reason(buildBridgeBedBoard(world({ facts })))).toBe("ambiguous_assignment");
   });
   it("unit lookup failure", async () => {
-    expect(await reason(buildBridgeBedBoard(world({ facts: [], unitError: true })))).toBe("unit_unavailable");
+    expect(await reason(buildBridgeBedBoard(world({ facts: [], unitError: true })))).toBe(
+      "unit_unavailable",
+    );
   });
   it("occupancy read failure", async () => {
-    expect(await reason(buildBridgeBedBoard(world({ facts: [], factError: true })))).toBe("occupancy_unavailable");
+    expect(await reason(buildBridgeBedBoard(world({ facts: [], factError: true })))).toBe(
+      "occupancy_unavailable",
+    );
   });
   it("malformed occupancy rows (missing share flag, duplicate id, non-text bed)", async () => {
     for (const facts of [
@@ -216,19 +259,25 @@ describe("bridge bed board — fails closed instead of claiming capacity", () =>
   });
   it("truncated occupancy result (count disagrees with rows)", async () => {
     const facts = [{ id: "a", bed: "1", shared_with_partner: false }];
-    expect(await reason(buildBridgeBedBoard(world({ facts, count: 2 })))).toBe("occupancy_incomplete");
+    expect(await reason(buildBridgeBedBoard(world({ facts, count: 2 })))).toBe(
+      "occupancy_incomplete",
+    );
   });
   it("identity read failure", async () => {
     const facts = [{ id: "s1", bed: "1", shared_with_partner: true }];
-    expect(await reason(buildBridgeBedBoard(world({ facts, identityError: true })))).toBe("identity_unavailable");
+    expect(await reason(buildBridgeBedBoard(world({ facts, identityError: true })))).toBe(
+      "identity_unavailable",
+    );
   });
   it("patient moved or admitted between the two reads", async () => {
     const facts = [{ id: "s1", bed: "1", shared_with_partner: true }];
-    expect(await reason(buildBridgeBedBoard(world({ facts, identities: [shared("s1", "3")] })))).toBe(
-      "identity_mismatch",
-    );
     expect(
-      await reason(buildBridgeBedBoard(world({ facts, identities: [shared("s1", "1"), shared("new", "2")] }))),
+      await reason(buildBridgeBedBoard(world({ facts, identities: [shared("s1", "3")] }))),
+    ).toBe("identity_mismatch");
+    expect(
+      await reason(
+        buildBridgeBedBoard(world({ facts, identities: [shared("s1", "1"), shared("new", "2")] })),
+      ),
     ).toBe("identity_mismatch");
   });
 });
@@ -264,7 +313,12 @@ describe("partner bed endpoints return a safe 503", () => {
     const res: Response = await GET({ request: new Request("http://isolated.test/x") });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.bed_board[0]).toEqual({ bed: "1", is_side_room: true, occupied: true, occupant: null });
+    expect(body.bed_board[0]).toEqual({
+      bed: "1",
+      is_side_room: true,
+      occupied: true,
+      occupant: null,
+    });
     expect(body.stats).toEqual({ total_beds: 3, occupied: 1, available: 2, unassigned: 0 });
   });
 });

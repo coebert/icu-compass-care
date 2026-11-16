@@ -95,7 +95,10 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
       } else {
         const problems = res.results
           .filter((r) => r.error || r.failed > 0)
-          .map((r) => `${RESOURCE_LABEL[r.entity] ?? r.entity}: ${SYNC_ERROR_TEXT[r.error ?? "partial_write_failure"]}`);
+          .map(
+            (r) =>
+              `${RESOURCE_LABEL[r.entity] ?? r.entity}: ${SYNC_ERROR_TEXT[r.error ?? "partial_write_failure"]}`,
+          );
         toast.warning("Partner sync incomplete", { description: problems.join(" ") });
       }
     },
@@ -123,21 +126,31 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
   const loadFailed = status.isError || !data || data.access !== "granted";
   const granted = !loadFailed && data && data.access === "granted" ? data : null;
   const rows = granted
-    ? granted.resources.map((r) => ({ r, state: resourceState(r, now, granted.delayedAfterMinutes) }))
+    ? granted.resources.map((r) => ({
+        r,
+        state: resourceState(r, now, granted.delayedAfterMinutes),
+      }))
     : [];
-  const overall: ResourceState = loadFailed ? "unavailable" : overallState(rows.map((x) => x.state));
-  const lastSuccessOverall = rows
-    .map((x) => x.r.lastSuccessAt)
-    .filter((v): v is string => Boolean(v))
-    .sort()
-    .reverse()[0] ?? null;
+  const overall: ResourceState = loadFailed
+    ? "unavailable"
+    : overallState(rows.map((x) => x.state));
+  const lastSuccessOverall =
+    rows
+      .map((x) => x.r.lastSuccessAt)
+      .filter((v): v is string => Boolean(v))
+      .sort()
+      .reverse()[0] ?? null;
   // Oldest per-stream success is what "everything is current as of" means.
   const oldestSuccess =
     rows.length > 0 && rows.every((x) => x.r.lastSuccessAt)
       ? rows.map((x) => x.r.lastSuccessAt as string).sort()[0]
       : null;
 
-  const Icon = BAD.includes(overall) ? AlertTriangle : WARN.includes(overall) ? Clock : CheckCircle2;
+  const Icon = BAD.includes(overall)
+    ? AlertTriangle
+    : WARN.includes(overall)
+      ? Clock
+      : CheckCircle2;
   const badgeText = loadFailed
     ? "Sync status unavailable"
     : overall === "ok"
@@ -182,7 +195,10 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
                 onClick={() => void status.refetch()}
                 disabled={status.isFetching}
               >
-                <RefreshCw className={cn("h-3.5 w-3.5", status.isFetching && "animate-spin")} aria-hidden />
+                <RefreshCw
+                  className={cn("h-3.5 w-3.5", status.isFetching && "animate-spin")}
+                  aria-hidden
+                />
                 Check again
               </Button>
             </div>
@@ -198,7 +214,9 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
                       </span>
                     </div>
                     {state === "unavailable" ? (
-                      <p className="text-muted-foreground">Status for this stream couldn't be read.</p>
+                      <p className="text-muted-foreground">
+                        Status for this stream couldn't be read.
+                      </p>
                     ) : (
                       <>
                         <p className="text-muted-foreground">
@@ -213,7 +231,9 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
                         </p>
                         {r.lastAttemptOk === false && r.lastAttemptAt && (
                           <p className="text-destructive">
-                            {state === "incomplete" ? "Last attempt incomplete" : "Last attempt failed"}{" "}
+                            {state === "incomplete"
+                              ? "Last attempt incomplete"
+                              : "Last attempt failed"}{" "}
                             <time dateTime={r.lastAttemptAt} title={fmtDateTime(r.lastAttemptAt)}>
                               {relTime(r.lastAttemptAt, now)}
                             </time>
@@ -231,8 +251,8 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
                 ))}
               </ul>
               <p className="text-muted-foreground">
-                Most recent successful update on any stream: {relTime(lastSuccessOverall, now)}. Status
-                checked {relTime(granted!.checkedAt, now)}.
+                Most recent successful update on any stream: {relTime(lastSuccessOverall, now)}.
+                Status checked {relTime(granted!.checkedAt, now)}.
               </p>
             </>
           )}
@@ -244,7 +264,10 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
               disabled={retry.isPending}
               onClick={() => retry.mutate()}
             >
-              <RefreshCw className={cn("h-3.5 w-3.5", retry.isPending && "animate-spin")} aria-hidden />
+              <RefreshCw
+                className={cn("h-3.5 w-3.5", retry.isPending && "animate-spin")}
+                aria-hidden
+              />
               {retry.isPending ? "Syncing…" : BAD.includes(overall) ? "Retry sync now" : "Sync now"}
             </Button>
           )}

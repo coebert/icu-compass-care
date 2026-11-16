@@ -59,7 +59,20 @@ export function fakeSupabase(resolve: (call: FakeCall) => FakeResult | Promise<F
           return run().then(ok, bad);
         },
       };
-      for (const m of ["eq", "neq", "in", "is", "not", "gte", "lte", "lt", "gt", "order", "limit", "range"]) {
+      for (const m of [
+        "eq",
+        "neq",
+        "in",
+        "is",
+        "not",
+        "gte",
+        "lte",
+        "lt",
+        "gt",
+        "order",
+        "limit",
+        "range",
+      ]) {
         b[m] = (...args: unknown[]) => {
           call.filters.push([m, ...args]);
           return b;
@@ -73,5 +86,6 @@ export function fakeSupabase(resolve: (call: FakeCall) => FakeResult | Promise<F
 
 export const hasFilter = (c: FakeCall, op: string, col: string, val?: unknown) =>
   c.filters.some(
-    ([o, k, v]) => o === op && k === col && (val === undefined || JSON.stringify(v) === JSON.stringify(val)),
+    ([o, k, v]) =>
+      o === op && k === col && (val === undefined || JSON.stringify(v) === JSON.stringify(val)),
   );

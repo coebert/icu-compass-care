@@ -17,11 +17,7 @@ import {
 import { logSync, logSyncError, type BridgeActor } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
-import {
-  INBOUND_SYNC_ACTOR_ROLE,
-  type SyncErrorCode,
-  type SyncResource,
-} from "@/lib/sync-status";
+import { INBOUND_SYNC_ACTOR_ROLE, type SyncErrorCode, type SyncResource } from "@/lib/sync-status";
 
 export type EntitySyncResult = {
   entity: SyncResource;
@@ -80,7 +76,8 @@ type ResourceSpec = {
 // `shared_with_partner*` is a local governance decision — never let a pulled
 // partner copy overwrite it.
 function preparePatient(remote: Row): Record<string, unknown> {
-  const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...remoteSafe } = remote;
+  const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...remoteSafe } =
+    remote;
   void shared_with_partner;
   void shared_with_partner_at;
   void shared_with_partner_by;

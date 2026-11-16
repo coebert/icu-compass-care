@@ -80,4 +80,3 @@ export async function readSyncStatus(
     canRetry: actor.isTrustAdmin,
   };
 }
-

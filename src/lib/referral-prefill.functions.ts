@@ -4,8 +4,11 @@ import { decryptPatientRow, withCryptoColumns } from "@/lib/patient-crypto.serve
 import { applyReferralPrefill } from "@/lib/referral-prefill.server";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { computeReferralPrefill, type ReferralPrefillSource } from "@/lib/referral-prefill";
-import { REFERRAL_PREFILL_COLUMNS } from "@/lib/referral-prefill";
+import {
+  computeReferralPrefill,
+  REFERRAL_PREFILL_COLUMNS,
+  type ReferralPrefillSource,
+} from "@/lib/referral-prefill";
 
 // Version strings come straight back from a preview; bounded and opaque.
 const versionString = z.string().min(1).max(64);
