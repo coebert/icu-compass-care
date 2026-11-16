@@ -19,4 +19,4 @@ fi
 trap '"${RUNAS[@]}" pg_ctl -D "$DIR/data" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"' EXIT
 export CONCURRENCY_PG_URL="$DIR:$PORT"
 cd "$ROOT"
-bunx vitest run tests/security/concurrency/admin-concurrency.test.ts
+bunx vitest run tests/security/concurrency/admin-concurrency.test.ts tests/security/concurrency/bed-concurrency.test.ts
