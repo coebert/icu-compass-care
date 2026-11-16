@@ -15,6 +15,7 @@ import {
 import { PatientForm, emptyPatient, type PatientFormValues } from "@/components/PatientForm";
 import { PatientName, PatientMetaLine } from "@/components/PatientSummary";
 import { PreviousAdmissionBanner } from "@/components/PreviousAdmissionBanner";
+import { applyHistoricalPatch } from "@/lib/previous-admission";
 
 import { STATUS_BADGE, STATUS_LABELS, fmtDate, fmtDateTime } from "@/lib/icu";
 import { Button } from "@/components/ui/button";
@@ -823,7 +824,18 @@ function PatientsBoard() {
           <div className="mb-4">
             <PreviousAdmissionBanner
               values={form}
-              onApply={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              onApply={(patch, verifiedFor) =>
+                // Re-checked against the latest form: same hospital number, field still blank.
+                setForm((f) =>
+                  patch.past_medical_history
+                    ? applyHistoricalPatch(
+                        f,
+                        { past_medical_history: patch.past_medical_history },
+                        verifiedFor,
+                      )
+                    : f,
+                )
+              }
             />
           </div>
           <PatientForm

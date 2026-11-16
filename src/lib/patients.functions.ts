@@ -23,26 +23,7 @@ import {
 import { decryptFieldSafe, encryptField } from "@/lib/crypto.server";
 import { PATIENT_ENCRYPTED_FIELDS } from "@/lib/patient-crypto.server";
 
-export type PreviousAdmission = {
-  id: string;
-  full_name: string | null;
-  hospital_number: string | null;
-  age: number | null;
-  status: string;
-  admission_date: string | null;
-  discharge_date: string | null;
-  discharge_destination: string | null;
-  date_of_death: string | null;
-  past_medical_history: string | null;
-  allergies: Array<Record<string, string | null>> | null;
-  tep_in_place: boolean | null;
-  tep_details: string | null;
-  tep_exclusions: string[] | null;
-  dnacpr_decision: boolean | null;
-  dnacpr_details: string | null;
-  dnacpr_date: string | null;
-  updated_at: string;
-};
+export type { PreviousAdmission } from "@/lib/previous-admission";
 
 const SEALED_COLUMNS: ReadonlySet<string> = new Set<string>(PATIENT_ENCRYPTED_FIELDS);
 
