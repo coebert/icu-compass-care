@@ -51,6 +51,16 @@ Statement a) is a data change on a one-row settings table; it can also be run as
 
 ## Coordinated Hub / CCC release (Nov 2026) — staged, NOT applied
 
+Status at 16/11/2026 (read from repository and live metadata only):
+
+| Item | State |
+| --- | --- |
+| drizzle `0002`, `0003`, `0004` security remediation | APPLIED to live |
+| `docs/security/postpublish-cleanup.sql` | STAGED, not applied |
+| `docs/security/staged-migrations/0005`–`0009` (below) | STAGED, not applied; tested only on PGlite and throwaway PostgreSQL |
+| Hub frontend/server changes since the last publish | NOT published |
+| Critical Care Connect (CCC) receiver changes | owned by the CCC team; must be live before the Hub publish (step 1) |
+
 Staged SQL (apply in this order, only when the coordinated release gate is
 given; each aborts without changes if its preflight fails):
 
@@ -70,6 +80,17 @@ given; each aborts without changes if its preflight fails):
    `_referrals`, `_notifications`, `_audit`). Each checks "bridge-unit patient,
    still shared" in the same statement that reads the rows; audit entries are
    typed (`patients` / `referrals`). Service role only; adds functions only.
+5. `docs/security/staged-migrations/0009_referral_prefill_atomic.sql` —
+   `apply_referral_prefill(uuid,uuid,jsonb)`: the only write path for "fill
+   blanks from linked referral". Session, role, unit, exact link, both
+   previewed revisions, live referral and still-blank targets are checked
+   under locks (referral, then patient) in the same transaction as the write,
+   `record_audit` and `patient_field_changes`. Service role only; adds a
+   function only.
+
+0006 also keeps a minimal tombstone watermark (id, source revision, source
+deleted_at; no clinical content) for a referral deleted in CCC before Hub
+ever imported it, so a delayed older/equal live copy can never resurrect it.
 
 Behaviour before they are applied (if the frontend were published first):
 bed moves are refused ("not available yet") rather than done as two writes;
@@ -77,9 +98,31 @@ scheduled imports report `import_unavailable` and write nothing; the wardable
 endpoint answers 503; the existing partner investigation insert keeps its
 current (shared-only) rule; the partner clinical READ feeds (investigations,
 microbiology, referrals, notifications, audit) answer 503 "Service
-unavailable" — never an unscoped or empty list — until 0008 exists.
-Recommended order: apply 0005–0008, verify with the queries below, then
-publish the frontend, then enable the CCC side.
+unavailable" — never an unscoped or empty list — until 0008 exists; and
+"Confirm prefill" answers "isn't available right now" and writes nothing
+until 0009 exists. The currently published (old) Hub frontend keeps working
+after 0005–0009 are applied: they add functions, a private ledger and one
+index, and change no existing table grants.
+
+### Release order (paired; receiver before producer)
+
+1. **CCC first (receiver of the Hub contract changes).** Deploy the CCC build
+   that accepts both the current and the new Hub responses: bed payload with
+   `unit_code`, scoped `GET /bridge/patients?id=` empty envelope and opaque
+   404, required `expected_updated_at` on patient POST, generic 503 bodies,
+   and the `/bridge/patients/wardable` 200/409 shapes. Its opt-in sync v1
+   feeds (`?sync=1`, explicit `deleted_at: null`, minimal tombstones) must be
+   live too; legacy feeds stay unchanged. CCC must not yet call the wardable
+   endpoint.
+2. **Hub database.** Apply 0005 → 0006 → 0007 → 0008 → 0009 in that order,
+   then run the verification queries below.
+3. **Hub publish (producer).** Publish the Hub frontend/server.
+4. **Enable CCC use** of the wardable endpoint and confirm the first sync
+   pass reports per-resource success or reviewable conflicts.
+5. **Post-publish cleanup.** Run `docs/security/postpublish-cleanup.sql`.
+
+Do not reverse steps 1 and 3: a Hub publish before a compatible CCC receiver
+would send CCC response shapes it cannot read.
 
 Verification (metadata only):
 
@@ -87,7 +130,11 @@ Verification (metadata only):
 SELECT indexname FROM pg_indexes WHERE indexname = 'patients_active_unit_bed_uniq';
 SELECT p.proname, p.prosecdef, p.proconfig FROM pg_proc p
  WHERE p.proname IN ('move_patient_beds','bridge_import_referral','bridge_import_result',
-                     'bridge_insert_investigation','bridge_set_wardable','bridge_unit_id');
+                     'bridge_insert_investigation','bridge_set_wardable','bridge_unit_id',
+                     'apply_referral_prefill');
+SELECT has_function_privilege('authenticated','public.apply_referral_prefill(uuid,uuid,jsonb)','EXECUTE') AS must_be_false,
+       has_function_privilege('anon','public.apply_referral_prefill(uuid,uuid,jsonb)','EXECUTE') AS must_be_false_2,
+       has_function_privilege('service_role','public.apply_referral_prefill(uuid,uuid,jsonb)','EXECUTE') AS must_be_true;
 SELECT has_function_privilege('authenticated','public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)','EXECUTE') AS must_be_false,
        has_function_privilege('service_role','public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)','EXECUTE') AS must_be_true,
        has_function_privilege('authenticated','public.bridge_insert_investigation(uuid,text,text,timestamptz)','EXECUTE') AS must_be_false_2;
