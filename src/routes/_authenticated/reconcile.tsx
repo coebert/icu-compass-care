@@ -50,6 +50,10 @@ const ENTITY_LABELS: Record<ReconEntity, string> = {
 };
 
 function stateBadge(state: ReconRow["state"]) {
+  return <span className="shrink-0 whitespace-nowrap">{badgeFor(state)}</span>;
+}
+
+function badgeFor(state: ReconRow["state"]) {
   const label = RECON_STATE_LABEL[state];
   switch (state) {
     case "conflict":
@@ -119,24 +123,27 @@ function ReconcilePage() {
   // No data to show at all: permission problem or a failed first load.
   if (errorKind && !data) {
     return (
-      <Card>
-        <CardContent
-          role="alert"
-          className="flex flex-col items-center gap-4 py-12 text-center text-muted-foreground"
-        >
-          <p>{LOAD_ERROR_TEXT[errorKind]}</p>
-          {errorKind !== "denied" && (
-            <Button
-              variant="outline"
-              className="h-11 gap-1.5 sm:h-9"
-              disabled={isFetching}
-              onClick={() => void refetch()}
-            >
-              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Try again
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Cross-project sync review</h1>
+        <Card>
+          <CardContent
+            role="alert"
+            className="flex flex-col items-center gap-4 py-12 text-center text-muted-foreground"
+          >
+            <p>{LOAD_ERROR_TEXT[errorKind]}</p>
+            {errorKind !== "denied" && (
+              <Button
+                variant="outline"
+                className="h-11 gap-1.5 sm:h-9"
+                disabled={isFetching}
+                onClick={() => void refetch()}
+              >
+                <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Try again
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -197,9 +204,9 @@ function ReconcilePage() {
         </p>
       ) : (
         <Tabs defaultValue="notifications">
-          <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
+          <TabsList className="flex h-auto w-full max-w-full flex-wrap items-stretch justify-start gap-1 sm:h-9 sm:flex-nowrap">
             {entities.map((e) => (
-              <TabsTrigger key={e.entity} value={e.entity} className="gap-1.5">
+              <TabsTrigger key={e.entity} value={e.entity} className="min-h-11 gap-1.5 sm:min-h-0">
                 {ENTITY_LABELS[e.entity]}
                 {e.error ? (
                   <AlertTriangle className="h-3.5 w-3.5 text-destructive" aria-label="error" />
