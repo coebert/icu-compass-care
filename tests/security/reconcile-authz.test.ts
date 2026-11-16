@@ -11,7 +11,9 @@ function ctx(roles: string[], session = "active") {
   return {
     supabase: {
       rpc: async () => ({ data: session, error: null }),
-      from: (t: string) => ({ select: () => ({ eq: async () => ({ data: rows[t], error: null }) }) }),
+      from: (t: string) => ({
+        select: () => ({ eq: async () => ({ data: rows[t], error: null }) }),
+      }),
     },
     userId: "00000000-0000-0000-0000-0000000000a1",
   };
@@ -26,10 +28,16 @@ describe("sync review authorisation", () => {
     await expect(assertReconcileAccess(ctx(["auditor"]))).rejects.toThrow(/^Forbidden/);
   });
   it("allows a Trust administrator (and the legacy 'admin' spelling)", async () => {
-    await expect(assertReconcileAccess(ctx(["trust_admin"]))).resolves.toMatchObject({ isTrustAdmin: true });
-    await expect(assertReconcileAccess(ctx(["admin"]))).resolves.toMatchObject({ isTrustAdmin: true });
+    await expect(assertReconcileAccess(ctx(["trust_admin"]))).resolves.toMatchObject({
+      isTrustAdmin: true,
+    });
+    await expect(assertReconcileAccess(ctx(["admin"]))).resolves.toMatchObject({
+      isTrustAdmin: true,
+    });
   });
   it("refuses a locked session even for a Trust administrator", async () => {
-    await expect(assertReconcileAccess(ctx(["trust_admin"], "locked"))).rejects.toThrow(/^SESSION_LOCKED/);
+    await expect(assertReconcileAccess(ctx(["trust_admin"], "locked"))).rejects.toThrow(
+      /^SESSION_LOCKED/,
+    );
   });
 });

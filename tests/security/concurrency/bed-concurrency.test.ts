@@ -523,7 +523,8 @@ d("bed moves under real concurrency", () => {
     const [, r] = await Promise.all([edit, ap]);
     expect(r).toEqual({ ok: false, code: "stale" });
     expect(await filled()).toBeNull();
-    const row = await admin`SELECT current_management_enc AS m FROM public.patients WHERE id = ${PP}`;
+    const row =
+      await admin`SELECT current_management_enc AS m FROM public.patients WHERE id = ${PP}`;
     expect(row[0]!.m).toBe("LOCAL EDIT");
   });
 });

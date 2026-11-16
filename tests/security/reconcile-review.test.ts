@@ -85,7 +85,11 @@ const remoteRef = (over: Record<string, unknown> = {}) => ({
   ...content,
   ...over,
 });
-const trusted = { source_revision: "2026-11-16T10:00:00+00:00", watermark: false, receiver_matches: true };
+const trusted = {
+  source_revision: "2026-11-16T10:00:00+00:00",
+  watermark: false,
+  receiver_matches: true,
+};
 const reviewRow = (local: unknown, provenance: unknown, id = RID) => ({
   id,
   local,
@@ -124,7 +128,11 @@ describe("referral review follows import ownership", () => {
     h.review = { complete: true, rows: [reviewRow(content, null)] };
     const r = await get("referrals");
     expect(r.matched).toBe(0);
-    expect(r.mismatches[0]).toMatchObject({ state: "conflict", reason: "not_imported", pullable: false });
+    expect(r.mismatches[0]).toMatchObject({
+      state: "conflict",
+      reason: "not_imported",
+      pullable: false,
+    });
   });
   it("a recorded partner deletion (watermark) is matched, not 'only on partner'", async () => {
     h.remote.referrals = [
@@ -145,7 +153,13 @@ describe("referral review follows import ownership", () => {
   it("a watermark with nothing on either side is not shown or counted", async () => {
     h.review = {
       complete: true,
-      rows: [reviewRow(null, { source_revision: "2026-11-16T11:00:00Z", watermark: true, receiver_matches: false })],
+      rows: [
+        reviewRow(null, {
+          source_revision: "2026-11-16T11:00:00Z",
+          watermark: true,
+          receiver_matches: false,
+        }),
+      ],
     };
     expect(await get("referrals")).toMatchObject({ matched: 0, mismatches: [], localCount: 0 });
   });
@@ -160,12 +174,21 @@ describe("referral review follows import ownership", () => {
   it("different content on a trusted copy with a newer partner revision is pullable", async () => {
     h.remote.referrals = [remoteRef({ status: "admitted", updated_at: "2026-11-16T12:00:00Z" })];
     h.review = { complete: true, rows: [reviewRow(content, trusted)] };
-    expect((await get("referrals")).mismatches[0]).toMatchObject({ state: "diverged", pullable: true });
+    expect((await get("referrals")).mismatches[0]).toMatchObject({
+      state: "diverged",
+      pullable: true,
+    });
   });
   it("a local edit since import is a conflict even when the partner is newer", async () => {
     h.remote.referrals = [remoteRef({ status: "admitted", updated_at: "2026-11-16T12:00:00Z" })];
-    h.review = { complete: true, rows: [reviewRow(content, { ...trusted, receiver_matches: false })] };
-    expect((await get("referrals")).mismatches[0]).toMatchObject({ state: "conflict", reason: "local_edit" });
+    h.review = {
+      complete: true,
+      rows: [reviewRow(content, { ...trusted, receiver_matches: false })],
+    };
+    expect((await get("referrals")).mismatches[0]).toMatchObject({
+      state: "conflict",
+      reason: "local_edit",
+    });
   });
   it("review helper not installed yet: an explicit error, nothing matched", async () => {
     h.remote.referrals = [remoteRef()];
@@ -183,7 +206,12 @@ describe("referral review follows import ownership", () => {
       [],
       null,
       { complete: true, rows: [{ id: RID, local: "x", provenance: null }] },
-      { complete: true, rows: [reviewRow(content, { source_revision: 1, watermark: false, receiver_matches: true })] },
+      {
+        complete: true,
+        rows: [
+          reviewRow(content, { source_revision: 1, watermark: false, receiver_matches: true }),
+        ],
+      },
     ]) {
       h.review = bad;
       const r = await get("referrals");
@@ -200,10 +228,21 @@ describe("referral review follows import ownership", () => {
     expect(r.mismatches).toEqual([]);
   });
   it("classifyReferral mirrors the import's order of checks", () => {
-    const tomb = { id: RID, updated_at: "2026-11-16T10:00:00Z", deleted_at: "2026-11-16T10:00:00Z" };
-    expect(classifyReferral(null, null, tomb)).toMatchObject({ state: "remote_only", pullable: true });
+    const tomb = {
+      id: RID,
+      updated_at: "2026-11-16T10:00:00Z",
+      deleted_at: "2026-11-16T10:00:00Z",
+    };
+    expect(classifyReferral(null, null, tomb)).toMatchObject({
+      state: "remote_only",
+      pullable: true,
+    });
     expect(
-      classifyReferral(content, { source_revision: "2026-11-16T09:00:00Z", watermark: true, receiver_matches: false }, remoteRef()),
+      classifyReferral(
+        content,
+        { source_revision: "2026-11-16T09:00:00Z", watermark: true, receiver_matches: false },
+        remoteRef(),
+      ),
     ).toMatchObject({ state: "conflict", reason: "watermark_reused" });
     expect(classifyReferral(null, trusted, remoteRef())).toMatchObject({
       state: "conflict",
@@ -246,7 +285,9 @@ describe("bounded local reads", () => {
         return b;
       },
     };
-    await expect(readLocalBounded(stuck, "notifications", "id")).rejects.toThrow("local_read_failed");
+    await expect(readLocalBounded(stuck, "notifications", "id")).rejects.toThrow(
+      "local_read_failed",
+    );
   });
   it("a local read failure is an error", async () => {
     h.local.notifications = "error";
@@ -266,7 +307,10 @@ describe("review-only feeds", () => {
     expect(r.matched).toBe(0);
   });
   it("an unproven partner list can't say 'only here'", async () => {
-    h.remote.notifications = { records: [{ id: "n2", created_at: "2026-11-16T09:00:00Z" }], complete: false };
+    h.remote.notifications = {
+      records: [{ id: "n2", created_at: "2026-11-16T09:00:00Z" }],
+      complete: false,
+    };
     h.local.notifications = [{ id: "n1", kind: "k", created_at: "2026-11-16T09:00:00Z" }];
     const r = await get("notifications");
     expect(r.partnerListComplete).toBe(false);

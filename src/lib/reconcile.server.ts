@@ -181,7 +181,8 @@ const STATE_ORDER: Record<ReconRow["state"], number> = {
 };
 function sortRows(rows: ReconRow[]): ReconRow[] {
   return rows.sort(
-    (a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || ms(b.remoteVersion) - ms(a.remoteVersion),
+    (a, b) =>
+      STATE_ORDER[a.state] - STATE_ORDER[b.state] || ms(b.remoteVersion) - ms(a.remoteVersion),
   );
 }
 

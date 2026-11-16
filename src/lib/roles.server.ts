@@ -80,7 +80,15 @@ export function assertRecentReauth(
   maxAgeSeconds = REAUTH_MAX_AGE_SECONDS,
 ): void {
   const amr = Array.isArray(claims?.["amr"]) ? (claims!["amr"] as unknown[]) : [];
-  const strong = new Set(["password", "otp", "totp", "mfa/totp", "webauthn", "mfa/webauthn", "magiclink"]);
+  const strong = new Set([
+    "password",
+    "otp",
+    "totp",
+    "mfa/totp",
+    "webauthn",
+    "mfa/webauthn",
+    "magiclink",
+  ]);
   const newest = amr.reduce<number>((acc, entry) => {
     if (!entry || typeof entry !== "object") return acc;
     const m = (entry as { method?: unknown }).method;

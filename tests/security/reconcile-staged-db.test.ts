@@ -157,7 +157,9 @@ beforeAll(async () => {
       readFileSync(join(__dirname, "sql/bed-bridge-fixture.sql"), "utf8"),
     ].join("\n;\n"),
   );
-  await q("INSERT INTO public.icu_units (id, name, code) VALUES (gen_random_uuid(),'Radnor','SDH-RADNOR')");
+  await q(
+    "INSERT INTO public.icu_units (id, name, code) VALUES (gen_random_uuid(),'Radnor','SDH-RADNOR')",
+  );
   for (const sql of STAGED) await db.exec(sql);
 }, 60_000);
 
@@ -174,15 +176,21 @@ describe("referral review vs the staged import (reproduction)", () => {
     await legacyCopy(rec);
     h.remote = [rec];
     // The old review compared content only, which matches here...
-    const local = (await q("SELECT private.referral_import_fields(r) AS f FROM public.referrals r"))[0]!
-      .f as Row;
+    const local = (
+      await q("SELECT private.referral_import_fields(r) AS f FROM public.referrals r")
+    )[0]!.f as Row;
     expect(referralContentKey(local)).toBe(referralContentKey(mapReferral(rec)));
     // ...but the real import calls it a conflict.
     expect((await importReferrals(admin, [rec])).conflicts).toBe(1);
     const r = await referrals();
     expect(r.matched).toBe(0);
     expect(r.mismatches).toEqual([
-      expect.objectContaining({ id: rid(1), state: "conflict", reason: "not_imported", pullable: false }),
+      expect.objectContaining({
+        id: rid(1),
+        state: "conflict",
+        reason: "not_imported",
+        pullable: false,
+      }),
     ]);
   });
 
@@ -221,7 +229,11 @@ describe("referral review vs the staged import (reproduction)", () => {
   it("an older live copy after a recorded deletion is shown as 'deletion stands', not pullable", async () => {
     await importReferrals(admin, [tomb(rid(5), "2026-11-16T10:00:00Z")]);
     h.remote = [live(rid(5), { updated_at: "2026-11-16T09:00:00Z" })];
-    expect(await rowFor(rid(5))).toMatchObject({ state: "held", reason: "deletion_stands", pullable: false });
+    expect(await rowFor(rid(5))).toMatchObject({
+      state: "held",
+      reason: "deletion_stands",
+      pullable: false,
+    });
     // A strictly newer live version is a genuine restore and is pullable.
     h.remote = [live(rid(5), { updated_at: "2026-11-16T11:00:00Z" })];
     expect(await rowFor(rid(5))).toMatchObject({ state: "remote_only", pullable: true });
@@ -241,11 +253,17 @@ describe("referral review vs the staged import (reproduction)", () => {
     await importReferrals(admin, [live(rid(7))]);
     await q("UPDATE public.referrals SET current_ward = 'LOCAL' WHERE id = $1", [rid(7)]);
     h.remote = [live(rid(7), { updated_at: "2026-11-16T11:00:00Z", status: "admitted" })];
-    expect(await rowFor(rid(7))).toMatchObject({ state: "conflict", reason: "local_edit", pullable: false });
-    expect((await reconcilePullReferrals([rid(7)], admin)).conflicts).toBe(1);
-    expect((await q("SELECT current_ward FROM public.referrals WHERE id=$1", [rid(7)]))[0]).toEqual({
-      current_ward: "LOCAL",
+    expect(await rowFor(rid(7))).toMatchObject({
+      state: "conflict",
+      reason: "local_edit",
+      pullable: false,
     });
+    expect((await reconcilePullReferrals([rid(7)], admin)).conflicts).toBe(1);
+    expect((await q("SELECT current_ward FROM public.referrals WHERE id=$1", [rid(7)]))[0]).toEqual(
+      {
+        current_ward: "LOCAL",
+      },
+    );
   });
 
   it("a referral only in this app is 'only here', with no partner action", async () => {
@@ -275,14 +293,20 @@ describe("bridge_referral_review helper", () => {
   it("withholds rows and says incomplete when more ids exist than the limit (watermarks count)", async () => {
     await legacyCopy(live(rid(10)));
     await importReferrals(admin, [tomb(rid(11), "2026-11-16T10:00:00Z")]);
-    const one = await asRole("service_role", () => q("SELECT public.bridge_referral_review(1) AS r"));
+    const one = await asRole("service_role", () =>
+      q("SELECT public.bridge_referral_review(1) AS r"),
+    );
     expect(one[0]!.r).toEqual({ complete: false, rows: [] });
-    const two = await asRole("service_role", () => q("SELECT public.bridge_referral_review(2) AS r"));
+    const two = await asRole("service_role", () =>
+      q("SELECT public.bridge_referral_review(2) AS r"),
+    );
     expect((two[0]!.r as { complete: boolean }).complete).toBe(true);
   });
   it("never returns the receiver revision or ledger timestamps", async () => {
     await importReferrals(admin, [live(rid(12))]);
-    const r = await asRole("service_role", () => q("SELECT public.bridge_referral_review(10) AS r"));
+    const r = await asRole("service_role", () =>
+      q("SELECT public.bridge_referral_review(10) AS r"),
+    );
     const row = (r[0]!.r as { rows: Row[] }).rows[0]!;
     expect(Object.keys(row.provenance as Row).sort()).toEqual([
       "receiver_matches",

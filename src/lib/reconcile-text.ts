@@ -21,8 +21,7 @@ export const RECON_REASON_TEXT: Record<ReconReason, string> = {
     "Critical Care Connect is showing an older version of a referral it has removed. The removal stands here. Check the referral in Critical Care Connect.",
   imported_not_listed:
     "Imported earlier, but no longer in Critical Care Connect's list. The copy here is kept.",
-  local_record:
-    "Only in this app. This app keeps its own records, so nothing needs sending.",
+  local_record: "Only in this app. This app keeps its own records, so nothing needs sending.",
   partner_list_unconfirmed:
     "Not in the partner's list, but the partner didn't confirm its list is complete.",
   review_only: "Review only. Not copied into this app.",

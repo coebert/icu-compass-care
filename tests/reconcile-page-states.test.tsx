@@ -116,7 +116,9 @@ describe("reconcile page", () => {
     h.get.mockResolvedValueOnce(result({ mismatches: [row(1, {})] }));
     mount();
     await openReferrals();
-    const pullBtn = await screen.findAllByRole("button", { name: /Pull Medicine from Critical Care Connect/ });
+    const pullBtn = await screen.findAllByRole("button", {
+      name: /Pull Medicine from Critical Care Connect/,
+    });
     expect(pullBtn[0]!.hasAttribute("disabled")).toBe(false);
     h.get.mockRejectedValueOnce(new Error("Failed to fetch"));
     fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
@@ -129,7 +131,12 @@ describe("reconcile page", () => {
 
   it("an error on one list is shown on that list with a retry; the others still load", async () => {
     h.get.mockResolvedValue(
-      result({ error: "Referrals can't be compared yet.", localCount: 0, remoteCount: 0, matched: 0 }),
+      result({
+        error: "Referrals can't be compared yet.",
+        localCount: 0,
+        remoteCount: 0,
+        matched: 0,
+      }),
     );
     mount();
     expect(await screen.findByText(/Everything is in sync/)).toBeTruthy(); // notifications
@@ -143,7 +150,16 @@ describe("reconcile page", () => {
 
   it("a referral only here never says the partner must pull", async () => {
     h.get.mockResolvedValue(
-      result({ mismatches: [row(2, { state: "local_only", reason: "local_record", pullable: false, remoteVersion: null })] }),
+      result({
+        mismatches: [
+          row(2, {
+            state: "local_only",
+            reason: "local_record",
+            pullable: false,
+            remoteVersion: null,
+          }),
+        ],
+      }),
     );
     mount();
     await openReferrals();
@@ -184,14 +200,21 @@ describe("reconcile page", () => {
         mismatches: [
           row(5, { state: "conflict", reason: "local_edit", pullable: false, label: "Surgery" }),
           row(4, {}),
-          row(6, { state: "local_only", reason: "local_record", pullable: false, remoteVersion: null }),
+          row(6, {
+            state: "local_only",
+            reason: "local_record",
+            pullable: false,
+            remoteVersion: null,
+          }),
         ],
       }),
     );
     h.pull.mockResolvedValue({ applied: 1, failed: 0, skipped: 0, conflicts: 0, errors: [] });
     const { container } = mount();
     await openReferrals();
-    const [btn] = await screen.findAllByRole("button", { name: /Pull Medicine from Critical Care Connect/ });
+    const [btn] = await screen.findAllByRole("button", {
+      name: /Pull Medicine from Critical Care Connect/,
+    });
     btn!.focus();
     expect(document.activeElement).toBe(btn);
     // Native <button>: Enter/Space activate it as a click.

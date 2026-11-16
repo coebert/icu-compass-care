@@ -148,9 +148,9 @@ function ReconcilePage() {
         <div>
           <h1 className="text-2xl font-bold">Cross-project sync review</h1>
           <p className="text-sm text-muted-foreground">
-            Compare notifications, referrals and audit events with Critical Care Connect.
-            Referrals can be pulled through the checked import, which never overwrites a copy
-            changed or created here. Notifications and audit events are review only.
+            Compare notifications, referrals and audit events with Critical Care Connect. Referrals
+            can be pulled through the checked import, which never overwrites a copy changed or
+            created here. Notifications and audit events are review only.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
