@@ -79,13 +79,49 @@ async function evidenceFor(supabase: any, entity: SyncResource): Promise<Resourc
   };
 }
 
+export type SyncStatusAccess = "oversight" | "scoped_clinical" | "restricted";
+
+/**
+ * Who may see the (safe, code-only) sync status:
+ *  - Trust administrators and auditors: through their own client (RLS);
+ *  - clinicians / unit administrators who are members of the bridge unit:
+ *    the same safe fields, read by server code on their behalf. They get no
+ *    table access, no actor columns and no raw errors, and cannot retry;
+ *  - everyone else (incl. clinicians of other units): nothing.
+ */
+export function syncStatusAccess(
+  actor: { isTrustAdmin: boolean; isAuditor: boolean; isClinician?: boolean; isUnitAdmin?: boolean; unitIds?: string[] },
+  bridgeUnitId: string | null,
+): SyncStatusAccess {
+  if (actor.isTrustAdmin || actor.isAuditor) return "oversight";
+  if (
+    bridgeUnitId &&
+    (actor.isClinician || actor.isUnitAdmin) &&
+    (actor.unitIds ?? []).includes(bridgeUnitId)
+  ) {
+    return "scoped_clinical";
+  }
+  return "restricted";
+}
+
 export async function readSyncStatus(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  actor: { isTrustAdmin: boolean; isAuditor: boolean },
+  actor: { isTrustAdmin: boolean; isAuditor: boolean; isClinician?: boolean; isUnitAdmin?: boolean; unitIds?: string[] },
+  opts: {
+    bridgeUnitId?: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    serverClient?: () => Promise<any>;
+  } = {},
 ): Promise<SyncStatus> {
-  if (!actor.isTrustAdmin && !actor.isAuditor) return { access: "restricted" };
-  const resources = await Promise.all(SYNC_RESOURCES.map((e) => evidenceFor(supabase, e)));
+  const access = syncStatusAccess(actor, opts.bridgeUnitId ?? null);
+  if (access === "restricted") return { access: "restricted" };
+  let reader = supabase;
+  if (access === "scoped_clinical") {
+    if (!opts.serverClient) return { access: "restricted" };
+    reader = await opts.serverClient();
+  }
+  const resources = await Promise.all(SYNC_RESOURCES.map((e) => evidenceFor(reader, e)));
   return {
     access: "granted",
     checkedAt: new Date().toISOString(),
