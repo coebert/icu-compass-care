@@ -274,6 +274,7 @@ DECLARE
   v_created timestamptz;
   v_updated timestamptz;
   v_e record;
+  v_inserted boolean;
 BEGIN
   BEGIN
     v_id := (_rec ->> 'id')::uuid;
@@ -302,7 +303,8 @@ BEGIN
     INSERT INTO public.investigations (id, patient_id, category, findings, result_at, created_at, updated_at)
     VALUES (v_id, v_pid, v_type, v_findings, v_result_at, v_created, v_updated)
     ON CONFLICT (id) DO NOTHING;
-    IF NOT FOUND THEN
+    v_inserted := FOUND;
+    IF NOT v_inserted THEN
       SELECT i.patient_id, i.category AS kind_value, i.findings, i.result_at INTO v_e
         FROM public.investigations i WHERE i.id = v_id;
     END IF;
@@ -310,12 +312,13 @@ BEGIN
     INSERT INTO public.microbiology_results (id, patient_id, specimen_type, findings, result_at, created_at, updated_at)
     VALUES (v_id, v_pid, v_type, v_findings, v_result_at, v_created, v_updated)
     ON CONFLICT (id) DO NOTHING;
-    IF NOT FOUND THEN
+    v_inserted := FOUND;
+    IF NOT v_inserted THEN
       SELECT m.patient_id, m.specimen_type AS kind_value, m.findings, m.result_at INTO v_e
         FROM public.microbiology_results m WHERE m.id = v_id;
     END IF;
   END IF;
-  IF v_e IS NOT NULL THEN
+  IF NOT v_inserted THEN
     IF v_e.patient_id = v_pid AND v_e.kind_value = v_type AND v_e.findings = v_findings
        AND v_e.result_at = v_result_at THEN
       RETURN 'identical';
