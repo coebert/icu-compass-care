@@ -76,7 +76,7 @@ const patientFields = z.object({
 });
 
 // Create: no id, a valid name is required.
-const patientCreate = patientFields.strict().or(patientFields);
+const patientCreate = patientFields;
 // Update by id: a bounded PARTIAL change (e.g. a bed move or prefill) — any
 // subset of fields; a name, if sent, must still be valid. id, unit and
 // sharing are never writable (stripped again in bridgeUpdateSharedPatient).
