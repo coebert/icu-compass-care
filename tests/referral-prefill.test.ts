@@ -113,7 +113,9 @@ describe("referral link and partner URL", () => {
   it("the Critical Care Connect link carries the opaque referral id only", () => {
     // A base with a path/query is a misconfiguration (the sync refuses it too).
     expect(partnerReferralUrl("https://ccc.example/api/x?token=1", R)).toBeNull();
-    expect(partnerReferralUrl("https://ccc.example/", R)).toBe(`https://ccc.example/referrals/${R}`);
+    expect(partnerReferralUrl("https://ccc.example/", R)).toBe(
+      `https://ccc.example/referrals/${R}`,
+    );
     expect(partnerReferralUrl("http://ccc.example", R)).toBeNull();
     expect(partnerReferralUrl("https://ccc.example", "AB/../../x")).toBeNull();
     expect(partnerReferralUrl(undefined, R)).toBeNull();
