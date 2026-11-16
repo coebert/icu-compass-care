@@ -322,3 +322,20 @@ describe("partner bed endpoints return a safe 503", () => {
     expect(body.stats).toEqual({ total_beds: 3, occupied: 1, available: 2, unassigned: 0 });
   });
 });
+
+describe("identity lookup is limited to confirmed-shared rows", () => {
+  it("asks only for the IDs that were shared in the occupancy read", async () => {
+    const db = world({
+      facts: [
+        { id: "s1", bed: "1", shared_with_partner: true },
+        { id: "w1", bed: "2", shared_with_partner: false },
+      ],
+      identities: [shared("s1", "1")],
+    });
+    await buildBridgeBedBoard(db);
+    const idCall = db.calls.find((c) => c.table === "patients" && c.columns === "*");
+    expect(idCall).toBeDefined();
+    expect(hasFilter(idCall!, "in", "id", ["s1"])).toBe(true);
+    expect(hasFilter(idCall!, "eq", "shared_with_partner", true)).toBe(true);
+  });
+});
