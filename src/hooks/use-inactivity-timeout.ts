@@ -12,7 +12,13 @@ import { useEffect, useRef } from "react";
  *  - mounting / reloading does NOT count as activity, so a reload can never
  *    revive an expired session;
  *  - if storage is unavailable, an in-memory clock is used (never "now");
- *  - a stored timestamp in the future (tampering / clock skew) is ignored.
+ *  - a stored timestamp in the future (tampering / clock skew) is ignored;
+ *  - when a server heartbeat (`onActivity`) is wired up, the clock only moves
+ *    when a heartbeat is sent. The browser deadline therefore never runs later
+ *    than the server's (which counts from its last recorded heartbeat), so the
+ *    "move the mouse to stay signed in" warning is always honoured: during the
+ *    warning window the last record is older than the ping interval, so any
+ *    activity sends a heartbeat immediately.
  */
 
 export const ACTIVITY_KEY = "icu:last-activity";
@@ -65,6 +71,23 @@ export function resolveLastActivity(
   return stored == null ? memoryLast : Math.max(stored, memoryLast);
 }
 
+export type ActivityDecision = "expired" | "record" | "skip";
+
+/**
+ * What to do with a genuine activity event, given the last activity time that
+ * was recorded (and, with a heartbeat, sent to the server).
+ */
+export function decideActivity(
+  now: number,
+  lastRecorded: number,
+  timeoutMs: number,
+  recordEveryMs: number,
+): ActivityDecision {
+  const idle = now - lastRecorded;
+  if (idle >= timeoutMs) return "expired"; // never resurrect
+  return idle >= recordEveryMs ? "record" : "skip";
+}
+
 function readStorage(key: string): string | null | undefined {
   try {
     return localStorage.getItem(key);
@@ -96,8 +119,6 @@ export function useInactivityTimeout({
 
     let warned = false;
     let fired = false;
-    let lastWrite = 0;
-    let lastPing = 0;
     const now0 = Date.now();
     // Seed from the stored value if valid; only a missing value (first load of
     // a brand-new session) starts the clock at now. A reload keeps the old
@@ -126,28 +147,29 @@ export function useInactivityTimeout({
       }
     };
 
+    // With a heartbeat, record (and ping) at most once per activityPingMs so
+    // the local clock equals the last time the server was told. Without one,
+    // record at the local write throttle.
+    const recordEveryMs = onActivityRef.current ? activityPingMs : WRITE_THROTTLE_MS;
+
     const handleActivity = () => {
       if (fired || document.visibilityState === "hidden") return;
       const now = Date.now();
-      // Never resurrect: activity after the deadline does not extend it.
-      if (now - resolveLastActivity(readStorage(key), memoryLast, now) >= timeoutMs) {
+      const last = resolveLastActivity(readStorage(key), memoryLast, now);
+      const decision = decideActivity(now, last, timeoutMs, recordEveryMs);
+      if (decision === "expired") {
         check();
         return;
       }
+      if (decision === "skip") return;
       memoryLast = now;
       warned = false;
-      if (now - lastWrite >= WRITE_THROTTLE_MS) {
-        lastWrite = now;
-        try {
-          localStorage.setItem(key, String(now));
-        } catch {
-          /* in-memory clock already updated */
-        }
+      try {
+        localStorage.setItem(key, String(now));
+      } catch {
+        /* in-memory clock already updated */
       }
-      if (onActivityRef.current && now - lastPing >= activityPingMs) {
-        lastPing = now;
-        onActivityRef.current();
-      }
+      onActivityRef.current?.();
     };
 
     const handleStorage = (e: StorageEvent) => {
