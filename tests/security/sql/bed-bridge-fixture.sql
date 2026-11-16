@@ -18,7 +18,11 @@ ALTER TABLE public.patients
   ADD COLUMN status public.patient_status NOT NULL DEFAULT 'admitted',
   ADD COLUMN location_type public.patient_location NOT NULL DEFAULT 'icu',
   ADD COLUMN isolation_required boolean NOT NULL DEFAULT false,
-  ADD COLUMN updated_by uuid;
+  ADD COLUMN updated_by uuid,
+  ADD COLUMN wardable boolean NOT NULL DEFAULT false,
+  ADD COLUMN wardable_at timestamptz,
+  ADD COLUMN wardable_by uuid,
+  ADD COLUMN source_referral_id uuid;
 
 -- Verbatim live trigger function.
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -122,3 +126,7 @@ ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.microbiology_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.icu_beds ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "read beds" ON public.icu_beds FOR SELECT TO authenticated USING (true);
+
+-- Live record_audit / patient_field_changes are written only by server code
+-- (service role) and SECURITY DEFINER helpers; mirror "no direct writes".
+REVOKE INSERT, UPDATE, DELETE ON public.record_audit FROM anon, authenticated;
