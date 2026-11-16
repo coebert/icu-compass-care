@@ -3,6 +3,7 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 import { applySecurityHeaders } from "./lib/security-headers";
+import { assertInputBounds, SERVER_FN_INPUT_BOUNDS } from "./lib/input-bounds";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -40,7 +41,18 @@ const securityHeadersMiddleware = createMiddleware().server(async ({ next }) => 
   return result;
 });
 
+// Structural size guard for every server function (GHSA-mrhx-c7xc-m3w5): runs on
+// the server before requireSupabaseAuth and before any Zod inputValidator, so an
+// oversized list is refused in bounded time instead of being expanded into one
+// Zod issue per element. Normal payloads are far below the limits.
+const inputBoundsMiddleware = createMiddleware({ type: "function" }).server(
+  async ({ data, next }) => {
+    assertInputBounds(data, SERVER_FN_INPUT_BOUNDS);
+    return next();
+  },
+);
+
 export const startInstance = createStart(() => ({
-  functionMiddleware: [attachSupabaseAuth],
+  functionMiddleware: [inputBoundsMiddleware, attachSupabaseAuth],
   requestMiddleware: [securityHeadersMiddleware, errorMiddleware, schemaGuardMiddleware],
 }));

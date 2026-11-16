@@ -9,6 +9,8 @@ import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp
 import { diffFields, writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
+import { readBodyLimited } from "@/lib/request-body.server";
+import { BRIDGE_INPUT_BOUNDS, BRIDGE_MAX_BODY_BYTES, findBoundsViolation } from "@/lib/input-bounds";
 import { bridgeUpdateSharedPatient, stripSharingFlags } from "@/lib/bridge-sharing.server";
 
 // The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
@@ -117,7 +119,10 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
-        const rawBody = await request.text();
+        // Size cap before the body is buffered, signed or parsed.
+        const body = await readBodyLimited(request, BRIDGE_MAX_BODY_BYTES);
+        if (!body.ok) return json({ error: "Payload too large" }, 413);
+        const rawBody = body.text;
         const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "unit_admin", "clinician"] }, "/bridge/patients");
         if (!auth.ok) return auth.response;
 
@@ -142,7 +147,12 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
         let parsed;
         try {
-          parsed = patientUpsert.parse(JSON.parse(rawBody || "{}"));
+          const raw: unknown = JSON.parse(rawBody || "{}");
+          // Oversized lists are refused before Zod 3 can expand them (GHSA-mrhx-c7xc-m3w5).
+          if (findBoundsViolation(raw, BRIDGE_INPUT_BOUNDS)) {
+            return json({ error: "Invalid patient payload" }, 400);
+          }
+          parsed = patientUpsert.parse(raw);
         } catch {
           return json({ error: "Invalid patient payload" }, 400);
         }

@@ -9,6 +9,8 @@ import {
   clientIp,
 } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
+import { readBodyLimited } from "@/lib/request-body.server";
+import { BRIDGE_MAX_BODY_BYTES } from "@/lib/input-bounds";
 
 /**
  * Self-test endpoint for cross-project HMAC signatures.
@@ -107,7 +109,9 @@ export const Route = createFileRoute("/api/public/bridge/verify-signature")({
         const limited = await enforceBridgeRateLimit(request, "/bridge/verify-signature", false);
         if (!limited.ok) return limited.response;
 
-        const rawBody = await request.text();
+        const body = await readBodyLimited(request, BRIDGE_MAX_BODY_BYTES);
+        if (!body.ok) return json({ error: "Payload too large" }, 413);
+        const rawBody = body.text;
         const result = authorize(request, rawBody, { write: false });
         if (!result.ok) {
           // Capture the rejection so repeated probing feeds the same threshold
