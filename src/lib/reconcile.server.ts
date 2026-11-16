@@ -28,6 +28,27 @@ function ms(iso: string | null | undefined): number {
   return iso ? Date.parse(iso) : 0;
 }
 
+const REFERRAL_CONTENT_FIELDS = [
+  "deleted_at", "status", "referral_received_at", "age", "sex", "current_ward", "current_bed",
+  "referring_specialty", "reason_category", "ceiling_of_care", "resus_status", "dnacpr_respect",
+  "anticipated_interventions", "allergies", "weight_kg", "admission_urgency", "infection_status",
+  "news2_score",
+] as const;
+
+/** Comparable form of a referral's imported content (a tombstone is just "deleted"). */
+export function referralContentKey(r: Record0 | ImportedReferral): string {
+  if (r.deleted_at != null) return "deleted";
+  return JSON.stringify(
+    REFERRAL_CONTENT_FIELDS.map((k) => {
+      const v = (r as Record0)[k];
+      if (k === "referral_received_at") return v == null ? null : String(tsKey(v));
+      if (k === "weight_kg") return v == null ? null : Number(v);
+      if (k === "anticipated_interventions") return Array.isArray(v) ? v : [];
+      return v ?? null;
+    }),
+  );
+}
+
 type Spec = {
   entity: ReconEntity;
   table: string;
@@ -79,27 +100,6 @@ const SPECS: Spec[] = [
     sub: (r) => String(r.entity_id ?? ""),
   },
 ];
-
-const REFERRAL_CONTENT_FIELDS = [
-  "deleted_at", "status", "referral_received_at", "age", "sex", "current_ward", "current_bed",
-  "referring_specialty", "reason_category", "ceiling_of_care", "resus_status", "dnacpr_respect",
-  "anticipated_interventions", "allergies", "weight_kg", "admission_urgency", "infection_status",
-  "news2_score",
-] as const;
-
-/** Comparable form of a referral's imported content (a tombstone is just "deleted"). */
-export function referralContentKey(r: Record0 | ImportedReferral): string {
-  if (r.deleted_at != null) return "deleted";
-  return JSON.stringify(
-    REFERRAL_CONTENT_FIELDS.map((k) => {
-      const v = (r as Record0)[k];
-      if (k === "referral_received_at") return v == null ? null : String(tsKey(v));
-      if (k === "weight_kg") return v == null ? null : Number(v);
-      if (k === "anticipated_interventions") return Array.isArray(v) ? v : [];
-      return v ?? null;
-    }),
-  );
-}
 
 function safeText(e: unknown): string {
   if (e instanceof BridgeFetchError || e instanceof ContractError || e instanceof ImportStepError) {
