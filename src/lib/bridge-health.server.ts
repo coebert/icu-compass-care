@@ -3,6 +3,7 @@
 // that the patient payload contains none of the removed demographic fields
 // (dob / nhs_number / date_of_birth). Never import from client code.
 import { createHmac } from "crypto";
+import { parsePartnerBase } from "@/lib/partner-url";
 
 // Demographic fields that were removed from the schema. If any of these ever
 // appears in a partner payload the sync contract has regressed.
@@ -97,12 +98,12 @@ async function signedGet(baseUrl: string, secret: string, path: string, tamper =
 }
 
 export async function runBridgeHealth(): Promise<BridgeHealthResult> {
-  const { baseUrl, secret, hasUrl, hasSecret, rotationWindowActive } = config();
+  const { baseUrl, urlProblem, secret, hasUrl, hasSecret, rotationWindowActive } = config();
   const checkedAt = new Date().toISOString();
 
   let partnerHost: string | null = null;
   try {
-    partnerHost = baseUrl ? new URL(baseUrl).host : null;
+    partnerHost = process.env.PARTNER_BRIDGE_URL ? new URL(process.env.PARTNER_BRIDGE_URL).host : null;
   } catch {
     partnerHost = null;
   }
@@ -118,6 +119,13 @@ export async function runBridgeHealth(): Promise<BridgeHealthResult> {
 
   if (!hasUrl || !hasSecret) {
     result.signatureAuth.detail = "Bridge not configured (missing PARTNER_BRIDGE_URL or HANDOVER_API_SECRET).";
+    return result;
+  }
+  if (urlProblem) {
+    result.signatureAuth.detail =
+      urlProblem === "self"
+        ? "PARTNER_BRIDGE_URL points at this app, not the partner. No request was sent."
+        : "PARTNER_BRIDGE_URL must be a bare https origin (no path, query or credentials). No request was sent.";
     return result;
   }
 

@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { parsePartnerBase } from "@/lib/partner-url";
 
 /**
  * Shared HMAC auth + RBAC for the cross-project data bridge.

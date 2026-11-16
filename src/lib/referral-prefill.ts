@@ -8,6 +8,7 @@
 // separately by the partner's own "Prefill handover" push. Here we only map
 // the structured, non-encrypted referral fields we actually receive.
 
+import { parsePartnerBase } from "@/lib/partner-url";
 export const CEILING_OF_CARE_LABEL: Record<string, string> = {
   full_escalation: "Full escalation",
   no_cpr: "Full escalation, not for CPR",
