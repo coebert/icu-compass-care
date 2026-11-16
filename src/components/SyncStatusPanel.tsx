@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-export function relTime(iso: string | null, now = Date.now()): string {
+function relTime(iso: string | null, now = Date.now()): string {
   if (!iso) return "never";
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "unknown";
