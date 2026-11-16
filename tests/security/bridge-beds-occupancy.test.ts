@@ -189,9 +189,10 @@ describe("bridge bed board — physical occupancy vs shared identity", () => {
     const before = Date.now();
     const board = await buildBridgeBedBoard(world({ facts: [] }));
     expect(Object.keys(board).sort()).toEqual(
-      ["bed_board", "generated_at", "side_rooms", "stats", "unassigned", "unit"].sort(),
+      ["bed_board", "generated_at", "side_rooms", "stats", "unassigned", "unit", "unit_code"].sort(),
     );
     expect(board.unit).toBe("Radnor Critical Care Unit");
+    expect(board.unit_code).toBe("SDH-RADNOR");
     expect(board.side_rooms).toEqual(["1"]);
     expect(new Date(board.generated_at).toISOString()).toBe(board.generated_at);
     expect(Date.parse(board.generated_at)).toBeGreaterThanOrEqual(before - 1);
