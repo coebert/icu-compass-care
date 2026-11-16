@@ -45,7 +45,7 @@ type TaggedPreview = { patientId: string; referralId: string; result: PrefillPre
  * both revisions and the documented decisions offered. Any change means a
  * different preview, so earlier ticks never carry over.
  */
-export function previewIdentity(patientId: string, referralId: string, p: LinkedPreview): string {
+function previewIdentity(patientId: string, referralId: string, p: LinkedPreview): string {
   return JSON.stringify([
     patientId,
     referralId,
