@@ -140,8 +140,8 @@ describe("PreviousAdmissionBanner", () => {
   });
   it("a late result for an earlier hospital number never populates the new patient", async () => {
     let resolveOld!: (v: unknown) => void;
-    h.find.mockImplementation((arg: { data: { hospital_number: string } }) =>
-      arg.data.hospital_number === "SYN1234"
+    h.find.mockImplementation((...args: unknown[]) =>
+      (console.log("ARGS", JSON.stringify(args)), (args[0] as { data: { hospital_number: string } }).data.hospital_number === "SYN1234")
         ? new Promise((r) => (resolveOld = r))
         : Promise.resolve([]),
     );
