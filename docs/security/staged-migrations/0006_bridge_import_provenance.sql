@@ -52,6 +52,20 @@ END
 $$;
 REVOKE ALL ON FUNCTION private.bridge_unit_id() FROM PUBLIC, anon, authenticated;
 
+-- Strict ISO-8601 instant with an explicit zone. PostgreSQL's own timestamptz
+-- input also accepts words like 'now', 'today' or 'yesterday', and zone-less
+-- local times; none of those may ever come from the partner.
+CREATE OR REPLACE FUNCTION private.bridge_is_instant(_v text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT _v IS NOT NULL
+     AND _v ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+$$;
+REVOKE ALL ON FUNCTION private.bridge_is_instant(text) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Provenance ledger (private schema, no table grants: only the SECURITY
 -- DEFINER helpers below can read or write it).
@@ -133,6 +147,10 @@ BEGIN
      OR NOT (_rec ? 'deleted_at') THEN
     RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
   END IF;
+  IF NOT private.bridge_is_instant(_rec ->> 'updated_at')
+     OR (jsonb_typeof(_rec -> 'deleted_at') <> 'null' AND NOT private.bridge_is_instant(_rec ->> 'deleted_at')) THEN
+    RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
+  END IF;
   BEGIN
     v_id := (_rec ->> 'id')::uuid;
     v_src_rev := (_rec ->> 'updated_at')::timestamptz;
@@ -153,7 +171,9 @@ BEGIN
        OR jsonb_typeof(_rec -> 'referral_received_at') IS DISTINCT FROM 'string'
        OR jsonb_typeof(_rec -> 'status') IS DISTINCT FROM 'string'
        OR jsonb_typeof(_rec -> 'dnacpr_respect') IS DISTINCT FROM 'boolean'
-       OR jsonb_typeof(_rec -> 'anticipated_interventions') IS DISTINCT FROM 'array' THEN
+       OR jsonb_typeof(_rec -> 'anticipated_interventions') IS DISTINCT FROM 'array'
+       OR NOT private.bridge_is_instant(_rec ->> 'created_at')
+       OR NOT private.bridge_is_instant(_rec ->> 'referral_received_at') THEN
       RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
     END IF;
     BEGIN
@@ -288,6 +308,12 @@ DECLARE
   v_e record;
   v_inserted boolean;
 BEGIN
+  IF _rec IS NULL OR jsonb_typeof(_rec) <> 'object'
+     OR NOT private.bridge_is_instant(_rec ->> 'result_at')
+     OR NOT private.bridge_is_instant(_rec ->> 'created_at')
+     OR NOT private.bridge_is_instant(_rec ->> 'updated_at') THEN
+    RAISE EXCEPTION 'invalid_record' USING ERRCODE = 'PT400';
+  END IF;
   BEGIN
     v_id := (_rec ->> 'id')::uuid;
     v_pid := (_rec ->> 'patient_id')::uuid;

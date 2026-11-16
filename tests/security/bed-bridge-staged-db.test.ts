@@ -535,7 +535,10 @@ describe("bridge_import_referral — provenance and ownership", () => {
       (({ deleted_at: _d, ...r }) => r)(refRec({ id })), // live row without deleted_at
       (({ status: _s, ...r }) => r)(refRec({ id })), // missing key
       refRec({ id, status: "nonsense" }),
-      refRec({ id, updated_at: "yesterday" }),
+      refRec({ id, updated_at: "yesterday" }), // Postgres would accept this word
+      refRec({ id, updated_at: "2026-03-05 10:00:00" }), // no zone
+      refRec({ id, created_at: "now" }),
+      { ...tomb(id, "2026-03-05T00:00:00Z"), deleted_at: "today" },
       refRec({ id: "not-a-uuid" }),
       refRec({ id, anticipated_interventions: "niv" }),
       { id, updated_at: "2026-03-05T00:00:00Z", deleted_at: null },
@@ -621,6 +624,7 @@ describe("bridge_import_result", () => {
     await expect(importResult("investigations", res({ id: "nope" }))).rejects.toThrow(/invalid_record/);
     await expect(importResult("investigations", res({ id: "40000000-0000-4000-8000-000000000009", findings: " " }))).rejects.toThrow(/invalid_record/);
     await expect(importResult("audit", res({ id: "40000000-0000-4000-8000-000000000009" }))).rejects.toThrow(/invalid_record/);
+    await expect(importResult("investigations", res({ id: "40000000-0000-4000-8000-000000000009", result_at: "yesterday" }))).rejects.toThrow(/invalid_record/);
   });
 });
 
