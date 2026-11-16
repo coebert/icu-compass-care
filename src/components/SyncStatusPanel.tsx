@@ -123,8 +123,9 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
   if (!status.isError && (!data || data.access === "restricted")) return null;
 
   // A failed status query is itself shown — never hidden or shown as healthy.
-  const loadFailed = status.isError || !data || data.access !== "granted";
-  const granted = !loadFailed && data && data.access === "granted" ? data : null;
+  const granted = !status.isError && data && data.access === "granted" ? data : null;
+  // A failed status query is itself shown — never hidden or shown as healthy.
+  const loadFailed = granted === null;
   const rows = granted
     ? granted.resources.map((r) => ({
         r,
@@ -242,7 +243,7 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
                         )}
                         {state === "delayed" && (
                           <p className="text-amber-700 dark:text-amber-300">
-                            No successful update for over {granted!.delayedAfterMinutes} min.
+                            No successful update for over {granted?.delayedAfterMinutes} min.
                           </p>
                         )}
                       </>
@@ -252,7 +253,7 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
               </ul>
               <p className="text-muted-foreground">
                 Most recent successful update on any stream: {relTime(lastSuccessOverall, now)}.
-                Status checked {relTime(granted!.checkedAt, now)}.
+                Status checked {relTime(granted?.checkedAt, now)}.
               </p>
             </>
           )}
