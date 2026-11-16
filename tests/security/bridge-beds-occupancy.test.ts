@@ -10,6 +10,16 @@ import { fakeSupabase, hasFilter, type FakeCall, type FakeResult } from "../supp
 vi.mock("@/lib/patient-crypto.server", () => ({
   decryptPatientRows: (rows: unknown[] | null) => rows ?? [],
 }));
+const holder = vi.hoisted(() => ({ db: null as unknown }));
+vi.mock("@/lib/admin-db.server", () => ({ getAdmin: async () => holder.db }));
+vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/api-bridge.server")>();
+  return {
+    ...real,
+    authorizeBridge: async () => ({ ok: true, actor: { id: "x", role: "clinician" } }),
+    logSync: async () => {},
+  };
+});
 
 import {
   buildBridgeBedBoard,
@@ -224,18 +234,8 @@ describe("bridge bed board — fails closed instead of claiming capacity", () =>
 });
 
 describe("partner bed endpoints return a safe 503", () => {
-  let db: ReturnType<typeof world>;
   beforeEach(() => {
-    db = world({ facts: [], rosterError: true });
-  });
-  vi.mock("@/lib/admin-db.server", () => ({ getAdmin: async () => db }));
-  vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
-    const real = await importOriginal<typeof import("@/lib/api-bridge.server")>();
-    return {
-      ...real,
-      authorizeBridge: async () => ({ ok: true, actor: { id: "x", role: "clinician" } }),
-      logSync: async () => {},
-    };
+    holder.db = world({ facts: [], rosterError: true });
   });
 
   for (const path of ["bridge.beds", "bridge.bed_occupancies", "bridge.bed_outliers"]) {
@@ -257,7 +257,7 @@ describe("partner bed endpoints return a safe 503", () => {
   }
 
   it("bridge.beds still returns the normal board when data is sound", async () => {
-    db = world({ facts: [{ id: "w1", bed: "1", shared_with_partner: false }] });
+    holder.db = world({ facts: [{ id: "w1", bed: "1", shared_with_partner: false }] });
     const mod = await import("@/routes/api/public/bridge.beds.ts");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const GET = (mod.Route as any).options.server.handlers.GET;
