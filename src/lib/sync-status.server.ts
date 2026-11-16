@@ -65,8 +65,8 @@ async function evidenceFor(supabase: any, entity: SyncResource): Promise<Resourc
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function readSyncStatus(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   actor: { isTrustAdmin: boolean; isAuditor: boolean },
 ): Promise<SyncStatus> {
