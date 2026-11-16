@@ -511,7 +511,7 @@ describe("function permissions on a fresh schema", () => {
       `SELECT p.proname, p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
         WHERE p.proname IN ('bridge_import_referral','bridge_import_result','bridge_insert_investigation','bridge_set_wardable','bridge_unit_id','apply_referral_prefill','bridge_referral_review')`,
     );
-    expect(r.rows).toHaveLength(6);
+    expect(r.rows).toHaveLength(7);
     for (const row of r.rows) expect(row.proconfig).toEqual(['search_path=""']);
   });
 });
