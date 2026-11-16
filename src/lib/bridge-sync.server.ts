@@ -10,7 +10,6 @@ import { fetchSyncV1, bridgeSystemActor, BridgeFetchError, type SyncV1Resource }
 import { ContractError } from "@/lib/bridge-contract";
 import { logSync, logSyncError, type BridgeActor } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
-import { SEED_UNIT_CODE } from "@/lib/scope.server";
 import {
   importReferrals,
   importResults,
@@ -63,17 +62,6 @@ function errorCode(e: unknown): SyncErrorCode {
     return e.code;
   }
   return "unexpected";
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function resolveBridgeUnitId(admin: any): Promise<string> {
-  const { data, error } = await admin
-    .from("icu_units")
-    .select("id, code")
-    .eq("code", SEED_UNIT_CODE)
-    .maybeSingle();
-  if (error || !data || typeof data.id !== "string") throw new ImportStepError("local_read_failed");
-  return data.id;
 }
 
 type ImportSpec = {
