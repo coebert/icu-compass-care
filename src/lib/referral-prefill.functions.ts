@@ -7,6 +7,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   computeReferralPrefill,
   REFERRAL_PREFILL_COLUMNS,
+  PREFILL_DECISION_FIELDS,
   type ReferralPrefillSource,
 } from "@/lib/referral-prefill";
 
@@ -84,6 +85,8 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
       applied_fields: plan.applied_fields,
       skipped_fields: plan.skipped_fields,
       patch: plan.patch,
+      // Offered only; applied only if ticked and confirmed.
+      decisions: plan.decisions,
       // Echoed back on confirm so a stale preview can't be applied.
       patient_updated_at: String((patient as unknown as { updated_at: string }).updated_at),
       referral_updated_at: (ref.updated_at as string | null) ?? null,
@@ -102,6 +105,8 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
         referral_id: z.string().uuid(),
         expected_patient_updated_at: versionString,
         expected_referral_updated_at: versionString.nullable(),
+        // Referral-documented decisions the user explicitly ticked in preview.
+        accept_decisions: z.array(z.enum(PREFILL_DECISION_FIELDS)).max(1).default([]),
       })
       .parse(input),
   )

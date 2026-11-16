@@ -22,6 +22,8 @@ export type ApplyPrefillInput = {
   referral_id: string;
   expected_patient_updated_at: string;
   expected_referral_updated_at: string | null;
+  /** Decisions the user ticked in the preview (default: none). */
+  accept_decisions?: readonly "dnacpr_decision"[];
 };
 
 type Ctx = {
@@ -67,7 +69,7 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
     admission_urgency: ref.admission_urgency ?? null,
   };
 
-  const { patch, applied_fields, skipped_fields } = computeReferralPrefill(source, {
+  const { patch, applied_fields, skipped_fields, decisions } = computeReferralPrefill(source, {
     current_admission: patientPlain.current_admission,
     current_management: patientPlain.current_management,
     tep_in_place: patientPlain.tep_in_place,
@@ -76,10 +78,21 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
     dnacpr_details: patientPlain.dnacpr_details,
   });
 
+  // A ticked decision must still be on offer (patient field still unset and
+  // the referral unchanged); otherwise the preview is stale.
+  const decisionPatch: Record<string, boolean> = {};
+  for (const field of data.accept_decisions ?? []) {
+    const offered = decisions.find((d) => d.field === field);
+    if (!offered) throw new Error(PREFILL_STALE_MESSAGE);
+    decisionPatch[field] = offered.value;
+    applied_fields.push(field);
+  }
+
   // Always record the link so the card can surface its referral origin, even
   // if every mapped field was already populated.
   const updatePayload = {
     ...patch,
+    ...decisionPatch,
     source_referral_id: data.referral_id,
     updated_by: context.userId,
   };
