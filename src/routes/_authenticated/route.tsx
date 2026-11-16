@@ -352,6 +352,10 @@ function AuthenticatedLayout() {
                   );
                 })}
               </nav>
+              {/* The header indicator is hidden on phones; show it here instead. */}
+              <div className="border-t p-4 sm:hidden">
+                <SyncStatusPanel />
+              </div>
             </SheetContent>
           </Sheet>
 
