@@ -92,6 +92,24 @@ describe("sync status panel", () => {
     expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
   });
 
+  it("a self-pointing partner address is named on every pull stream, not a generic error", async () => {
+    const bad = { lastAttemptOk: false, lastAttemptCode: "partner_url_invalid" };
+    h.status.mockResolvedValue(
+      granted([
+        res("patients"),
+        res("investigations", bad),
+        res("referrals", bad),
+        res("microbiology", bad),
+      ]),
+    );
+    mount();
+    fireEvent.click(await screen.findByRole("button", { name: /last update failed/i }));
+    const list = await screen.findByRole("list", { name: /by record type/i });
+    const text = list.textContent ?? "";
+    expect(text.match(/address is set incorrectly/g)?.length).toBe(3);
+    expect(text).not.toContain("The partner system returned an error.");
+  });
+
   it("partial write failure reads as incomplete", async () => {
     h.status.mockResolvedValue(
       granted([

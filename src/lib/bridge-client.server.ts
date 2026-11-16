@@ -7,6 +7,7 @@
 // every page is validated before the caller writes anything.
 import { createHmac } from "crypto";
 import type { SyncErrorCode } from "@/lib/sync-status";
+import { parsePartnerBase } from "@/lib/partner-url";
 import {
   ContractError,
   LEGACY_REVIEW_LIMIT,
@@ -33,10 +34,14 @@ export class BridgeFetchError extends Error {
 }
 
 function config(): { baseUrl: string; secret: string } {
-  const baseUrl = process.env.PARTNER_BRIDGE_URL;
+  const base = parsePartnerBase(process.env.PARTNER_BRIDGE_URL);
   const secret = process.env.HANDOVER_API_SECRET;
-  if (!baseUrl || !secret) throw new BridgeFetchError("not_configured");
-  return { baseUrl: baseUrl.replace(/\/$/, ""), secret };
+  if (!secret || (!base.ok && base.reason === "missing")) {
+    throw new BridgeFetchError("not_configured");
+  }
+  // A self-pointing or non-origin URL never gets a signed request.
+  if (!base.ok) throw new BridgeFetchError("partner_url_invalid");
+  return { baseUrl: base.origin, secret };
 }
 
 // Build the signed headers the partner bridge's authorize() expects.

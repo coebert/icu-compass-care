@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { parsePartnerBase } from "@/lib/partner-url";
 
 /**
  * Shared HMAC auth + RBAC for the cross-project data bridge.
@@ -28,13 +29,11 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 // at call time (env is injected per-request on the worker runtime); falls back
 // to "*" only when the partner origin is not configured.
 function partnerOrigin(): string {
-  const raw = process.env.PARTNER_BRIDGE_URL;
-  if (!raw) return "*";
-  try {
-    return new URL(raw).origin;
-  } catch {
-    return "*";
-  }
+  const base = parsePartnerBase(process.env.PARTNER_BRIDGE_URL);
+  if (base.ok) return base.origin;
+  // Unset keeps the historic "*"; a malformed or self-pointing value grants
+  // no cross-origin browser access at all.
+  return base.reason === "missing" ? "*" : "null";
 }
 
 export function corsHeaders(): Record<string, string> {

@@ -58,7 +58,7 @@ Status at 16/11/2026 (read from repository and live metadata only):
 | drizzle `0002`, `0003`, `0004` security remediation | APPLIED to live |
 | `docs/security/postpublish-cleanup.sql` | STAGED, not applied |
 | `docs/security/staged-migrations/0005`–`0010` (below) | STAGED, not applied; tested only on PGlite and throwaway PostgreSQL |
-| Hub frontend/server changes since the last publish | NOT published |
+| Hub frontend/server changes | **LIVE on the published server** (published_at 16/11/2026 19:23:35 UTC; see "Live incident" below). The staged SQL is not. |
 | Critical Care Connect (CCC) receiver changes | owned by the CCC team; must be live before the Hub publish (step 1) |
 
 Staged SQL (apply in this order, only when the coordinated release gate is
@@ -112,6 +112,62 @@ until 0009 exists; the Sync review page shows referrals as "can't be compared
 yet" (never "in sync") until 0010 exists. The currently published (old) Hub
 frontend keeps working after 0005–0010 are applied: they add functions, a private ledger and one
 index, and change no existing table grants.
+
+### Live incident 16/11/2026: inbound pulls fail with `partner_http_error`
+
+Read-only evidence (status codes, schema keys and aggregate counts only):
+
+- `PARTNER_BRIDGE_URL` host is `icu-compass-care.lovable.app` (path `/`) —
+  this Hub's own published address, not CCC (`critical-care-flow.lovable.app`).
+  The health shape at that host is the Hub's (`handover_api_secret_configured`,
+  `partner_bridge_url_configured`, 97 patient keys); CCC's differs
+  (`secret_configured`, `previous_secret_configured`, `partner_url_configured`).
+- The `bridge-sync-every-5-min` cron calls
+  `https://project--58df96bd-….lovable.app/api/public/hooks/bridge-sync`; that
+  host serves the same published deployment (identical responses, logs tagged
+  published). Its pull then calls the Hub's own
+  `/api/public/bridge/{referrals,investigations,microbiology}?sync=1&limit=500`,
+  which answer 503 `{"error":"Service unavailable"}` because `bridge_export_*`
+  (0008) is not applied. Hub logs: `partner GET failed <path> 503` every 5 min.
+- Timeline from `bridge_sync_events`: new-code (`inbound_sync`) pulls began
+  16:25 with `contract_mismatch` (self returned the legacy `{records}` shape);
+  from 18:30 they get 503 (self now runs the `bridgeExport` code). Older-code
+  pulls (actor role `admin`, ~1 per 70 s, re-applying ~13.8k patient and ~2.9k
+  investigation upserts per day from the self-feed) stopped at 18:20/18:25.
+- Same signed GET straight to CCC with the same secret and actor: HTTP 200,
+  `schema_version:1`, `snapshot_at` ISO, `pagination{next_cursor,complete}`.
+  An in-memory dry run of the Hub validators (no writes) accepted complete
+  snapshots for all three feeds (referrals 4 rows incl. 3 minimal tombstones,
+  0 malformed; investigations 0; microbiology 0).
+- Live functions present: 0002–0004 helpers. Missing: `move_patient_beds`,
+  `bridge_import_referral`, `bridge_import_result`, `bridge_set_wardable`,
+  `bridge_export_*` (5), `apply_referral_prefill`, `bridge_referral_review`.
+  So on the live server today: native bed move/swap answers "not available",
+  CCC reads of investigations/microbiology/referrals/notifications/audit get
+  503, wardable POST 503, prefill confirm unavailable, Sync review "can't be
+  compared". Bed board (`/bridge/beds`) answers 200.
+
+Source fix (this build): `src/lib/partner-url.ts` rejects a partner base that
+is this app or not a bare https origin; the client sends no signed request and
+records `partner_url_invalid`. Referral links and CORS use the same check.
+
+### Corrected release/config plan (each step needs release approval)
+
+0. Decide whether to keep the 19:23 publish live or re-publish the previous
+   version until the SQL gate; the live server already runs the prepared code.
+1. Confirm the CCC build serving sync v1 (verified above) is the one intended.
+2. Apply 0005 → 0006 → 0007 → 0008 → 0009 → 0010 (preflights abort on doubt),
+   then run the verification queries below.
+3. Publish this build (adds the URL guard).
+4. Change the `PARTNER_BRIDGE_URL` secret to `https://critical-care-flow.lovable.app`
+   (bare origin). Takes effect on the next cron pass without a publish; if done
+   before step 2, pulls fail safely with `import_unavailable`.
+5. Leave the cron as is (`*/5`, hook path `/api/public/hooks/bridge-sync`; it
+   already reaches the published deployment). Check the next pass shows
+   per-resource success or reviewable conflicts in Sync status.
+6. Enable CCC wardable use, then run `postpublish-cleanup.sql`.
+7. Review separately (metadata first) whether the earlier self-feed re-upserts
+   changed any patient row; not assessed here (needs clinical-record access).
 
 ### Release order (paired; receiver before producer)
 
