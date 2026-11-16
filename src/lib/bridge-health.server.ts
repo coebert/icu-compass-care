@@ -103,7 +103,8 @@ export async function runBridgeHealth(): Promise<BridgeHealthResult> {
 
   let partnerHost: string | null = null;
   try {
-    partnerHost = process.env.PARTNER_BRIDGE_URL ? new URL(process.env.PARTNER_BRIDGE_URL).host : null;
+    const rawUrl = process.env.PARTNER_BRIDGE_URL;
+    partnerHost = rawUrl ? new URL(rawUrl).host : null;
   } catch {
     partnerHost = null;
   }
