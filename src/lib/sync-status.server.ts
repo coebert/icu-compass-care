@@ -3,6 +3,7 @@
 import {
   INBOUND_SYNC_ACTOR_ROLE,
   SYNC_RESOURCES,
+  isSourceOwned,
   safeSyncErrorCode,
   type ResourceEvidence,
   type SyncResource,
@@ -27,6 +28,19 @@ function delayedAfterMinutes(): number {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function evidenceFor(supabase: any, entity: SyncResource): Promise<ResourceEvidence> {
+  // Recorded here, never imported: no events to read and nothing to alarm on.
+  if (isSourceOwned(entity)) {
+    return {
+      entity,
+      sourceOwned: true,
+      unavailable: false,
+      lastAttemptAt: null,
+      lastAttemptOk: null,
+      lastAttemptCode: null,
+      lastSuccessAt: null,
+      lastSuccessCount: null,
+    };
+  }
   // Only THIS app's inbound pull job — partner reads (also "pull") and partner
   // pushes are different streams and must not stand in for it.
   const base = () =>

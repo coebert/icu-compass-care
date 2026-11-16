@@ -94,7 +94,7 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
         toast.success("Partner sync completed");
       } else {
         const problems = res.results
-          .filter((r) => r.error || r.failed > 0)
+          .filter((r) => r.error)
           .map(
             (r) =>
               `${RESOURCE_LABEL[r.entity] ?? r.entity}: ${SYNC_ERROR_TEXT[r.error ?? "partial_write_failure"]}`,
@@ -136,16 +136,18 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
   const overall: ResourceState = loadFailed
     ? "unavailable"
     : overallState(rows.map((x) => x.state));
+  // Streams managed in this app have no import to be "current" about.
+  const imported = rows.filter((x) => x.state !== "source_owned");
   const lastSuccessOverall =
-    rows
+    imported
       .map((x) => x.r.lastSuccessAt)
       .filter((v): v is string => Boolean(v))
       .sort()
       .reverse()[0] ?? null;
   // Oldest per-stream success is what "everything is current as of" means.
   const oldestSuccess =
-    rows.length > 0 && rows.every((x) => x.r.lastSuccessAt)
-      ? rows.map((x) => x.r.lastSuccessAt as string).sort()[0]
+    imported.length > 0 && imported.every((x) => x.r.lastSuccessAt)
+      ? imported.map((x) => x.r.lastSuccessAt as string).sort()[0]
       : null;
 
   const Icon = BAD.includes(overall)
@@ -215,7 +217,12 @@ export function SyncStatusPanel({ className }: { className?: string; isAdmin?: b
                         {RESOURCE_STATE_TEXT[state]}
                       </span>
                     </div>
-                    {state === "unavailable" ? (
+                    {state === "source_owned" ? (
+                      <p className="text-muted-foreground">
+                        Recorded in this app. The partner app reads patients from here; nothing is
+                        imported.
+                      </p>
+                    ) : state === "unavailable" ? (
                       <p className="text-muted-foreground">
                         Status for this stream couldn't be read.
                       </p>
