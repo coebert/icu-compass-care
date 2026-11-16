@@ -12,17 +12,18 @@ import { getAdmin } from "@/lib/admin-db.server";
 import { readBodyLimited } from "@/lib/request-body.server";
 import { BRIDGE_INPUT_BOUNDS, BRIDGE_MAX_BODY_BYTES, findBoundsViolation } from "@/lib/input-bounds";
 import { bridgeUpdateSharedPatient, stripSharingFlags } from "@/lib/bridge-sharing.server";
+import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
+import { resolveBridgeUnitId } from "@/lib/scope.server";
 
 // The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
 // the partner system is trusted, may send longer names, treats every field as
 // optional, and is not subject to the app's status-transition rules. The structured
 // fields are spread in from PATIENT_ARRAY_FIELDS so this stays in step with the app
 // model whenever new structured fields are added.
-const patientUpsert = z.object({
-  id: z.string().uuid().optional(),
+const patientFields = z.object({
   // Optimistic concurrency: the updated_at the caller last saw. When present on
   // an update, the write is rejected (409) if the record changed since then.
-  expected_updated_at: z.string().optional(),
+  expected_updated_at: z.string().max(64).optional(),
   // This app stores patient INITIALS ONLY. The partner system may still send a
   // longer name, so anything that isn't already initials is reduced to initials
   // here, before it ever reaches the database (which also enforces the rule).
@@ -74,44 +75,71 @@ const patientUpsert = z.object({
   ...PATIENT_ARRAY_FIELDS,
 });
 
+// Create: no id, a valid name is required.
+const patientCreate = patientFields.strict().or(patientFields);
+// Update by id: a bounded PARTIAL change (e.g. a bed move or prefill) — any
+// subset of fields; a name, if sent, must still be valid. id, unit and
+// sharing are never writable (stripped again in bridgeUpdateSharedPatient).
+const patientUpdate = patientFields.partial().extend({ id: z.string().uuid() });
+const statusParam = z.enum(["referred", "admitted", "discharged", "died"]);
+
+function stripGovernance(p: Record<string, unknown>) {
+  const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...rest } = p;
+  void shared_with_partner;
+  void shared_with_partner_at;
+  void shared_with_partner_by;
+  return rest;
+}
+const bedOccupied = () =>
+  json({ error: "bed_occupied", message: "That bed is already occupied in this unit." }, 409);
+
 
 export const Route = createFileRoute("/api/public/bridge/patients")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
-      // List patients (optionally filter by status via ?status=admitted)
+      // List shared patients in the bridge unit (optionally ?status=admitted),
+      // or fetch ONE by ?id=<uuid> in the same {patients:[...]} envelope.
+      // Not shared, another unit, revoked or nonexistent: identical empty list.
       GET: async ({ request }) => {
         const auth = await authorizeBridge(request, "", { write: false }, "/bridge/patients");
         if (!auth.ok) return auth.response;
 
-        const supabaseAdmin = await getAdmin();
         const url = new URL(request.url);
-        const status = url.searchParams.get("status");
+        const rawId = url.searchParams.get("id");
+        const rawStatus = url.searchParams.get("status");
+        const id = rawId === null ? null : z.string().uuid().safeParse(rawId);
+        const status = rawStatus === null ? null : statusParam.safeParse(rawStatus);
+        if ((id && !id.success) || (status && !status.success)) {
+          return json({ error: "Invalid query" }, 400);
+        }
 
+        const supabaseAdmin = await getAdmin();
+        let unitId: string;
+        try {
+          unitId = await resolveBridgeUnitId(supabaseAdmin);
+        } catch {
+          return json({ error: "Service unavailable" }, 503);
+        }
         let query = supabaseAdmin
           .from("patients")
           .select("*")
-          // Only patients an administrator has explicitly marked as shared are
-          // ever exposed across the bridge. This is the governance gate for
-          // cross-project PHI sharing.
+          // Governance gate: only the bridge unit, only patients an
+          // administrator explicitly marked as shared.
+          .eq("unit_id", unitId)
           .eq("shared_with_partner", true)
           .order("updated_at", { ascending: false });
-        if (status) query = query.eq("status", status as "admitted" | "died" | "discharged" | "referred");
+        if (id?.success) query = query.eq("id", id.data);
+        if (status?.success) query = query.eq("status", status.data);
 
         const { data, error } = await query;
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        if (error) return (console.error("[bridge] patients read failed"), json({ error: "Internal server error" }, 500));
         // The sharing flag is a local governance decision, not clinical data —
         // never leak it to the partner (and never let it overwrite their copy).
-        const patients = decryptPatientRows(
-          data as Array<Record<string, unknown>> | null,
-        ).map((p: Record<string, unknown>) => {
-          const { shared_with_partner, shared_with_partner_at, shared_with_partner_by, ...rest } = p;
-          void shared_with_partner;
-          void shared_with_partner_at;
-          void shared_with_partner_by;
-          return rest;
-        });
+        const patients = decryptPatientRows(data as Array<Record<string, unknown>> | null).map(
+          (p: Record<string, unknown>) => stripGovernance(p),
+        );
         await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: patients.length, actor: auth.actor });
         return json({ patients });
       },
@@ -152,24 +180,42 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           if (findBoundsViolation(raw, BRIDGE_INPUT_BOUNDS)) {
             return json({ error: "Invalid patient payload" }, 400);
           }
-          parsed = patientUpsert.parse(raw);
+          const hasId =
+            !!raw && typeof raw === "object" && !Array.isArray(raw) && "id" in (raw as object);
+          parsed = hasId
+            ? { mode: "update" as const, value: patientUpdate.parse(raw) }
+            : { mode: "create" as const, value: patientCreate.parse(raw) };
         } catch {
           return json({ error: "Invalid patient payload" }, 400);
         }
 
         const supabaseAdmin = await getAdmin();
+        let unitId: string;
+        try {
+          unitId = await resolveBridgeUnitId(supabaseAdmin);
+        } catch {
+          return json({ error: "Service unavailable" }, 503);
+        }
         // Strip control fields that are not table columns.
-        const { expected_updated_at, ...columns } = parsed;
+        const { expected_updated_at, ...columns } = parsed.value as Record<string, unknown> & {
+          expected_updated_at?: string;
+        };
         const record = clean(columns);
 
-        if (record.id) {
+        if (parsed.mode === "update") {
+          const { id: targetId, ...changes } = record as Record<string, unknown> & { id: string };
+          if (Object.keys(changes).length === 0) {
+            return json({ error: "Invalid patient payload" }, 400);
+          }
           const outcome = await bridgeUpdateSharedPatient(supabaseAdmin, {
-            id: record.id as string,
+            id: targetId,
+            unitId,
             expectedUpdatedAt: expected_updated_at,
-            payload: encryptPatientPayload(record) as Record<string, unknown>,
+            payload: encryptPatientPayload(changes) as Record<string, unknown>,
           });
+          if (outcome.kind === "bed_conflict") return bedOccupied();
           if (outcome.kind === "error") {
-            return (console.error("[bridge]", outcome.error), json({ error: "Internal server error" }, 500));
+            return (console.error("[bridge] patient update failed"), json({ error: "Internal server error" }, 500));
           }
           // Not shared (or sharing revoked, or nonexistent): identical answer,
           // no clinical data, no hint the record exists.
@@ -202,18 +248,26 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           return json({ patient: stripSharingFlags(decryptPatientRow(data)) });
         }
 
-        // Bridge writes are unit-scoped too: partner pushes land in the local
-        // unit unless the payload names one explicitly.
-        const { defaultUnitId } = await import("@/lib/scope.server");
-        const bridgeUnitId =
-          (record as Record<string, unknown>)["unit_id"] ?? (await defaultUnitId(supabaseAdmin));
+        // Partner creates always land in the bridge unit; the payload can't
+        // choose another one (unit_id isn't an accepted field).
+        try {
+          if (occupiesBed({ location_type: "icu", status: "admitted", ...record }) &&
+              (await bedTakenInUnit(supabaseAdmin, unitId, record.bed as string, null))) {
+            return bedOccupied();
+          }
+        } catch {
+          return json({ error: "Internal server error" }, 500);
+        }
         const { data, error } = await supabaseAdmin
           .from("patients")
-          .insert(encryptPatientPayload({ ...record, unit_id: bridgeUnitId }) as never)
+          .insert(encryptPatientPayload({ ...record, unit_id: unitId }) as never)
           .select()
           .maybeSingle();
 
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        if (error) {
+          if (isBedUniqueViolation(error)) return bedOccupied();
+          return (console.error("[bridge] patient create failed"), json({ error: "Internal server error" }, 500));
+        }
         if (!data) return json({ error: "Patient could not be created" }, 500);
 
         await writeAudit(supabaseAdmin, {

@@ -1,3 +1,5 @@
+import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
+
 // Partner-sharing gate for bridge writes. Every read used for a conflict
 // answer and every mutation is filtered on shared_with_partner = true IN THE
 // SAME STATEMENT, so revoking sharing between the check and the write can't
@@ -40,10 +42,7 @@ async function readShared(admin: AdminClient, id: string, unitId: string) {
     .maybeSingle();
 }
 
-export function isBedConflict(err: unknown): boolean {
-  const e = err as { code?: string; message?: string } | null;
-  return e?.code === "23505" && /patients_active_unit_bed_uniq/.test(String(e?.message ?? ""));
-}
+export const isBedConflict = isBedUniqueViolation;
 
 export async function bridgeUpdateSharedPatient(
   admin: AdminClient,
@@ -57,6 +56,20 @@ export async function bridgeUpdateSharedPatient(
   if (!current) return { kind: "not_found" };
   if (args.expectedUpdatedAt && current.updated_at !== args.expectedUpdatedAt) {
     return { kind: "conflict", current };
+  }
+
+  // Friendly early answer for a bed already held in this unit; the unique
+  // active-bed index is the real guarantee once the staged migration is live.
+  const touchesBed = ["bed", "location_type", "status"].some((k) => k in payload);
+  if (touchesBed) {
+    const merged = { ...current, ...payload };
+    try {
+      if (occupiesBed(merged) && (await bedTakenInUnit(admin, args.unitId, merged.bed as string, args.id))) {
+        return { kind: "bed_conflict" };
+      }
+    } catch (e) {
+      return { kind: "error", error: e };
+    }
   }
 
   // Compare-and-set: still shared, still in the bridge unit AND unchanged
