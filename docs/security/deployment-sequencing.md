@@ -1,39 +1,55 @@
 # Security remediation: deployment sequencing
 
-Applied live: 0002, 0003, 0004 (0001 is comment-only). The published frontend is still the OLD build.
+> **Release gate:** every production change in this document (publishing,
+> applying SQL, changing secrets/config or the cron job, running cleanup,
+> enabling CCC features) waits for the explicit coordinated-release approval.
+> **That approval has NOT been granted.** Nothing below is an instruction to
+> run now.
 
-## Old frontend + new database (current state)
-- **No clinician lockout:** the idle baseline for sessions with no activity record is built but switched OFF (`private.security_settings.enforce_session_baseline = false`). Old-client sessions stay usable.
-- **Handover history:** clinicians see an empty history list until the new client is published. Legacy combined snapshots are Trust-admin only.
+## Current state (16/11/2026, 20:15 UTC; read-only evidence)
+
+| Item | State | Evidence |
+| --- | --- | --- |
+| drizzle `0002`, `0003`, `0004` | APPLIED to live (0001 is comment-only) | live function/trigger metadata |
+| Staged `0005`–`0010` | NOT applied; tested only on PGlite and throwaway PostgreSQL | required functions absent from live `pg_proc` |
+| `docs/security/postpublish-cleanup.sql` | NOT applied (`enforce_session_baseline = false`) | live settings metadata |
+| Hub **server** code | **Updated code is live** (published_at 16/11/2026 19:23:35 UTC) | publish settings; bridge feeds run the `bridgeExport` code (503 without 0008); `inbound_sync` events; logs tagged published |
+| Hub **frontend assets** served to browsers | **Not verified** | no check of the served bundle was made |
+| Partner-URL guard (`src/lib/partner-url.ts`) | NOT live: committed after 19:23 (19:59 UTC onward) | commit timestamps |
+| `PARTNER_BRIDGE_URL` | Misconfigured: points at this Hub (`icu-compass-care.lovable.app`), not CCC | health-shape comparison, see "Live incident" |
+| Critical Care Connect (CCC) | Serves sync v1 to a signed read; its release is owned by the CCC team | one signed GET, see "Live incident" |
+
+So the release is neither "all unreleased" nor "fully released": updated Hub
+server code runs against a database that lacks 0005–0010. Exactly which source
+commit the 19:23 publish contains, and when the behaviour change seen at about
+18:27 was deployed, are not established.
+
+Live effect of the missing SQL (observed or expected from the live code):
+bed moves/swaps answer "not available" (never two separate writes); inbound
+imports write nothing; CCC reads of investigations, microbiology, referrals,
+notifications and audit answer 503 "Service unavailable" (never an unscoped or
+empty list); the wardable endpoint answers 503; "Confirm prefill" answers
+"isn't available right now" and writes nothing; the Sync review page shows
+referrals as "can't be compared yet" (never "in sync"); the existing partner
+investigation insert keeps its current shared-only rule. The bed board feed
+(`/bridge/beds`) answers 200.
+
+## Older clients against 0002–0004 (compatibility notes)
+
+These apply to any browser tab still running a client built before the
+security remediation. Whether the published frontend assets are still such a
+client is not verified (see above), so treat these as possible until it is.
+
+- **No clinician lockout:** the idle baseline for sessions with no activity record is built but switched OFF (`private.security_settings.enforce_session_baseline = false`). Older-client sessions stay usable.
+- **Handover history:** an older client shows clinicians an empty history list. Legacy combined snapshots are Trust-admin only.
 - **Passkeys:**
-  - Unlock still works on the old client.
-  - Enrolment on the old client needs a sign-in within the last 10 minutes.
+  - Unlock still works on an older client.
+  - Enrolment on an older client needs a sign-in within the last 10 minutes.
 - **Staff admin:**
-  - The old server code changes roles through server-side database access. These changes still work and are now audited automatically by a trigger.
-  - Old-client unit access grants need a sign-in within the last 10 minutes plus a reason.
-  - **Old-client unit-access REMOVAL is refused until publish.** Direct deletes were revoked and the old client has no audited path. Trust admins can wait, or publish.
-- **Role change RPC:** the reason-less RPC is no longer executable by clients. No published code calls it.
-
-## Publish steps (in order)
-1. Publish the reviewed frontend.
-2. Wait for old tabs to refresh (about 1 hour, the token lifetime).
-3. Run `docs/security/postpublish-cleanup.sql` (authoritative, supersedes the sketch below). NOT applied yet.
-
-```sql
--- a) Enforce the idle baseline for sessions with no activity record.
---    Sessions older than 15 minutes without a heartbeat become locked: passkey
---    users can unlock; others sign in again.
-UPDATE private.security_settings SET enforce_session_baseline = true, updated_at = now();
--- b) Remove transitional direct credential / membership write paths.
-DROP POLICY "Active sessions write own challenges (legacy client)" ON public.webauthn_challenges;
-DROP POLICY "Active sessions update own challenges (legacy client)" ON public.webauthn_challenges;
-REVOKE INSERT, UPDATE ON public.webauthn_challenges FROM authenticated;
-DROP POLICY "Reauthenticated active sessions enrol own passkeys" ON public.webauthn_credentials;
-REVOKE INSERT ON public.webauthn_credentials FROM authenticated;
-DROP POLICY "Transitional: reauthenticated admins grant unit access" ON public.user_unit_access;
-REVOKE INSERT ON public.user_unit_access FROM authenticated;
-```
-Statement a) is a data change on a one-row settings table; it can also be run as a single query. Rollback for a): set the flag back to `false`.
+  - Older server code changes roles through server-side database access. These changes still work and are audited automatically by a trigger.
+  - Older-client unit access grants need a sign-in within the last 10 minutes plus a reason.
+  - **Older-client unit-access REMOVAL is refused.** Direct deletes were revoked and an older client has no audited path; the current client uses `admin_set_unit_access`.
+- **Role change RPC:** the reason-less RPC is no longer executable by clients. No current code calls it.
 
 ## Known limitations
 - **Locked tokens:** access tokens stay cryptographically valid until they expire (about 1 hour). A lock is enforced by row-level security and server checks (`session_active()`), not by revoking the token.
@@ -49,17 +65,7 @@ Statement a) is a data change on a one-row settings table; it can also be run as
 - Password resets are Trust-admin-only (server check + recent reauth). Unit admins see a prompt to ask a Trust admin. Code-only change, no database change.
 - A new auth session (password reauth) resets lock state, the inactivity deadline and cached data in the client. Code-only change.
 
-## Coordinated Hub / CCC release (Nov 2026) — staged, NOT applied
-
-Status at 16/11/2026 (read from repository and live metadata only):
-
-| Item | State |
-| --- | --- |
-| drizzle `0002`, `0003`, `0004` security remediation | APPLIED to live |
-| `docs/security/postpublish-cleanup.sql` | STAGED, not applied |
-| `docs/security/staged-migrations/0005`–`0010` (below) | STAGED, not applied; tested only on PGlite and throwaway PostgreSQL |
-| Hub frontend/server changes | **LIVE on the published server** (published_at 16/11/2026 19:23:35 UTC; see "Live incident" below). The staged SQL is not. |
-| Critical Care Connect (CCC) receiver changes | owned by the CCC team; must be live before the Hub publish (step 1) |
+## Coordinated Hub / CCC release — staged, NOT applied
 
 Staged SQL (apply in this order, only when the coordinated release gate is
 given; each aborts without changes if its preflight fails):
@@ -100,22 +106,23 @@ given; each aborts without changes if its preflight fails):
 deleted_at; no clinical content) for a referral deleted in CCC before Hub
 ever imported it, so a delayed older/equal live copy can never resurrect it.
 
-Behaviour before they are applied (if the frontend were published first):
-bed moves are refused ("not available yet") rather than done as two writes;
-scheduled imports report `import_unavailable` and write nothing; the wardable
-endpoint answers 503; the existing partner investigation insert keeps its
-current (shared-only) rule; the partner clinical READ feeds (investigations,
-microbiology, referrals, notifications, audit) answer 503 "Service
-unavailable" — never an unscoped or empty list — until 0008 exists; and
-"Confirm prefill" answers "isn't available right now" and writes nothing
-until 0009 exists; the Sync review page shows referrals as "can't be compared
-yet" (never "in sync") until 0010 exists. The currently published (old) Hub
-frontend keeps working after 0005–0010 are applied: they add functions, a private ledger and one
-index, and change no existing table grants.
+0005–0010 add functions, private ledgers and one index; they change no
+existing table grants, so a browser tab running an older Hub client keeps
+working after they are applied.
+
+### Legacy referrals: never adopted automatically
+
+Existing local referral copies have no import provenance. After 0006 the
+first import of each reports a conflict for review; it is never adopted,
+overwritten, deleted or merged automatically, even when its content equals
+CCC's. The Sync review page (Trust administrators only) lists such rows as
+"Needs review" with no Pull button. Resolving them is a separate, reviewed
+step outside this release and needs its own approval.
 
 ### Live incident 16/11/2026: inbound pulls fail with `partner_http_error`
 
-Read-only evidence (status codes, schema keys and aggregate counts only):
+Read-only evidence (status codes, schema keys, timestamps and aggregate
+counts only; no clinical rows read):
 
 - `PARTNER_BRIDGE_URL` host is `icu-compass-care.lovable.app` (path `/`) —
   this Hub's own published address, not CCC (`critical-care-flow.lovable.app`).
@@ -129,11 +136,18 @@ Read-only evidence (status codes, schema keys and aggregate counts only):
   `/api/public/bridge/{referrals,investigations,microbiology}?sync=1&limit=500`,
   which answer 503 `{"error":"Service unavailable"}` because `bridge_export_*`
   (0008) is not applied. Hub logs: `partner GET failed <path> 503` every 5 min.
-- Timeline from `bridge_sync_events`: new-code (`inbound_sync`) pulls began
+- Timeline from `bridge_sync_events`: current-code (`inbound_sync`) pulls began
   16:25 with `contract_mismatch` (self returned the legacy `{records}` shape);
-  from 18:30 they get 503 (self now runs the `bridgeExport` code). Older-code
-  pulls (actor role `admin`, ~1 per 70 s, re-applying ~13.8k patient and ~2.9k
-  investigation upserts per day from the self-feed) stopped at 18:20/18:25.
+  from 18:30 they get 503 (self now runs the `bridgeExport` code).
+- Legacy events (actor role `admin`, about one per 70 s) are recorded as
+  successful until 18:20/18:25 and then stop. These events can represent
+  partner reads as well as writes, so their counts do **not** establish how
+  many records, if any, were written. A metadata-only query of
+  `public.record_audit` since 15/11/2026 19:00 UTC for `diff->>'source' =
+  'bridge'` on the patient and investigation entity types returned zero rows;
+  that absence does not prove there was no earlier effect. **Any effect of the
+  legacy events on clinical records is unestablished; no clinical-record
+  review has been performed.** What triggered the legacy events is unknown.
 - Same signed GET straight to CCC with the same secret and actor: HTTP 200,
   `schema_version:1`, `snapshot_at` ISO, `pagination{next_cursor,complete}`.
   An in-memory dry run of the Hub validators (no writes) accepted complete
@@ -142,52 +156,67 @@ Read-only evidence (status codes, schema keys and aggregate counts only):
 - Live functions present: 0002–0004 helpers. Missing: `move_patient_beds`,
   `bridge_import_referral`, `bridge_import_result`, `bridge_set_wardable`,
   `bridge_export_*` (5), `apply_referral_prefill`, `bridge_referral_review`.
-  So on the live server today: native bed move/swap answers "not available",
-  CCC reads of investigations/microbiology/referrals/notifications/audit get
-  503, wardable POST 503, prefill confirm unavailable, Sync review "can't be
-  compared". Bed board (`/bridge/beds`) answers 200.
 
-Source fix (this build): `src/lib/partner-url.ts` rejects a partner base that
-is this app or not a bare https origin; the client sends no signed request and
-records `partner_url_invalid`. Referral links and CORS use the same check.
+Source fix (committed, not live): `src/lib/partner-url.ts` rejects a partner
+base that is this app or not a bare https origin; the client sends no signed
+request and records `partner_url_invalid`. Referral links, CORS and the admin
+health check use the same check.
 
-### Corrected release/config plan (each step needs release approval)
+## Authoritative release order (each step needs the release approval)
 
-0. Decide whether to keep the 19:23 publish live or re-publish the previous
-   version until the SQL gate; the live server already runs the prepared code.
-1. Confirm the CCC build serving sync v1 (verified above) is the one intended.
-2. Apply 0005 → 0006 → 0007 → 0008 → 0009 → 0010 (preflights abort on doubt),
-   then run the verification queries below.
-3. Publish this build (adds the URL guard).
-4. Change the `PARTNER_BRIDGE_URL` secret to `https://critical-care-flow.lovable.app`
-   (bare origin). Takes effect on the next cron pass without a publish; if done
-   before step 2, pulls fail safely with `import_unavailable`.
-5. Leave the cron as is (`*/5`, hook path `/api/public/hooks/bridge-sync`; it
-   already reaches the published deployment). Check the next pass shows
-   per-resource success or reviewable conflicts in Sync status.
-6. Enable CCC wardable use, then run `postpublish-cleanup.sql`.
-7. Review separately (metadata first) whether the earlier self-feed re-upserts
-   changed any patient row; not assessed here (needs clinical-record access).
+This is the only release order; it supersedes earlier plans. The rule is
+receiver before producer: CCC must read the new Hub responses before Hub
+serves them to it.
 
-### Release order (paired; receiver before producer)
+0. **Decision (approval holder):** keep the 19:23 publish live until the
+   steps below, or re-publish an earlier version. The live server already runs
+   updated code; the missing SQL makes the new paths fail closed (see
+   "Current state").
+1. **Compatible CCC build.** Confirm the CCC build that accepts both the
+   current and the new Hub responses is live: bed payload with `unit_code`,
+   scoped `GET /bridge/patients?id=` empty envelope and opaque 404, required
+   `expected_updated_at` on patient POST, generic 503 bodies, and the
+   `/bridge/patients/wardable` 200/409 shapes; plus its opt-in sync v1 feeds
+   (`?sync=1`, explicit `deleted_at: null`, minimal tombstones) with legacy
+   feeds unchanged. CCC does not yet call the wardable endpoint.
+2. **Hub database 0005–0010.** Apply 0005 → 0006 → 0007 → 0008 → 0009 → 0010
+   in that order. Each runs its own preflight and aborts without changes on
+   doubt (for example duplicate active beds or a missing SDH-RADNOR unit);
+   never clean up data to make a preflight pass. Then run the verification
+   queries below.
+3. **Publish the latest reviewed Hub source** (includes the partner-URL guard),
+   and record the commit published. Then confirm the frontend assets browsers
+   receive are that build.
+4. **Correct `PARTNER_BRIDGE_URL`** in Project Settings → Secrets to the bare
+   origin `https://critical-care-flow.lovable.app` (no path, query or
+   trailing data). Do not change the signing secret. Do not change the
+   existing published cron (`bridge-sync-every-5-min`, `*/5`, hook path
+   `/api/public/hooks/bridge-sync`); it already reaches the published
+   deployment. The new value is used on the next cron pass.
+5. **CCC activation** (including CCC use of the wardable endpoint) follows
+   CCC's own staged activation sequence under CCC's runbook, not this one.
+6. **Verify scheduled results.** Check that the next scheduled passes record
+   current `inbound_sync` events per resource (referrals, investigations,
+   microbiology) with success or reviewable conflicts in Sync status. Do not
+   trigger a manual sync to do this. Legacy referrals appear as conflicts for
+   review (see above), never adopted.
+7. **Deferred cleanup — separately reviewed, not part of this run.** No sooner
+   than about 1 hour (the access-token lifetime) after step 3, so older tabs
+   and tokens have refreshed onto the new client, review and then, with its own
+   approval, run `docs/security/postpublish-cleanup.sql` (authoritative). It
+   switches on the idle baseline for sessions with no activity record
+   (sessions over 15 minutes without a heartbeat lock; passkey users unlock,
+   others sign in again) and removes the transitional client write paths for
+   WebAuthn challenges/credentials and unit-access grants, keeping the read
+   and server grants. Rollback for the baseline: set
+   `private.security_settings.enforce_session_baseline` back to `false`.
+   Run its verification queries afterwards.
+8. **Separate review (outside this release):** whether the legacy events
+   changed any clinical record is unestablished (see "Live incident"). Any
+   review needs its own authorisation for clinical-record access.
 
-1. **CCC first (receiver of the Hub contract changes).** Deploy the CCC build
-   that accepts both the current and the new Hub responses: bed payload with
-   `unit_code`, scoped `GET /bridge/patients?id=` empty envelope and opaque
-   404, required `expected_updated_at` on patient POST, generic 503 bodies,
-   and the `/bridge/patients/wardable` 200/409 shapes. Its opt-in sync v1
-   feeds (`?sync=1`, explicit `deleted_at: null`, minimal tombstones) must be
-   live too; legacy feeds stay unchanged. CCC must not yet call the wardable
-   endpoint.
-2. **Hub database.** Apply 0005 → 0006 → 0007 → 0008 → 0009 → 0010 in that order,
-   then run the verification queries below.
-3. **Hub publish (producer).** Publish the Hub frontend/server.
-4. **Enable CCC use** of the wardable endpoint and confirm the first sync
-   pass reports per-resource success or reviewable conflicts.
-5. **Post-publish cleanup.** Run `docs/security/postpublish-cleanup.sql`.
-
-Do not reverse steps 1 and 3: a Hub publish before a compatible CCC receiver
-would send CCC response shapes it cannot read.
+Do not reverse steps 1 and 3: serving the new Hub responses to a CCC build
+that cannot read them would break CCC.
 
 Verification (metadata only):
 
@@ -215,9 +244,3 @@ SELECT p.proname, p.prosecdef, p.proconfig,
 SELECT has_table_privilege('authenticated','private.bridge_referral_provenance','SELECT') AS must_be_false,
        has_table_privilege('authenticated','private.bridge_wardable_fence','SELECT') AS must_be_false_2;
 ```
-
-Existing local referral copies have no import provenance, so after 0006 the
-first import of each reports a conflict for review (never adopted). That is
-intended; resolving them is a reviewed, separate step. The Sync review page
-(Trust administrators only) lists them as "Needs review" with no Pull button,
-even when their content equals the partner's.
