@@ -1,14 +1,10 @@
 // Server-only core of "Confirm prefill" (fill blanks only, compare-and-set).
-// Runs through the caller's own client, so RLS unit scoping and edit
-// permissions apply exactly as for any other patient update.
+// Reads go through the caller's own client (RLS unit scoping applies); the
+// write goes through one audited database transaction that repeats every
+// check under locks (apply_referral_prefill).
 import { encryptField } from "@/lib/crypto.server";
-import {
-  PATIENT_ENCRYPTED_FIELDS,
-  decryptPatientRow,
-  encryptPatientPayload,
-} from "@/lib/patient-crypto.server";
+import { decryptPatientRow } from "@/lib/patient-crypto.server";
 import { safeDbError } from "@/lib/db-error";
-import { diffFields, writeAudit, writePatientFieldChanges } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 import {
   computeReferralPrefill,
@@ -95,64 +91,61 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
     applied_fields.push(field);
   }
 
-  const updatePayload = {
-    ...patch,
-    ...decisionPatch,
-    updated_by: context.userId,
-  };
   if (Object.keys(patch).length === 0 && Object.keys(decisionPatch).length === 0) {
     // Nothing blank to fill: no write, nothing to audit.
     return { applied_fields, skipped_fields, patient: patientPlain };
   }
 
-  // The updated_at AND source_referral_id predicates make the write atomic
-  // against a concurrent edit or a link change between our read and here.
-  const { data: row, error } = await context.supabase
-    .from("patients")
-    .update(encryptPatientPayload(updatePayload) as never)
-    .eq("id", data.patient_id)
-    .eq("updated_at", data.expected_patient_updated_at)
-    .eq("source_referral_id", data.referral_id)
-    .select()
-    .maybeSingle();
-  if (error) throw safeDbError(error);
-  if (!row) {
-    const { data: still, error: sErr } = await context.supabase
-      .from("patients")
-      .select("id, source_referral_id")
-      .eq("id", data.patient_id)
-      .maybeSingle();
-    if (sErr) throw safeDbError(sErr);
-    if (!still) throw new Error("Patient not found");
-    if (prefillLinkState(still.source_referral_id, data.referral_id) !== "linked") {
-      throw new Error(REFERRAL_LINK_REQUIRED_MESSAGE);
-    }
-    throw new Error(PREFILL_STALE_MESSAGE);
+  // The write itself happens in ONE database transaction
+  // (public.apply_referral_prefill, staged 0009): it re-checks the caller's
+  // session, role and unit, locks the referral then the patient, requires the
+  // previewed revisions, the exact existing link and still-blank targets, and
+  // writes the audit and field history alongside. Service role only, so a
+  // browser can't call it with its own values; the actor and session come
+  // from the caller's verified token.
+  const sessionId = context.claims.session_id;
+  if (typeof sessionId !== "string" || !sessionId) throw new Error(PREFILL_NOT_AUTHORISED_MESSAGE);
+  const set: Record<string, string> = {};
+  for (const [field, value] of Object.entries(patch)) {
+    const sealed = encryptField(value as string);
+    if (sealed) set[field] = sealed;
   }
-
   const supabaseAdmin = await getAdmin();
-  const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
-  await writeAudit(supabaseAdmin, {
-    entity: "patients",
-    recordId: row.id,
-    action: "update",
-    source: "app",
-    actor,
-    before: patient as Record<string, unknown>,
-    after: row as Record<string, unknown>,
-    changedFields: diffFields(
-      patientPlain as Record<string, unknown>,
-      decryptPatientRow(row) as Record<string, unknown>,
-    ),
+  const { data: out, error } = await supabaseAdmin.rpc("apply_referral_prefill", {
+    _actor: context.userId,
+    _session_id: sessionId,
+    _req: {
+      patient_id: data.patient_id,
+      referral_id: data.referral_id,
+      expected_patient_updated_at: data.expected_patient_updated_at,
+      expected_referral_updated_at: data.expected_referral_updated_at,
+      set,
+      ...("dnacpr_decision" in decisionPatch
+        ? { dnacpr_decision: decisionPatch.dnacpr_decision }
+        : {}),
+    },
   });
-  await writePatientFieldChanges(supabaseAdmin, {
-    patientId: row.id,
-    before: patientPlain as Record<string, unknown>,
-    after: decryptPatientRow(row) as Record<string, unknown>,
-    actor,
-    sealValue: (v) => encryptField(v),
-    sealedColumns: new Set<string>(PATIENT_ENCRYPTED_FIELDS),
-  });
+  if (error) throw safeDbError(error);
+  const result = out as { ok: boolean; code?: string; patient?: Record<string, unknown> } | null;
+  if (!result?.ok || !result.patient) throw new Error(prefillRefusalMessage(result?.code));
+  return { applied_fields, skipped_fields, patient: decryptPatientRow(result.patient) };
+}
 
-  return { applied_fields, skipped_fields, patient: decryptPatientRow(row) };
+export const PREFILL_NOT_AUTHORISED_MESSAGE =
+  "Your session is locked or has ended. Nothing was changed — sign in again and retry.";
+
+/** Typed refusals from apply_referral_prefill; nothing was written for any of them. */
+export function prefillRefusalMessage(code: string | undefined): string {
+  switch (code) {
+    case "link_required":
+      return REFERRAL_LINK_REQUIRED_MESSAGE;
+    case "not_found":
+      return "Patient not found";
+    case "referral_unavailable":
+      return "Referral not found";
+    case "not_authorised":
+      return PREFILL_NOT_AUTHORISED_MESSAGE;
+    default:
+      return PREFILL_STALE_MESSAGE;
+  }
 }
