@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { computeReferralPrefill, type PatientPrefillTarget } from "@/lib/referral-prefill";
+import {
+  computeReferralPrefill,
+  partnerReferralUrl,
+  prefillLinkState,
+  REFERRAL_INFO_PREFIX,
+  type PatientPrefillTarget,
+  type ReferralPrefillSource,
+} from "@/lib/referral-prefill";
 
 const blank: PatientPrefillTarget = {
   current_admission: null,
@@ -9,64 +16,91 @@ const blank: PatientPrefillTarget = {
   dnacpr_decision: null,
   dnacpr_details: null,
 };
+const ref = (over: Partial<ReferralPrefillSource> = {}): ReferralPrefillSource => ({
+  reason_category: "sepsis",
+  ceiling_of_care: "no_cpr",
+  resus_status: "dnacpr",
+  dnacpr_respect: true,
+  anticipated_interventions: ["vasopressors", "rrt"],
+  allergies: "Penicillin",
+  weight_kg: 80,
+  admission_urgency: "urgent",
+  ...over,
+});
 
 describe("computeReferralPrefill", () => {
-  it("maps a DNACPR / ceiling referral onto a blank patient", () => {
-    const plan = computeReferralPrefill(
-      {
-        reason_category: "sepsis",
-        ceiling_of_care: "no_cpr",
-        resus_status: "dnacpr",
-        dnacpr_respect: true,
-        anticipated_interventions: ["vasopressors", "rrt"],
-        allergies: "Penicillin",
-        weight_kg: 80,
-        admission_urgency: "urgent",
-      },
-      blank,
-    );
-    expect(plan.patch.dnacpr_decision).toBe(true);
-    expect(plan.patch.tep_in_place).toBe(true);
-    expect(plan.patch.current_admission).toBe("Sepsis");
+  it("fills blank text only, labelled as referral information needing review", () => {
+    const plan = computeReferralPrefill(ref(), blank);
+    for (const f of ["current_admission", "current_management", "tep_details", "dnacpr_details"]) {
+      expect(String(plan.patch[f])).toContain(REFERRAL_INFO_PREFIX);
+    }
     expect(String(plan.patch.current_management)).toContain("Vasopressors");
     expect(String(plan.patch.current_management)).toContain("Penicillin");
-    expect(plan.applied_fields).toContain("dnacpr_details");
+    expect(String(plan.patch.tep_details)).toContain("Not a completed TEP");
+  });
+
+  it("never sets a decision automatically: no tep_in_place, no dnacpr_decision in the patch", () => {
+    const plan = computeReferralPrefill(ref(), blank);
+    expect(plan.patch).not.toHaveProperty("tep_in_place");
+    expect(plan.patch).not.toHaveProperty("dnacpr_decision");
+  });
+
+  it("an explicit referral DNACPR is only OFFERED, and only for an unset (null) target", () => {
+    expect(computeReferralPrefill(ref(), blank).decisions).toEqual([
+      expect.objectContaining({ field: "dnacpr_decision", value: true }),
+    ]);
+    expect(computeReferralPrefill(ref({ resus_status: "for_cpr" }), blank).decisions).toEqual([
+      expect.objectContaining({ field: "dnacpr_decision", value: false }),
+    ]);
+  });
+
+  it("an explicit local false is preserved: nothing offered, nothing filled over it", () => {
+    const plan = computeReferralPrefill(ref(), { ...blank, dnacpr_decision: false, tep_in_place: false });
+    expect(plan.decisions).toEqual([]);
+    expect(plan.patch).not.toHaveProperty("dnacpr_decision");
+    expect(plan.patch).not.toHaveProperty("tep_in_place");
+  });
+
+  it("ReSPECT alone does not imply DNACPR", () => {
+    const plan = computeReferralPrefill(ref({ resus_status: "not_documented", dnacpr_respect: true }), blank);
+    expect(plan.decisions).toEqual([]);
+    expect(plan.patch).not.toHaveProperty("dnacpr_details");
+  });
+
+  it("generic status or interventions don't imply a completed TEP", () => {
+    const plan = computeReferralPrefill(
+      ref({ ceiling_of_care: "not_documented", resus_status: "not_documented", dnacpr_respect: false }),
+      blank,
+    );
+    expect(plan.patch).not.toHaveProperty("tep_in_place");
+    expect(plan.decisions).toEqual([]);
   });
 
   it("never overwrites fields that already have content", () => {
-    const plan = computeReferralPrefill(
-      {
-        reason_category: "sepsis",
-        ceiling_of_care: "full_escalation",
-        resus_status: "for_cpr",
-        dnacpr_respect: false,
-        anticipated_interventions: null,
-        allergies: null,
-        weight_kg: null,
-        admission_urgency: null,
-      },
-      { ...blank, current_admission: "Existing note", tep_in_place: true },
-    );
-    expect(plan.patch.current_admission).toBeUndefined();
-    expect(plan.skipped_fields).toContain("current_admission");
-    expect(plan.patch.tep_in_place).toBeUndefined();
-    expect(plan.skipped_fields).toContain("tep_in_place");
+    const plan = computeReferralPrefill(ref({ resus_status: "for_cpr" }), {
+      ...blank,
+      current_admission: "Existing note",
+      tep_details: "Local TEP",
+    });
+    expect(plan.patch).not.toHaveProperty("current_admission");
+    expect(plan.patch).not.toHaveProperty("tep_details");
+    expect(plan.skipped_fields).toEqual(expect.arrayContaining(["current_admission", "tep_details"]));
   });
+});
 
-  it("produces no DNACPR decision when resus is for CPR", () => {
-    const plan = computeReferralPrefill(
-      {
-        reason_category: null,
-        ceiling_of_care: null,
-        resus_status: "for_cpr",
-        dnacpr_respect: false,
-        anticipated_interventions: null,
-        allergies: null,
-        weight_kg: null,
-        admission_urgency: null,
-      },
-      blank,
-    );
-    expect(plan.patch.dnacpr_decision).toBeUndefined();
+describe("referral link and partner URL", () => {
+  const R = "30000000-0000-4000-8000-000000000001";
+  it("only an existing link to exactly this referral counts", () => {
+    expect(prefillLinkState(R, R)).toBe("linked");
+    expect(prefillLinkState(R.toUpperCase(), R)).toBe("linked");
+    expect(prefillLinkState(null, R)).toBe("unlinked");
+    expect(prefillLinkState("", R)).toBe("unlinked");
+    expect(prefillLinkState("30000000-0000-4000-8000-000000000002", R)).toBe("mismatch");
+  });
+  it("the Critical Care Connect link carries the opaque referral id only", () => {
+    expect(partnerReferralUrl("https://ccc.example/api/x?token=1", R)).toBe(`https://ccc.example/referrals/${R}`);
+    expect(partnerReferralUrl("http://ccc.example", R)).toBeNull();
+    expect(partnerReferralUrl("https://ccc.example", "AB/../../x")).toBeNull();
+    expect(partnerReferralUrl(undefined, R)).toBeNull();
   });
 });
