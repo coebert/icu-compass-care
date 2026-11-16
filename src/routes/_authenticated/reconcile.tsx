@@ -65,13 +65,15 @@ function ReconcilePage() {
   });
 
   const pullMut = useMutation({
-    mutationFn: (v: { entity: ReconEntity; ids: string[] | "all" }) => pull({ data: v }),
+    mutationFn: (v: { entity: "referrals"; ids: string[] | "all" }) => pull({ data: v }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["reconciliation"] });
-      if (res.failed > 0) {
-        toast.warning(`Pulled ${res.applied}, ${res.failed} failed`, {
-          description: res.errors.join("; ") || undefined,
-        });
+      qc.invalidateQueries({ queryKey: ["referral-candidates"] });
+      if (res.errors.length > 0 || res.failed > 0 || res.conflicts > 0) {
+        toast.warning(
+          `Updated ${res.applied}; ${res.conflicts} left unchanged (differ here); ${res.failed} failed`,
+          { description: res.errors.join(" ") || undefined },
+        );
       } else {
         toast.success(`Reconciled ${res.applied} record${res.applied === 1 ? "" : "s"}`);
       }
@@ -97,8 +99,9 @@ function ReconcilePage() {
         <div>
           <h1 className="text-2xl font-bold">Cross-project sync review</h1>
           <p className="text-sm text-muted-foreground">
-            Compare notifications, referrals and audit events against the linked project and
-            reconcile any mismatches.
+            Compare notifications, referrals and audit events against the linked project.
+            Referrals can be pulled through the checked import; detailed referral history stays
+            in Critical Care Connect. Notifications and audit events are review only.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
@@ -143,12 +146,16 @@ function ReconcilePage() {
                       {e.localCount} here · {e.remoteCount} on partner · {e.matched} in sync
                     </p>
                   </div>
-                  {e.mismatches.some((m) => m.state !== "local_only") && (
+                  {!e.importable ? (
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      Review only — not copied into this app
+                    </span>
+                  ) : e.mismatches.some((m) => m.state !== "local_only") && (
                     <Button
                       size="sm"
                       className="ml-auto gap-1.5"
                       disabled={pullMut.isPending}
-                      onClick={() => pullMut.mutate({ entity: e.entity, ids: "all" })}
+                      onClick={() => pullMut.mutate({ entity: "referrals", ids: "all" })}
                     >
                       <ArrowDownToLine className="h-4 w-4" /> Pull all from partner
                     </Button>
@@ -191,7 +198,9 @@ function ReconcilePage() {
                               {shortTime(m.remoteVersion)}
                             </TableCell>
                             <TableCell className="text-right">
-                              {m.state === "local_only" ? (
+                              {!e.importable ? (
+                                <span className="text-xs text-muted-foreground">review only</span>
+                              ) : m.state === "local_only" ? (
                                 <span className="text-xs text-muted-foreground">
                                   partner must pull
                                 </span>
@@ -202,7 +211,7 @@ function ReconcilePage() {
                                   className="gap-1.5"
                                   disabled={pullMut.isPending}
                                   onClick={() =>
-                                    pullMut.mutate({ entity: e.entity, ids: [m.id] })
+                                    pullMut.mutate({ entity: "referrals", ids: [m.id] })
                                   }
                                 >
                                   <ArrowDownToLine className="h-3.5 w-3.5" /> Pull
