@@ -11,7 +11,9 @@ import {
   fetchPartnerReferrals,
   fetchPartnerAuditLog,
   bridgeSystemActor,
+  BridgeFetchError,
 } from "@/lib/bridge-client.server";
+import { SYNC_ERROR_TEXT } from "@/lib/sync-status";
 import { safeDbError } from "@/lib/db-error";
 import type { ReconEntity, EntityRecon, ReconRow, ReconcileResult } from "@/lib/reconcile.functions";
 import { getAdmin } from "@/lib/admin-db.server";
@@ -127,7 +129,11 @@ export async function buildReconciliation(): Promise<EntityRecon[]> {
         remoteCount: 0,
         matched: 0,
         mismatches: [],
-        error: e instanceof Error ? e.message : String(e),
+        // Never surface raw partner/DB text (it can carry record values).
+        error:
+          e instanceof BridgeFetchError
+            ? SYNC_ERROR_TEXT[e.code]
+            : "Records could not be compared right now.",
       });
     }
   }
