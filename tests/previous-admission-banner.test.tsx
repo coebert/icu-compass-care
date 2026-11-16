@@ -106,7 +106,7 @@ describe("PreviousAdmissionBanner", () => {
     h.find.mockResolvedValue([rec()]);
     mount({ hospital_number: "syn-1234" });
     expect(await screen.findByText(/with this hospital number/)).toBeTruthy();
-    expect(screen.getByText(/TEP then:/).textContent).toContain("Yes — Synthetic TEP");
+    expect(screen.getByText(/TEP then:/).closest("p")!.textContent).toContain("Yes — Synthetic TEP");
     expect(screen.getByText(/Not copied/)).toBeTruthy();
     fireEvent.click(copyBtn());
     expect(latest.past_medical_history).toBe(
@@ -140,8 +140,8 @@ describe("PreviousAdmissionBanner", () => {
   });
   it("a late result for an earlier hospital number never populates the new patient", async () => {
     let resolveOld!: (v: unknown) => void;
-    h.find.mockImplementation(({ data }: { data: { hospital_number: string } }) =>
-      data.hospital_number === "SYN1234"
+    h.find.mockImplementation((arg: { data: { hospital_number: string } }) =>
+      arg.data.hospital_number === "SYN1234"
         ? new Promise((r) => (resolveOld = r))
         : Promise.resolve([]),
     );
