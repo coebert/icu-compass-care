@@ -55,7 +55,6 @@ import {
   LOCAL_REVIEW_LIMIT,
   REVIEW_ERROR_TEXT,
 } from "@/lib/reconcile.server";
-import { getAdmin } from "@/lib/admin-db.server";
 import { BridgeFetchError } from "@/lib/bridge-client.server";
 
 const RID = "30000000-0000-4000-8000-000000000001";
@@ -236,7 +235,6 @@ describe("bounded local reads", () => {
     expect((await get("notifications")).error).toBe(REVIEW_ERROR_TEXT.local_truncated);
   });
   it("a server that repeats a page (no progress) is an error", async () => {
-    const admin = (await getAdmin()) as unknown as Parameters<typeof readLocalBounded>[0];
     const stuck = {
       from: () => {
         const b = {
@@ -248,7 +246,6 @@ describe("bounded local reads", () => {
         return b;
       },
     };
-    void admin;
     await expect(readLocalBounded(stuck, "notifications", "id")).rejects.toThrow("local_read_failed");
   });
   it("a local read failure is an error", async () => {

@@ -179,7 +179,15 @@ describe("reconcile page", () => {
   });
 
   it("pulls one record from the keyboard with only that id", async () => {
-    h.get.mockResolvedValue(result({ mismatches: [row(4, {})] }));
+    h.get.mockResolvedValue(
+      result({
+        mismatches: [
+          row(5, { state: "conflict", reason: "local_edit", pullable: false, label: "Surgery" }),
+          row(4, {}),
+          row(6, { state: "local_only", reason: "local_record", pullable: false, remoteVersion: null }),
+        ],
+      }),
+    );
     h.pull.mockResolvedValue({ applied: 1, failed: 0, skipped: 0, conflicts: 0, errors: [] });
     const { container } = mount();
     await openReferrals();
