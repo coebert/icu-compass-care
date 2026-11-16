@@ -400,6 +400,9 @@ export async function buildReconciliation(): Promise<EntityRecon[]> {
   return out;
 }
 
+export const PULL_NOT_LISTED_TEXT =
+  "Some chosen referrals are no longer in Critical Care Connect's list, so nothing was pulled for them.";
+
 /**
  * Pull partner referrals (all, or specific ids) through the validated import.
  * The whole snapshot is validated first; only then are the chosen ids applied.
@@ -415,13 +418,14 @@ export async function reconcilePullReferrals(
   } catch (e) {
     return { applied: 0, failed: 0, skipped: 0, conflicts: 0, errors: [safeText(e)] };
   }
+  const errors: string[] = [];
   if (ids !== "all") {
     const want = new Set(ids.map((i) => i.toLowerCase()));
     records = records.filter((r) => want.has(String(r.id).toLowerCase()));
+    if (records.length < want.size) errors.push(PULL_NOT_LISTED_TEXT);
   }
   try {
     const c = await importReferrals(admin, records);
-    const errors: string[] = [];
     if (c.conflicts > 0) errors.push(SYNC_ERROR_TEXT.record_conflict);
     if (c.failed > 0) errors.push(SYNC_ERROR_TEXT.partial_write_failure);
     return {

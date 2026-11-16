@@ -299,3 +299,13 @@ describe("bridge_referral_review helper", () => {
     }
   });
 });
+
+describe("pulling chosen ids", () => {
+  it("an id no longer in the partner's list is reported, not silently 'pulled'", async () => {
+    h.remote = [live(rid(20))];
+    const res = await reconcilePullReferrals([rid(20), rid(21)], admin);
+    expect(res.applied).toBe(1);
+    expect(res.errors.join(" ")).toMatch(/no longer in Critical Care Connect's list/);
+    expect(await q("SELECT id FROM public.referrals WHERE id=$1", [rid(21)])).toEqual([]);
+  });
+});

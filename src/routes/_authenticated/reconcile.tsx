@@ -94,7 +94,10 @@ function ReconcilePage() {
           { description: res.errors.join(" ") || undefined },
         );
       } else {
-        toast.success(`Pulled ${res.applied} record${res.applied === 1 ? "" : "s"}`);
+        toast.success(
+          `Updated ${res.applied} record${res.applied === 1 ? "" : "s"}` +
+            (res.skipped > 0 ? `; ${res.skipped} already up to date or removal recorded` : ""),
+        );
       }
     },
     onError: (e: unknown) => {
