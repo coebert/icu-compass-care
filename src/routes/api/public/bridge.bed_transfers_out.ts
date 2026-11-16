@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
+import { resolveBridgeUnitId } from "@/lib/scope.server";
 import { occupantView, requestLimit, type BridgePatient } from "@/lib/bridge-beds";
 
 export const Route = createFileRoute("/api/public/bridge/bed_transfers_out")({
@@ -14,14 +15,22 @@ export const Route = createFileRoute("/api/public/bridge/bed_transfers_out")({
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
+        let unitId: string;
+        try {
+          unitId = await resolveBridgeUnitId(supabaseAdmin);
+        } catch {
+          return json({ error: "Service unavailable" }, 503);
+        }
+        // Unit and sharing are checked in the same statement that reads the rows.
         const { data, error } = await supabaseAdmin
           .from("patients")
           .select("*")
+          .eq("unit_id", unitId)
           .in("status", ["discharged", "died"])
           .eq("shared_with_partner", true)
           .order("updated_at", { ascending: false })
           .limit(requestLimit(request));
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        if (error) return (console.error("[bridge] transfers unavailable", error.code ?? "unknown"), json({ error: "Service unavailable" }, 503));
 
         const bed_transfers_out = (
           decryptPatientRows(data as Array<Record<string, unknown>> | null) as unknown as BridgePatient[]
