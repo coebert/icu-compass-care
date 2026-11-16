@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
-import { buildBridgeBedBoard } from "@/lib/bridge-beds";
+import { bedBoardUnavailableResponse, buildBridgeBedBoard } from "@/lib/bridge-beds";
 
 export const Route = createFileRoute("/api/public/bridge/bed_occupancies")({
   server: {
@@ -17,7 +17,8 @@ export const Route = createFileRoute("/api/public/bridge/bed_occupancies")({
         try {
           board = await buildBridgeBedBoard(supabaseAdmin);
         } catch (error) {
-          return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+          // Fail closed: never claim capacity from a doubtful snapshot.
+          return bedBoardUnavailableResponse(error);
         }
 
         const bed_occupancies = board.bed_board.map((slot) => ({
@@ -35,7 +36,12 @@ export const Route = createFileRoute("/api/public/bridge/bed_occupancies")({
           actor: auth.actor,
         });
 
-        return json({ bed_occupancies, occupancies: bed_occupancies, stats: board.stats });
+        return json({
+          bed_occupancies,
+          occupancies: bed_occupancies,
+          stats: board.stats,
+          generated_at: board.generated_at,
+        });
       },
     },
   },

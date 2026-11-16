@@ -2,7 +2,7 @@ import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
-import { buildBridgeBedBoard, occupantView, requestLimit, type BridgePatient } from "@/lib/bridge-beds";
+import { bedBoardUnavailableResponse, buildBridgeBedBoard, occupantView, requestLimit, type BridgePatient } from "@/lib/bridge-beds";
 
 export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
   server: {
@@ -18,7 +18,8 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
         try {
           board = await buildBridgeBedBoard(supabaseAdmin);
         } catch (error) {
-          return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+          // Fail closed: never claim capacity from a doubtful snapshot.
+          return bedBoardUnavailableResponse(error);
         }
 
         const { data, error } = await supabaseAdmin
@@ -43,7 +44,12 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
           actor: auth.actor,
         });
 
-        return json({ bed_outliers, unassigned: board.unassigned, ward_outliers });
+        return json({
+          bed_outliers,
+          unassigned: board.unassigned,
+          ward_outliers,
+          generated_at: board.generated_at,
+        });
       },
     },
   },
