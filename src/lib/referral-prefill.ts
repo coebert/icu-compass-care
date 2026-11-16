@@ -225,3 +225,7 @@ export function referralCandidateSummary(r: {
  */
 export const PREFILL_STALE_MESSAGE =
   "This record changed after the preview was shown. Nothing was changed — reload the preview and confirm again.";
+
+/** Referral columns read for preview and apply (structured fields only). */
+export const REFERRAL_PREFILL_COLUMNS =
+  "id, updated_at, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency";

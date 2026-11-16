@@ -1,24 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { encryptField } from "@/lib/crypto.server";
-import {
-  PATIENT_ENCRYPTED_FIELDS,
-  decryptPatientRow,
-  encryptPatientPayload,
-  withCryptoColumns,
-} from "@/lib/patient-crypto.server";
+import { decryptPatientRow, withCryptoColumns } from "@/lib/patient-crypto.server";
+import { applyReferralPrefill } from "@/lib/referral-prefill.server";
 import { safeDbError } from "@/lib/db-error";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { diffFields, writeAudit, writePatientFieldChanges } from "@/lib/audit";
-import { getAdmin } from "@/lib/admin-db.server";
-import {
-  computeReferralPrefill,
-  PREFILL_STALE_MESSAGE,
-  type ReferralPrefillSource,
-} from "@/lib/referral-prefill";
-
-const REFERRAL_PREFILL_COLUMNS =
-  "id, updated_at, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency";
+import { computeReferralPrefill, type ReferralPrefillSource } from "@/lib/referral-prefill";
+import { REFERRAL_PREFILL_COLUMNS } from "@/lib/referral-prefill";
 
 // Version strings come straight back from a preview; bounded and opaque.
 const versionString = z.string().min(1).max(64);
@@ -118,100 +105,4 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ context, data }) => {
-    const { data: patient, error: pErr } = await context.supabase
-      .from("patients")
-      .select("*")
-      .eq("id", data.patient_id)
-      .maybeSingle();
-    if (pErr) throw safeDbError(pErr);
-    if (!patient) throw new Error("Patient not found");
-    if (patient.updated_at !== data.expected_patient_updated_at) {
-      throw new Error(PREFILL_STALE_MESSAGE);
-    }
-    const patientPlain = decryptPatientRow(patient);
-
-    const { data: ref, error: rErr } = await context.supabase
-      .from("referrals")
-      .select(REFERRAL_PREFILL_COLUMNS)
-      .eq("id", data.referral_id)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (rErr) throw safeDbError(rErr);
-    if (!ref) throw new Error("Referral not found");
-    if (((ref.updated_at as string | null) ?? null) !== data.expected_referral_updated_at) {
-      throw new Error(PREFILL_STALE_MESSAGE);
-    }
-
-    const source: ReferralPrefillSource = {
-      reason_category: ref.reason_category ?? null,
-      ceiling_of_care: ref.ceiling_of_care ?? null,
-      resus_status: ref.resus_status ?? null,
-      dnacpr_respect: ref.dnacpr_respect ?? null,
-      anticipated_interventions:
-        (ref.anticipated_interventions as string[] | null) ?? null,
-      allergies: ref.allergies ?? null,
-      weight_kg: ref.weight_kg ?? null,
-      admission_urgency: ref.admission_urgency ?? null,
-    };
-
-    const { patch, applied_fields, skipped_fields } = computeReferralPrefill(source, {
-      current_admission: patientPlain.current_admission,
-      current_management: patientPlain.current_management,
-      tep_in_place: patientPlain.tep_in_place,
-      tep_details: patientPlain.tep_details,
-      dnacpr_decision: patientPlain.dnacpr_decision,
-      dnacpr_details: patientPlain.dnacpr_details,
-    });
-
-    // Always record the link so the card can surface its referral origin, even
-    // if every mapped field was already populated.
-    const updatePayload = { ...patch, source_referral_id: data.referral_id, updated_by: context.userId };
-
-    // The updated_at predicate makes the write atomic against a concurrent
-    // edit landing between our read and this update.
-    const { data: row, error } = await context.supabase
-      .from("patients")
-      .update(encryptPatientPayload(updatePayload) as never)
-      .eq("id", data.patient_id)
-      .eq("updated_at", data.expected_patient_updated_at)
-      .select()
-      .maybeSingle();
-    if (error) throw safeDbError(error);
-    if (!row) {
-      const { data: still, error: sErr } = await context.supabase
-        .from("patients")
-        .select("id")
-        .eq("id", data.patient_id)
-        .maybeSingle();
-      if (sErr) throw safeDbError(sErr);
-      if (!still) throw new Error("Patient not found");
-      throw new Error(PREFILL_STALE_MESSAGE);
-    }
-
-    const supabaseAdmin = await getAdmin();
-    const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
-    await writeAudit(supabaseAdmin, {
-      entity: "patients",
-      recordId: row.id,
-      action: "update",
-      source: "app",
-      actor,
-      before: patient as Record<string, unknown>,
-      after: row as Record<string, unknown>,
-      changedFields: diffFields(
-        patientPlain as Record<string, unknown>,
-        decryptPatientRow(row) as Record<string, unknown>,
-      ),
-    });
-    await writePatientFieldChanges(supabaseAdmin, {
-      patientId: row.id,
-      before: patientPlain as Record<string, unknown>,
-      after: decryptPatientRow(row) as Record<string, unknown>,
-      actor,
-      sealValue: (v) => encryptField(v),
-      sealedColumns: new Set<string>(PATIENT_ENCRYPTED_FIELDS),
-    });
-
-    return { applied_fields, skipped_fields, patient: decryptPatientRow(row) };
-  });
+  .handler(async ({ context, data }) => applyReferralPrefill(context, data));
