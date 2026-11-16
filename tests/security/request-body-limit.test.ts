@@ -8,7 +8,7 @@ function streamed(chunks: Uint8Array[], pulled: { n: number }) {
       if (c) ctrl.enqueue(c);
       else ctrl.close();
     },
-  });
+  }, { highWaterMark: 0 });
 }
 
 describe("readBodyLimited", () => {
