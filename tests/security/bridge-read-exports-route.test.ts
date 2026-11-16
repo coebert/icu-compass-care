@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  */
 const h = vi.hoisted(() => ({
   rpc: vi.fn(),
+  from: null as null | ((t: string) => unknown),
   tableReads: [] as string[],
   syncLogs: [] as unknown[],
   errors: [] as unknown[][],
@@ -17,6 +18,7 @@ vi.mock("@/lib/admin-db.server", () => ({
   getAdmin: async () => ({
     rpc: (...a: unknown[]) => h.rpc(...a),
     from: (t: string) => {
+      if (h.from) return h.from(t);
       h.tableReads.push(t);
       throw new Error(`direct read of ${t}`);
     },
@@ -57,6 +59,7 @@ beforeEach(() => {
   h.tableReads = [];
   h.syncLogs = [];
   h.errors = [];
+  h.from = null;
   vi.spyOn(console, "error").mockImplementation((...a: unknown[]) => void h.errors.push(a));
 });
 
@@ -127,6 +130,43 @@ describe("GET /bridge/investigations filters", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ investigations: [] });
     expect(h.rpc).not.toHaveBeenCalled();
+  });
+});
+
+vi.mock("@/lib/patient-crypto.server", () => ({
+  decryptPatientRows: (r: unknown[] | null) => r ?? [],
+}));
+
+describe("GET /bridge/bed_transfers_out", () => {
+  const builder = (filters: unknown[][], result: { data: unknown; error: unknown }) => {
+    const b: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "in", "order", "limit"])
+      b[m] = (...a: unknown[]) => (filters.push([m, ...a]), b);
+    b.maybeSingle = async () => result;
+    b.then = (res: (v: unknown) => unknown) => Promise.resolve(result).then(res);
+    return b;
+  };
+  it("reads only shared patients of the bridge unit, in one statement", async () => {
+    const unitF: unknown[][] = [];
+    const patF: unknown[][] = [];
+    h.from = (t) =>
+      t === "icu_units"
+        ? builder(unitF, { data: { id: "u-radnor", code: "SDH-RADNOR" }, error: null })
+        : builder(patF, { data: [], error: null });
+    const res = await get("bed_transfers_out");
+    expect(res.status).toBe(200);
+    expect(patF).toContainEqual(["eq", "unit_id", "u-radnor"]);
+    expect(patF).toContainEqual(["eq", "shared_with_partner", true]);
+  });
+  it("unit lookup failure is unavailable, never an unscoped list", async () => {
+    const patF: unknown[][] = [];
+    h.from = (t) =>
+      t === "icu_units"
+        ? builder([], { data: null, error: { code: "57014" } })
+        : builder(patF, { data: [], error: null });
+    const res = await get("bed_transfers_out");
+    expect(res.status).toBe(503);
+    expect(patF).toEqual([]);
   });
 });
 
