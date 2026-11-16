@@ -106,10 +106,6 @@ given; each aborts without changes if its preflight fails):
 deleted_at; no clinical content) for a referral deleted in CCC before Hub
 ever imported it, so a delayed older/equal live copy can never resurrect it.
 
-0006 also keeps a minimal tombstone watermark (id, source revision, source
-deleted_at; no clinical content) for a referral deleted in CCC before Hub
-ever imported it, so a delayed older/equal live copy can never resurrect it.
-
 0005–0010 add functions, private ledgers and one index; they change no
 existing table grants, so a browser tab running an older Hub client keeps
 working after they are applied.
