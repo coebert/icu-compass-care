@@ -163,7 +163,8 @@ d("bed moves under real concurrency", () => {
   type W = { ok: boolean; status?: string; code?: string; desired_revision?: string };
   const setW = async (tx: postgres.TransactionSql, expected: string, wardable: boolean, revision: string): Promise<W> => {
     await tx.unsafe("SET LOCAL ROLE service_role");
-    const r = await tx`SELECT public.bridge_set_wardable(${PW}::uuid, ${expected}::timestamptz, ${wardable}::boolean, ${revision}::text, ${ACTOR}::jsonb) AS r`;
+    // Text parameters: keep microseconds exact and the actor as a JSON object.
+    const r = await tx`SELECT public.bridge_set_wardable(${PW}::uuid, (${expected}::text)::timestamptz, ${wardable}::boolean, ${revision}::text, (${ACTOR}::text)::jsonb) AS r`;
     return r[0]!.r as W;
   };
   const state = async () => {
