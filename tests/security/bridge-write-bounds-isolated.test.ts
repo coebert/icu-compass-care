@@ -12,7 +12,20 @@ const spy = vi.hoisted(() => ({
   inserts: [] as unknown[],
 }));
 
-vi.mock("@/lib/admin-db.server", () => ({ getAdmin: async () => ({}) }));
+vi.mock("@/lib/admin-db.server", () => ({
+  getAdmin: async () => {
+    // Only the fixed bridge unit lookup is answered (synthetic id).
+    const q = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => ({
+        data: { id: "10000000-0000-4000-8000-000000000001", code: "SDH-RADNOR" },
+        error: null,
+      }),
+    };
+    return { from: () => q };
+  },
+}));
 vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api-bridge.server")>();
   return {
@@ -96,6 +109,7 @@ describe("partner write endpoints refuse oversized input before validation", () 
     const POST = await handler("bridge.patients");
     const body = JSON.stringify({
       id: PID,
+      expected_updated_at: "2026-11-16T10:00:00.123456+00:00",
       full_name: "Z.Q.",
       resp_support: ["hfno"],
       sedative_agents: ["propofol"],
@@ -103,8 +117,8 @@ describe("partner write endpoints refuse oversized input before validation", () 
     const res = await POST({ request: req(body) });
     expect(res.status).toBe(200);
     expect(spy.updates).toHaveLength(1);
+    expect((spy.updates[0] as { id: string }).id).toBe(PID);
     expect((spy.updates[0] as { payload: Record<string, unknown> }).payload).toMatchObject({
-      id: PID,
       full_name: "Z.Q.",
       resp_support: ["hfno"],
       sedative_agents: ["propofol"],

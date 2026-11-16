@@ -12,6 +12,8 @@ import { diffFields, writeAudit, writePatientFieldChanges } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 import {
   computeReferralPrefill,
+  prefillLinkState,
+  REFERRAL_LINK_REQUIRED_MESSAGE,
   PREFILL_STALE_MESSAGE,
   REFERRAL_PREFILL_COLUMNS,
   type ReferralPrefillSource,
@@ -43,6 +45,11 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
   if (!patient) throw new Error("Patient not found");
   if (patient.updated_at !== data.expected_patient_updated_at) {
     throw new Error(PREFILL_STALE_MESSAGE);
+  }
+  // Only a patient ALREADY linked to exactly this referral can be filled from
+  // it. Never inferred here; never established by this action.
+  if (prefillLinkState(patient.source_referral_id, data.referral_id) !== "linked") {
+    throw new Error(REFERRAL_LINK_REQUIRED_MESSAGE);
   }
   const patientPlain = decryptPatientRow(patient);
 
@@ -88,33 +95,38 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
     applied_fields.push(field);
   }
 
-  // Always record the link so the card can surface its referral origin, even
-  // if every mapped field was already populated.
   const updatePayload = {
     ...patch,
     ...decisionPatch,
-    source_referral_id: data.referral_id,
     updated_by: context.userId,
   };
+  if (Object.keys(patch).length === 0 && Object.keys(decisionPatch).length === 0) {
+    // Nothing blank to fill: no write, nothing to audit.
+    return { applied_fields, skipped_fields, patient: patientPlain };
+  }
 
-  // The updated_at predicate makes the write atomic against a concurrent
-  // edit landing between our read and this update.
+  // The updated_at AND source_referral_id predicates make the write atomic
+  // against a concurrent edit or a link change between our read and here.
   const { data: row, error } = await context.supabase
     .from("patients")
     .update(encryptPatientPayload(updatePayload) as never)
     .eq("id", data.patient_id)
     .eq("updated_at", data.expected_patient_updated_at)
+    .eq("source_referral_id", data.referral_id)
     .select()
     .maybeSingle();
   if (error) throw safeDbError(error);
   if (!row) {
     const { data: still, error: sErr } = await context.supabase
       .from("patients")
-      .select("id")
+      .select("id, source_referral_id")
       .eq("id", data.patient_id)
       .maybeSingle();
     if (sErr) throw safeDbError(sErr);
     if (!still) throw new Error("Patient not found");
+    if (prefillLinkState(still.source_referral_id, data.referral_id) !== "linked") {
+      throw new Error(REFERRAL_LINK_REQUIRED_MESSAGE);
+    }
     throw new Error(PREFILL_STALE_MESSAGE);
   }
 

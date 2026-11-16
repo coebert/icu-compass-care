@@ -35,6 +35,7 @@ vi.mock("@/lib/patients.functions", () => ({
   listPatients: () => h.listPatients(),
   createPatient: vi.fn(),
   updatePatient: vi.fn(),
+  movePatientBeds: vi.fn(),
 }));
 vi.mock("@/lib/beds.functions", () => ({ listBeds: () => h.listBeds() }));
 vi.mock("@/lib/observations.functions", () => ({ listLatestObservations: async () => [] }));

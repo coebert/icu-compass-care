@@ -20,6 +20,8 @@ export const SYNC_ERROR_CODES = [
   "record_conflict",
   "unlinked_records",
   "import_unavailable",
+  "review_truncated",
+  "bridge_unit_unavailable",
   "unexpected",
 ] as const;
 export type SyncErrorCode = (typeof SYNC_ERROR_CODES)[number];
@@ -32,13 +34,19 @@ export const SYNC_ERROR_TEXT: Record<SyncErrorCode | "unknown", string> = {
   malformed_record: "The partner system sent a record in an unexpected format.",
   local_read_failed: "Local records could not be read for comparison.",
   partial_write_failure: "Some records could not be saved. The rest were updated.",
-  contract_mismatch: "The partner system sent a different data format than agreed. Nothing was imported.",
+  contract_mismatch:
+    "The partner system sent a different data format than agreed. Nothing was imported.",
   pagination_invalid: "The partner system's pages didn't line up. Nothing was imported.",
-  snapshot_changed: "The partner data changed part-way through. Nothing was imported; it will retry.",
+  snapshot_changed:
+    "The partner data changed part-way through. Nothing was imported; it will retry.",
   budget_exceeded: "The partner sent more than one update can safely take. Nothing was imported.",
-  record_conflict: "Some records differ from the copy here and were not overwritten. The rest were updated.",
+  record_conflict:
+    "Some records differ from the copy here and were not overwritten. The rest were updated.",
   unlinked_records: "Some results are for patients not shared to this unit and were not imported.",
   import_unavailable: "Importing is switched off until a pending database update is applied.",
+  review_truncated:
+    "The partner's list may have been cut short, so it can't be compared here. It is not shown as complete.",
+  bridge_unit_unavailable: "This unit's partner link isn't set up correctly. Nothing was imported.",
   unexpected: "The update stopped unexpectedly.",
   unknown: "The update failed (details withheld).",
 };
@@ -63,7 +71,11 @@ export const SOURCE_OWNED_RESOURCES: readonly SyncResource[] = ["patients"];
 export const isSourceOwned = (r: SyncResource) => SOURCE_OWNED_RESOURCES.includes(r);
 
 /** Codes meaning "some records were not taken", as opposed to a failed pass. */
-const INCOMPLETE_CODES = new Set<string>(["partial_write_failure", "record_conflict", "unlinked_records"]);
+const INCOMPLETE_CODES = new Set<string>([
+  "partial_write_failure",
+  "record_conflict",
+  "unlinked_records",
+]);
 
 export type ResourceEvidence = {
   entity: SyncResource;

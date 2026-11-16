@@ -46,16 +46,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, AlertTriangle, Circle, CheckCircle2, FileDown, Loader2, ClipboardPlus, Share2, ShieldOff, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertTriangle,
+  Circle,
+  CheckCircle2,
+  FileDown,
+  Loader2,
+  ClipboardPlus,
+  Share2,
+  ShieldOff,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { setPatientsShared } from "@/lib/sharing.functions";
 import { toast } from "sonner";
 import { useConflictDialog } from "@/components/ConflictDialog";
 
-
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { TIMELINE_FILTER_KEYS, type FilterKey as TimelineFilterKey } from "@/components/patient/timeline-tab";
+import {
+  TIMELINE_FILTER_KEYS,
+  type FilterKey as TimelineFilterKey,
+} from "@/components/patient/timeline-tab";
 
 const TAB_KEYS = [
   "overview",
@@ -132,12 +146,18 @@ function PatientDetail() {
     navigate({
       to: "/patients/$patientId",
       params: { patientId },
-      search: (prev: Partial<SearchShape>) => ({ ...prev, chartDate: next && isoDateRe.test(next) ? next : "" }),
+      search: (prev: Partial<SearchShape>) => ({
+        ...prev,
+        chartDate: next && isoDateRe.test(next) ? next : "",
+      }),
       replace: true,
     });
 
-  const [focus, setFocus] = useState<{ tab: "investigations" | "microbiology" | "reviews"; id: string; seq: number } | null>(null);
-
+  const [focus, setFocus] = useState<{
+    tab: "investigations" | "microbiology" | "reviews";
+    id: string;
+    seq: number;
+  } | null>(null);
 
   const { hasClinicalAccess, profile } = useClinicalAccess();
 
@@ -148,8 +168,6 @@ function PatientDetail() {
   });
 
   const conflict = useConflictDialog();
-
-
 
   // Admin-only: mark this single patient as shared / not shared with the partner
   // app. The backend enforces admin-only; this is the per-patient control.
@@ -251,7 +269,9 @@ function PatientDetail() {
     return (
       <div className="space-y-3">
         <p>Patient not found.</p>
-        <Link to="/patients"><Button variant="outline">Back to board</Button></Link>
+        <Link to="/patients">
+          <Button variant="outline">Back to board</Button>
+        </Link>
       </div>
     );
 
@@ -260,7 +280,6 @@ function PatientDetail() {
   // Missing-field warnings now deep-link to the Demographics tab instead of an
   // edit dialog; each label maps to a tab where the field is editable inline.
   const openDemographics = () => setActiveTab("demographics");
-
 
   return (
     <div className="space-y-6">
@@ -272,13 +291,15 @@ function PatientDetail() {
         </Link>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-
             <PatientName patient={patient} size="lg" />
             <Badge className={STATUS_BADGE[patient.status]} variant="secondary">
               {STATUS_LABELS[patient.status]}
             </Badge>
             {patient.dnacpr_decision && (
-              <Badge variant="outline" className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300">
+              <Badge
+                variant="outline"
+                className="gap-1 border-rose-300 text-rose-700 dark:text-rose-300"
+              >
                 <AlertTriangle className="h-3 w-3" /> DNACPR
               </Badge>
             )}
@@ -288,7 +309,10 @@ function PatientDetail() {
               </Badge>
             )}
             {patient.shared_with_partner ? (
-              <Badge variant="outline" className="gap-1 border-sky-300 text-sky-700 dark:text-sky-300">
+              <Badge
+                variant="outline"
+                className="gap-1 border-sky-300 text-sky-700 dark:text-sky-300"
+              >
                 <Share2 className="h-3 w-3" /> Shared with partner
               </Badge>
             ) : (
@@ -296,11 +320,12 @@ function PatientDetail() {
                 <ShieldOff className="h-3 w-3" /> Not shared with partner
               </Badge>
             )}
-
           </div>
           <PatientMetaLine
             patient={patient}
-            leading={[patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""}` : null]}
+            leading={[
+              patient.ward ? `${patient.ward}${patient.bed ? ` · Bed ${patient.bed}` : ""}` : null,
+            ]}
           />
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -318,7 +343,7 @@ function PatientDetail() {
           )}
           <PrefillFromReferral
             patientId={patientId}
-            linked={Boolean(patient.source_referral_id)}
+            linkedReferralId={(patient.source_referral_id as string | null) ?? null}
             onDone={() => {
               qc.invalidateQueries({ queryKey: ["patient", patientId] });
               qc.invalidateQueries({ queryKey: ["patients"] });
@@ -378,12 +403,17 @@ function PatientDetail() {
               </div>
             )}
             {exportMut.isPending && (
-              <ul className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs" aria-live="polite">
-                {([
-                  ["investigations", "Investigations"],
-                  ["microbiology", "Microbiology"],
-                  ["observations", "Observations"],
-                ] as const).map(([key, label]) => {
+              <ul
+                className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs"
+                aria-live="polite"
+              >
+                {(
+                  [
+                    ["investigations", "Investigations"],
+                    ["microbiology", "Microbiology"],
+                    ["observations", "Observations"],
+                  ] as const
+                ).map(([key, label]) => {
                   const st = sectionStatus[key];
                   return (
                     <li key={key} className="flex items-center gap-1.5 py-0.5">
@@ -416,7 +446,6 @@ function PatientDetail() {
         </div>
       </div>
 
-
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="relative">
           <TabsList className="flex h-12 w-full max-w-full items-stretch justify-start gap-1 overflow-x-auto sm:h-9">
@@ -444,7 +473,6 @@ function PatientDetail() {
           />
         </div>
 
-
         <TabsContent value="observations" className="mt-4 space-y-4">
           <ObservationsCard
             patientId={patientId}
@@ -454,7 +482,8 @@ function PatientDetail() {
                 patient.airway_type === "tracheostomy" ||
                 (Array.isArray(patient.resp_support) && patient.resp_support.length > 0),
               rrt: patient.renal_rrt === true,
-              vasoactive: Array.isArray(patient.vasoactive_agents) && patient.vasoactive_agents.length > 0,
+              vasoactive:
+                Array.isArray(patient.vasoactive_agents) && patient.vasoactive_agents.length > 0,
             }}
           />
         </TabsContent>
@@ -475,19 +504,45 @@ function PatientDetail() {
           <DemographicsTab patient={patient} />
         </TabsContent>
 
-
-
         <TabsContent value="overview" className="mt-4 space-y-4">
           <SafetySummary patient={patient} />
           <RecentChangesRibbon patientId={patientId} />
           <RecentInvestigations patientId={patientId} />
           <Card>
             <CardContent className="grid gap-6 p-6 sm:grid-cols-2">
-              <EditableField patientId={patientId} field="parent_specialty" label="Parent specialty" value={patient.parent_specialty} />
-              <EditableField patientId={patientId} field="specialty_consultant" label="Specialty consultant" value={patient.specialty_consultant} />
-              <EditableField patientId={patientId} field="past_medical_history" label="Past medical history" value={patient.past_medical_history} multiline />
-              <EditableField patientId={patientId} field="current_admission" label="Current admission" value={patient.current_admission} multiline />
-              <EditableField patientId={patientId} field="current_management" label="Current management" value={patient.current_management} multiline />
+              <EditableField
+                patientId={patientId}
+                field="parent_specialty"
+                label="Parent specialty"
+                value={patient.parent_specialty}
+              />
+              <EditableField
+                patientId={patientId}
+                field="specialty_consultant"
+                label="Specialty consultant"
+                value={patient.specialty_consultant}
+              />
+              <EditableField
+                patientId={patientId}
+                field="past_medical_history"
+                label="Past medical history"
+                value={patient.past_medical_history}
+                multiline
+              />
+              <EditableField
+                patientId={patientId}
+                field="current_admission"
+                label="Current admission"
+                value={patient.current_admission}
+                multiline
+              />
+              <EditableField
+                patientId={patientId}
+                field="current_management"
+                label="Current management"
+                value={patient.current_management}
+                multiline
+              />
             </CardContent>
           </Card>
           <DailyGoalsCard patient={patient} />
@@ -506,7 +561,13 @@ function PatientDetail() {
                 <GastroNutritionStatus patientId={patientId} patient={patient} />
                 <HaemStatus patientId={patientId} patient={patient} />
                 <MicroStatus patientId={patientId} patient={patient} />
-                <EditableField patientId={patientId} field="systems_other" label="Other" value={patient.systems_other} multiline />
+                <EditableField
+                  patientId={patientId}
+                  field="systems_other"
+                  label="Other"
+                  value={patient.systems_other}
+                  multiline
+                />
               </div>
             </CardContent>
           </Card>
@@ -516,13 +577,14 @@ function PatientDetail() {
             initialDate={urlChartDate || undefined}
             onDateChange={setChartDate}
           />
-
         </TabsContent>
 
         <TabsContent value="escalation" className="mt-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Card>
-              <CardHeader><CardTitle className="text-base">Treatment escalation plan</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Treatment escalation plan</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-3">
                 <Badge variant={patient.tep_in_place ? "default" : "secondary"}>
                   {patient.tep_in_place ? "TEP in place" : "No TEP recorded"}
@@ -535,7 +597,9 @@ function PatientDetail() {
                         Not for
                       </p>
                       {excl.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No intervention limits recorded.</p>
+                        <p className="text-sm text-muted-foreground">
+                          No intervention limits recorded.
+                        </p>
                       ) : (
                         <div className="mt-1 flex flex-wrap gap-1.5">
                           {excl.map((k) => (
@@ -553,11 +617,12 @@ function PatientDetail() {
                   );
                 })()}
                 <InfoBlock label="Details" value={patient.tep_details} />
-
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Resuscitation (DNACPR)</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Resuscitation (DNACPR)</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-3">
                 <Badge variant={patient.dnacpr_decision ? "destructive" : "secondary"}>
                   {patient.dnacpr_decision ? "DNACPR decision made" : "For resuscitation"}
@@ -575,7 +640,10 @@ function PatientDetail() {
               <InfoBlock label="Name" value={patient.nok_name} />
               <InfoBlock label="Relationship" value={patient.nok_relationship} />
               <InfoBlock label="Contact" value={patient.nok_contact} />
-              <InfoBlock label="Last updated / spoken to" value={fmtDateTime(patient.nok_last_updated)} />
+              <InfoBlock
+                label="Last updated / spoken to"
+                value={fmtDateTime(patient.nok_last_updated)}
+              />
               <InfoBlock label="Updated by" value={patient.nok_last_updated_by} />
             </CardContent>
           </Card>
@@ -670,8 +738,6 @@ function PatientDetail() {
           </div>
         </TabsContent>
 
-
-
         <TabsContent value="timeline" className="mt-4">
           <TimelineTab
             patient={patient}
@@ -683,7 +749,6 @@ function PatientDetail() {
               setActiveTab(tab);
             }}
           />
-
         </TabsContent>
 
         <TabsContent value="status" className="mt-4">
@@ -697,12 +762,10 @@ function PatientDetail() {
         <TabsContent value="history" className="mt-4">
           <AuditTab patientId={patientId} />
         </TabsContent>
-
       </Tabs>
 
       {conflict.dialog}
     </div>
-
   );
 }
 
@@ -723,7 +786,15 @@ function todayISO(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-function OverviewChartCard({ patientId, initialDate, onDateChange }: { patientId: string; initialDate?: string; onDateChange?: (date: string) => void }) {
+function OverviewChartCard({
+  patientId,
+  initialDate,
+  onDateChange,
+}: {
+  patientId: string;
+  initialDate?: string;
+  onDateChange?: (date: string) => void;
+}) {
   const listDays = useServerFn(listChartDays);
   const [expanded, setExpanded] = useState(!!initialDate);
   const [date, setDateState] = useState<string>(() => {
@@ -736,7 +807,8 @@ function OverviewChartCard({ patientId, initialDate, onDateChange }: { patientId
   const [chartKey, setChartKey] = useState(0);
   const setDate = (updater: string | ((prev: string) => string)) => {
     setDateState((prev) => {
-      const next = typeof updater === "function" ? (updater as (p: string) => string)(prev) : updater;
+      const next =
+        typeof updater === "function" ? (updater as (p: string) => string)(prev) : updater;
       return next;
     });
   };
@@ -815,7 +887,6 @@ function OverviewChartCard({ patientId, initialDate, onDateChange }: { patientId
             Open
           </Button>
         </div>
-
       </CardHeader>
       <CardContent className="space-y-3">
         {recent.length > 0 && (
@@ -854,4 +925,3 @@ function OverviewChartCard({ patientId, initialDate, onDateChange }: { patientId
     </Card>
   );
 }
-

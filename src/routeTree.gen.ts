@@ -48,6 +48,7 @@ import { Route as ApiPublicBridgeVerifySignatureRouteImport } from './routes/api
 import { Route as ApiPublicHealthSchemaRouteImport } from './routes/api/public/health.schema'
 import { Route as ApiPublicHooksBridgeSyncRouteImport } from './routes/api/public/hooks/bridge-sync'
 import { Route as ApiPublicHooksHandoverSnapshotRouteImport } from './routes/api/public/hooks/handover-snapshot'
+import { Route as ApiPublicBridgePatientsWardableRouteImport } from './routes/api/public/bridge.patients_.wardable'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -264,6 +265,12 @@ const ApiPublicHooksHandoverSnapshotRoute =
     path: '/api/public/hooks/handover-snapshot',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicBridgePatientsWardableRoute =
+  ApiPublicBridgePatientsWardableRouteImport.update({
+    id: '/api/public/bridge/patients_/wardable',
+    path: '/api/public/bridge/patients/wardable',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -304,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/api/public/health/schema': typeof ApiPublicHealthSchemaRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
   '/api/public/hooks/handover-snapshot': typeof ApiPublicHooksHandoverSnapshotRoute
+  '/api/public/bridge/patients/wardable': typeof ApiPublicBridgePatientsWardableRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -343,6 +351,7 @@ export interface FileRoutesByTo {
   '/api/public/health/schema': typeof ApiPublicHealthSchemaRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
   '/api/public/hooks/handover-snapshot': typeof ApiPublicHooksHandoverSnapshotRoute
+  '/api/public/bridge/patients/wardable': typeof ApiPublicBridgePatientsWardableRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -385,6 +394,7 @@ export interface FileRoutesById {
   '/api/public/health/schema': typeof ApiPublicHealthSchemaRoute
   '/api/public/hooks/bridge-sync': typeof ApiPublicHooksBridgeSyncRoute
   '/api/public/hooks/handover-snapshot': typeof ApiPublicHooksHandoverSnapshotRoute
+  '/api/public/bridge/patients_/wardable': typeof ApiPublicBridgePatientsWardableRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -427,6 +437,7 @@ export interface FileRouteTypes {
     | '/api/public/health/schema'
     | '/api/public/hooks/bridge-sync'
     | '/api/public/hooks/handover-snapshot'
+    | '/api/public/bridge/patients/wardable'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/api/public/health/schema'
     | '/api/public/hooks/bridge-sync'
     | '/api/public/hooks/handover-snapshot'
+    | '/api/public/bridge/patients/wardable'
   id:
     | '__root__'
     | '/'
@@ -507,6 +519,7 @@ export interface FileRouteTypes {
     | '/api/public/health/schema'
     | '/api/public/hooks/bridge-sync'
     | '/api/public/hooks/handover-snapshot'
+    | '/api/public/bridge/patients_/wardable'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -530,6 +543,7 @@ export interface RootRouteChildren {
   ApiPublicHealthSchemaRoute: typeof ApiPublicHealthSchemaRoute
   ApiPublicHooksBridgeSyncRoute: typeof ApiPublicHooksBridgeSyncRoute
   ApiPublicHooksHandoverSnapshotRoute: typeof ApiPublicHooksHandoverSnapshotRoute
+  ApiPublicBridgePatientsWardableRoute: typeof ApiPublicBridgePatientsWardableRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -807,6 +821,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksHandoverSnapshotRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bridge/patients_/wardable': {
+      id: '/api/public/bridge/patients_/wardable'
+      path: '/api/public/bridge/patients/wardable'
+      fullPath: '/api/public/bridge/patients/wardable'
+      preLoaderRoute: typeof ApiPublicBridgePatientsWardableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -891,6 +912,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthSchemaRoute: ApiPublicHealthSchemaRoute,
   ApiPublicHooksBridgeSyncRoute: ApiPublicHooksBridgeSyncRoute,
   ApiPublicHooksHandoverSnapshotRoute: ApiPublicHooksHandoverSnapshotRoute,
+  ApiPublicBridgePatientsWardableRoute: ApiPublicBridgePatientsWardableRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

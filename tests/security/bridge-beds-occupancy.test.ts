@@ -65,7 +65,9 @@ function world(opts: {
 }) {
   return fakeSupabase((c: FakeCall): FakeResult => {
     if (c.table === "icu_units")
-      return opts.unitError ? { error: { message: "x" } } : { data: { id: UNIT } };
+      return opts.unitError
+        ? { error: { message: "x" } }
+        : { data: { id: UNIT, code: "SDH-RADNOR" } };
     if (c.table === "icu_beds")
       return opts.rosterError ? { error: { message: "x" } } : { data: opts.roster ?? roster };
     if (c.table === "patients" && c.columns === OCCUPANCY_FACT_COLUMNS) {
@@ -189,9 +191,18 @@ describe("bridge bed board — physical occupancy vs shared identity", () => {
     const before = Date.now();
     const board = await buildBridgeBedBoard(world({ facts: [] }));
     expect(Object.keys(board).sort()).toEqual(
-      ["bed_board", "generated_at", "side_rooms", "stats", "unassigned", "unit"].sort(),
+      [
+        "bed_board",
+        "generated_at",
+        "side_rooms",
+        "stats",
+        "unassigned",
+        "unit",
+        "unit_code",
+      ].sort(),
     );
     expect(board.unit).toBe("Radnor Critical Care Unit");
+    expect(board.unit_code).toBe("SDH-RADNOR");
     expect(board.side_rooms).toEqual(["1"]);
     expect(new Date(board.generated_at).toISOString()).toBe(board.generated_at);
     expect(Date.parse(board.generated_at)).toBeGreaterThanOrEqual(before - 1);

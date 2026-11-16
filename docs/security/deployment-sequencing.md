@@ -48,3 +48,45 @@ Statement a) is a data change on a one-row settings table; it can also be run as
 - Live state: 0002, 0003, 0004 applied; `enforce_session_baseline = false`; old reason-less role RPC not executable by users; direct role writes and unit-access deletes revoked; 4 role/membership guard triggers present.
 - Password resets are Trust-admin-only (server check + recent reauth). Unit admins see a prompt to ask a Trust admin. Code-only change, no database change.
 - A new auth session (password reauth) resets lock state, the inactivity deadline and cached data in the client. Code-only change.
+
+## Coordinated Hub / CCC release (Nov 2026) — staged, NOT applied
+
+Staged SQL (apply in this order, only when the coordinated release gate is
+given; each aborts without changes if its preflight fails):
+
+1. `docs/security/staged-migrations/0005_bed_integrity.sql` — UTF-8 + duplicate
+   active-bed preflight, normalised one-active-patient-per-bed index,
+   `move_patient_beds` (move / swap / undo; revision-checked; audit rows
+   written inside the same transaction).
+2. `docs/security/staged-migrations/0006_bridge_import_provenance.sql` —
+   SDH-RADNOR preflight, `private.bridge_unit_id()`, protected referral
+   provenance ledger, `bridge_import_referral(jsonb)`,
+   `bridge_import_result(text,jsonb)`, and `bridge_insert_investigation`
+   restricted to shared patients in the bridge unit.
+3. `docs/security/staged-migrations/0007_bridge_wardable_fence.sql` — wardable
+   fence ledger and `bridge_set_wardable` (service role only).
+
+Behaviour before they are applied (if the frontend were published first):
+bed moves are refused ("not available yet") rather than done as two writes;
+scheduled imports report `import_unavailable` and write nothing; the wardable
+endpoint answers 503; the existing partner investigation insert keeps its
+current (shared-only) rule. Recommended order: apply 0005–0007, verify with
+the queries below, then publish the frontend, then enable the CCC side.
+
+Verification (metadata only):
+
+```sql
+SELECT indexname FROM pg_indexes WHERE indexname = 'patients_active_unit_bed_uniq';
+SELECT p.proname, p.prosecdef, p.proconfig FROM pg_proc p
+ WHERE p.proname IN ('move_patient_beds','bridge_import_referral','bridge_import_result',
+                     'bridge_insert_investigation','bridge_set_wardable','bridge_unit_id');
+SELECT has_function_privilege('authenticated','public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)','EXECUTE') AS must_be_false,
+       has_function_privilege('service_role','public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)','EXECUTE') AS must_be_true,
+       has_function_privilege('authenticated','public.bridge_insert_investigation(uuid,text,text,timestamptz)','EXECUTE') AS must_be_false_2;
+SELECT has_table_privilege('authenticated','private.bridge_referral_provenance','SELECT') AS must_be_false,
+       has_table_privilege('authenticated','private.bridge_wardable_fence','SELECT') AS must_be_false_2;
+```
+
+Existing local referral copies have no import provenance, so after 0006 the
+first import of each reports a conflict for review (never adopted). That is
+intended; resolving them is a reviewed, separate step.

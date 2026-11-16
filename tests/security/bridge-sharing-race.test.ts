@@ -42,96 +42,111 @@ function fakeAdmin(rows: Row[], hooks: { beforeUpdate?: () => void } = {}) {
   };
 }
 
+const T0 = "2026-11-16T10:00:00.000001+00:00";
+const T1 = "2026-11-16T10:00:00.000002+00:00";
 const base = (): Row => ({
   id: "p1",
   unit_id: "uA",
   shared_with_partner: true,
-  updated_at: "t0",
-  bed: "1",
+  updated_at: T0,
+  outstanding_tasks: "a",
 });
+const upd = (
+  rows: Row[],
+  over: Record<string, unknown> = {},
+  hooks: { beforeUpdate?: () => void } = {},
+) =>
+  bridgeUpdateSharedPatient(fakeAdmin(rows, hooks), {
+    id: "p1",
+    unitId: "uA",
+    expectedUpdatedAt: T0,
+    payload: { outstanding_tasks: "b" },
+    ...over,
+  });
 
 describe("bridge patient update respects partner sharing", () => {
   it("updates a shared patient at the expected version", async () => {
     const rows = [base()];
-    const r = await bridgeUpdateSharedPatient(fakeAdmin(rows), {
-      id: "p1",
-      expectedUpdatedAt: "t0",
-      payload: { bed: "2" },
-    });
+    const r = await upd(rows);
     expect(r.kind).toBe("updated");
-    expect(rows[0]!["bed"]).toBe("2");
+    expect(rows[0]!["outstanding_tasks"]).toBe("b");
+  });
+
+  it("the same instant in another textual form still matches (microsecond-exact)", async () => {
+    const rows = [base()];
+    expect((await upd(rows, { expectedUpdatedAt: "2026-11-16T10:00:00.000001Z" })).kind).toBe(
+      "updated",
+    );
+  });
+
+  it("a missing or malformed expected version is refused; nothing is read or written", async () => {
+    for (const v of ["", "yesterday", undefined]) {
+      const rows = [base()];
+      const r = await upd(rows, { expectedUpdatedAt: v as unknown as string });
+      expect(r.kind).toBe("error");
+      expect(rows[0]!["outstanding_tasks"]).toBe("a");
+    }
+  });
+
+  it("a stale expected version is a conflict, not an overwrite", async () => {
+    const rows = [{ ...base(), updated_at: T1 }];
+    const r = await upd(rows);
+    expect(r.kind).toBe("conflict");
+    expect(rows[0]!["outstanding_tasks"]).toBe("a");
   });
 
   it("a never-shared patient is not found and unchanged", async () => {
     const rows = [{ ...base(), shared_with_partner: false }];
-    const r = await bridgeUpdateSharedPatient(fakeAdmin(rows), { id: "p1", payload: { bed: "2" } });
-    expect(r.kind).toBe("not_found");
-    expect(rows[0]!["bed"]).toBe("1");
+    expect((await upd(rows)).kind).toBe("not_found");
+    expect(rows[0]!["outstanding_tasks"]).toBe("a");
+  });
+
+  it("a patient in another unit is not found and unchanged", async () => {
+    const rows = [{ ...base(), unit_id: "uB" }];
+    expect((await upd(rows)).kind).toBe("not_found");
   });
 
   it("a formerly-shared patient with a stale version returns not_found, never a clinical conflict payload", async () => {
-    const rows = [{ ...base(), shared_with_partner: false, updated_at: "t9" }];
-    const r = await bridgeUpdateSharedPatient(fakeAdmin(rows), {
-      id: "p1",
-      expectedUpdatedAt: "t0",
-      payload: { bed: "2" },
-    });
-    expect(r).toEqual({ kind: "not_found" });
+    const rows = [{ ...base(), shared_with_partner: false, updated_at: T1 }];
+    expect(await upd(rows)).toEqual({ kind: "not_found" });
   });
 
   it("sharing revoked between the read and the write: no write, not_found", async () => {
     const rows = [base()];
-    const admin = fakeAdmin(rows, {
-      beforeUpdate: () => {
-        rows[0]!["shared_with_partner"] = false;
-      },
-    });
-    const r = await bridgeUpdateSharedPatient(admin, {
-      id: "p1",
-      expectedUpdatedAt: "t0",
-      payload: { bed: "2" },
-    });
+    const r = await upd(
+      rows,
+      {},
+      { beforeUpdate: () => void (rows[0]!["shared_with_partner"] = false) },
+    );
     expect(r).toEqual({ kind: "not_found" });
-    expect(rows[0]!["bed"]).toBe("1");
+    expect(rows[0]!["outstanding_tasks"]).toBe("a");
   });
 
   it("a concurrent clinical edit between read and write yields a conflict, not an overwrite", async () => {
     const rows = [base()];
-    const admin = fakeAdmin(rows, {
-      beforeUpdate: () => {
-        rows[0]!["updated_at"] = "t1";
-      },
-    });
-    const r = await bridgeUpdateSharedPatient(admin, {
-      id: "p1",
-      expectedUpdatedAt: "t0",
-      payload: { bed: "2" },
-    });
+    const r = await upd(rows, {}, { beforeUpdate: () => void (rows[0]!["updated_at"] = T1) });
     expect(r.kind).toBe("conflict");
-    expect(rows[0]!["bed"]).toBe("1");
+    expect(rows[0]!["outstanding_tasks"]).toBe("a");
   });
 
   it("a unit move between read and write blocks the write", async () => {
     const rows = [base()];
-    const admin = fakeAdmin(rows, {
-      beforeUpdate: () => {
-        rows[0]!["unit_id"] = "uB";
-      },
-    });
-    const r = await bridgeUpdateSharedPatient(admin, { id: "p1", payload: { bed: "2" } });
+    const r = await upd(rows, {}, { beforeUpdate: () => void (rows[0]!["unit_id"] = "uB") });
     expect(r.kind).not.toBe("updated");
-    expect(rows[0]!["bed"]).toBe("1");
+    expect(rows[0]!["outstanding_tasks"]).toBe("a");
   });
 
-  it("the partner cannot change sharing flags or unit", async () => {
+  it("the partner cannot change sharing flags, unit or id", async () => {
     const rows = [base()];
-    await bridgeUpdateSharedPatient(fakeAdmin(rows), {
-      id: "p1",
-      payload: { shared_with_partner: false, unit_id: "uB", bed: "3" },
+    await upd(rows, {
+      payload: { shared_with_partner: false, unit_id: "uB", id: "p2", outstanding_tasks: "c" },
     });
-    expect(rows[0]!["unit_id"]).toBe("uA");
-    expect(rows[0]!["shared_with_partner"]).toBe(true);
-    expect(rows[0]!["bed"]).toBe("3");
+    expect(rows[0]).toMatchObject({
+      id: "p1",
+      unit_id: "uA",
+      shared_with_partner: true,
+      outstanding_tasks: "c",
+    });
   });
 });
 
