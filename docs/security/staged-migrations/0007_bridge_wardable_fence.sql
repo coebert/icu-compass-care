@@ -40,7 +40,13 @@ BEGIN
     RAISE EXCEPTION 'wardable fence rows cannot be removed' USING ERRCODE = '42501';
   END IF;
   IF NEW.patient_id <> OLD.patient_id OR NEW.highest_revision < OLD.highest_revision
-     OR coalesce(NEW.applied_revision, 0) < coalesce(OLD.applied_revision, 0) THEN
+     OR (OLD.applied_revision IS NOT NULL AND NEW.applied_revision IS NULL)
+     OR coalesce(NEW.applied_revision, 0) < coalesce(OLD.applied_revision, 0)
+     -- a reserved or applied revision's intent is never rewritten
+     OR (NEW.highest_revision = OLD.highest_revision
+         AND NEW.highest_wardable IS DISTINCT FROM OLD.highest_wardable)
+     OR (NEW.applied_revision = OLD.applied_revision
+         AND NEW.applied_wardable IS DISTINCT FROM OLD.applied_wardable) THEN
     RAISE EXCEPTION 'wardable fence can only move forward' USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
@@ -91,8 +97,14 @@ DECLARE
   v_actor_email text;
 BEGIN
   IF _patient_id IS NULL OR _expected_updated_at IS NULL OR _wardable IS NULL
-     OR _desired_revision IS NULL OR _desired_revision !~ '^[1-9][0-9]{0,18}$'
-     OR _desired_revision::numeric > 9223372036854775807 THEN
+     OR _desired_revision IS NULL THEN
+    RAISE EXCEPTION 'invalid_request' USING ERRCODE = 'PT400';
+  END IF;
+  -- Checked in two steps: the numeric cast must never see a non-digit string.
+  IF _desired_revision !~ '^[1-9][0-9]{0,18}$' THEN
+    RAISE EXCEPTION 'invalid_request' USING ERRCODE = 'PT400';
+  END IF;
+  IF _desired_revision::numeric > 9223372036854775807 THEN
     RAISE EXCEPTION 'invalid_request' USING ERRCODE = 'PT400';
   END IF;
   v_rev := _desired_revision::bigint;
