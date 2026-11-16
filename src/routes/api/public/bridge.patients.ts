@@ -15,6 +15,7 @@ import { bridgeUpdateSharedPatient, stripSharingFlags } from "@/lib/bridge-shari
 import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
 import { resolveBridgeUnitId } from "@/lib/scope.server";
 import { isInstant } from "@/lib/bridge-contract";
+import { BRIDGE_WARDABLE_FIELDS } from "@/lib/bridge-wardable";
 
 // The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
 // the partner system is trusted, may send longer names, treats every field as
@@ -82,8 +83,7 @@ const patientUpdate = patientFields.partial().extend({
   id: z.string().uuid(),
   expected_updated_at: z.string().max(64).refine(isInstant),
 });
-/** Fields only the fenced wardable protocol may change. */
-export const BRIDGE_WARDABLE_FIELDS = ["wardable", "wardable_at", "wardable_by"] as const;
+
 const statusParam = z.enum(["referred", "admitted", "discharged", "died"]);
 
 function stripGovernance(p: Record<string, unknown>) {
