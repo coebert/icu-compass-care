@@ -131,9 +131,17 @@ describe("GET /bridge/investigations filters", () => {
 });
 
 describe("no broad shared-id helper remains", () => {
-  it("api-bridge.server no longer exports sharedPatientIds / sharedReferralIds", async () => {
-    const mod = (await import("@/lib/api-bridge.server")) as Record<string, unknown>;
-    expect(mod.sharedPatientIds).toBeUndefined();
-    expect(mod.sharedReferralIds).toBeUndefined();
+  it("no source file defines or uses sharedPatientIds / sharedReferralIds", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const walk = (d: string): string[] =>
+      readdirSync(d).flatMap((f) => {
+        const p = join(d, f);
+        return statSync(p).isDirectory() ? walk(p) : /\.tsx?$/.test(f) ? [p] : [];
+      });
+    const hits = walk(join(__dirname, "../../src")).filter((f) =>
+      /sharedPatientIds|sharedReferralIds/.test(readFileSync(f, "utf8")),
+    );
+    expect(hits).toEqual([]);
   });
 });
