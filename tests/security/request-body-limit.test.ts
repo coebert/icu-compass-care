@@ -2,13 +2,16 @@ import { describe, it, expect } from "vitest";
 import { readBodyLimited } from "@/lib/request-body.server";
 
 function streamed(chunks: Uint8Array[], pulled: { n: number }) {
-  return new ReadableStream<Uint8Array>({
-    pull(ctrl) {
-      const c = chunks[pulled.n++];
-      if (c) ctrl.enqueue(c);
-      else ctrl.close();
+  return new ReadableStream<Uint8Array>(
+    {
+      pull(ctrl) {
+        const c = chunks[pulled.n++];
+        if (c) ctrl.enqueue(c);
+        else ctrl.close();
+      },
     },
-  }, { highWaterMark: 0 });
+    { highWaterMark: 0 },
+  );
 }
 
 describe("readBodyLimited", () => {
@@ -26,7 +29,11 @@ describe("readBodyLimited", () => {
   });
 
   it("refuses a malformed Content-Length", async () => {
-    const req = new Request("http://isolated.test/x", { method: "POST", body: "{}", headers: { "content-length": "abc" } });
+    const req = new Request("http://isolated.test/x", {
+      method: "POST",
+      body: "{}",
+      headers: { "content-length": "abc" },
+    });
     expect(await readBodyLimited(req, 1024)).toEqual({ ok: false });
   });
 
@@ -35,7 +42,10 @@ describe("readBodyLimited", () => {
     const chunk = new Uint8Array(1024);
     const req = new Request("http://isolated.test/x", {
       method: "POST",
-      body: streamed(Array.from({ length: 100 }, () => chunk), pulled),
+      body: streamed(
+        Array.from({ length: 100 }, () => chunk),
+        pulled,
+      ),
       // @ts-expect-error Node fetch needs duplex for stream bodies
       duplex: "half",
     });
@@ -50,7 +60,7 @@ describe("readBodyLimited", () => {
   });
 
   it("decodes exactly like Request.text() so signatures are unchanged", async () => {
-    const body = "\uFEFF{\"n\":\"Zoë – 24h ✓ 🫀\"}";
+    const body = '\uFEFF{"n":"Zoë – 24h ✓ 🫀"}';
     const a = new Request("http://isolated.test/x", { method: "POST", body });
     const b = new Request("http://isolated.test/x", { method: "POST", body });
     const limited = await readBodyLimited(a, 1024);
@@ -58,6 +68,8 @@ describe("readBodyLimited", () => {
   });
 
   it("returns an empty string when there is no body", async () => {
-    expect(await readBodyLimited(new Request("http://isolated.test/x", { method: "POST" }), 10)).toEqual({ ok: true, text: "" });
+    expect(
+      await readBodyLimited(new Request("http://isolated.test/x", { method: "POST" }), 10),
+    ).toEqual({ ok: true, text: "" });
   });
 });

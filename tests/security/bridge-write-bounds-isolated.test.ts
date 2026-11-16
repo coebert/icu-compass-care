@@ -6,7 +6,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  * database calls are in-memory spies, so nothing reaches the live backend.
  */
 
-const spy = vi.hoisted(() => ({ authorized: 0, updates: [] as unknown[], inserts: [] as unknown[] }));
+const spy = vi.hoisted(() => ({
+  authorized: 0,
+  updates: [] as unknown[],
+  inserts: [] as unknown[],
+}));
 
 vi.mock("@/lib/admin-db.server", () => ({ getAdmin: async () => ({}) }));
 vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
@@ -31,7 +35,10 @@ vi.mock("@/lib/patient-crypto.server", () => ({
 vi.mock("@/lib/audit", () => ({ writeAudit: async () => {}, diffFields: () => [] }));
 vi.mock("@/lib/bridge-sharing.server", () => ({
   stripSharingFlags: (r: unknown) => r,
-  bridgeUpdateSharedPatient: async (_a: unknown, args: { id: string; payload: Record<string, unknown> }) => {
+  bridgeUpdateSharedPatient: async (
+    _a: unknown,
+    args: { id: string; payload: Record<string, unknown> },
+  ) => {
     spy.updates.push(args);
     return { kind: "updated", before: { id: args.id }, after: { id: args.id, ...args.payload } };
   },
@@ -48,7 +55,11 @@ async function handler(path: "bridge.patients" | "bridge.investigations"): Promi
   return (mod.Route as any).options.server.handlers.POST as Handler;
 }
 const req = (body: string, headers: Record<string, string> = {}) =>
-  new Request("http://isolated.test/api/public/bridge/x", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body });
+  new Request("http://isolated.test/api/public/bridge/x", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body,
+  });
 
 const PID = "00000000-0000-4000-8000-000000000001";
 
@@ -70,7 +81,11 @@ describe("partner write endpoints refuse oversized input before validation", () 
 
   it("patients: a signed body with a 50,000-item list is refused with 400 and writes nothing", async () => {
     const POST = await handler("bridge.patients");
-    const body = JSON.stringify({ id: PID, full_name: "Z.Q.", resp_support: new Array(50_000).fill(1) });
+    const body = JSON.stringify({
+      id: PID,
+      full_name: "Z.Q.",
+      resp_support: new Array(50_000).fill(1),
+    });
     const res = await POST({ request: req(body) });
     expect(res.status).toBe(400);
     expect(spy.authorized).toBe(1);
@@ -79,26 +94,47 @@ describe("partner write endpoints refuse oversized input before validation", () 
 
   it("patients: a normal signed update still goes through unchanged", async () => {
     const POST = await handler("bridge.patients");
-    const body = JSON.stringify({ id: PID, full_name: "Z.Q.", resp_support: ["hfno"], sedative_agents: ["propofol"] });
+    const body = JSON.stringify({
+      id: PID,
+      full_name: "Z.Q.",
+      resp_support: ["hfno"],
+      sedative_agents: ["propofol"],
+    });
     const res = await POST({ request: req(body) });
     expect(res.status).toBe(200);
     expect(spy.updates).toHaveLength(1);
     expect((spy.updates[0] as { payload: Record<string, unknown> }).payload).toMatchObject({
-      id: PID, full_name: "Z.Q.", resp_support: ["hfno"], sedative_agents: ["propofol"],
+      id: PID,
+      full_name: "Z.Q.",
+      resp_support: ["hfno"],
+      sedative_agents: ["propofol"],
     });
   });
 
   it("investigations: oversized declared length → 413; oversized nested list → 400; normal → 200", async () => {
     const POST = await handler("bridge.investigations");
-    const tooBig = await POST({ request: req("{}", { "content-length": String(3 * 1024 * 1024) }) });
+    const tooBig = await POST({
+      request: req("{}", { "content-length": String(3 * 1024 * 1024) }),
+    });
     expect(tooBig.status).toBe(413);
     expect(spy.authorized).toBe(0);
 
-    const nested = await POST({ request: req(JSON.stringify({ patient_id: PID, category: "Bloods", findings: "Hb 120", extra: new Array(10_000).fill(0) })) });
+    const nested = await POST({
+      request: req(
+        JSON.stringify({
+          patient_id: PID,
+          category: "Bloods",
+          findings: "Hb 120",
+          extra: new Array(10_000).fill(0),
+        }),
+      ),
+    });
     expect(nested.status).toBe(400);
     expect(spy.inserts).toHaveLength(0);
 
-    const ok = await POST({ request: req(JSON.stringify({ patient_id: PID, category: "Bloods", findings: "Hb 120" })) });
+    const ok = await POST({
+      request: req(JSON.stringify({ patient_id: PID, category: "Bloods", findings: "Hb 120" })),
+    });
     expect(ok.status).toBe(200);
     expect(spy.inserts).toHaveLength(1);
   });
