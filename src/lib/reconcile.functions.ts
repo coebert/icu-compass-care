@@ -49,7 +49,7 @@ export const reconcilePartner = createServerFn({ method: "POST" })
     z
       .object({
         entity: z.enum(["notifications", "referrals", "audit_log"]),
-        ids: z.union([z.literal("all"), z.array(z.string().uuid()).min(1)]),
+        ids: z.union([z.literal("all"), z.array(z.string().uuid()).min(1).max(500)]),
       })
       .parse(input),
   )

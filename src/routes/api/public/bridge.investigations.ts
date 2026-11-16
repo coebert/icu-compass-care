@@ -3,6 +3,8 @@ import { z } from "zod";
 import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp, sharedPatientIds, consumeWriteNonce } from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
+import { readBodyLimited } from "@/lib/request-body.server";
+import { BRIDGE_INPUT_BOUNDS, BRIDGE_MAX_BODY_BYTES, findBoundsViolation } from "@/lib/input-bounds";
 
 const investigationInsert = z.object({
   patient_id: z.string().uuid(),
@@ -54,7 +56,10 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
 
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {
-        const rawBody = await request.text();
+        // Size cap before the body is buffered, signed or parsed.
+        const body = await readBodyLimited(request, BRIDGE_MAX_BODY_BYTES);
+        if (!body.ok) return json({ error: "Payload too large" }, 413);
+        const rawBody = body.text;
         const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "unit_admin", "clinician"] }, "/bridge/investigations");
         if (!auth.ok) return auth.response;
 
@@ -79,7 +84,12 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
 
         let parsed;
         try {
-          parsed = investigationInsert.parse(JSON.parse(rawBody || "{}"));
+          const raw: unknown = JSON.parse(rawBody || "{}");
+          // Oversized lists are refused before Zod 3 can expand them (GHSA-mrhx-c7xc-m3w5).
+          if (findBoundsViolation(raw, BRIDGE_INPUT_BOUNDS)) {
+            return json({ error: "Invalid investigation payload" }, 400);
+          }
+          parsed = investigationInsert.parse(raw);
         } catch {
           return json({ error: "Invalid investigation payload" }, 400);
         }
