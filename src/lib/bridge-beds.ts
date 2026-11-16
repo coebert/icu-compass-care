@@ -203,10 +203,14 @@ export async function buildBridgeBedBoard(supabaseAdmin: any): Promise<BridgeBed
 
   // Identity projection for shared patients only.
   const identityById = new Map<string, BridgePatient>();
-  if (facts.some((f) => f.shared)) {
+  const sharedIds = facts.filter((f) => f.shared).map((f) => f.id);
+  if (sharedIds.length > 0) {
+    // Only rows already confirmed shared in the occupancy read, and still
+    // shared now. Anything shared in between stays detail-free this time.
     const { data: idRows, error: idErr } = await supabaseAdmin
       .from("patients")
       .select("*")
+      .in("id", sharedIds)
       .eq("unit_id", unitId)
       .eq("location_type", "icu")
       .in("status", ACTIVE_STATUSES)
