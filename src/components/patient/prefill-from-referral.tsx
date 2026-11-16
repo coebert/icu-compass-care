@@ -324,12 +324,14 @@ export function PrefillFromReferral({
 
           {linked && (
             <>
-              <p className="text-sm text-muted-foreground">
-                These are the exact fields that will be populated from the linked referral. Fields
-                already containing data are left untouched. Filled text is marked as referral
-                information that needs review. Detailed referral history stays in Critical Care
-                Connect.
-              </p>
+              {!(preview && preview.link !== "linked") && !linkLost && (
+                <p className="text-sm text-muted-foreground">
+                  These are the exact fields that will be populated from the linked referral. Fields
+                  already containing data are left untouched. Filled text is marked as referral
+                  information that needs review. Detailed referral history stays in Critical Care
+                  Connect.
+                </p>
+              )}
               {previewLoading && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Checking fields…
