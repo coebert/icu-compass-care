@@ -38,6 +38,14 @@ import { ScanChartDialog } from "@/components/patient/chart-scanner";
 import { normalizeBed, checkBedEligibility, isSideRoom } from "@/lib/icu-beds";
 import { listBeds, type Bed } from "@/lib/beds.functions";
 import { MoveToBedMenu } from "@/components/patient/move-to-bed-menu";
+import {
+  ageText,
+  availabilityConfirmed as allFresh,
+  emptyKind,
+  queryDataState,
+  splitOccupancy,
+  type QueryDataState,
+} from "@/lib/board-data-state";
 
 
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
@@ -167,15 +175,28 @@ function PatientsBoard() {
     startY: number;
   } | null>(null);
 
-  const { data: patients = [], isLoading } = useQuery({
+  // Cached results are cleared on any session change (see _authenticated
+  // route), so "last good data" below is always from this signed-in session.
+  const patientsQ = useQuery({
     queryKey: ["patients"],
     queryFn: () => list() as Promise<Patient[]>,
   });
-
-  const { data: bedRoster = [] } = useQuery({
+  const bedsQ = useQuery({
     queryKey: ["beds"],
     queryFn: () => beds() as Promise<Bed[]>,
   });
+  const patients = useMemo(() => patientsQ.data ?? [], [patientsQ.data]);
+  const bedRoster = useMemo(() => bedsQ.data ?? [], [bedsQ.data]);
+  const patientsState = queryDataState(patientsQ);
+  const rosterState = queryDataState(bedsQ);
+  const isLoading = patientsState.kind === "loading";
+  // Moves and "admit to empty bed" need fresh patients AND roster.
+  const confirmed = allFresh(patientsState, rosterState);
+  const retryBoard = () => {
+    void patientsQ.refetch();
+    void bedsQ.refetch();
+  };
+  const retrying = patientsQ.isFetching || bedsQ.isFetching;
 
   const latestObsFn = useServerFn(listLatestObservations);
   const { data: latestObs = [] } = useQuery({
@@ -326,28 +347,37 @@ function PatientsBoard() {
   const icu = filtered.filter((p) => p.location_type === "icu");
   const outliers = filtered.filter((p) => p.location_type === "outlier");
 
-  // Map each ICU bed to the active patient(s) occupying it. Normally a bed has
-  // at most one patient, but during transfers/data conflicts two rows can share
-  // a bed number — we keep ALL of them so no patient is silently hidden.
-  const bedOccupants = useMemo(() => {
-    const map = new Map<string, Patient[]>();
-    for (const p of icu) {
-      const key = normalizeBed(p.bed);
-      if (!key) continue;
-      const list = map.get(key);
-      if (list) list.push(p);
-      else map.set(key, [p]);
-    }
-    return map;
-  }, [icu]);
+  const filtersActive = sexFilter !== "all" || preset !== "";
+  const clearFilters = () => updateBoardSearch({ sex: "all", preset: "" });
+  // Records in the current view (current vs archived) before sex/preset filters.
+  const inViewCount = useMemo(
+    () =>
+      patients.filter((p) => {
+        const active = p.status === "admitted" || p.status === "referred";
+        return showArchived ? !active : active;
+      }).length,
+    [patients, showArchived],
+  );
+  const viewEmpty = emptyKind({ inView: inViewCount, visible: filtered.length });
 
-  // Active ICU patients whose bed doesn't match a known bed slot.
-  const icuUnassigned = icu.filter((p) => {
-    const key = normalizeBed(p.bed);
-    return !key || !bedRoster.some((b) => normalizeBed(b.label) === key);
-  });
+  // Occupancy comes from EVERY active ICU patient; filters only decide which
+  // cards are drawn, so a filtered-out patient's bed never looks empty. A bed
+  // can hold two rows during transfers/data conflicts — all are kept.
+  const occupancy = useMemo(() => {
+    const activeIcu = patients.filter(
+      (p) => p.location_type === "icu" && (p.status === "admitted" || p.status === "referred"),
+    );
+    return splitOccupancy(
+      activeIcu,
+      new Set(icu.map((p) => p.id)),
+      bedRoster.map((b) => b.label),
+    );
+  }, [patients, icu, bedRoster]);
+  const bedOccupants = occupancy.visibleByBed;
+  const icuUnassigned = occupancy.unassignedVisible;
 
   function addToBed(bed: string) {
+    if (!confirmed || occupancy.allByBed.has(normalizeBed(bed))) return;
     setForm({ ...emptyPatient(), location_type: "icu", bed });
     setOpen(true);
   }
@@ -511,9 +541,21 @@ function PatientsBoard() {
     draggedRef.current = null;
     setDraggedPatient(null);
     if (!dragged) return;
+    if (!confirmed) {
+      toast.error("Bed availability isn't confirmed", {
+        description: "The board couldn't refresh. Retry before moving patients.",
+      });
+      return;
+    }
 
     const targetKey = normalizeBed(targetBed);
-    const occupants = bedOccupants.get(targetKey) ?? [];
+    if (occupancy.hiddenBeds.has(targetKey)) {
+      toast.error("That bed is occupied", {
+        description: "Its patient is hidden by the current filters. Clear the filters to move patients there.",
+      });
+      return;
+    }
+    const occupants = occupancy.allByBed.get(targetKey) ?? [];
     if (occupants.some((o) => o.id === dragged.id)) return; // dropped on its own bed
 
     const targetLabel = isSideRoom(targetBed, bedRoster) ? `Side room ${targetBed}` : `Bed ${targetBed}`;
@@ -668,72 +710,123 @@ function PatientsBoard() {
 
 
 
-      {isLoading ? (
+      {patientsState.kind === "failed" ? (
+        <BoardLoadError
+          title="The patient board couldn't be loaded"
+          detail="No patients or bed availability are shown because they can't be confirmed. Check your connection and try again."
+          onRetry={retryBoard}
+          retrying={retrying}
+        />
+      ) : isLoading ? (
         <ListSkeleton rows={5} />
-      ) : search.trim() ? (
-
-        filtered.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              No patients match “{search.trim()}”. Search spans current and discharged/deceased records.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              {filtered.length} result{filtered.length === 1 ? "" : "s"} across current and archived records
-            </p>
-            <Section title="ICU" icon={HeartPulse} patients={icu} />
-            <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
-          </div>
-        )
-      ) : showArchived ? (
-        filtered.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              No patients to show.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-8">
-            <Section title="ICU" icon={HeartPulse} patients={icu} />
-            <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
-          </div>
-        )
       ) : (
-        <div className="space-y-8">
-          <RecentMovesStrip
-            moves={recentMoves}
-            onRevert={(m) => {
-              undoMut.mutate(m.previous);
-              clearRecentMove(m.key);
-            }}
-            onDismiss={clearRecentMove}
-          />
-          <BedBoard
-            roster={bedRoster}
-            bedOccupants={bedOccupants}
-            unassigned={icuUnassigned}
-            onAddToBed={addToBed}
-            dragging={dragging}
-            draggedPatient={draggedPatient}
-            touchOverBed={touchOverBed}
-            onDragStartPatient={onDragStartPatient}
-            onDragEndPatient={onDragEndPatient}
-            onTouchDragStart={onTouchDragStart}
-            suppressClickRef={suppressClickRef}
-            onDropOnBed={dropOnBed}
-          />
-          <Section
-            title="Outlying wards / referrals"
-            icon={ClipboardList}
-            patients={outliers}
-            onDragStartPatient={onDragStartPatient}
-            onDragEndPatient={onDragEndPatient}
-            onTouchDragStart={onTouchDragStart}
-            suppressClickRef={suppressClickRef}
-          />
-        </div>
+        <>
+          <StaleDataNotice states={[patientsState, rosterState]} onRetry={retryBoard} retrying={retrying} />
+          {search.trim() ? (
+            filtered.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground" role="status">
+                  No patients match “{search.trim()}”
+                  {filtersActive ? " with the current filters" : ""}. Search spans current and
+                  discharged/deceased records.
+                  {filtersActive && <ClearFiltersButton onClick={clearFilters} />}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {filtered.length} result{filtered.length === 1 ? "" : "s"} across current and archived records
+                </p>
+                <Section title="ICU" icon={HeartPulse} patients={icu} />
+                <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
+              </div>
+            )
+          ) : showArchived ? (
+            viewEmpty !== "has_results" ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground" role="status">
+                  {viewEmpty === "filtered_empty" ? (
+                    <>
+                      No discharged or deceased records match the current filters.
+                      <ClearFiltersButton onClick={clearFilters} />
+                    </>
+                  ) : (
+                    "No discharged or deceased records."
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-8">
+                <Section title="ICU" icon={HeartPulse} patients={icu} />
+                <Section title="Outlying wards / referrals" icon={ClipboardList} patients={outliers} />
+              </div>
+            )
+          ) : (
+            <div className="space-y-8">
+              <RecentMovesStrip
+                moves={recentMoves}
+                onRevert={(m) => {
+                  undoMut.mutate(m.previous);
+                  clearRecentMove(m.key);
+                }}
+                onDismiss={clearRecentMove}
+              />
+              {viewEmpty === "filtered_empty" && (
+                <Card>
+                  <CardContent className="py-6 text-center text-sm text-muted-foreground" role="status">
+                    No current patients match the current filters. Occupied beds are still shown as occupied.
+                    <ClearFiltersButton onClick={clearFilters} />
+                  </CardContent>
+                </Card>
+              )}
+              {viewEmpty === "confirmed_empty" && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  No current ICU patients or outlying referrals{confirmed ? "." : " in the last loaded data."}
+                </p>
+              )}
+              {rosterState.kind === "failed" ? (
+                <>
+                  <BoardLoadError
+                    title="The bed layout couldn't be loaded"
+                    detail="Beds aren't shown, so no bed is presented as free. ICU patients are listed below."
+                    onRetry={retryBoard}
+                    retrying={retrying}
+                  />
+                  <Section title="ICU" icon={HeartPulse} patients={icu} />
+                </>
+              ) : rosterState.kind === "loading" ? (
+                <ListSkeleton rows={3} />
+              ) : (
+                <BedBoard
+                  roster={bedRoster}
+                  bedOccupants={bedOccupants}
+                  hiddenBeds={occupancy.hiddenBeds}
+                  occupiedCount={occupancy.allByBed.size}
+                  availabilityConfirmed={confirmed}
+                  unassigned={icuUnassigned}
+                  onAddToBed={addToBed}
+                  dragging={dragging}
+                  draggedPatient={draggedPatient}
+                  touchOverBed={touchOverBed}
+                  onDragStartPatient={onDragStartPatient}
+                  onDragEndPatient={onDragEndPatient}
+                  onTouchDragStart={onTouchDragStart}
+                  suppressClickRef={suppressClickRef}
+                  onDropOnBed={dropOnBed}
+                />
+              )}
+              <Section
+                title="Outlying wards / referrals"
+                icon={ClipboardList}
+                patients={outliers}
+                onDragStartPatient={confirmed ? onDragStartPatient : undefined}
+                onDragEndPatient={onDragEndPatient}
+                onTouchDragStart={confirmed ? onTouchDragStart : undefined}
+                suppressClickRef={suppressClickRef}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <HandoverPreviewModal
@@ -1258,6 +1351,9 @@ const DraggablePatientLink = React.forwardRef<
 function BedBoard({
   roster,
   bedOccupants,
+  hiddenBeds,
+  occupiedCount,
+  availabilityConfirmed,
   unassigned,
   onAddToBed,
   dragging,
@@ -1271,6 +1367,12 @@ function BedBoard({
 }: {
   roster: Bed[];
   bedOccupants: Map<string, Patient[]>;
+  /** Beds whose occupant(s) are hidden by filters: still occupied. */
+  hiddenBeds: Set<string>;
+  /** Every occupied bed, filtered or not. */
+  occupiedCount: number;
+  /** False when the data is stale: no admitting or moving into "empty" beds. */
+  availabilityConfirmed: boolean;
   unassigned: Patient[];
   onAddToBed: (bed: string) => void;
   dragging: boolean;
@@ -1282,15 +1384,22 @@ function BedBoard({
   suppressClickRef: React.MutableRefObject<boolean>;
   onDropOnBed: (bed: string) => void;
 }) {
-  const occupied = roster.filter((b) => (bedOccupants.get(normalizeBed(b.label))?.length ?? 0) > 0).length;
+  const occupied = occupiedCount;
   const [overBed, setOverBed] = useState<string | null>(null);
+  // Drag is only offered while availability is confirmed.
+  const dragStart = availabilityConfirmed ? onDragStartPatient : undefined;
+  const touchStart = availabilityConfirmed ? onTouchDragStart : undefined;
   return (
     <div className="space-y-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         <BedDouble className="h-4 w-4" /> Radnor Critical Care — Bed board
         <span className="text-xs">({occupied}/{roster.length} occupied)</span>
       </h2>
-      {dragging ? (
+      {!availabilityConfirmed ? (
+        <p className="text-xs text-destructive">
+          Bed availability isn't confirmed right now, so moving patients and admitting to empty beds is paused.
+        </p>
+      ) : dragging ? (
         <p className="text-xs text-primary">
           Drop the card on a bed to move the patient there.
           {draggedPatient?.isolation_required && " This patient requires isolation — side rooms only."}
@@ -1355,6 +1464,11 @@ function BedBoard({
           if (occupants.length > 0) {
             return (
               <div key={slot.id} data-bed={bed} {...dropHandlers} className={`flex flex-col gap-2 rounded-lg transition-shadow ${validRing}`}>
+                {hiddenBeds.has(normalizeBed(bed)) && (
+                  <p className="text-[11px] font-medium text-muted-foreground">
+                    Another patient in {label} is hidden by the current filters.
+                  </p>
+                )}
                 {occupants.length > 1 && (
                   <p className="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" /> {occupants.length} patients in {label}
@@ -1364,9 +1478,9 @@ function BedBoard({
                   <PatientHoverCard key={p.id} p={p}>
                     <DraggablePatientLink
                       p={p}
-                      onDragStartPatient={onDragStartPatient}
+                      onDragStartPatient={dragStart}
                       onDragEndPatient={onDragEndPatient}
-                      onTouchDragStart={onTouchDragStart}
+                      onTouchDragStart={touchStart}
                       suppressClickRef={suppressClickRef}
                     >
                       <Card className={`flex h-[260px] flex-col overflow-hidden transition-colors hover:border-primary/50 ${slot.is_side_room ? "border-amber-500/40" : ""} ${isOver ? overRing : ""}`}>
@@ -1379,6 +1493,29 @@ function BedBoard({
                   </PatientHoverCard>
                 ))}
 
+              </div>
+            );
+          }
+          const hiddenHere = hiddenBeds.has(normalizeBed(bed));
+          if (hiddenHere || !availabilityConfirmed) {
+            // Occupied-but-filtered, or availability unknown: never "Empty",
+            // never a tap-to-admit or drop target.
+            return (
+              <div
+                key={slot.id}
+                data-bed={bed}
+                className={`flex h-[260px] flex-col items-center justify-center gap-1.5 rounded-lg border p-4 text-center ${hiddenHere ? "bg-muted/40" : "border-dashed bg-muted/10"}`}
+              >
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  {slot.is_side_room && <DoorClosed className="h-3.5 w-3.5" aria-hidden />}
+                  {label}
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {hiddenHere ? "Occupied" : "Availability not confirmed"}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {hiddenHere ? "Patient hidden by current filters" : "Refresh the board to check this bed"}
+                </span>
               </div>
             );
           }
@@ -1425,9 +1562,9 @@ function BedBoard({
               <PatientHoverCard key={p.id} p={p}>
                 <DraggablePatientLink
                   p={p}
-                  onDragStartPatient={onDragStartPatient}
+                  onDragStartPatient={dragStart}
                   onDragEndPatient={onDragEndPatient}
-                  onTouchDragStart={onTouchDragStart}
+                  onTouchDragStart={touchStart}
                   suppressClickRef={suppressClickRef}
                 >
                   <Card className="flex h-[260px] flex-col overflow-hidden transition-colors hover:border-primary/50">
@@ -1441,6 +1578,81 @@ function BedBoard({
         </div>
       )}
     </div>
+  );
+}
+
+function BoardLoadError({
+  title,
+  detail,
+  onRetry,
+  retrying,
+}: {
+  title: string;
+  detail: string;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <Card className="border-destructive/40" role="alert">
+      <CardContent className="flex flex-col items-start gap-3 py-6 sm:flex-row sm:items-center">
+        <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{title}</p>
+          <p className="text-sm text-muted-foreground">{detail}</p>
+        </div>
+        <Button variant="outline" className="h-11 gap-1.5 sm:h-9" onClick={onRetry} disabled={retrying}>
+          <RefreshCw className={`h-4 w-4 ${retrying ? "animate-spin" : ""}`} aria-hidden />
+          {retrying ? "Retrying…" : "Try again"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StaleDataNotice({
+  states,
+  onRetry,
+  retrying,
+}: {
+  states: QueryDataState[];
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const stale = states.filter((s): s is Extract<QueryDataState, { kind: "stale" }> => s.kind === "stale");
+  React.useEffect(() => {
+    if (stale.length === 0) return;
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, [stale.length]);
+  if (stale.length === 0) return null;
+  const oldest = Math.min(...stale.map((s) => s.lastGoodAt));
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-start gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm sm:flex-row sm:items-center"
+    >
+      <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
+      <p className="min-w-0 flex-1">
+        <span className="font-medium">The board couldn't refresh.</span> Showing what was loaded at{" "}
+        {fmtDateTime(new Date(oldest).toISOString())} ({ageText(oldest, now)}). Bed availability isn't
+        confirmed, so moves and admitting to empty beds are paused.
+      </p>
+      <Button variant="outline" className="h-11 gap-1.5 sm:h-9" onClick={onRetry} disabled={retrying}>
+        <RefreshCw className={`h-4 w-4 ${retrying ? "animate-spin" : ""}`} aria-hidden />
+        {retrying ? "Retrying…" : "Retry"}
+      </Button>
+    </div>
+  );
+}
+
+function ClearFiltersButton({ onClick }: { onClick: () => void }) {
+  return (
+    <span className="mt-3 block">
+      <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={onClick}>
+        Clear filters
+      </Button>
+    </span>
   );
 }
 

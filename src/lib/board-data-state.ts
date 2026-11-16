@@ -28,10 +28,13 @@ export function availabilityConfirmed(...states: QueryDataState[]): boolean {
 
 export type EmptyKind = "has_results" | "confirmed_empty" | "filtered_empty";
 
-/** Distinguish "nobody here" from "nobody matches the filters". */
-export function emptyKind(opts: { inView: number; visible: number; filtersActive: boolean }): EmptyKind {
+/**
+ * Distinguish "nobody here" from "nobody matches the filters".
+ * `inView` counts records in the current view before sex/preset filters.
+ */
+export function emptyKind(opts: { inView: number; visible: number }): EmptyKind {
   if (opts.visible > 0) return "has_results";
-  return opts.inView > 0 && opts.filtersActive ? "filtered_empty" : opts.inView > 0 ? "has_results" : "confirmed_empty";
+  return opts.inView > 0 ? "filtered_empty" : "confirmed_empty";
 }
 
 type BedPatient = { id: string; bed?: string | null };
