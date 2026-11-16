@@ -687,14 +687,23 @@ describe("bridge_import_referral — provenance and ownership", () => {
     );
     const l = (await localRef(id))!;
     expect(l.deleted_at).toBeNull();
-    expect(await prov(id)).toEqual({ s: "2026-03-06 00:00:00.000001+00", r: l.u, source_deleted_at: null });
+    expect(await prov(id)).toEqual({
+      s: "2026-03-06 00:00:00.000001+00",
+      r: l.u,
+      source_deleted_at: null,
+    });
     expect(await refAudits(id)).toBe(1);
   });
   it("a local row created under a watermarked id is a conflict, never adopted", async () => {
     const id = refId(6);
     expect(await importReferral(tomb(id, "2026-03-05T00:00:00Z"))).toBe("unknown_tombstone");
-    await superQ("INSERT INTO public.referrals (id, status, current_ward) VALUES ($1,'pending','LOCAL')", [id]);
-    expect(await importReferral(refRec({ id, updated_at: "2099-01-01T00:00:00Z" }))).toBe("conflict");
+    await superQ(
+      "INSERT INTO public.referrals (id, status, current_ward) VALUES ($1,'pending','LOCAL')",
+      [id],
+    );
+    expect(await importReferral(refRec({ id, updated_at: "2099-01-01T00:00:00Z" }))).toBe(
+      "conflict",
+    );
     expect((await localRef(id))!.current_ward).toBe("LOCAL");
     expect((await prov(id))!.r).toBeNull();
   });
@@ -707,7 +716,9 @@ describe("bridge_import_referral — provenance and ownership", () => {
     ]);
     await db.exec("ROLLBACK");
     expect(await prov(id)).toBeUndefined();
-    expect(await importReferral(refRec({ id, updated_at: "2026-03-01T00:00:00Z" }))).toBe("inserted");
+    expect(await importReferral(refRec({ id, updated_at: "2026-03-01T00:00:00Z" }))).toBe(
+      "inserted",
+    );
   });
   it("receiver divergence is reported before an equal or older replay looks healthy", async () => {
     const id = refId(8);
@@ -716,7 +727,9 @@ describe("bridge_import_referral — provenance and ownership", () => {
     const before = await localRef(id);
     const p0 = await prov(id);
     expect(await importReferral(refRec({ id }))).toBe("conflict"); // equal revision
-    expect(await importReferral(refRec({ id, updated_at: "2026-01-01T00:00:00Z" }))).toBe("conflict");
+    expect(await importReferral(refRec({ id, updated_at: "2026-01-01T00:00:00Z" }))).toBe(
+      "conflict",
+    );
     expect(await importReferral(tomb(id, "2026-01-01T00:00:00Z"))).toBe("conflict");
     expect(await localRef(id)).toEqual(before);
     // Source revision is untouched by local timestamps.
@@ -1240,7 +1253,10 @@ describe("apply_referral_prefill — atomic, linked, fill-blank-only", () => {
       "UPDATE public.patients SET current_admission=NULL, current_admission_enc=NULL, current_management_enc=NULL, tep_details_enc=NULL, dnacpr_details_enc=NULL, dnacpr_decision=false, source_referral_id=$2 WHERE id=$1",
       [PT, RP],
     );
-    await superQ("UPDATE public.referrals SET deleted_at=NULL, resus_status='for_cpr' WHERE id=$1", [RP]);
+    await superQ(
+      "UPDATE public.referrals SET deleted_at=NULL, resus_status='for_cpr' WHERE id=$1",
+      [RP],
+    );
   };
 
   beforeAll(async () => {
@@ -1262,7 +1278,12 @@ describe("apply_referral_prefill — atomic, linked, fill-blank-only", () => {
       [PT],
     );
     expect(fc.rows).toEqual([
-      { field_name: "current_admission", old_value: null, new_value: "CIPHER-A", changed_by: U.clinA },
+      {
+        field_name: "current_admission",
+        old_value: null,
+        new_value: "CIPHER-A",
+        changed_by: U.clinA,
+      },
       { field_name: "tep_details", old_value: null, new_value: "CIPHER-T", changed_by: U.clinA },
     ]);
   });
@@ -1356,7 +1377,9 @@ describe("apply_referral_prefill — atomic, linked, fill-blank-only", () => {
       expect(r.ok).toBe(true);
       expect((await state()).dec).toBe(false);
     } finally {
-      await superQ("UPDATE public.patients SET dnacpr_decision=false WHERE dnacpr_decision IS NULL");
+      await superQ(
+        "UPDATE public.patients SET dnacpr_decision=false WHERE dnacpr_decision IS NULL",
+      );
       await superQ("ALTER TABLE public.patients ALTER COLUMN dnacpr_decision SET NOT NULL");
     }
   });
