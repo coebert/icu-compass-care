@@ -96,6 +96,7 @@ REVOKE ALL ON FUNCTION private.referral_import_fields(public.referrals) FROM PUB
 -- _rec is EITHER a live row (every allowlisted key present, deleted_at: null)
 -- OR a minimal tombstone {id, updated_at, deleted_at} with deleted_at set.
 -- Returns: inserted | updated | restored | deleted | unchanged |
+--          (unchanged also covers a newer revision with identical content)
 --          unknown_tombstone | conflict.   Malformed input raises PT400.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.bridge_import_referral(_rec jsonb)
@@ -208,6 +209,17 @@ BEGIN
     RETURN 'conflict';
   ELSE
     v_before := private.referral_import_fields(v_cur);
+    -- A newer source revision with nothing different in what we import (or a
+    -- tombstone for a row already deleted here by an earlier import): record
+    -- the source revision only. No content write, so no new receiver revision.
+    IF (v_tomb AND v_cur.deleted_at IS NOT NULL)
+       OR (NOT v_tomb AND v_before = (
+             private.referral_import_fields(v_row) || jsonb_build_object('deleted_at', NULL))) THEN
+      UPDATE private.bridge_referral_provenance p
+         SET source_revision = v_src_rev, source_deleted_at = v_src_deleted, last_imported_at = now()
+       WHERE p.referral_id = v_id;
+      RETURN 'unchanged';
+    END IF;
     IF v_tomb THEN
       UPDATE public.referrals r SET deleted_at = v_src_deleted
        WHERE r.id = v_id AND r.updated_at = v_prov.receiver_revision
