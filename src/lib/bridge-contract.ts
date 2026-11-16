@@ -273,6 +273,7 @@ export type ImportedResult = {
   result_at: string;
   created_at: string;
   updated_at: string;
+  deleted: boolean;
 };
 
 /**
@@ -294,9 +295,13 @@ export function mapResult(kind: ResultKind, src: Record<string, unknown>): Impor
   for (const [k, rule] of Object.entries(rules)) {
     if (!(k in src) || !rule(src[k])) return fail("malformed_record");
   }
-  // A tombstoned result can't be represented here; never import it as live.
-  if (src.deleted_at != null) return fail("malformed_record");
+  if ("deleted_at" in src && !(src.deleted_at === null || isInstant(src.deleted_at))) {
+    return fail("malformed_record");
+  }
   return {
+    // A tombstoned result can't be represented here; the importer never
+    // inserts it and flags a local copy as a conflict instead.
+    deleted: src.deleted_at != null,
     id: (src.id as string).toLowerCase(),
     patient_id: (src.patient_id as string).toLowerCase(),
     type: src[typeKey] as string,
