@@ -1011,6 +1011,7 @@ function PatientCardBody({ p, bedLabel }: { p: Patient; bedLabel?: string }) {
             <MoveToBedMenu
               patientId={p.id}
               currentBed={p.bed}
+              updatedAt={p.updated_at}
               patientName={name}
             />
           )}
