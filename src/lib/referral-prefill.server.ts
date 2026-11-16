@@ -110,8 +110,14 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
     const sealed = encryptField(value as string);
     if (sealed) set[field] = sealed;
   }
-  const supabaseAdmin = await getAdmin();
-  const { data: out, error } = await supabaseAdmin.rpc("apply_referral_prefill", {
+  // The staged function isn't in the generated client types yet.
+  const admin = (await getAdmin()) as unknown as {
+    rpc: (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;
+  };
+  const { data: out, error } = await admin.rpc("apply_referral_prefill", {
     _actor: context.userId,
     _session_id: sessionId,
     _req: {
@@ -125,11 +131,20 @@ export async function applyReferralPrefill(context: Ctx, data: ApplyPrefillInput
         : {}),
     },
   });
-  if (error) throw safeDbError(error);
+  if (error) {
+    // Function not installed yet (release gate): fail closed, nothing written.
+    if (error.code === "PGRST202" || error.code === "42883") {
+      throw new Error(PREFILL_UNAVAILABLE_MESSAGE);
+    }
+    throw safeDbError(error);
+  }
   const result = out as { ok: boolean; code?: string; patient?: Record<string, unknown> } | null;
   if (!result?.ok || !result.patient) throw new Error(prefillRefusalMessage(result?.code));
   return { applied_fields, skipped_fields, patient: decryptPatientRow(result.patient) };
 }
+
+export const PREFILL_UNAVAILABLE_MESSAGE =
+  "Filling from the referral isn't available right now. Nothing was changed.";
 
 export const PREFILL_NOT_AUTHORISED_MESSAGE =
   "Your session is locked or has ended. Nothing was changed — sign in again and retry.";
