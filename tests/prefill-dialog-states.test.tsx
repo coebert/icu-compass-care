@@ -64,9 +64,13 @@ afterEach(cleanup);
 
 describe("prefill dialog states", () => {
   it("candidate load failure is an accessible alert with a working retry", async () => {
-    h.list.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([candidate]);
+    h.list
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce([candidate]);
     open();
-    const alert = await screen.findByRole("alert");
+    // The dialog retries once automatically before reporting failure.
+    const alert = await screen.findByRole("alert", {}, { timeout: 4000 });
     expect(alert.textContent).toContain("Referrals couldn't be loaded");
     expect(screen.getByRole("button", { name: "Preview changes" })).toHaveProperty("disabled", true);
     const retry = screen.getByRole("button", { name: /try again/i });
@@ -89,7 +93,9 @@ describe("prefill dialog states", () => {
     open();
     fireEvent.click(await screen.findByRole("button", { pressed: false }));
     fireEvent.click(screen.getByRole("button", { name: "Preview changes" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("preview couldn't be loaded");
+    expect((await screen.findByRole("alert", {}, { timeout: 4000 })).textContent).toContain(
+      "preview couldn't be loaded",
+    );
     expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
     expect(h.apply).not.toHaveBeenCalled();
   });
