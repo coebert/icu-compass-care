@@ -463,13 +463,15 @@ export async function logSyncError(
     entity: BridgeEntity;
     message: string;
     actor: BridgeActor;
+    /** Records that WERE written before the failure (partial runs). */
+    record_count?: number;
   },
 ): Promise<void> {
   try {
     await admin.from("bridge_sync_events").insert({
       direction: entry.direction,
       entity: entry.entity,
-      record_count: 0,
+      record_count: entry.record_count ?? 0,
       actor_role: entry.actor.role,
       actor_email: entry.actor.email ?? null,
       status: "error",

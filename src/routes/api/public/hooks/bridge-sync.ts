@@ -40,10 +40,10 @@ export const Route = createFileRoute("/api/public/hooks/bridge-sync")({
         try {
           const result = await runBridgeSync();
           return Response.json(result, { status: result.ok ? 200 : 207 });
-        } catch (e) {
-          const message = e instanceof Error ? e.message : "Sync failed";
-          console.error("[bridge-sync] run failed:", message);
-          return Response.json({ ok: false, error: message }, { status: 500 });
+        } catch {
+          // Safe code only: raw errors can carry record values.
+          console.error("[bridge-sync] run failed: unexpected");
+          return Response.json({ ok: false, error: "unexpected" }, { status: 500 });
         }
       },
     },
