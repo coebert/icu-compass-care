@@ -12,7 +12,17 @@ const spy = vi.hoisted(() => ({
   inserts: [] as unknown[],
 }));
 
-vi.mock("@/lib/admin-db.server", () => ({ getAdmin: async () => ({}) }));
+vi.mock("@/lib/admin-db.server", () => ({
+  getAdmin: async () => {
+    // Only the fixed bridge unit lookup is answered (synthetic id).
+    const q = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => ({ data: { id: "10000000-0000-4000-8000-000000000001", code: "SDH-RADNOR" }, error: null }),
+    };
+    return { from: () => q };
+  },
+}));
 vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api-bridge.server")>();
   return {

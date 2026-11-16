@@ -114,12 +114,15 @@ describe("generic partner patient POST", () => {
     expect(((await res.json()) as { error: string }).error).toBe("wardable_not_accepted");
     expect(spy.updates).toHaveLength(0);
   });
-  it("can't move a patient to another unit, change sharing or the id via the payload", async () => {
-    for (const extra of [{ unit_id: UNIT }, { shared_with_partner: false }, { new_id: PID }]) {
-      const res = await post("bridge.patients", { id: PID, expected_updated_at: V, outstanding_tasks: "x", ...extra });
-      expect(res.status).toBe(400);
-    }
-    expect(spy.updates).toHaveLength(0);
+  it("can't move a patient to another unit, change sharing or the id via the payload (dropped, never written)", async () => {
+    const other = "10000000-0000-4000-8000-0000000000ff";
+    const res = await post("bridge.patients", {
+      id: PID, expected_updated_at: V, outstanding_tasks: "x",
+      unit_id: other, shared_with_partner: false, shared_with_partner_by: PID, updated_at: V,
+    });
+    expect(res.status).toBe(200);
+    expect(spy.updates[0]!.unitId).toBe(UNIT);
+    expect(spy.updates[0]!.payload).toEqual({ outstanding_tasks: "x" });
   });
   it("a create without a valid name is refused", async () => {
     const res = await post("bridge.patients", { outstanding_tasks: "x" });
