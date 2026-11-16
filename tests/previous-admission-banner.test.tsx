@@ -83,7 +83,9 @@ function mount(initial: Partial<Form> = {}) {
 }
 const copyBtn = () => screen.getByRole("button", { name: "Copy past medical history" });
 
-beforeEach(() => h.find.mockReset());
+beforeEach(() => {
+  h.find.mockReset();
+});
 afterEach(cleanup);
 
 describe("PreviousAdmissionBanner", () => {
@@ -140,8 +142,8 @@ describe("PreviousAdmissionBanner", () => {
   });
   it("a late result for an earlier hospital number never populates the new patient", async () => {
     let resolveOld!: (v: unknown) => void;
-    h.find.mockImplementation((...args: unknown[]) =>
-      (args.length === 0 && console.log("STACK", new Error().stack), (args[0] as { data: { hospital_number: string } }).data.hospital_number === "SYN1234")
+    h.find.mockImplementation((arg: { data: { hospital_number: string } }) =>
+      arg.data.hospital_number === "SYN1234"
         ? new Promise((r) => (resolveOld = r))
         : Promise.resolve([]),
     );
