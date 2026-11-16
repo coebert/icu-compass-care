@@ -16,6 +16,7 @@ export const STAGED_FILES = [
   "0005_bed_integrity.sql",
   "0006_bridge_import_provenance.sql",
   "0007_bridge_wardable_fence.sql",
+  "0008_bridge_read_exports.sql",
 ].map((f) => join(STAGED_DIR, f));
 export const STAGED_SQL = STAGED_FILES[0]!;
 export const stagedSql = (): string =>
