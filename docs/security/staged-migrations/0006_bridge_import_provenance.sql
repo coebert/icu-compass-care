@@ -11,6 +11,10 @@
 --   from CCC — the SOURCE revision, and the local (receiver) revision our
 --   own write produced. Ordinary referrals.updated_at touch triggers are left
 --   exactly as they are; nothing can preserve or spoof updated_at.
+--   A tombstone for a referral never imported here leaves a minimal
+--   WATERMARK (id + source revision + source deleted_at, no receiver
+--   revision, no clinical content) so a delayed older or equal live row can
+--   never resurrect it; only a strictly newer live revision is a restore.
 -- * public.bridge_import_referral(jsonb): allowlisted import with provenance.
 --   A local row without provenance (legacy, or created here) is a conflict,
 --   never adopted. Content, provenance and audit commit together or not at all.
@@ -74,10 +78,13 @@ REVOKE ALL ON FUNCTION private.bridge_is_instant(text) FROM PUBLIC, anon, authen
 CREATE TABLE IF NOT EXISTS private.bridge_referral_provenance (
   referral_id uuid PRIMARY KEY,
   source_revision timestamptz NOT NULL,
-  receiver_revision timestamptz NOT NULL,
+  -- NULL only for a tombstone watermark (no local row was ever written).
+  receiver_revision timestamptz,
   source_deleted_at timestamptz,
   first_imported_at timestamptz NOT NULL DEFAULT now(),
-  last_imported_at timestamptz NOT NULL DEFAULT now()
+  last_imported_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT bridge_referral_provenance_watermark_chk
+    CHECK (receiver_revision IS NOT NULL OR source_deleted_at IS NOT NULL)
 );
 ALTER TABLE private.bridge_referral_provenance ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON private.bridge_referral_provenance FROM PUBLIC, anon, authenticated, service_role;
@@ -112,7 +119,11 @@ REVOKE ALL ON FUNCTION private.referral_import_fields(public.referrals) FROM PUB
 -- OR a minimal tombstone {id, updated_at, deleted_at} with deleted_at set.
 -- Returns: inserted | updated | restored | deleted | unchanged |
 --          (unchanged also covers a newer revision with identical content)
---          unknown_tombstone | conflict.   Malformed input raises PT400.
+--          unknown_tombstone (never imported here; watermark kept) | conflict.
+--          Malformed input raises PT400.
+-- Order of checks for a row we imported: receiver divergence (a local edit
+-- since our last import) is reported as conflict BEFORE an equal/older
+-- source replay could be reported as a healthy 'unchanged'.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.bridge_import_referral(_rec jsonb)
 RETURNS text
@@ -198,9 +209,35 @@ BEGIN
   SELECT * INTO v_prov FROM private.bridge_referral_provenance p WHERE p.referral_id = v_id FOR UPDATE;
   v_has_prov := FOUND;
 
-  IF NOT v_has_cur AND NOT v_has_prov THEN
-    -- Never seen: a tombstone is a no-op (never a blank insert).
-    IF v_tomb THEN RETURN 'unknown_tombstone'; END IF;
+  IF NOT v_has_prov AND v_has_cur THEN
+    -- A local row we never imported (legacy copy, or created here): a person
+    -- must decide. Never adopted, whatever its timestamps say.
+    RETURN 'conflict';
+  ELSIF NOT v_has_prov OR v_prov.receiver_revision IS NULL THEN
+    -- Never imported here (no ledger row), or only a tombstone watermark.
+    IF v_has_cur THEN
+      -- A local row appeared with a watermarked id: never adopted.
+      RETURN 'conflict';
+    END IF;
+    IF v_has_prov AND v_src_rev <= v_prov.source_revision THEN
+      -- Delayed older/equal live row or tombstone: the deletion stands.
+      RETURN 'unchanged';
+    END IF;
+    IF v_tomb THEN
+      -- Record (or advance) the minimal watermark only. No referral row, no
+      -- clinical content, nothing for anyone to read.
+      INSERT INTO private.bridge_referral_provenance AS p
+        (referral_id, source_revision, receiver_revision, source_deleted_at)
+      VALUES (v_id, v_src_rev, NULL, v_src_deleted)
+      ON CONFLICT (referral_id) DO UPDATE
+        SET source_revision = excluded.source_revision,
+            source_deleted_at = excluded.source_deleted_at,
+            last_imported_at = now()
+        WHERE p.receiver_revision IS NULL AND p.source_revision < excluded.source_revision;
+      RETURN 'unknown_tombstone';
+    END IF;
+    -- First import, or a strictly newer genuine live revision after a
+    -- watermark: insert the allowlisted row.
     INSERT INTO public.referrals (
       id, created_at, deleted_at, status, referral_received_at, age, sex,
       current_ward, current_bed, referring_specialty, reason_category, ceiling_of_care,
@@ -212,22 +249,31 @@ BEGIN
       v_row.ceiling_of_care, v_row.resus_status, v_row.dnacpr_respect, v_row.anticipated_interventions,
       v_row.allergies, v_row.weight_kg, v_row.admission_urgency, v_row.infection_status, v_row.news2_score)
     RETURNING * INTO v_cur;
-    INSERT INTO private.bridge_referral_provenance (referral_id, source_revision, receiver_revision, source_deleted_at)
-    VALUES (v_id, v_src_rev, v_cur.updated_at, NULL);
+    IF v_has_prov THEN
+      UPDATE private.bridge_referral_provenance p
+         SET source_revision = v_src_rev, receiver_revision = v_cur.updated_at,
+             source_deleted_at = NULL, last_imported_at = now()
+       WHERE p.referral_id = v_id AND p.receiver_revision IS NULL;
+      IF NOT FOUND THEN RAISE EXCEPTION 'provenance_changed' USING ERRCODE = 'PT409'; END IF;
+    ELSE
+      INSERT INTO private.bridge_referral_provenance (referral_id, source_revision, receiver_revision, source_deleted_at)
+      VALUES (v_id, v_src_rev, v_cur.updated_at, NULL);
+    END IF;
     v_before := NULL;
     v_after := private.referral_import_fields(v_cur);
     v_changed := ARRAY[]::text[];
     v_result := 'inserted';
-  ELSIF NOT v_has_prov OR NOT v_has_cur THEN
-    -- A local row we never imported (legacy copy, or created here), or
-    -- provenance for a row that is gone: a person must decide. Never adopted.
+  ELSIF NOT v_has_cur THEN
+    -- Provenance for a row that is gone here: a person must decide.
+    RETURN 'conflict';
+  ELSIF v_cur.updated_at IS DISTINCT FROM v_prov.receiver_revision THEN
+    -- Changed here since our last import: never overwritten, and reported
+    -- even when the incoming source revision is a replay.
     RETURN 'conflict';
   ELSIF v_src_rev <= v_prov.source_revision THEN
-    -- Same or older source revision: replay / out-of-order delivery.
+    -- Same or older source revision on an unchanged local row: replay /
+    -- out-of-order delivery.
     RETURN 'unchanged';
-  ELSIF v_cur.updated_at IS DISTINCT FROM v_prov.receiver_revision THEN
-    -- Changed here since our last import: never overwritten.
-    RETURN 'conflict';
   ELSE
     v_before := private.referral_import_fields(v_cur);
     -- A newer source revision with nothing different in what we import (or a

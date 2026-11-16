@@ -15,5 +15,8 @@
 - [x] D3. Unit-scoped normalized bed checks; board uses the RPC only
 - [x] E. Optional: safe sync status for clinical members of the bridge unit
 - [x] V. Offline tests, isolated PGlite + throwaway PostgreSQL races, typecheck, build, lint
-- [ ] V2. Visual phone/desktop check of the referral dialog — blocked: the only running preview reads the live clinical database
-- [ ] R. Apply staged 0005–0007, publish, enable CCC — waiting on the owner's release gate
+- [x] V2. Visual phone/desktop check of the referral dialog (synthetic offline harness)
+- [x] F1. Prefill confirm: one service-role transaction (staged 0009) with session/role/unit/link/revision/blank checks, locks and audit
+- [x] F2. Import: content-free tombstone watermark; receiver divergence checked before replay
+- [x] F3. Release docs: CCC receiver before Hub publish; staged vs applied table
+- [ ] R. CCC receiver deploy, apply staged 0005–0009, publish Hub, enable CCC, post-publish cleanup — waiting on the owner's release gate

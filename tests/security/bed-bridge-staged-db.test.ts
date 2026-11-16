@@ -17,6 +17,7 @@ export const STAGED_FILES = [
   "0006_bridge_import_provenance.sql",
   "0007_bridge_wardable_fence.sql",
   "0008_bridge_read_exports.sql",
+  "0009_referral_prefill_atomic.sql",
 ].map((f) => join(STAGED_DIR, f));
 export const STAGED_SQL = STAGED_FILES[0]!;
 export const stagedSql = (): string =>
@@ -480,6 +481,9 @@ describe("function permissions on a fresh schema", () => {
     ["public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)", "anon", false],
     ["public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)", "authenticated", false],
     ["public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)", "service_role", true],
+    ["public.apply_referral_prefill(uuid,uuid,jsonb)", "anon", false],
+    ["public.apply_referral_prefill(uuid,uuid,jsonb)", "authenticated", false],
+    ["public.apply_referral_prefill(uuid,uuid,jsonb)", "service_role", true],
     ["private.bridge_unit_id()", "authenticated", false],
     ["private.bridge_unit_id()", "anon", false],
   ] as const)("%s for %s = %s", async (fn, role, ok) => {
@@ -501,9 +505,9 @@ describe("function permissions on a fresh schema", () => {
   it("helpers run with an empty search_path", async () => {
     const r = await superQ(
       `SELECT p.proname, p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-        WHERE p.proname IN ('bridge_import_referral','bridge_import_result','bridge_insert_investigation','bridge_set_wardable','bridge_unit_id')`,
+        WHERE p.proname IN ('bridge_import_referral','bridge_import_result','bridge_insert_investigation','bridge_set_wardable','bridge_unit_id','apply_referral_prefill')`,
     );
-    expect(r.rows).toHaveLength(5);
+    expect(r.rows).toHaveLength(6);
     for (const row of r.rows) expect(row.proconfig).toEqual(['search_path=""']);
   });
 });
@@ -649,11 +653,87 @@ describe("bridge_import_referral — provenance and ownership", () => {
     expect(await localRef()).toEqual(before);
     expect((await prov())!.s).toBe("2026-03-04 00:00:00+00");
   });
-  it("an unknown tombstone is a no-op, never a blank insert", async () => {
+  it("an unknown tombstone never inserts a row, but keeps a minimal watermark", async () => {
     const id = refId(2);
     expect(await importReferral(tomb(id, "2026-03-05T00:00:00Z"))).toBe("unknown_tombstone");
     expect(await localRef(id)).toBeUndefined();
+    expect(await prov(id)).toEqual({
+      s: "2026-03-05 00:00:00+00",
+      r: null,
+      source_deleted_at: expect.anything(),
+    });
+    // Nothing clinical is recorded anywhere for it.
+    expect(await refAudits(id)).toBe(0);
+  });
+  it("a delayed older or equal live row after an unknown tombstone never resurrects it", async () => {
+    const id = refId(2);
+    expect(await importReferral(refRec({ id, updated_at: "2026-03-04T23:59:59Z" }))).toBe(
+      "unchanged",
+    );
+    expect(await importReferral(refRec({ id, updated_at: "2026-03-05T00:00:00Z" }))).toBe(
+      "unchanged",
+    );
+    // An older tombstone doesn't move the watermark backwards.
+    expect(await importReferral(tomb(id, "2026-03-01T00:00:00Z"))).toBe("unchanged");
+    expect(await localRef(id)).toBeUndefined();
+    expect((await prov(id))!.s).toBe("2026-03-05 00:00:00+00");
+  });
+  it("a newer tombstone advances the watermark; a strictly newer live row is a genuine restore", async () => {
+    const id = refId(2);
+    expect(await importReferral(tomb(id, "2026-03-06T00:00:00Z"))).toBe("unknown_tombstone");
+    expect((await prov(id))!.s).toBe("2026-03-06 00:00:00+00");
+    expect(await importReferral(refRec({ id, updated_at: "2026-03-06T00:00:00.000001Z" }))).toBe(
+      "inserted",
+    );
+    const l = (await localRef(id))!;
+    expect(l.deleted_at).toBeNull();
+    expect(await prov(id)).toEqual({
+      s: "2026-03-06 00:00:00.000001+00",
+      r: l.u,
+      source_deleted_at: null,
+    });
+    expect(await refAudits(id)).toBe(1);
+  });
+  it("a local row created under a watermarked id is a conflict, never adopted", async () => {
+    const id = refId(6);
+    expect(await importReferral(tomb(id, "2026-03-05T00:00:00Z"))).toBe("unknown_tombstone");
+    await superQ(
+      "INSERT INTO public.referrals (id, status, current_ward) VALUES ($1,'pending','LOCAL')",
+      [id],
+    );
+    expect(await importReferral(refRec({ id, updated_at: "2099-01-01T00:00:00Z" }))).toBe(
+      "conflict",
+    );
+    expect((await localRef(id))!.current_ward).toBe("LOCAL");
+    expect((await prov(id))!.r).toBeNull();
+  });
+  it("a rolled-back watermark leaves nothing behind", async () => {
+    const id = refId(7);
+    await db.exec("BEGIN");
+    await db.exec("SET LOCAL ROLE service_role");
+    await superQ("SELECT public.bridge_import_referral($1::jsonb)", [
+      JSON.stringify(tomb(id, "2026-03-05T00:00:00Z")),
+    ]);
+    await db.exec("ROLLBACK");
     expect(await prov(id)).toBeUndefined();
+    expect(await importReferral(refRec({ id, updated_at: "2026-03-01T00:00:00Z" }))).toBe(
+      "inserted",
+    );
+  });
+  it("receiver divergence is reported before an equal or older replay looks healthy", async () => {
+    const id = refId(8);
+    expect(await importReferral(refRec({ id }))).toBe("inserted");
+    await superQ("UPDATE public.referrals SET current_ward='LOCAL' WHERE id=$1", [id]);
+    const before = await localRef(id);
+    const p0 = await prov(id);
+    expect(await importReferral(refRec({ id }))).toBe("conflict"); // equal revision
+    expect(await importReferral(refRec({ id, updated_at: "2026-01-01T00:00:00Z" }))).toBe(
+      "conflict",
+    );
+    expect(await importReferral(tomb(id, "2026-01-01T00:00:00Z"))).toBe("conflict");
+    expect(await localRef(id)).toEqual(before);
+    // Source revision is untouched by local timestamps.
+    expect(await prov(id)).toEqual(p0);
   });
   it("a legacy or locally created row without provenance is a conflict, never adopted", async () => {
     const id = refId(3);
@@ -1119,5 +1199,216 @@ describe("bridge_set_wardable — fenced, atomic", () => {
     await expect(superQ("TRUNCATE private.bridge_wardable_fence")).rejects.toThrow(
       /cannot be removed/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Native referral prefill: one transaction for checks, write and audit (0009)
+// ---------------------------------------------------------------------------
+describe("apply_referral_prefill — atomic, linked, fill-blank-only", () => {
+  const RP = refId(40);
+  const PT = P.a3; // unit A, clinician A
+  type Req = Record<string, unknown>;
+  const call = (user: string, req: Req, session = sid(user)) =>
+    asService(
+      async () =>
+        (
+          await superQ("SELECT public.apply_referral_prefill($1::uuid, $2::uuid, $3::jsonb) AS r", [
+            user,
+            session,
+            JSON.stringify(req),
+          ])
+        ).rows[0]!.r as Record<string, unknown>,
+    );
+  const refRev = async () =>
+    (await superQ("SELECT to_json(updated_at)#>>'{}' AS u FROM public.referrals WHERE id=$1", [RP]))
+      .rows[0]!.u as string;
+  const patRev = async () =>
+    (await superQ("SELECT to_json(updated_at)#>>'{}' AS u FROM public.patients WHERE id=$1", [PT]))
+      .rows[0]!.u as string;
+  const req = async (over: Req = {}): Promise<Req> => ({
+    patient_id: PT,
+    referral_id: RP,
+    expected_patient_updated_at: await patRev(),
+    expected_referral_updated_at: await refRev(),
+    set: { current_admission: "CIPHER-A", tep_details: "CIPHER-T" },
+    ...over,
+  });
+  const state = async () =>
+    (
+      await superQ(
+        "SELECT current_admission_enc AS a, current_management_enc AS m, tep_details_enc AS t, dnacpr_details_enc AS d, dnacpr_decision AS dec, updated_at::text AS u FROM public.patients WHERE id=$1",
+        [PT],
+      )
+    ).rows[0] as Record<string, unknown>;
+  const audits = async () =>
+    (
+      await superQ(
+        "SELECT count(*)::int AS n FROM public.record_audit WHERE record_id=$1 AND after->>'operation'='referral_prefill'",
+        [PT],
+      )
+    ).rows[0]!.n as number;
+  const reset = async () => {
+    await superQ(
+      "UPDATE public.patients SET current_admission=NULL, current_admission_enc=NULL, current_management_enc=NULL, tep_details_enc=NULL, dnacpr_details_enc=NULL, dnacpr_decision=false, source_referral_id=$2 WHERE id=$1",
+      [PT, RP],
+    );
+    await superQ(
+      "UPDATE public.referrals SET deleted_at=NULL, resus_status='for_cpr' WHERE id=$1",
+      [RP],
+    );
+  };
+
+  beforeAll(async () => {
+    await superQ(
+      "INSERT INTO public.referrals (id, status, reason_category, ceiling_of_care, resus_status) VALUES ($1,'pending','sepsis','full_escalation','for_cpr')",
+      [RP],
+    );
+  });
+
+  it("applies in one transaction: blanks filled, audit and field history written", async () => {
+    await reset();
+    const r = await call(U.clinA, await req());
+    expect(r.ok).toBe(true);
+    expect(r.applied_fields).toEqual(["current_admission", "tep_details"]);
+    expect(await state()).toMatchObject({ a: "CIPHER-A", t: "CIPHER-T", m: null, dec: false });
+    expect(await audits()).toBe(1);
+    const fc = await superQ(
+      "SELECT field_name, old_value, new_value, changed_by FROM public.patient_field_changes WHERE patient_id=$1 AND field_name IN ('current_admission','tep_details') ORDER BY changed_at DESC, field_name LIMIT 2",
+      [PT],
+    );
+    expect(fc.rows).toEqual([
+      {
+        field_name: "current_admission",
+        old_value: null,
+        new_value: "CIPHER-A",
+        changed_by: U.clinA,
+      },
+      { field_name: "tep_details", old_value: null, new_value: "CIPHER-T", changed_by: U.clinA },
+    ]);
+  });
+  it("never overwrites a field that is no longer blank (fill-blank-only)", async () => {
+    await reset();
+    const r0 = await req();
+    await superQ("UPDATE public.patients SET tep_details_enc='LOCAL' WHERE id=$1", [PT]);
+    // Even with the new revision, a filled target is refused.
+    const r = await call(U.clinA, { ...r0, expected_patient_updated_at: await patRev() });
+    expect(r).toEqual({ ok: false, code: "stale" });
+    expect((await state()).t).toBe("LOCAL");
+    expect((await state()).a).toBeNull();
+  });
+  it("refuses a stale patient revision or a stale referral revision; writes nothing", async () => {
+    await reset();
+    const r0 = await req();
+    await superQ("UPDATE public.referrals SET current_ward='EDIT' WHERE id=$1", [RP]);
+    expect(await call(U.clinA, r0)).toEqual({ ok: false, code: "stale" });
+    const r1 = await req();
+    await superQ("UPDATE public.patients SET bed=bed WHERE id=$1", [PT]);
+    const n = await audits();
+    expect(await call(U.clinA, r1)).toEqual({ ok: false, code: "stale" });
+    expect((await state()).a).toBeNull();
+    expect(await audits()).toBe(n);
+  });
+  it("refuses a deleted (tombstoned) or missing source referral", async () => {
+    await reset();
+    const r0 = await req();
+    await superQ("UPDATE public.referrals SET deleted_at=now() WHERE id=$1", [RP]);
+    expect(await call(U.clinA, { ...r0, expected_referral_updated_at: await refRev() })).toEqual({
+      ok: false,
+      code: "referral_unavailable",
+    });
+    expect(await call(U.clinA, { ...r0, referral_id: refId(41) })).toEqual({
+      ok: false,
+      code: "referral_unavailable",
+    });
+    expect((await state()).a).toBeNull();
+  });
+  it("requires the exact existing link; never creates one", async () => {
+    await reset();
+    await superQ("UPDATE public.patients SET source_referral_id=NULL WHERE id=$1", [PT]);
+    expect(await call(U.clinA, await req())).toEqual({ ok: false, code: "link_required" });
+    await superQ("UPDATE public.patients SET source_referral_id=$2 WHERE id=$1", [PT, REF]);
+    expect(await call(U.clinA, await req())).toEqual({ ok: false, code: "link_required" });
+    expect((await state()).a).toBeNull();
+  });
+  it("scopes by unit and role; a locked or foreign session is refused", async () => {
+    await reset();
+    expect(await call(U.clinB, await req())).toEqual({ ok: false, code: "not_found" });
+    expect(await call(U.auditorA, await req())).toEqual({ ok: false, code: "not_found" });
+    expect(await call(U.clinA, await req(), sid(U.clinB))).toEqual({
+      ok: false,
+      code: "not_authorised",
+    });
+    await superQ(
+      "INSERT INTO public.session_guard (session_id, user_id, last_activity_at, locked_at) VALUES ($1,$2,now(),now())",
+      [sid(U.clinA), U.clinA],
+    );
+    try {
+      expect(await call(U.clinA, await req())).toEqual({ ok: false, code: "not_authorised" });
+    } finally {
+      await superQ("DELETE FROM public.session_guard WHERE session_id=$1", [sid(U.clinA)]);
+    }
+    expect((await state()).a).toBeNull();
+  });
+  it("only offers what the referral holds; an explicit false decision is never replaced", async () => {
+    await reset();
+    // Referral has no DNACPR status, so dnacpr_details is not on offer.
+    await expect(call(U.clinA, await req({ set: { dnacpr_details: "X" } }))).resolves.toEqual({
+      ok: false,
+      code: "stale",
+    });
+    // dnacpr_decision is false (explicit) — never replaced, whatever is asked.
+    expect(await call(U.clinA, await req({ set: {}, dnacpr_decision: false }))).toEqual({
+      ok: false,
+      code: "stale",
+    });
+    expect((await state()).dec).toBe(false);
+  });
+  it("an unset decision is filled only with the referral's explicit status", async () => {
+    await reset();
+    await superQ("ALTER TABLE public.patients ALTER COLUMN dnacpr_decision DROP NOT NULL");
+    try {
+      await superQ("UPDATE public.patients SET dnacpr_decision=NULL WHERE id=$1", [PT]);
+      expect(await call(U.clinA, await req({ set: {}, dnacpr_decision: true }))).toEqual({
+        ok: false,
+        code: "stale",
+      });
+      const r = await call(U.clinA, await req({ set: {}, dnacpr_decision: false }));
+      expect(r.ok).toBe(true);
+      expect((await state()).dec).toBe(false);
+    } finally {
+      await superQ(
+        "UPDATE public.patients SET dnacpr_decision=false WHERE dnacpr_decision IS NULL",
+      );
+      await superQ("ALTER TABLE public.patients ALTER COLUMN dnacpr_decision SET NOT NULL");
+    }
+  });
+  it("audit failure rolls back the patient write", async () => {
+    await reset();
+    const before = await state();
+    await expect(failAuditInserts(async () => call(U.clinA, await req()))).rejects.toThrow(
+      /audit_injected/,
+    );
+    await expect(
+      failAuditInserts(async () => call(U.clinA, await req()), "patient_field_changes"),
+    ).rejects.toThrow(/audit_injected/);
+    expect(await state()).toEqual(before);
+  });
+  it("rejects malformed requests, unknown fields and blank or oversized values", async () => {
+    await reset();
+    const bad: Req[] = [
+      await req({ set: { past_medical_history: "X" } }),
+      await req({ set: { current_admission: "" } }),
+      await req({ set: { current_admission: "x".repeat(20001) } }),
+      await req({ set: { current_admission: 1 } }),
+      await req({ set: {} }),
+      await req({ source_referral_id: RP }),
+      await req({ expected_patient_updated_at: "yesterday" }),
+      await req({ patient_id: "not-a-uuid" }),
+      await req({ dnacpr_decision: "yes" }),
+    ];
+    for (const [i, b] of bad.entries())
+      await expect(call(U.clinA, b), `case ${i}`).rejects.toThrow(/invalid_request/);
+    expect((await state()).a).toBeNull();
   });
 });

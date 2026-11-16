@@ -90,6 +90,7 @@ d("bed moves under real concurrency", () => {
       "0006_bridge_import_provenance.sql",
       "0007_bridge_wardable_fence.sql",
       "0008_bridge_read_exports.sql",
+      "0009_referral_prefill_atomic.sql",
     ])
       await admin.unsafe(readFileSync(join(ROOT, "docs/security/staged-migrations", f), "utf8"));
   }, 120_000);
@@ -303,5 +304,207 @@ d("bed moves under real concurrency", () => {
     const after = await a.begin(async (tx) => setW(tx, await rev(PW), false, "16"));
     expect(after).toEqual({ ok: false, code: "not_found" });
     expect(await state()).toMatchObject({ h: "15", a: "15" });
+  });
+
+  // ---- partner referral import watermark (0006) ----------------------------
+  const RID = (n: number) => `30000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}`;
+  const live = (id: string, at: string) =>
+    JSON.stringify({
+      id,
+      created_at: "2026-03-01T10:00:00Z",
+      updated_at: at,
+      deleted_at: null,
+      status: "pending",
+      referral_received_at: "2026-03-01T10:00:00Z",
+      age: 70,
+      sex: "female",
+      current_ward: "W1",
+      current_bed: "B1",
+      referring_specialty: "Medicine",
+      reason_category: "sepsis",
+      ceiling_of_care: "full_escalation",
+      resus_status: "for_cpr",
+      dnacpr_respect: false,
+      anticipated_interventions: [],
+      allergies: null,
+      weight_kg: null,
+      admission_urgency: null,
+      infection_status: null,
+      news2_score: null,
+    });
+  const dead = (id: string, at: string) => JSON.stringify({ id, updated_at: at, deleted_at: at });
+  const imp = async (tx: postgres.TransactionSql, rec: string) => {
+    await tx.unsafe("SET LOCAL ROLE service_role");
+    const r = await tx`SELECT public.bridge_import_referral((${rec}::text)::jsonb) AS r`;
+    return r[0]!.r as string;
+  };
+  const refRow = async (id: string) =>
+    (await admin`SELECT deleted_at FROM public.referrals WHERE id = ${id}`)[0] as
+      | { deleted_at: Date | null }
+      | undefined;
+
+  it("import: an unknown tombstone in flight makes a delayed older live row wait, then stay deleted", async () => {
+    const id = RID(1);
+    const first = a.begin(async (tx) => {
+      const r = await imp(tx, dead(id, "2026-03-05T00:00:00Z"));
+      await sleep(400);
+      return r;
+    });
+    await sleep(100);
+    const second = b.begin((tx) => imp(tx, live(id, "2026-03-04T00:00:00Z")));
+    expect(await Promise.all([first, second])).toEqual(["unknown_tombstone", "unchanged"]);
+    expect(await refRow(id)).toBeUndefined();
+  });
+
+  it("import: the other order — older live in flight, tombstone waits, then deletes it", async () => {
+    const id = RID(2);
+    const first = a.begin(async (tx) => {
+      const r = await imp(tx, live(id, "2026-03-04T00:00:00Z"));
+      await sleep(400);
+      return r;
+    });
+    await sleep(100);
+    const second = b.begin((tx) => imp(tx, dead(id, "2026-03-05T00:00:00Z")));
+    expect(await Promise.all([first, second])).toEqual(["inserted", "deleted"]);
+    expect((await refRow(id))!.deleted_at).not.toBeNull();
+    // A late replay of the older live row afterwards still can't restore it.
+    expect(await a.begin((tx) => imp(tx, live(id, "2026-03-04T00:00:00Z")))).toBe("unchanged");
+    expect((await refRow(id))!.deleted_at).not.toBeNull();
+  });
+
+  it("import: a rolled-back tombstone leaves no watermark; the waiting live row is inserted", async () => {
+    const id = RID(3);
+    const first = a
+      .begin(async (tx) => {
+        await imp(tx, dead(id, "2026-03-05T00:00:00Z"));
+        await sleep(400);
+        throw new Error("rollback_injected");
+      })
+      .catch((e: Error) => e.message);
+    await sleep(100);
+    const second = b.begin((tx) => imp(tx, live(id, "2026-03-04T00:00:00Z")));
+    expect(await Promise.all([first, second])).toEqual(["rollback_injected", "inserted"]);
+    expect((await refRow(id))!.deleted_at).toBeNull();
+  });
+
+  it("import: two first imports of an absent referral are serialised — one row, one audit", async () => {
+    const id = RID(4);
+    const first = a.begin(async (tx) => {
+      const r = await imp(tx, live(id, "2026-03-04T00:00:00Z"));
+      await sleep(300);
+      return r;
+    });
+    await sleep(80);
+    const second = b.begin((tx) => imp(tx, live(id, "2026-03-04T00:00:00Z")));
+    expect(await Promise.all([first, second])).toEqual(["inserted", "unchanged"]);
+    const n = await admin`SELECT
+      (SELECT count(*)::int FROM public.referrals WHERE id = ${id}) AS r,
+      (SELECT count(*)::int FROM public.record_audit WHERE record_id = ${id}) AS a`;
+    expect(n[0]).toEqual({ r: 1, a: 1 });
+  });
+
+  // ---- native referral prefill (0009) -------------------------------------
+  const PP = "20000000-0000-4000-8000-0000000000b1";
+  const iso = async (sql: string, id: string) => (await admin.unsafe(sql, [id]))[0]!.u as string;
+  const prev = () =>
+    iso("SELECT to_json(updated_at)#>>'{}' AS u FROM public.patients WHERE id = $1", PP);
+  const rrev = (id: string) =>
+    iso("SELECT to_json(updated_at)#>>'{}' AS u FROM public.referrals WHERE id = $1", id);
+  const linkTo = async (rid: string) => {
+    await admin`UPDATE public.patients SET source_referral_id = ${rid}, current_admission_enc = NULL WHERE id = ${PP}`;
+  };
+  const apply = async (tx: postgres.TransactionSql, rid: string, pAt: string, rAt: string) => {
+    await tx.unsafe("SET LOCAL ROLE service_role");
+    const req = JSON.stringify({
+      patient_id: PP,
+      referral_id: rid,
+      expected_patient_updated_at: pAt,
+      expected_referral_updated_at: rAt,
+      set: { current_admission: "CIPHER" },
+    });
+    const r =
+      await tx`SELECT public.apply_referral_prefill(${C1}::uuid, ${sid(C1)}::uuid, (${req}::text)::jsonb) AS r`;
+    return r[0]!.r as { ok: boolean; code?: string };
+  };
+  const filled = async () =>
+    (await admin`SELECT current_admission_enc AS a FROM public.patients WHERE id = ${PP}`)[0]!.a;
+
+  it("prefill: a source edit in flight makes the apply wait, then refuse as stale", async () => {
+    await admin`INSERT INTO public.patients (id, unit_id, full_name) VALUES (${PP}, ${UNIT}, 'P.P.') ON CONFLICT DO NOTHING`;
+    const rid = RID(10);
+    await admin`INSERT INTO public.referrals (id, status, reason_category) VALUES (${rid}, 'pending', 'sepsis')`;
+    await linkTo(rid);
+    const [pAt, rAt] = [await prev(), await rrev(rid)];
+    const edit = a.begin(async (tx) => {
+      await tx`UPDATE public.referrals SET current_ward = 'MOVED' WHERE id = ${rid}`;
+      await sleep(400);
+    });
+    await sleep(100);
+    const ap = b.begin((tx) => apply(tx, rid, pAt, rAt));
+    const [, r] = await Promise.all([edit, ap]);
+    expect(r).toEqual({ ok: false, code: "stale" });
+    expect(await filled()).toBeNull();
+  });
+
+  it("prefill: an apply in flight makes the source edit wait; the apply commits against the version it checked", async () => {
+    const rid = RID(10);
+    const [pAt, rAt] = [await prev(), await rrev(rid)];
+    const order: string[] = [];
+    const ap = a.begin(async (tx) => {
+      const r = await apply(tx, rid, pAt, rAt);
+      order.push(`apply:${r.ok}`);
+      await sleep(400);
+      order.push("apply:commit");
+    });
+    await sleep(100);
+    const edit = b.begin(async (tx) => {
+      await tx`UPDATE public.referrals SET current_ward = 'MOVED AGAIN' WHERE id = ${rid}`;
+      order.push("edit");
+    });
+    await Promise.all([ap, edit]);
+    expect(order).toEqual(["apply:true", "apply:commit", "edit"]);
+    expect(await filled()).toBe("CIPHER");
+    const n =
+      await admin`SELECT count(*)::int AS n FROM public.record_audit WHERE record_id = ${PP} AND after->>'operation' = 'referral_prefill'`;
+    expect(n[0]!.n).toBe(1);
+  });
+
+  it("prefill: a partner tombstone in flight makes the apply wait, then refuse (no stale prefill)", async () => {
+    const rid = RID(11);
+    expect(await a.begin((tx) => imp(tx, live(rid, "2026-03-04T00:00:00Z")))).toBe("inserted");
+    await linkTo(rid);
+    const [pAt, rAt] = [await prev(), await rrev(rid)];
+    const del = a.begin(async (tx) => {
+      const r = await imp(tx, dead(rid, "2026-03-05T00:00:00Z"));
+      await sleep(400);
+      return r;
+    });
+    await sleep(100);
+    const ap = b.begin((tx) => apply(tx, rid, pAt, rAt));
+    const [d1, r] = await Promise.all([del, ap]);
+    expect(d1).toBe("deleted");
+    expect(r).toEqual({ ok: false, code: "referral_unavailable" });
+    expect(await filled()).toBeNull();
+  });
+
+  it("prefill: an apply in flight makes a native soft delete wait; no deadlock either way", async () => {
+    const rid = RID(12);
+    await admin`INSERT INTO public.referrals (id, status, reason_category) VALUES (${rid}, 'pending', 'sepsis')`;
+    await linkTo(rid);
+    const [pAt, rAt] = [await prev(), await rrev(rid)];
+    const ap = a.begin(async (tx) => {
+      const r = await apply(tx, rid, pAt, rAt);
+      await sleep(300);
+      return r;
+    });
+    await sleep(80);
+    const del = b.begin(async (tx) => {
+      await tx`UPDATE public.referrals SET deleted_at = now() WHERE id = ${rid}`;
+      return "deleted";
+    });
+    const [r, d1] = await Promise.all([ap, del]);
+    expect(r).toMatchObject({ ok: true });
+    expect(d1).toBe("deleted");
+    expect(await filled()).toBe("CIPHER");
   });
 });
