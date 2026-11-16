@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { fakeSupabase, hasFilter, type FakeCall, type FakeResult } from "../support/fake-supabase";
-import { readSyncStatus } from "@/lib/sync-status.server";
+import { readSyncStatus, syncStatusAccess } from "@/lib/sync-status.server";
 import {
   INBOUND_SYNC_ACTOR_ROLE,
   overallState,
@@ -42,10 +42,11 @@ describe("sync status — evidence query", () => {
     expect(d.calls).toHaveLength(0);
   });
 
-  it("queries only this app's inbound pulls, per resource, without actor columns", async () => {
+  it("queries only this app's inbound pulls, per imported resource, without actor columns", async () => {
     const d = eventsDb([]);
     await readSyncStatus(d, trust);
-    expect(d.calls).toHaveLength(8);
+    // Patients are recorded here (source-owned), never imported: no query.
+    expect(d.calls).toHaveLength(6);
     for (const c of d.calls) {
       expect(c.table).toBe("bridge_sync_events");
       expect(c.columns).not.toMatch(/actor/);
@@ -53,12 +54,29 @@ describe("sync status — evidence query", () => {
       expect(hasFilter(c, "eq", "actor_role", INBOUND_SYNC_ACTOR_ROLE)).toBe(true);
     }
     const entities = new Set(d.calls.map((c) => c.filters.find(([, k]) => k === "entity")?.[2]));
-    expect([...entities].sort()).toEqual([
-      "investigations",
-      "microbiology",
-      "patients",
-      "referrals",
-    ]);
+    expect([...entities].sort()).toEqual(["investigations", "microbiology", "referrals"]);
+  });
+
+  it("clinical members of the bridge unit see the same safe status through server code, and can't retry", async () => {
+    const own = eventsDb([]);
+    const server = eventsDb([{ entity: "referrals", status: "success", created_at: ago(1) }]);
+    const clin = { isTrustAdmin: false, isAuditor: false, isClinician: true, unitIds: ["uRadnor"] };
+    const s = await readSyncStatus(own, clin, { bridgeUnitId: "uRadnor", serverClient: async () => server });
+    expect(own.calls).toHaveLength(0); // no table access of their own
+    expect(s.access === "granted" && s.canRetry).toBe(false);
+    for (const c of server.calls) expect(c.columns).not.toMatch(/actor|email/);
+    expect(JSON.stringify(s)).not.toMatch(/actor|email/);
+  });
+
+  it("clinicians of other units, or when the bridge unit is unknown, see nothing", async () => {
+    const server = eventsDb([]);
+    const other = { isTrustAdmin: false, isAuditor: false, isClinician: true, unitIds: ["uOther"] };
+    expect(await readSyncStatus(eventsDb([]), other, { bridgeUnitId: "uRadnor", serverClient: async () => server })).toEqual({ access: "restricted" });
+    const member = { ...other, unitIds: ["uRadnor"] };
+    expect(await readSyncStatus(eventsDb([]), member, { bridgeUnitId: null, serverClient: async () => server })).toEqual({ access: "restricted" });
+    expect(server.calls).toHaveLength(0);
+    expect(syncStatusAccess({ isTrustAdmin: false, isAuditor: false, unitIds: ["uRadnor"] }, "uRadnor")).toBe("restricted");
+    expect(syncStatusAccess({ isTrustAdmin: false, isAuditor: false, isUnitAdmin: true, unitIds: ["uRadnor"] }, "uRadnor")).toBe("scoped_clinical");
   });
 
   it("auditors can view but not retry; Trust admins can retry", async () => {
@@ -72,7 +90,7 @@ describe("sync status — evidence query", () => {
     const s = await readSyncStatus(
       eventsDb([
         {
-          entity: "patients",
+          entity: "referrals",
           status: "error",
           created_at: ago(1),
           error_message: "Partner said SYN-ZZ",
@@ -80,9 +98,9 @@ describe("sync status — evidence query", () => {
       ]),
       trust,
     );
-    const p = s.access === "granted" ? s.resources[0] : null;
+    const p = s.access === "granted" ? s.resources.find((r) => r.entity === "referrals") : null;
     expect(p).toMatchObject({
-      entity: "patients",
+      entity: "referrals",
       lastAttemptOk: false,
       lastAttemptCode: "unknown",
     });
@@ -91,7 +109,7 @@ describe("sync status — evidence query", () => {
 
   it("a query failure for one resource marks only that resource unavailable", async () => {
     const s = await readSyncStatus(
-      eventsDb([{ entity: "patients", status: "success", created_at: ago(1) }], "referrals"),
+      eventsDb([{ entity: "investigations", status: "success", created_at: ago(1) }], "referrals"),
       trust,
     );
     if (s.access !== "granted") throw new Error("expected granted");
