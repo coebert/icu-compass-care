@@ -36,13 +36,28 @@ export function parseWardableRequest(raw: unknown): WardableRequest | null {
   if (typeof o.wardable !== "boolean") return null;
   const rev = parseDesiredRevision(o.desired_revision);
   if (rev === null) return null;
-  return { id: o.id.toLowerCase(), expected_updated_at: o.expected_updated_at, wardable: o.wardable, desired_revision: rev };
+  return {
+    id: o.id.toLowerCase(),
+    expected_updated_at: o.expected_updated_at,
+    wardable: o.wardable,
+    desired_revision: rev,
+  };
 }
 
-export const WARDABLE_CONFLICT_CODES = ["superseded", "revision_conflict", "intent_conflict", "target_changed"] as const;
+export const WARDABLE_CONFLICT_CODES = [
+  "superseded",
+  "revision_conflict",
+  "intent_conflict",
+  "target_changed",
+] as const;
 export type WardableConflictCode = (typeof WARDABLE_CONFLICT_CODES)[number];
 
-export type WardablePatient = { id: string; wardable: boolean; wardable_at: string | null; updated_at: string };
+export type WardablePatient = {
+  id: string;
+  wardable: boolean;
+  wardable_at: string | null;
+  updated_at: string;
+};
 export type WardableSuccess = {
   ok: true;
   status: "applied" | "already_applied";
@@ -50,7 +65,10 @@ export type WardableSuccess = {
   patient: WardablePatient;
 };
 export type WardableConflict = { ok: false; code: WardableConflictCode; desired_revision: string };
-export type WardableError = { ok: false; code: "not_found" | "invalid_request" | "unavailable" | "replay" };
+export type WardableError = {
+  ok: false;
+  code: "not_found" | "invalid_request" | "unavailable" | "replay";
+};
 export type WardableResponse = WardableSuccess | WardableConflict | WardableError;
 
 /** Map the database helper's jsonb result to the exact HTTP contract. */
@@ -91,7 +109,10 @@ export function wardableHttp(result: unknown): { status: number; body: WardableR
   if ((WARDABLE_CONFLICT_CODES as readonly unknown[]).includes(r.code)) {
     const rev = parseDesiredRevision(r.desired_revision);
     if (rev === null) return unavailable;
-    return { status: 409, body: { ok: false, code: r.code as WardableConflictCode, desired_revision: rev } };
+    return {
+      status: 409,
+      body: { ok: false, code: r.code as WardableConflictCode, desired_revision: rev },
+    };
   }
   return unavailable;
 }
@@ -110,11 +131,17 @@ export function parseWardableResponse(
     const m = wardableHttp(b);
     return m.status === 200 ? m.body : { ok: false, code: "unknown" };
   }
-  if (status === 409 && b?.ok === false && (WARDABLE_CONFLICT_CODES as readonly unknown[]).includes(b.code)) {
+  if (
+    status === 409 &&
+    b?.ok === false &&
+    (WARDABLE_CONFLICT_CODES as readonly unknown[]).includes(b.code)
+  ) {
     const rev = parseDesiredRevision(b.desired_revision);
-    if (rev !== null && !("patient" in b)) return { ok: false, code: b.code as WardableConflictCode, desired_revision: rev };
+    if (rev !== null && !("patient" in b))
+      return { ok: false, code: b.code as WardableConflictCode, desired_revision: rev };
   }
-  if (status === 404 && b?.ok === false && b.code === "not_found") return { ok: false, code: "not_found" };
+  if (status === 404 && b?.ok === false && b.code === "not_found")
+    return { ok: false, code: "not_found" };
   if (status === 503) return { ok: false, code: "unavailable" };
   return { ok: false, code: "unknown" };
 }

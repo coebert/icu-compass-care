@@ -11,12 +11,7 @@ import {
 } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
 import { bedTakenInUnit, isBedUniqueViolation } from "@/lib/bed-occupancy.server";
-import {
-  bedMoveError,
-  bedMoveErrorCode,
-  type BedMove,
-  type BedMoveResult,
-} from "@/lib/bed-moves";
+import { bedMoveError, bedMoveErrorCode, type BedMove, type BedMoveResult } from "@/lib/bed-moves";
 import { loadActor } from "@/lib/roles.server";
 import {
   decryptPatientRow,
@@ -67,7 +62,9 @@ async function assertBedFree(
   try {
     taken = await bedTakenInUnit(supabase, unitId, bed, excludeId);
   } catch {
-    throw new Error("Bed availability couldn't be checked, so nothing was saved. Please try again.");
+    throw new Error(
+      "Bed availability couldn't be checked, so nothing was saved. Please try again.",
+    );
   }
   if (taken) throw new Error(bedTakenMessage(bed));
 }
@@ -81,7 +78,9 @@ export const listPatients = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("patients")
-      .select("*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)")
+      .select(
+        "*, investigations(category, findings, result_at), microbiology_results(specimen_type, findings, result_at), patient_observations(id, patient_id, recorded_at, recorded_by, hr, sbp, dbp, map, spo2, fio2, rr, temp, gcs, lactate, vent_mode, peep, vt, vasopressor, vasopressor_dose, urine_ml, fluid_in_ml, fluid_out_ml, notes)",
+      )
       .order("updated_at", { ascending: false });
     if (error) throw safeDbError(error);
     // Ciphertext columns are opened here and stripped from the payload, so no
@@ -124,12 +123,14 @@ export const createPatient = createServerFn({ method: "POST" })
     }
     const { data: row, error } = await context.supabase
       .from("patients")
-      .insert(encryptPatientPayload({
-        ...cleaned,
-        unit_id: unitId,
-        created_by: context.userId,
-        updated_by: context.userId,
-      }) as never)
+      .insert(
+        encryptPatientPayload({
+          ...cleaned,
+          unit_id: unitId,
+          created_by: context.userId,
+          updated_by: context.userId,
+        }) as never,
+      )
 
       .select()
       .single();
@@ -407,7 +408,9 @@ export const getPatientFieldChanges = createServerFn({ method: "GET" })
     // listFieldChangeMetadata). Explicit columns, values decrypted below.
     const { data: rows, error } = await context.supabase
       .from("patient_field_changes")
-      .select("id, patient_id, field_name, old_value, new_value, changed_by, changed_by_email, changed_at")
+      .select(
+        "id, patient_id, field_name, old_value, new_value, changed_by, changed_by_email, changed_at",
+      )
       .eq("patient_id", data.id)
       .order("changed_at", { ascending: false })
       .limit(100);
@@ -433,7 +436,6 @@ export const listRecentFieldChanges = createServerFn({ method: "GET" })
     if (error) throw safeDbError(error);
     return rows ?? [];
   });
-
 
 // Status-change history for the Timeline, showing who made each change.
 // record_audit is admin-only via RLS, so this reads through the service-role
@@ -493,8 +495,7 @@ export const getPatientStatusChanges = createServerFn({ method: "GET" })
     return list.map((r) => {
       const before = (r.before ?? {}) as Record<string, unknown>;
       const after = (r.after ?? {}) as Record<string, unknown>;
-      const changedBy =
-        (r.actor_id && names.get(r.actor_id)) || r.actor_email || null;
+      const changedBy = (r.actor_id && names.get(r.actor_id)) || r.actor_email || null;
       return {
         id: r.id as string,
         at: (r.created_at as string) ?? null,
@@ -593,6 +594,3 @@ export const findPreviousAdmissions = createServerFn({ method: "GET" })
       rows as unknown as Array<Record<string, unknown>> | null,
     ) as unknown as PreviousAdmission[];
   });
-
-
-

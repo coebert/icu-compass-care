@@ -81,7 +81,10 @@ export function parseSyncPage(body: unknown, limit = SYNC_V1_PAGE_LIMIT): SyncPa
   if (!(next === null || typeof next === "string")) return fail("contract_mismatch");
   if (pg.complete && next !== null) return fail("pagination_invalid");
   if (!pg.complete && next === null) return fail("pagination_invalid");
-  if (typeof next === "string" && (next.length === 0 || next.length > MAX_CURSOR_LENGTH || !CURSOR_RE.test(next))) {
+  if (
+    typeof next === "string" &&
+    (next.length === 0 || next.length > MAX_CURSOR_LENGTH || !CURSOR_RE.test(next))
+  ) {
     return fail("pagination_invalid");
   }
   if (body.records.length > limit) return fail("pagination_invalid");
@@ -113,7 +116,11 @@ export class SyncPageCollector {
   private readonly started: number;
 
   constructor(
-    private readonly budget: { maxPages: number; maxRecords: number; maxMillis: number } = SYNC_V1_BUDGET,
+    private readonly budget: {
+      maxPages: number;
+      maxRecords: number;
+      maxMillis: number;
+    } = SYNC_V1_BUDGET,
     private readonly now: () => number = Date.now,
   ) {
     this.started = now();
@@ -138,7 +145,10 @@ export class SyncPageCollector {
       if (ts > (this.snapshotKey as bigint)) return fail("pagination_invalid");
       const id = (r.id as string).toLowerCase();
       if (this.ids.has(id)) return fail("pagination_invalid");
-      if (this.lastKey && (ts < this.lastKey.ts || (ts === this.lastKey.ts && id <= this.lastKey.id))) {
+      if (
+        this.lastKey &&
+        (ts < this.lastKey.ts || (ts === this.lastKey.ts && id <= this.lastKey.id))
+      ) {
         return fail("pagination_invalid");
       }
       this.ids.add(id);
@@ -173,13 +183,17 @@ export class SyncPageCollector {
  * (`pagination: { complete: true, next_cursor: null }`). A truncated feed is
  * never shown as empty or complete.
  */
-export function parseLegacyRecords(body: unknown, limit = LEGACY_REVIEW_LIMIT): Record<string, unknown>[] {
+export function parseLegacyRecords(
+  body: unknown,
+  limit = LEGACY_REVIEW_LIMIT,
+): Record<string, unknown>[] {
   if (!isPlainObject(body) || !Array.isArray(body.records)) return fail("malformed_response");
   const pg = body.pagination;
   if (
     body.truncated === true ||
     body.has_more === true ||
-    (isPlainObject(pg) && (pg.complete === false || (pg.next_cursor != null && pg.next_cursor !== "")))
+    (isPlainObject(pg) &&
+      (pg.complete === false || (pg.next_cursor != null && pg.next_cursor !== "")))
   ) {
     return fail("review_truncated");
   }
@@ -187,7 +201,8 @@ export function parseLegacyRecords(body: unknown, limit = LEGACY_REVIEW_LIMIT): 
   const provenComplete = isPlainObject(pg) && pg.complete === true && pg.next_cursor === null;
   if (body.records.length === limit && !provenComplete) return fail("review_truncated");
   for (const r of body.records) {
-    if (!isPlainObject(r) || typeof r.id !== "string" || r.id === "") return fail("malformed_record");
+    if (!isPlainObject(r) || typeof r.id !== "string" || r.id === "")
+      return fail("malformed_record");
   }
   return body.records as Record<string, unknown>[];
 }
@@ -198,8 +213,16 @@ const ENUMS = {
   referral_status: ["pending", "declined", "admitted"],
   sex: ["male", "female", "other", "unknown"],
   reason_category: [
-    "respiratory_failure", "sepsis", "shock", "post_op", "neurology",
-    "trauma", "gi_bleed", "metabolic", "overdose", "other",
+    "respiratory_failure",
+    "sepsis",
+    "shock",
+    "post_op",
+    "neurology",
+    "trauma",
+    "gi_bleed",
+    "metabolic",
+    "overdose",
+    "other",
   ],
   ceiling_of_care: ["full_escalation", "no_cpr", "ward_based", "symptom_control", "not_documented"],
   resus_status: ["for_cpr", "dnacpr", "not_documented"],
@@ -208,19 +231,39 @@ const ENUMS = {
 } as const;
 
 type FieldRule = (v: unknown) => boolean;
-const nullable = (rule: FieldRule): FieldRule => (v) => v === null || rule(v);
-const str = (max: number): FieldRule => (v) => typeof v === "string" && v.length <= max;
-const nonEmptyStr = (max: number): FieldRule => (v) => typeof v === "string" && v.trim().length > 0 && v.length <= max;
-const int = (min: number, max: number): FieldRule => (v) =>
-  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max;
-const num = (min: number, max: number): FieldRule => (v) =>
-  typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
-const oneOf = (vals: readonly string[]): FieldRule => (v) => typeof v === "string" && vals.includes(v);
+const nullable =
+  (rule: FieldRule): FieldRule =>
+  (v) =>
+    v === null || rule(v);
+const str =
+  (max: number): FieldRule =>
+  (v) =>
+    typeof v === "string" && v.length <= max;
+const nonEmptyStr =
+  (max: number): FieldRule =>
+  (v) =>
+    typeof v === "string" && v.trim().length > 0 && v.length <= max;
+const int =
+  (min: number, max: number): FieldRule =>
+  (v) =>
+    typeof v === "number" && Number.isInteger(v) && v >= min && v <= max;
+const num =
+  (min: number, max: number): FieldRule =>
+  (v) =>
+    typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
+const oneOf =
+  (vals: readonly string[]): FieldRule =>
+  (v) =>
+    typeof v === "string" && vals.includes(v);
 const bool: FieldRule = (v) => typeof v === "boolean";
 const instant: FieldRule = (v) => isInstant(v);
 const uuid: FieldRule = (v) => isUuid(v);
-const textArray = (maxItems: number, maxLen: number): FieldRule => (v) =>
-  Array.isArray(v) && v.length <= maxItems && v.every((x) => typeof x === "string" && x.length > 0 && x.length <= maxLen);
+const textArray =
+  (maxItems: number, maxLen: number): FieldRule =>
+  (v) =>
+    Array.isArray(v) &&
+    v.length <= maxItems &&
+    v.every((x) => typeof x === "string" && x.length > 0 && x.length <= maxLen);
 
 /**
  * Referral fields copied into this app. Everything else on the source row —
@@ -256,12 +299,19 @@ export const REFERRAL_IMPORT_RULES: Record<string, FieldRule> = {
 export const REFERRAL_IMPORT_FIELDS = Object.keys(REFERRAL_IMPORT_RULES);
 
 /** A live referral: every allowlisted field present, deleted_at explicitly null. */
-export type ImportedLiveReferral = { kind: "live"; id: string; updated_at: string; deleted_at: null } & Record<
-  string,
-  unknown
->;
+export type ImportedLiveReferral = {
+  kind: "live";
+  id: string;
+  updated_at: string;
+  deleted_at: null;
+} & Record<string, unknown>;
 /** CCC's intentionally minimal tombstone: exactly {id, updated_at, deleted_at}. */
-export type ImportedTombstone = { kind: "tombstone"; id: string; updated_at: string; deleted_at: string };
+export type ImportedTombstone = {
+  kind: "tombstone";
+  id: string;
+  updated_at: string;
+  deleted_at: string;
+};
 export type ImportedReferral = ImportedLiveReferral | ImportedTombstone;
 
 const TOMBSTONE_KEYS = ["id", "updated_at", "deleted_at"] as const;
@@ -302,7 +352,8 @@ export function mapReferral(src: Record<string, unknown>): ImportedReferral {
 
 /** The exact payload sent to the import helper: allowlisted keys only. */
 export function referralImportPayload(r: ImportedReferral): Record<string, unknown> {
-  if (r.kind === "tombstone") return { id: r.id, updated_at: r.updated_at, deleted_at: r.deleted_at };
+  if (r.kind === "tombstone")
+    return { id: r.id, updated_at: r.updated_at, deleted_at: r.deleted_at };
   const out: Record<string, unknown> = {};
   for (const k of REFERRAL_IMPORT_FIELDS) out[k] = r[k];
   return out;

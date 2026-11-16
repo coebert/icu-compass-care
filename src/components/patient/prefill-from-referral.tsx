@@ -32,10 +32,19 @@ type LinkedPreview = {
   patient_updated_at: string;
   referral_updated_at: string | null;
 };
-type BlockedPreview = { link: Exclude<PrefillLinkState, "linked">; partner_referral_url: string | null };
+type BlockedPreview = {
+  link: Exclude<PrefillLinkState, "linked">;
+  partner_referral_url: string | null;
+};
 type PrefillPreview = LinkedPreview | BlockedPreview;
 
-function InlineAlert({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+function InlineAlert({
+  children,
+  action,
+}: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div
       role="alert"
@@ -58,7 +67,12 @@ function OpenInCcc({ href, compact }: { href: string | null; compact?: boolean }
     );
   }
   return (
-    <Button asChild variant="outline" size="sm" className={compact ? "h-10 gap-1.5 sm:h-8" : "h-11 gap-1.5 sm:h-10"}>
+    <Button
+      asChild
+      variant="outline"
+      size="sm"
+      className={compact ? "h-10 gap-1.5 sm:h-8" : "h-11 gap-1.5 sm:h-10"}
+    >
       <a href={href} target="_blank" rel="noopener noreferrer">
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         Open in Critical Care Connect
@@ -156,7 +170,8 @@ export function PrefillFromReferral({
   });
   const preview = previewQ.data;
   const previewLoading = previewQ.isFetching;
-  const ready: LinkedPreview | null = preview?.link === "linked" ? (preview as LinkedPreview) : null;
+  const ready: LinkedPreview | null =
+    preview?.link === "linked" ? (preview as LinkedPreview) : null;
 
   const resetAndClose = () => {
     setOpen(false);
@@ -212,7 +227,12 @@ export function PrefillFromReferral({
   });
 
   const canConfirm =
-    !!ready && previewQ.isSuccess && !previewLoading && !stale && !linkLost && !prefillMut.isPending;
+    !!ready &&
+    previewQ.isSuccess &&
+    !previewLoading &&
+    !stale &&
+    !linkLost &&
+    !prefillMut.isPending;
 
   const fmtPatchValue = (v: string | boolean): string =>
     typeof v === "boolean" ? (v ? "Yes" : "No") : v;
@@ -239,9 +259,9 @@ export function PrefillFromReferral({
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                 <p>
                   This patient isn't linked to a referral yet, so nothing can be copied here. Find
-                  the referral below and open it in Critical Care Connect to confirm the match —
-                  it checks the hospital number against this record. Once linked, come back here
-                  to fill blank fields.
+                  the referral below and open it in Critical Care Connect to confirm the match — it
+                  checks the hospital number against this record. Once linked, come back here to
+                  fill blank fields.
                 </p>
               </div>
               {candidatesQ.isPending && (
@@ -285,7 +305,9 @@ export function PrefillFromReferral({
                       <div className="font-medium">{referralCandidateSummary(r)}</div>
                       <div className="text-xs text-muted-foreground">
                         {r.status ?? "referral"}
-                        {r.referral_received_at ? ` · received ${fmtDate(r.referral_received_at)}` : ""}
+                        {r.referral_received_at
+                          ? ` · received ${fmtDate(r.referral_received_at)}`
+                          : ""}
                       </div>
                     </div>
                     <OpenInCcc href={linkFor(r.id)} compact />
@@ -334,9 +356,7 @@ export function PrefillFromReferral({
               {preview && preview.link !== "linked" && !previewLoading && (
                 <LinkRequired href={preview.partner_referral_url} state={preview.link} />
               )}
-              {linkLost && (
-                <LinkRequired href={linkFor(linkedReferralId!)} state="unlinked" />
-              )}
+              {linkLost && <LinkRequired href={linkFor(linkedReferralId!)} state="unlinked" />}
               {stale && (
                 <InlineAlert
                   action={
@@ -414,8 +434,8 @@ export function PrefillFromReferral({
                                 {d.value ? "Yes" : "No"}
                               </span>
                               <span className="block text-muted-foreground">
-                                {d.label} This field is currently blank here. Only tick if you
-                                have confirmed it.
+                                {d.label} This field is currently blank here. Only tick if you have
+                                confirmed it.
                               </span>
                             </span>
                           </label>
@@ -449,7 +469,11 @@ export function PrefillFromReferral({
                   onClick={() => {
                     if (!linkedReferralId || !ready) return;
                     setApplyError(null);
-                    prefillMut.mutate({ referral_id: linkedReferralId, preview: ready, accept: accepted });
+                    prefillMut.mutate({
+                      referral_id: linkedReferralId,
+                      preview: ready,
+                      accept: accepted,
+                    });
                   }}
                 >
                   {prefillMut.isPending ? "Prefilling…" : "Confirm prefill"}

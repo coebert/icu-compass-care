@@ -59,7 +59,8 @@ export async function bridgeUpdateSharedPatient(
   const payload: Row = { ...args.payload };
   for (const k of PROTECTED_WRITE_COLUMNS) delete payload[k];
   const expectedKey = tsKey(args.expectedUpdatedAt);
-  if (expectedKey === null) return { kind: "error", error: new Error("expected revision required") };
+  if (expectedKey === null)
+    return { kind: "error", error: new Error("expected revision required") };
 
   const { data: current, error: readErr } = await readShared(admin, args.id, args.unitId);
   if (readErr) return { kind: "error", error: readErr };
@@ -75,7 +76,10 @@ export async function bridgeUpdateSharedPatient(
   if (touchesBed) {
     const merged = { ...current, ...payload };
     try {
-      if (occupiesBed(merged) && (await bedTakenInUnit(admin, args.unitId, merged.bed as string, args.id))) {
+      if (
+        occupiesBed(merged) &&
+        (await bedTakenInUnit(admin, args.unitId, merged.bed as string, args.id))
+      ) {
         return { kind: "bed_conflict" };
       }
     } catch (e) {

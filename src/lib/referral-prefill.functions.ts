@@ -132,6 +132,9 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
 export const getPartnerReferralBase = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const probe = partnerReferralUrl(process.env.PARTNER_BRIDGE_URL, "00000000-0000-4000-8000-000000000000");
+    const probe = partnerReferralUrl(
+      process.env.PARTNER_BRIDGE_URL,
+      "00000000-0000-4000-8000-000000000000",
+    );
     return { origin: probe ? new URL(probe).origin : null };
   });

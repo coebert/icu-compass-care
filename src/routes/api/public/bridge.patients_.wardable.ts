@@ -63,15 +63,18 @@ export const Route = createFileRoute("/api/public/bridge/patients_/wardable")({
         const req = parseWardableRequest(raw);
         if (!req) return json({ ok: false, code: "invalid_request" }, 400);
 
-        const { data, error } = await admin.rpc("bridge_set_wardable" as never, {
-          _patient_id: req.id,
-          _expected_updated_at: req.expected_updated_at,
-          _wardable: req.wardable,
-          // Decimal string end to end: never through a JS number.
-          _desired_revision: req.desired_revision,
-          // The actor comes from the verified signed envelope only.
-          _actor: { id: auth.actor.id, email: auth.actor.email ?? null, role: auth.actor.role },
-        } as never);
+        const { data, error } = await admin.rpc(
+          "bridge_set_wardable" as never,
+          {
+            _patient_id: req.id,
+            _expected_updated_at: req.expected_updated_at,
+            _wardable: req.wardable,
+            // Decimal string end to end: never through a JS number.
+            _desired_revision: req.desired_revision,
+            // The actor comes from the verified signed envelope only.
+            _actor: { id: auth.actor.id, email: auth.actor.email ?? null, role: auth.actor.role },
+          } as never,
+        );
         if (error) {
           const code = (error as { code?: string }).code;
           if (code === "PT400") return json({ ok: false, code: "invalid_request" }, 400);
@@ -81,7 +84,12 @@ export const Route = createFileRoute("/api/public/bridge/patients_/wardable")({
         }
         const out = wardableHttp(data);
         if (out.status === 200) {
-          await logSync(admin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
+          await logSync(admin, {
+            direction: "push",
+            entity: "patients",
+            record_count: 1,
+            actor: auth.actor,
+          });
         }
         return json(out.body, out.status);
       },

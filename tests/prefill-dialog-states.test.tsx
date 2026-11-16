@@ -44,7 +44,9 @@ const previewAt = (v: string, extra: Record<string, unknown> = {}) => ({
   link: "linked",
   applied_fields: ["current_admission"],
   skipped_fields: [],
-  patch: { current_admission: "From critical care referral — needs review: referral reason: Sepsis." },
+  patch: {
+    current_admission: "From critical care referral — needs review: referral reason: Sepsis.",
+  },
   decisions: [],
   patient_updated_at: v,
   referral_updated_at: "r1",
@@ -100,7 +102,9 @@ describe("unlinked patient", () => {
     retry.focus();
     expect(document.activeElement).toBe(retry);
     fireEvent.click(retry);
-    expect(await screen.findByRole("link", { name: /open in critical care connect/i })).toBeTruthy();
+    expect(
+      await screen.findByRole("link", { name: /open in critical care connect/i }),
+    ).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
   it("confirmed empty list says so", async () => {
@@ -130,7 +134,11 @@ describe("linked patient", () => {
   });
   it("a documented decision is applied only when ticked", async () => {
     h.preview.mockResolvedValue(
-      previewAt("v1", { decisions: [{ field: "dnacpr_decision", value: true, label: "The referral records DNACPR." }] }),
+      previewAt("v1", {
+        decisions: [
+          { field: "dnacpr_decision", value: true, label: "The referral records DNACPR." },
+        ],
+      }),
     );
     h.apply.mockResolvedValue({ applied_fields: ["dnacpr_decision"], skipped_fields: [] });
     open(RID);
@@ -144,18 +152,31 @@ describe("linked patient", () => {
   it("preview failure blocks confirm and offers retry", async () => {
     h.preview.mockRejectedValue(new Error("offline"));
     open(RID);
-    expect((await screen.findByRole("alert", {}, { timeout: 4000 })).textContent).toContain("preview couldn't be loaded");
-    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
+    expect((await screen.findByRole("alert", {}, { timeout: 4000 })).textContent).toContain(
+      "preview couldn't be loaded",
+    );
+    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     expect(screen.getByRole("button", { name: /try again/i })).toBeTruthy();
     expect(h.apply).not.toHaveBeenCalled();
   });
   it("a server-side link mismatch blocks copying and links to Critical Care Connect", async () => {
-    h.preview.mockResolvedValue({ link: "mismatch", partner_referral_url: `https://ccc.example/referrals/${RID}` });
+    h.preview.mockResolvedValue({
+      link: "mismatch",
+      partner_referral_url: `https://ccc.example/referrals/${RID}`,
+    });
     open(RID);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("linked to a different referral");
-    expect(within(alert).getByRole("link").getAttribute("href")).toBe(`https://ccc.example/referrals/${RID}`);
-    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
+    expect(within(alert).getByRole("link").getAttribute("href")).toBe(
+      `https://ccc.example/referrals/${RID}`,
+    );
+    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+      "disabled",
+      true,
+    );
   });
   it("link removed before saving: refused, explained, record refreshed", async () => {
     h.preview.mockResolvedValue(previewAt("v1"));
@@ -165,7 +186,10 @@ describe("linked patient", () => {
     await waitFor(() => expect(confirm).toHaveProperty("disabled", false));
     fireEvent.click(confirm);
     expect((await screen.findByRole("alert")).textContent).toContain("isn't linked");
-    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     expect(onDone).toHaveBeenCalledTimes(1);
   });
   it("stale preview on concurrent edit: rejected, reload, reconfirm with the new version", async () => {
@@ -178,11 +202,17 @@ describe("linked patient", () => {
     await waitFor(() => expect(confirm).toHaveProperty("disabled", false));
     fireEvent.click(confirm);
     expect((await screen.findByRole("alert")).textContent).toContain(PREFILL_STALE_MESSAGE);
-    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     expect(onDone).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: /reload preview/i }));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", false),
+      expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+        "disabled",
+        false,
+      ),
     );
     fireEvent.click(screen.getByRole("button", { name: "Confirm prefill" }));
     await waitFor(() => expect(h.apply).toHaveBeenCalledTimes(2));

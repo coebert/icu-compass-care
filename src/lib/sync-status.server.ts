@@ -90,7 +90,13 @@ export type SyncStatusAccess = "oversight" | "scoped_clinical" | "restricted";
  *  - everyone else (incl. clinicians of other units): nothing.
  */
 export function syncStatusAccess(
-  actor: { isTrustAdmin: boolean; isAuditor: boolean; isClinician?: boolean; isUnitAdmin?: boolean; unitIds?: string[] },
+  actor: {
+    isTrustAdmin: boolean;
+    isAuditor: boolean;
+    isClinician?: boolean;
+    isUnitAdmin?: boolean;
+    unitIds?: string[];
+  },
   bridgeUnitId: string | null,
 ): SyncStatusAccess {
   if (actor.isTrustAdmin || actor.isAuditor) return "oversight";
@@ -107,7 +113,13 @@ export function syncStatusAccess(
 export async function readSyncStatus(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  actor: { isTrustAdmin: boolean; isAuditor: boolean; isClinician?: boolean; isUnitAdmin?: boolean; unitIds?: string[] },
+  actor: {
+    isTrustAdmin: boolean;
+    isAuditor: boolean;
+    isClinician?: boolean;
+    isUnitAdmin?: boolean;
+    unitIds?: string[];
+  },
   opts: {
     bridgeUnitId?: string | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

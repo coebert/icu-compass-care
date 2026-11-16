@@ -5,12 +5,24 @@ import {
   encryptPatientPayload,
 } from "@/lib/patient-crypto.server";
 import { z } from "zod";
-import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp, consumeWriteNonce } from "@/lib/api-bridge.server";
+import {
+  corsHeaders,
+  json,
+  authorizeBridge,
+  logSync,
+  logSecurityEvent,
+  clientIp,
+  consumeWriteNonce,
+} from "@/lib/api-bridge.server";
 import { diffFields, writeAudit } from "@/lib/audit";
 import { clean, PATIENT_ARRAY_FIELDS } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
 import { readBodyLimited } from "@/lib/request-body.server";
-import { BRIDGE_INPUT_BOUNDS, BRIDGE_MAX_BODY_BYTES, findBoundsViolation } from "@/lib/input-bounds";
+import {
+  BRIDGE_INPUT_BOUNDS,
+  BRIDGE_MAX_BODY_BYTES,
+  findBoundsViolation,
+} from "@/lib/input-bounds";
 import { bridgeUpdateSharedPatient, stripSharingFlags } from "@/lib/bridge-sharing.server";
 import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
 import { resolveBridgeUnitId } from "@/lib/scope.server";
@@ -96,7 +108,6 @@ function stripGovernance(p: Record<string, unknown>) {
 const bedOccupied = () =>
   json({ error: "bed_occupied", message: "That bed is already occupied in this unit." }, 409);
 
-
 export const Route = createFileRoute("/api/public/bridge/patients")({
   server: {
     handlers: {
@@ -137,16 +148,24 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         if (status?.success) query = query.eq("status", status.data);
 
         const { data, error } = await query;
-        if (error) return (console.error("[bridge] patients read failed"), json({ error: "Internal server error" }, 500));
+        if (error)
+          return (
+            console.error("[bridge] patients read failed"),
+            json({ error: "Internal server error" }, 500)
+          );
         // The sharing flag is a local governance decision, not clinical data —
         // never leak it to the partner (and never let it overwrite their copy).
         const patients = decryptPatientRows(data as Array<Record<string, unknown>> | null).map(
           (p: Record<string, unknown>) => stripGovernance(p),
         );
-        await logSync(supabaseAdmin, { direction: "pull", entity: "patients", record_count: patients.length, actor: auth.actor });
+        await logSync(supabaseAdmin, {
+          direction: "pull",
+          entity: "patients",
+          record_count: patients.length,
+          actor: auth.actor,
+        });
         return json({ patients });
       },
-
 
       // Create or update a patient (upsert by id when provided)
       POST: async ({ request }) => {
@@ -154,7 +173,12 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
         const body = await readBodyLimited(request, BRIDGE_MAX_BODY_BYTES);
         if (!body.ok) return json({ error: "Payload too large" }, 413);
         const rawBody = body.text;
-        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "unit_admin", "clinician"] }, "/bridge/patients");
+        const auth = await authorizeBridge(
+          request,
+          rawBody,
+          { write: true, roles: ["admin", "unit_admin", "clinician"] },
+          "/bridge/patients",
+        );
         if (!auth.ok) return auth.response;
 
         const supabaseAdminReplay = await getAdmin();
@@ -229,7 +253,10 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           });
           if (outcome.kind === "bed_conflict") return bedOccupied();
           if (outcome.kind === "error") {
-            return (console.error("[bridge] patient update failed"), json({ error: "Internal server error" }, 500));
+            return (
+              console.error("[bridge] patient update failed"),
+              json({ error: "Internal server error" }, 500)
+            );
           }
           // Not shared (or sharing revoked, or nonexistent): identical answer,
           // no clinical data, no hint the record exists.
@@ -258,15 +285,22 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
             // Ciphertext can't be diffed byte-wise; compare readable values.
             changedFields: diffFields(decryptPatientRow(current), decryptPatientRow(data)),
           });
-          await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
+          await logSync(supabaseAdmin, {
+            direction: "push",
+            entity: "patients",
+            record_count: 1,
+            actor: auth.actor,
+          });
           return json({ patient: stripSharingFlags(decryptPatientRow(data)) });
         }
 
         // Partner creates always land in the bridge unit; the payload can't
         // choose another one (unit_id isn't an accepted field).
         try {
-          if (occupiesBed({ location_type: "icu", status: "admitted", ...record }) &&
-              (await bedTakenInUnit(supabaseAdmin, unitId, record.bed as string, null))) {
+          if (
+            occupiesBed({ location_type: "icu", status: "admitted", ...record }) &&
+            (await bedTakenInUnit(supabaseAdmin, unitId, record.bed as string, null))
+          ) {
             return bedOccupied();
           }
         } catch {
@@ -280,7 +314,10 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
 
         if (error) {
           if (isBedUniqueViolation(error)) return bedOccupied();
-          return (console.error("[bridge] patient create failed"), json({ error: "Internal server error" }, 500));
+          return (
+            console.error("[bridge] patient create failed"),
+            json({ error: "Internal server error" }, 500)
+          );
         }
         if (!data) return json({ error: "Patient could not be created" }, 500);
 
@@ -292,8 +329,15 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           actor: auth.actor,
           after: data as Record<string, unknown>,
         });
-        await logSync(supabaseAdmin, { direction: "push", entity: "patients", record_count: 1, actor: auth.actor });
-        return json({ patient: stripSharingFlags(decryptPatientRow(data as Record<string, unknown>)) });
+        await logSync(supabaseAdmin, {
+          direction: "push",
+          entity: "patients",
+          record_count: 1,
+          actor: auth.actor,
+        });
+        return json({
+          patient: stripSharingFlags(decryptPatientRow(data as Record<string, unknown>)),
+        });
       },
     },
   },

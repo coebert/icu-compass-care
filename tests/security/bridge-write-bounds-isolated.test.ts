@@ -18,7 +18,10 @@ vi.mock("@/lib/admin-db.server", () => ({
     const q = {
       select: () => q,
       eq: () => q,
-      maybeSingle: async () => ({ data: { id: "10000000-0000-4000-8000-000000000001", code: "SDH-RADNOR" }, error: null }),
+      maybeSingle: async () => ({
+        data: { id: "10000000-0000-4000-8000-000000000001", code: "SDH-RADNOR" },
+        error: null,
+      }),
     };
     return { from: () => q };
   },
@@ -116,7 +119,6 @@ describe("partner write endpoints refuse oversized input before validation", () 
     expect(spy.updates).toHaveLength(1);
     expect((spy.updates[0] as { id: string }).id).toBe(PID);
     expect((spy.updates[0] as { payload: Record<string, unknown> }).payload).toMatchObject({
-      
       full_name: "Z.Q.",
       resp_support: ["hfno"],
       sedative_agents: ["propofol"],

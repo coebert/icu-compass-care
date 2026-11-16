@@ -72,7 +72,10 @@ function world(opts: {
           data:
             opts.stillExists === false
               ? null
-              : { id: PID, source_referral_id: opts.stillLinkedTo === undefined ? RID : opts.stillLinkedTo },
+              : {
+                  id: PID,
+                  source_referral_id: opts.stillLinkedTo === undefined ? RID : opts.stillLinkedTo,
+                },
         };
       return { data: opts.patientAt ? patient(opts.patientAt, opts.patientExtra) : null };
     }
@@ -136,26 +139,39 @@ describe("referral prefill — compare-and-set against the previewed version", (
 
   it("refuses an unlinked patient without writing anything", async () => {
     const d = world({ patientAt: "v1", patientExtra: { source_referral_id: null } });
-    await expect(applyReferralPrefill(ctx(d), input())).rejects.toThrow(REFERRAL_LINK_REQUIRED_MESSAGE);
+    await expect(applyReferralPrefill(ctx(d), input())).rejects.toThrow(
+      REFERRAL_LINK_REQUIRED_MESSAGE,
+    );
     expect(updates(d)).toHaveLength(0);
   });
 
   it("refuses a patient linked to a different referral", async () => {
-    const d = world({ patientAt: "v1", patientExtra: { source_referral_id: "00000000-0000-4000-8000-0000000000ff" } });
-    await expect(applyReferralPrefill(ctx(d), input())).rejects.toThrow(REFERRAL_LINK_REQUIRED_MESSAGE);
+    const d = world({
+      patientAt: "v1",
+      patientExtra: { source_referral_id: "00000000-0000-4000-8000-0000000000ff" },
+    });
+    await expect(applyReferralPrefill(ctx(d), input())).rejects.toThrow(
+      REFERRAL_LINK_REQUIRED_MESSAGE,
+    );
     expect(updates(d)).toHaveLength(0);
   });
 
   it("a link change between the read and the write is reported as a link problem, not applied", async () => {
     const d = world({ patientAt: "v1", updateMatches: false, stillLinkedTo: null });
-    await expect(applyReferralPrefill(ctx(d), input())).rejects.toThrow(REFERRAL_LINK_REQUIRED_MESSAGE);
+    await expect(applyReferralPrefill(ctx(d), input())).rejects.toThrow(
+      REFERRAL_LINK_REQUIRED_MESSAGE,
+    );
   });
 
   it("nothing blank to fill: no write at all", async () => {
     const d = world({
       patientAt: "v1",
       patientExtra: {
-        current_admission: "a", current_management: "b", tep_details: "c", dnacpr_details: "d", dnacpr_decision: false,
+        current_admission: "a",
+        current_management: "b",
+        tep_details: "c",
+        dnacpr_details: "d",
+        dnacpr_decision: false,
       },
     });
     const res = await applyReferralPrefill(ctx(d), input());

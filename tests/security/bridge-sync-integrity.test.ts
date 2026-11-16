@@ -63,8 +63,16 @@ const liveRef = (n: number, over: Record<string, unknown> = {}) => ({
   created_by: uid("9", 1),
   ...over,
 });
-const tomb = (n: number) => ({ id: uid("3", n), updated_at: "2026-11-16T11:00:00Z", deleted_at: "2026-11-16T11:00:00Z" });
-const result = (n: number, kind: "investigations" | "microbiology" = "investigations", over: Record<string, unknown> = {}) => ({
+const tomb = (n: number) => ({
+  id: uid("3", n),
+  updated_at: "2026-11-16T11:00:00Z",
+  deleted_at: "2026-11-16T11:00:00Z",
+});
+const result = (
+  n: number,
+  kind: "investigations" | "microbiology" = "investigations",
+  over: Record<string, unknown> = {},
+) => ({
   id: uid("4", n),
   patient_id: uid("2", 1),
   [kind === "investigations" ? "category" : "specimen_type"]: "Blood",
@@ -76,7 +84,9 @@ const result = (n: number, kind: "investigations" | "microbiology" = "investigat
 });
 
 type Rpc = { fn: string; args: Record<string, unknown> };
-function db(rpc: (call: Rpc) => { data?: unknown; error?: unknown } = () => ({ data: "inserted" })) {
+function db(
+  rpc: (call: Rpc) => { data?: unknown; error?: unknown } = () => ({ data: "inserted" }),
+) {
   const base = fakeSupabase((c: FakeCall): FakeResult => {
     if (c.table === "bridge_sync_events") return { data: null };
     return { data: [] };
@@ -128,7 +138,9 @@ describe("inbound import — outcomes are counted honestly", () => {
       ["investigations", "success", 0],
       ["microbiology", "success", 0],
     ]);
-    expect(events(d).every((e) => e.actor_role === INBOUND_SYNC_ACTOR_ROLE && e.direction === "pull")).toBe(true);
+    expect(
+      events(d).every((e) => e.actor_role === INBOUND_SYNC_ACTOR_ROLE && e.direction === "pull"),
+    ).toBe(true);
   });
 
   it("a refused write is counted as failed, not unchanged, and makes the run not ok", async () => {
@@ -141,25 +153,38 @@ describe("inbound import — outcomes are counted honestly", () => {
     });
     const run = await runBridgeSync(d);
     expect(run.results.find((x) => x.entity === "referrals")).toMatchObject({
-      fetched: 3, applied: 1, skipped: 1, failed: 1, error: "partial_write_failure",
+      fetched: 3,
+      applied: 1,
+      skipped: 1,
+      failed: 1,
+      error: "partial_write_failure",
     });
     expect(run.ok).toBe(false);
     expect(events(d).find((e) => e.entity === "referrals")).toMatchObject({
-      status: "error", error_message: "partial_write_failure", record_count: 1,
+      status: "error",
+      error_message: "partial_write_failure",
+      record_count: 1,
     });
   });
 
   it("a local-ownership conflict is reported, never counted as applied", async () => {
     remote.referrals = [liveRef(1)];
     const run = await runBridgeSync(db(() => ({ data: "conflict" })));
-    expect(run.results.find((x) => x.entity === "referrals")).toMatchObject({ applied: 0, conflicts: 1, error: "record_conflict" });
+    expect(run.results.find((x) => x.entity === "referrals")).toMatchObject({
+      applied: 0,
+      conflicts: 1,
+      error: "record_conflict",
+    });
     expect(run.ok).toBe(false);
   });
 
   it("an unexpected helper answer is a failure, not a success", async () => {
     remote.referrals = [liveRef(1)];
     const run = await runBridgeSync(db(() => ({ data: "something_else" })));
-    expect(run.results.find((x) => x.entity === "referrals")).toMatchObject({ failed: 1, applied: 0 });
+    expect(run.results.find((x) => x.entity === "referrals")).toMatchObject({
+      failed: 1,
+      applied: 0,
+    });
   });
 });
 
@@ -168,7 +193,9 @@ describe("inbound import — referral contract", () => {
     remote.referrals = [liveRef(1), tomb(2)];
     const d = db(() => ({ data: "updated" }));
     await runBridgeSync(d);
-    const payloads = d.rpcs.filter((r) => r.fn === "bridge_import_referral").map((r) => r.args._rec as Record<string, unknown>);
+    const payloads = d.rpcs
+      .filter((r) => r.fn === "bridge_import_referral")
+      .map((r) => r.args._rec as Record<string, unknown>);
     expect(payloads).toHaveLength(2);
     expect(payloads[0]).not.toHaveProperty("hospital_number_enc");
     expect(payloads[0]).not.toHaveProperty("created_by");
@@ -220,16 +247,27 @@ describe("inbound import — results", () => {
     remote.investigations = [result(1), result(2), result(3)];
     const answers = ["identical", "parent_unavailable", "conflict"];
     let i = 0;
-    const run = await runBridgeSync(db((c) => (c.fn === "bridge_import_result" ? { data: answers[i++] } : { data: "inserted" })));
+    const run = await runBridgeSync(
+      db((c) => (c.fn === "bridge_import_result" ? { data: answers[i++] } : { data: "inserted" })),
+    );
     expect(run.results.find((r) => r.entity === "investigations")).toMatchObject({
-      applied: 0, skipped: 1, unlinked: 1, conflicts: 1, error: "record_conflict",
+      applied: 0,
+      skipped: 1,
+      unlinked: 1,
+      conflicts: 1,
+      error: "record_conflict",
     });
   });
 
   it("bridge unit not resolvable → stream unavailable, nothing counted as written", async () => {
     remote.investigations = [result(1)];
-    const run = await runBridgeSync(db((c) => (c.fn === "bridge_import_result" ? { error: { code: "PT503" } } : {})));
-    expect(run.results.find((r) => r.entity === "investigations")).toMatchObject({ error: "bridge_unit_unavailable", applied: 0 });
+    const run = await runBridgeSync(
+      db((c) => (c.fn === "bridge_import_result" ? { error: { code: "PT503" } } : {})),
+    );
+    expect(run.results.find((r) => r.entity === "investigations")).toMatchObject({
+      error: "bridge_unit_unavailable",
+      applied: 0,
+    });
   });
 });
 
@@ -256,7 +294,8 @@ describe("inbound import — failures stay per stream and safe", () => {
     const d = db(() => ({ error: { code: "XX000", message: SYN_PHI } }));
     const run = await runBridgeSync(d);
     expect(run.results.find((r) => r.entity === "microbiology")!.error).toBe("unexpected");
-    const everything = JSON.stringify(events(d)) + JSON.stringify(run) + JSON.stringify(errSpy.mock.calls);
+    const everything =
+      JSON.stringify(events(d)) + JSON.stringify(run) + JSON.stringify(errSpy.mock.calls);
     expect(everything).not.toContain(SYN_PHI);
   });
 
@@ -265,6 +304,9 @@ describe("inbound import — failures stay per stream and safe", () => {
     expect((await runBridgeSync(db(() => ({ error: { code: "23514" } })))).ok).toBe(false);
     const second = await runBridgeSync(db());
     expect(second.ok).toBe(true);
-    expect(second.results.find((r) => r.entity === "referrals")).toMatchObject({ applied: 1, failed: 0 });
+    expect(second.results.find((r) => r.entity === "referrals")).toMatchObject({
+      applied: 1,
+      failed: 0,
+    });
   });
 });

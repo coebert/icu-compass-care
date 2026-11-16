@@ -170,7 +170,9 @@ export function legacyReviewPath(resource: "notifications" | "audit"): string {
  * feed, or one that may have been cut short at that bound, fails instead of
  * looking empty or complete.
  */
-async function fetchLegacy(resource: "notifications" | "audit"): Promise<Record<string, unknown>[]> {
+async function fetchLegacy(
+  resource: "notifications" | "audit",
+): Promise<Record<string, unknown>[]> {
   const body = await getJson(legacyReviewPath(resource));
   try {
     return parseLegacyRecords(body, LEGACY_REVIEW_LIMIT);

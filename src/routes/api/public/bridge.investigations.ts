@@ -1,10 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { corsHeaders, json, authorizeBridge, logSync, logSecurityEvent, clientIp, sharedPatientIds, consumeWriteNonce } from "@/lib/api-bridge.server";
+import {
+  corsHeaders,
+  json,
+  authorizeBridge,
+  logSync,
+  logSecurityEvent,
+  clientIp,
+  sharedPatientIds,
+  consumeWriteNonce,
+} from "@/lib/api-bridge.server";
 import { writeAudit } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 import { readBodyLimited } from "@/lib/request-body.server";
-import { BRIDGE_INPUT_BOUNDS, BRIDGE_MAX_BODY_BYTES, findBoundsViolation } from "@/lib/input-bounds";
+import {
+  BRIDGE_INPUT_BOUNDS,
+  BRIDGE_MAX_BODY_BYTES,
+  findBoundsViolation,
+} from "@/lib/input-bounds";
 
 const investigationInsert = z.object({
   patient_id: z.string().uuid(),
@@ -32,11 +45,14 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         // requested patient isn't shared, return an empty set — never leak
         // investigations for non-shared patients.
         const allowedIds = await sharedPatientIds(supabaseAdmin);
-        const scopedIds = patientId
-          ? allowedIds.filter((id) => id === patientId)
-          : allowedIds;
+        const scopedIds = patientId ? allowedIds.filter((id) => id === patientId) : allowedIds;
         if (scopedIds.length === 0) {
-          await logSync(supabaseAdmin, { direction: "pull", entity: "investigations", record_count: 0, actor: auth.actor });
+          await logSync(supabaseAdmin, {
+            direction: "pull",
+            entity: "investigations",
+            record_count: 0,
+            actor: auth.actor,
+          });
           return json({ investigations: [] });
         }
 
@@ -48,11 +64,16 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         if (category) query = query.eq("category", category);
 
         const { data, error } = await query;
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
-        await logSync(supabaseAdmin, { direction: "pull", entity: "investigations", record_count: data?.length ?? 0, actor: auth.actor });
+        if (error)
+          return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        await logSync(supabaseAdmin, {
+          direction: "pull",
+          entity: "investigations",
+          record_count: data?.length ?? 0,
+          actor: auth.actor,
+        });
         return json({ investigations: data });
       },
-
 
       // Add a new investigation result (append-only)
       POST: async ({ request }) => {
@@ -60,7 +81,12 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         const body = await readBodyLimited(request, BRIDGE_MAX_BODY_BYTES);
         if (!body.ok) return json({ error: "Payload too large" }, 413);
         const rawBody = body.text;
-        const auth = await authorizeBridge(request, rawBody, { write: true, roles: ["admin", "unit_admin", "clinician"] }, "/bridge/investigations");
+        const auth = await authorizeBridge(
+          request,
+          rawBody,
+          { write: true, roles: ["admin", "unit_admin", "clinician"] },
+          "/bridge/investigations",
+        );
         if (!auth.ok) return auth.response;
 
         const replayAdmin = await getAdmin();
@@ -99,7 +125,11 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         const outcome = await bridgeInsertInvestigation(supabaseAdmin, parsed);
         if (outcome.kind === "unavailable") return json({ error: "Service unavailable" }, 503);
         // Code only: a database error can echo request values.
-        if (outcome.kind === "error") return (console.error("[bridge] investigation insert failed"), json({ error: "Internal server error" }, 500));
+        if (outcome.kind === "error")
+          return (
+            console.error("[bridge] investigation insert failed"),
+            json({ error: "Internal server error" }, 500)
+          );
         if (outcome.kind === "not_found") return json({ error: "Patient not found" }, 404);
         const data = outcome.row;
         await writeAudit(supabaseAdmin, {
@@ -110,7 +140,12 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
           actor: auth.actor,
           after: data,
         });
-        await logSync(supabaseAdmin, { direction: "push", entity: "investigations", record_count: 1, actor: auth.actor });
+        await logSync(supabaseAdmin, {
+          direction: "push",
+          entity: "investigations",
+          record_count: 1,
+          actor: auth.actor,
+        });
         return json({ investigation: data });
       },
     },

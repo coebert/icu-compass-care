@@ -6,7 +6,12 @@
 // and microbiology are pulled with the versioned sync v1 contract; every page
 // is validated before anything is written, then the ownership rules in
 // bridge-import.server.ts decide what may change.
-import { fetchSyncV1, bridgeSystemActor, BridgeFetchError, type SyncV1Resource } from "@/lib/bridge-client.server";
+import {
+  fetchSyncV1,
+  bridgeSystemActor,
+  BridgeFetchError,
+  type SyncV1Resource,
+} from "@/lib/bridge-client.server";
 import { ContractError } from "@/lib/bridge-contract";
 import { logSync, logSyncError, type BridgeActor } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
@@ -74,7 +79,11 @@ type ImportSpec = {
 // The bridge unit is resolved by the database inside each import helper;
 // nothing here chooses or passes a unit.
 export const IMPORT_SPECS: ImportSpec[] = [
-  { entity: "referrals", source: "referrals", apply: (admin, records) => importReferrals(admin, records) },
+  {
+    entity: "referrals",
+    source: "referrals",
+    apply: (admin, records) => importReferrals(admin, records),
+  },
   {
     entity: "investigations",
     source: "investigations",

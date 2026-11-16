@@ -55,21 +55,32 @@ describe("computeReferralPrefill", () => {
   });
 
   it("an explicit local false is preserved: nothing offered, nothing filled over it", () => {
-    const plan = computeReferralPrefill(ref(), { ...blank, dnacpr_decision: false, tep_in_place: false });
+    const plan = computeReferralPrefill(ref(), {
+      ...blank,
+      dnacpr_decision: false,
+      tep_in_place: false,
+    });
     expect(plan.decisions).toEqual([]);
     expect(plan.patch).not.toHaveProperty("dnacpr_decision");
     expect(plan.patch).not.toHaveProperty("tep_in_place");
   });
 
   it("ReSPECT alone does not imply DNACPR", () => {
-    const plan = computeReferralPrefill(ref({ resus_status: "not_documented", dnacpr_respect: true }), blank);
+    const plan = computeReferralPrefill(
+      ref({ resus_status: "not_documented", dnacpr_respect: true }),
+      blank,
+    );
     expect(plan.decisions).toEqual([]);
     expect(plan.patch).not.toHaveProperty("dnacpr_details");
   });
 
   it("generic status or interventions don't imply a completed TEP", () => {
     const plan = computeReferralPrefill(
-      ref({ ceiling_of_care: "not_documented", resus_status: "not_documented", dnacpr_respect: false }),
+      ref({
+        ceiling_of_care: "not_documented",
+        resus_status: "not_documented",
+        dnacpr_respect: false,
+      }),
       blank,
     );
     expect(plan.patch).not.toHaveProperty("tep_in_place");
@@ -84,7 +95,9 @@ describe("computeReferralPrefill", () => {
     });
     expect(plan.patch).not.toHaveProperty("current_admission");
     expect(plan.patch).not.toHaveProperty("tep_details");
-    expect(plan.skipped_fields).toEqual(expect.arrayContaining(["current_admission", "tep_details"]));
+    expect(plan.skipped_fields).toEqual(
+      expect.arrayContaining(["current_admission", "tep_details"]),
+    );
   });
 });
 
@@ -98,7 +111,9 @@ describe("referral link and partner URL", () => {
     expect(prefillLinkState("30000000-0000-4000-8000-000000000002", R)).toBe("mismatch");
   });
   it("the Critical Care Connect link carries the opaque referral id only", () => {
-    expect(partnerReferralUrl("https://ccc.example/api/x?token=1", R)).toBe(`https://ccc.example/referrals/${R}`);
+    expect(partnerReferralUrl("https://ccc.example/api/x?token=1", R)).toBe(
+      `https://ccc.example/referrals/${R}`,
+    );
     expect(partnerReferralUrl("http://ccc.example", R)).toBeNull();
     expect(partnerReferralUrl("https://ccc.example", "AB/../../x")).toBeNull();
     expect(partnerReferralUrl(undefined, R)).toBeNull();

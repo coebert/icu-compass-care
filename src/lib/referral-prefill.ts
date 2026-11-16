@@ -269,7 +269,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * opaque referral id only. No patient identifier is ever put in the URL.
  * null when the partner address isn't a valid https origin.
  */
-export function partnerReferralUrl(partnerBase: string | null | undefined, referralId: string): string | null {
+export function partnerReferralUrl(
+  partnerBase: string | null | undefined,
+  referralId: string,
+): string | null {
   if (!partnerBase || !UUID_RE.test(referralId)) return null;
   let origin: string;
   try {

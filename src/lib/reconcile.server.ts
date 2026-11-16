@@ -17,7 +17,12 @@ import { ContractError, mapReferral, tsKey, type ImportedReferral } from "@/lib/
 import { importReferrals, ImportStepError } from "@/lib/bridge-import.server";
 import { SYNC_ERROR_TEXT } from "@/lib/sync-status";
 import { safeDbError } from "@/lib/db-error";
-import type { ReconEntity, EntityRecon, ReconRow, ReconcileResult } from "@/lib/reconcile.functions";
+import type {
+  ReconEntity,
+  EntityRecon,
+  ReconRow,
+  ReconcileResult,
+} from "@/lib/reconcile.functions";
 import { getAdmin } from "@/lib/admin-db.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,9 +34,23 @@ function ms(iso: string | null | undefined): number {
 }
 
 const REFERRAL_CONTENT_FIELDS = [
-  "deleted_at", "status", "referral_received_at", "age", "sex", "current_ward", "current_bed",
-  "referring_specialty", "reason_category", "ceiling_of_care", "resus_status", "dnacpr_respect",
-  "anticipated_interventions", "allergies", "weight_kg", "admission_urgency", "infection_status",
+  "deleted_at",
+  "status",
+  "referral_received_at",
+  "age",
+  "sex",
+  "current_ward",
+  "current_bed",
+  "referring_specialty",
+  "reason_category",
+  "ceiling_of_care",
+  "resus_status",
+  "dnacpr_respect",
+  "anticipated_interventions",
+  "allergies",
+  "weight_kg",
+  "admission_urgency",
+  "infection_status",
   "news2_score",
 ] as const;
 
@@ -115,7 +134,10 @@ export const LOCAL_REVIEW_LIMIT = 5000;
 async function compareEntity(admin: Admin, spec: Spec): Promise<EntityRecon> {
   const [remote, localRes] = await Promise.all([
     spec.fetchRemote(),
-    admin.from(spec.table).select(spec.localColumns).limit(LOCAL_REVIEW_LIMIT + 1),
+    admin
+      .from(spec.table)
+      .select(spec.localColumns)
+      .limit(LOCAL_REVIEW_LIMIT + 1),
   ]);
   if (localRes.error) throw safeDbError(localRes.error, "read local records for reconciliation");
   if (!Array.isArray(localRes.data)) throw new ImportStepError("local_read_failed");
@@ -201,7 +223,13 @@ export async function reconcilePullReferrals(
     const errors: string[] = [];
     if (c.conflicts > 0) errors.push(SYNC_ERROR_TEXT.record_conflict);
     if (c.failed > 0) errors.push(SYNC_ERROR_TEXT.partial_write_failure);
-    return { applied: c.applied, failed: c.failed, skipped: c.skipped, conflicts: c.conflicts, errors };
+    return {
+      applied: c.applied,
+      failed: c.failed,
+      skipped: c.skipped,
+      conflicts: c.conflicts,
+      errors,
+    };
   } catch (e) {
     return { applied: 0, failed: 0, skipped: 0, conflicts: 0, errors: [safeText(e)] };
   }

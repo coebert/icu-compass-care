@@ -25,7 +25,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function connect(database: string) {
   const [host, port] = URL_!.split(":");
-  return postgres({ host, port: Number(port), user: "postgres", database, max: 1, onnotice: () => {} });
+  return postgres({
+    host,
+    port: Number(port),
+    user: "postgres",
+    database,
+    max: 1,
+    onnotice: () => {},
+  });
 }
 
 let admin: ReturnType<typeof postgres>;
@@ -66,16 +73,23 @@ d("bed moves under real concurrency", () => {
     await admin`INSERT INTO public.user_roles (user_id, role) VALUES (${C1},'clinician'), (${C2},'clinician')`;
     await admin`INSERT INTO public.user_unit_access (user_id, unit_id) VALUES (${C1}, ${UNIT}), (${C2}, ${UNIT})`;
     const dir = join(ROOT, "drizzle/migrations");
-    for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql") && x.includes("security_remediation")).sort())
+    for (const f of readdirSync(dir)
+      .filter((x) => x.endsWith(".sql") && x.includes("security_remediation"))
+      .sort())
       await admin.unsafe(readFileSync(join(dir, f), "utf8"));
     await admin.unsafe(readFileSync(join(__dirname, "../sql/bed-bridge-fixture.sql"), "utf8"));
-    for (let i = 1; i <= 6; i++) await admin`INSERT INTO public.icu_beds (label, position) VALUES (${String(i)}, ${i})`;
+    for (let i = 1; i <= 6; i++)
+      await admin`INSERT INTO public.icu_beds (label, position) VALUES (${String(i)}, ${i})`;
     await admin`INSERT INTO public.patients (id, unit_id, full_name, bed, shared_with_partner) VALUES
       (${P1}, ${UNIT}, 'A.A.', '1', false), (${P2}, ${UNIT}, 'B.B.', '2', false),
       (${P3}, ${UNIT}, 'C.C.', NULL, false), (${P4}, ${UNIT}, 'D.D.', NULL, false),
       (${PS}, ${UNIT}, 'E.E.', NULL, true)`;
     await admin`INSERT INTO public.patients (id, unit_id, full_name, shared_with_partner) VALUES (${PW}, ${UNIT}, 'W.W.', true)`;
-    for (const f of ["0005_bed_integrity.sql", "0006_bridge_import_provenance.sql", "0007_bridge_wardable_fence.sql"])
+    for (const f of [
+      "0005_bed_integrity.sql",
+      "0006_bridge_import_provenance.sql",
+      "0007_bridge_wardable_fence.sql",
+    ])
       await admin.unsafe(readFileSync(join(ROOT, "docs/security/staged-migrations", f), "utf8"));
   }, 120_000);
   afterAll(async () => {
@@ -100,7 +114,8 @@ d("bed moves under real concurrency", () => {
     );
     const results = [await first, await second].sort();
     expect(results).toEqual(["bed_occupied", "ok"]);
-    const n = await admin`SELECT count(*)::int AS n FROM public.patients WHERE upper(btrim(bed)) = '5'`;
+    const n =
+      await admin`SELECT count(*)::int AS n FROM public.patients WHERE upper(btrim(bed)) = '5'`;
     expect(n[0]!.n).toBe(1);
   });
 
@@ -129,17 +144,28 @@ d("bed moves under real concurrency", () => {
       }),
     );
     expect([await first, await second].sort()).toEqual(["conflict", "ok"]);
-    const r = await admin`SELECT id, bed FROM public.patients WHERE id IN (${P1}, ${P2}) ORDER BY id`;
+    const r =
+      await admin`SELECT id, bed FROM public.patients WHERE id IN (${P1}, ${P2}) ORDER BY id`;
     expect(r.map((x) => x.bed)).toEqual(["2", "1"]);
   });
 
   it("revoking sharing waits for an in-flight result import; a later import is refused", async () => {
     const rec = (id: string) =>
-      JSON.stringify({ id, patient_id: PS, type: "Blood", findings: "Normal", result_at: "2026-03-01T09:00:00Z", created_at: "2026-03-01T09:00:00Z", updated_at: "2026-03-01T09:00:00Z" });
+      JSON.stringify({
+        id,
+        patient_id: PS,
+        type: "Blood",
+        findings: "Normal",
+        result_at: "2026-03-01T09:00:00Z",
+        created_at: "2026-03-01T09:00:00Z",
+        updated_at: "2026-03-01T09:00:00Z",
+      });
     const order: string[] = [];
     const imp = a.begin(async (tx) => {
       await tx.unsafe("SET LOCAL ROLE service_role");
-      const r = await tx.unsafe(`SELECT public.bridge_import_result('investigations', '${rec("40000000-0000-4000-8000-0000000000b1")}'::jsonb) AS r`);
+      const r = await tx.unsafe(
+        `SELECT public.bridge_import_result('investigations', '${rec("40000000-0000-4000-8000-0000000000b1")}'::jsonb) AS r`,
+      );
       order.push(`import:${r[0]!.r}`);
       await sleep(400);
       order.push("import:commit");
@@ -153,27 +179,42 @@ d("bed moves under real concurrency", () => {
     expect(order).toEqual(["import:inserted", "import:commit", "revoke"]);
     const after = await a.begin(async (tx) => {
       await tx.unsafe("SET LOCAL ROLE service_role");
-      return tx.unsafe(`SELECT public.bridge_import_result('investigations', '${rec("40000000-0000-4000-8000-0000000000b2")}'::jsonb) AS r`);
+      return tx.unsafe(
+        `SELECT public.bridge_import_result('investigations', '${rec("40000000-0000-4000-8000-0000000000b2")}'::jsonb) AS r`,
+      );
     });
     expect(after[0]!.r).toBe("parent_unavailable");
   });
 
   // ---- fenced wardable (0007) -------------------------------------------
-  const ACTOR = JSON.stringify({ id: "60000000-0000-4000-8000-000000000001", email: "ccc@example.test", role: "clinician" });
+  const ACTOR = JSON.stringify({
+    id: "60000000-0000-4000-8000-000000000001",
+    email: "ccc@example.test",
+    role: "clinician",
+  });
   type W = { ok: boolean; status?: string; code?: string; desired_revision?: string };
-  const setW = async (tx: postgres.TransactionSql, expected: string, wardable: boolean, revision: string): Promise<W> => {
+  const setW = async (
+    tx: postgres.TransactionSql,
+    expected: string,
+    wardable: boolean,
+    revision: string,
+  ): Promise<W> => {
     await tx.unsafe("SET LOCAL ROLE service_role");
     // Text parameters: keep microseconds exact and the actor as a JSON object.
-    const r = await tx`SELECT public.bridge_set_wardable(${PW}::uuid, (${expected}::text)::timestamptz, ${wardable}::boolean, ${revision}::text, (${ACTOR}::text)::jsonb) AS r`;
+    const r =
+      await tx`SELECT public.bridge_set_wardable(${PW}::uuid, (${expected}::text)::timestamptz, ${wardable}::boolean, ${revision}::text, (${ACTOR}::text)::jsonb) AS r`;
     return r[0]!.r as W;
   };
   const state = async () => {
-    const r = await admin`SELECT p.wardable, f.highest_revision::text AS h, f.applied_revision::text AS a
+    const r =
+      await admin`SELECT p.wardable, f.highest_revision::text AS h, f.applied_revision::text AS a
       FROM public.patients p LEFT JOIN private.bridge_wardable_fence f ON f.patient_id = p.id WHERE p.id = ${PW}`;
     return r[0] as { wardable: boolean; h: string | null; a: string | null };
   };
   const audits = async () =>
-    (await admin`SELECT count(*)::int AS n FROM public.record_audit WHERE record_id = ${PW} AND source = 'bridge'`)[0]!.n as number;
+    (
+      await admin`SELECT count(*)::int AS n FROM public.record_audit WHERE record_id = ${PW} AND source = 'bridge'`
+    )[0]!.n as number;
 
   it("wardable: an older intent arriving while a newer one is in flight waits, then is superseded", async () => {
     const v = await rev(PW);

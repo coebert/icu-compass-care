@@ -61,7 +61,10 @@ describe("sync status — evidence query", () => {
     const own = eventsDb([]);
     const server = eventsDb([{ entity: "referrals", status: "success", created_at: ago(1) }]);
     const clin = { isTrustAdmin: false, isAuditor: false, isClinician: true, unitIds: ["uRadnor"] };
-    const s = await readSyncStatus(own, clin, { bridgeUnitId: "uRadnor", serverClient: async () => server });
+    const s = await readSyncStatus(own, clin, {
+      bridgeUnitId: "uRadnor",
+      serverClient: async () => server,
+    });
     expect(own.calls).toHaveLength(0); // no table access of their own
     expect(s.access === "granted" && s.canRetry).toBe(false);
     for (const c of server.calls) expect(c.columns).not.toMatch(/actor|email/);
@@ -71,12 +74,29 @@ describe("sync status — evidence query", () => {
   it("clinicians of other units, or when the bridge unit is unknown, see nothing", async () => {
     const server = eventsDb([]);
     const other = { isTrustAdmin: false, isAuditor: false, isClinician: true, unitIds: ["uOther"] };
-    expect(await readSyncStatus(eventsDb([]), other, { bridgeUnitId: "uRadnor", serverClient: async () => server })).toEqual({ access: "restricted" });
+    expect(
+      await readSyncStatus(eventsDb([]), other, {
+        bridgeUnitId: "uRadnor",
+        serverClient: async () => server,
+      }),
+    ).toEqual({ access: "restricted" });
     const member = { ...other, unitIds: ["uRadnor"] };
-    expect(await readSyncStatus(eventsDb([]), member, { bridgeUnitId: null, serverClient: async () => server })).toEqual({ access: "restricted" });
+    expect(
+      await readSyncStatus(eventsDb([]), member, {
+        bridgeUnitId: null,
+        serverClient: async () => server,
+      }),
+    ).toEqual({ access: "restricted" });
     expect(server.calls).toHaveLength(0);
-    expect(syncStatusAccess({ isTrustAdmin: false, isAuditor: false, unitIds: ["uRadnor"] }, "uRadnor")).toBe("restricted");
-    expect(syncStatusAccess({ isTrustAdmin: false, isAuditor: false, isUnitAdmin: true, unitIds: ["uRadnor"] }, "uRadnor")).toBe("scoped_clinical");
+    expect(
+      syncStatusAccess({ isTrustAdmin: false, isAuditor: false, unitIds: ["uRadnor"] }, "uRadnor"),
+    ).toBe("restricted");
+    expect(
+      syncStatusAccess(
+        { isTrustAdmin: false, isAuditor: false, isUnitAdmin: true, unitIds: ["uRadnor"] },
+        "uRadnor",
+      ),
+    ).toBe("scoped_clinical");
   });
 
   it("auditors can view but not retry; Trust admins can retry", async () => {

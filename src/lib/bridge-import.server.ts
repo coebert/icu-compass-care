@@ -66,11 +66,16 @@ export const REFERRAL_OUTCOMES = {
   conflicts: ["conflict"],
 } as const;
 
-export async function importReferrals(admin: Admin, raw: Record<string, unknown>[]): Promise<ImportCounts> {
+export async function importReferrals(
+  admin: Admin,
+  raw: Record<string, unknown>[],
+): Promise<ImportCounts> {
   const rows = raw.map(mapReferral); // all-or-nothing validation before any write
   const counts = zero();
   for (const row of rows) {
-    const { data, error } = await admin.rpc("bridge_import_referral", { _rec: referralImportPayload(row) });
+    const { data, error } = await admin.rpc("bridge_import_referral", {
+      _rec: referralImportPayload(row),
+    });
     if (error) {
       if (helperMissing(error)) throw new ImportStepError("import_unavailable");
       counts.failed++;

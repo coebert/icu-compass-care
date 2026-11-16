@@ -51,7 +51,11 @@ const base = (): Row => ({
   updated_at: T0,
   outstanding_tasks: "a",
 });
-const upd = (rows: Row[], over: Record<string, unknown> = {}, hooks: { beforeUpdate?: () => void } = {}) =>
+const upd = (
+  rows: Row[],
+  over: Record<string, unknown> = {},
+  hooks: { beforeUpdate?: () => void } = {},
+) =>
   bridgeUpdateSharedPatient(fakeAdmin(rows, hooks), {
     id: "p1",
     unitId: "uA",
@@ -70,7 +74,9 @@ describe("bridge patient update respects partner sharing", () => {
 
   it("the same instant in another textual form still matches (microsecond-exact)", async () => {
     const rows = [base()];
-    expect((await upd(rows, { expectedUpdatedAt: "2026-11-16T10:00:00.000001Z" })).kind).toBe("updated");
+    expect((await upd(rows, { expectedUpdatedAt: "2026-11-16T10:00:00.000001Z" })).kind).toBe(
+      "updated",
+    );
   });
 
   it("a missing or malformed expected version is refused; nothing is read or written", async () => {
@@ -107,7 +113,11 @@ describe("bridge patient update respects partner sharing", () => {
 
   it("sharing revoked between the read and the write: no write, not_found", async () => {
     const rows = [base()];
-    const r = await upd(rows, {}, { beforeUpdate: () => void (rows[0]!["shared_with_partner"] = false) });
+    const r = await upd(
+      rows,
+      {},
+      { beforeUpdate: () => void (rows[0]!["shared_with_partner"] = false) },
+    );
     expect(r).toEqual({ kind: "not_found" });
     expect(rows[0]!["outstanding_tasks"]).toBe("a");
   });
@@ -128,8 +138,15 @@ describe("bridge patient update respects partner sharing", () => {
 
   it("the partner cannot change sharing flags, unit or id", async () => {
     const rows = [base()];
-    await upd(rows, { payload: { shared_with_partner: false, unit_id: "uB", id: "p2", outstanding_tasks: "c" } });
-    expect(rows[0]).toMatchObject({ id: "p1", unit_id: "uA", shared_with_partner: true, outstanding_tasks: "c" });
+    await upd(rows, {
+      payload: { shared_with_partner: false, unit_id: "uB", id: "p2", outstanding_tasks: "c" },
+    });
+    expect(rows[0]).toMatchObject({
+      id: "p1",
+      unit_id: "uA",
+      shared_with_partner: true,
+      outstanding_tasks: "c",
+    });
   });
 });
 

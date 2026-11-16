@@ -41,7 +41,9 @@ describe("partner client errors carry codes only", () => {
   it("HTTP error", async () => {
     vi.stubGlobal("fetch", async () => new Response(`{"detail":"${SYN_PHI}"}`, { status: 500 }));
     expect(await codeOf(fetchSyncV1("referrals"))).toBe("partner_http_error");
-    expect(JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls)).not.toContain(SYN_PHI);
+    expect(
+      JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls),
+    ).not.toContain(SYN_PHI);
   });
   it("network failure", async () => {
     vi.stubGlobal("fetch", async () => {
@@ -70,9 +72,19 @@ describe("partner client paging", () => {
       urls.push(u);
       const cursor = new URL(u).searchParams.get("cursor");
       if (cursor === null)
-        return Response.json({ schema_version: 1, records: [{ id: rid(1), updated_at: "2026-11-16T10:00:00Z" }], snapshot_at: SNAP, pagination: { next_cursor: "a+b/c=", complete: false } });
+        return Response.json({
+          schema_version: 1,
+          records: [{ id: rid(1), updated_at: "2026-11-16T10:00:00Z" }],
+          snapshot_at: SNAP,
+          pagination: { next_cursor: "a+b/c=", complete: false },
+        });
       expect(cursor).toBe("a+b/c=");
-      return Response.json({ schema_version: 1, records: [{ id: rid(2), updated_at: "2026-11-16T10:00:01Z" }], snapshot_at: SNAP, pagination: { next_cursor: null, complete: true } });
+      return Response.json({
+        schema_version: 1,
+        records: [{ id: rid(2), updated_at: "2026-11-16T10:00:01Z" }],
+        snapshot_at: SNAP,
+        pagination: { next_cursor: null, complete: true },
+      });
     });
     const out = await fetchSyncV1("referrals");
     expect(out.records.map((r) => r.id)).toEqual([rid(1), rid(2)]);
@@ -83,7 +95,12 @@ describe("partner client paging", () => {
     vi.stubGlobal("fetch", async () => {
       n++;
       if (n === 1)
-        return Response.json({ schema_version: 1, records: [{ id: rid(1), updated_at: "2026-11-16T10:00:00Z" }], snapshot_at: SNAP, pagination: { next_cursor: "c1", complete: false } });
+        return Response.json({
+          schema_version: 1,
+          records: [{ id: rid(1), updated_at: "2026-11-16T10:00:00Z" }],
+          snapshot_at: SNAP,
+          pagination: { next_cursor: "c1", complete: false },
+        });
       return new Response("", { status: 502 });
     });
     expect(await codeOf(fetchSyncV1("referrals"))).toBe("partner_http_error");
@@ -96,7 +113,9 @@ describe("legacy review feeds", () => {
     expect(legacyReviewPath("notifications")).toBe("/api/public/bridge/notifications?limit=200");
   });
   it("a saturated page without proof of completeness fails instead of looking complete", async () => {
-    vi.stubGlobal("fetch", async () => Response.json({ records: Array.from({ length: 200 }, (_, i) => ({ id: `a${i}` })) }));
+    vi.stubGlobal("fetch", async () =>
+      Response.json({ records: Array.from({ length: 200 }, (_, i) => ({ id: `a${i}` })) }),
+    );
     expect(await codeOf(fetchPartnerAuditLogForReview())).toBe("review_truncated");
   });
   it("a missing list fails", async () => {

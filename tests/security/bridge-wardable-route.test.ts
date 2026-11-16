@@ -8,7 +8,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  * bed-bridge-staged-db.test.ts and the concurrency suite.
  */
 const spy = vi.hoisted(() => ({
-  updates: [] as Array<{ id: string; unitId: string; expectedUpdatedAt: string; payload: Record<string, unknown> }>,
+  updates: [] as Array<{
+    id: string;
+    unitId: string;
+    expectedUpdatedAt: string;
+    payload: Record<string, unknown>;
+  }>,
   rpc: [] as Array<{ fn: string; args: Record<string, unknown> }>,
   rpcResult: { data: null as unknown, error: null as unknown },
   fresh: true,
@@ -36,7 +41,11 @@ vi.mock("@/lib/api-bridge.server", async (importOriginal) => {
     ...real,
     authorizeBridge: async () => ({
       ok: true,
-      actor: { id: "60000000-0000-4000-8000-000000000001", role: "clinician", email: "t@synthetic" },
+      actor: {
+        id: "60000000-0000-4000-8000-000000000001",
+        role: "clinician",
+        email: "t@synthetic",
+      },
       signature: "sig",
     }),
     enforceBridgeRateLimit: async () => ({ ok: true }),
@@ -60,7 +69,12 @@ vi.mock("@/lib/bridge-sharing.server", () => ({
   bridgeInsertInvestigation: async () => ({ kind: "not_found" }),
 }));
 
-import { parseDesiredRevision, parseWardableRequest, parseWardableResponse, wardableHttp } from "@/lib/bridge-wardable";
+import {
+  parseDesiredRevision,
+  parseWardableRequest,
+  parseWardableResponse,
+  wardableHttp,
+} from "@/lib/bridge-wardable";
 
 type Handler = (ctx: { request: Request }) => Promise<Response>;
 async function handler(path: "bridge.patients" | "bridge.patients_.wardable"): Promise<Handler> {
@@ -96,29 +110,49 @@ describe("generic partner patient POST", () => {
   it.each(["yesterday", "2026-11-16 10:00:00", "2026-11-16T10:00:00", "", 1731751200000])(
     "a malformed expected_updated_at (%j) is refused",
     async (v) => {
-      const res = await post("bridge.patients", { id: PID, outstanding_tasks: "x", expected_updated_at: v });
+      const res = await post("bridge.patients", {
+        id: PID,
+        outstanding_tasks: "x",
+        expected_updated_at: v,
+      });
       expect(res.status).toBe(400);
       expect(spy.updates).toHaveLength(0);
     },
   );
   it("a partial update without full_name uses exactly the caller's version and the bridge unit", async () => {
-    const res = await post("bridge.patients", { id: PID, outstanding_tasks: "x", expected_updated_at: V });
+    const res = await post("bridge.patients", {
+      id: PID,
+      outstanding_tasks: "x",
+      expected_updated_at: V,
+    });
     expect(res.status).toBe(200);
     expect(spy.updates).toHaveLength(1);
     expect(spy.updates[0]).toMatchObject({ id: PID, unitId: UNIT, expectedUpdatedAt: V });
     expect(spy.updates[0]!.payload).toEqual({ outstanding_tasks: "x" });
   });
-  it.each(["wardable", "wardable_at", "wardable_by"])("refuses %s (fenced endpoint only)", async (k) => {
-    const res = await post("bridge.patients", { id: PID, expected_updated_at: V, [k]: k === "wardable" ? true : null });
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as { error: string }).error).toBe("wardable_not_accepted");
-    expect(spy.updates).toHaveLength(0);
-  });
+  it.each(["wardable", "wardable_at", "wardable_by"])(
+    "refuses %s (fenced endpoint only)",
+    async (k) => {
+      const res = await post("bridge.patients", {
+        id: PID,
+        expected_updated_at: V,
+        [k]: k === "wardable" ? true : null,
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("wardable_not_accepted");
+      expect(spy.updates).toHaveLength(0);
+    },
+  );
   it("can't move a patient to another unit, change sharing or the id via the payload (dropped, never written)", async () => {
     const other = "10000000-0000-4000-8000-0000000000ff";
     const res = await post("bridge.patients", {
-      id: PID, expected_updated_at: V, outstanding_tasks: "x",
-      unit_id: other, shared_with_partner: false, shared_with_partner_by: PID, updated_at: V,
+      id: PID,
+      expected_updated_at: V,
+      outstanding_tasks: "x",
+      unit_id: other,
+      shared_with_partner: false,
+      shared_with_partner_by: PID,
+      updated_at: V,
     });
     expect(res.status).toBe(200);
     expect(spy.updates[0]!.unitId).toBe(UNIT);
@@ -161,8 +195,12 @@ describe("wardable request parsing", () => {
 describe("POST /api/public/bridge/patients/wardable", () => {
   it("passes the revision to the database as the exact string, with the signed actor", async () => {
     spy.rpcResult = {
-      data: { ok: true, status: "applied", desired_revision: W.desired_revision,
-        patient: { id: PID, wardable: true, wardable_at: V, updated_at: V } },
+      data: {
+        ok: true,
+        status: "applied",
+        desired_revision: W.desired_revision,
+        patient: { id: PID, wardable: true, wardable_at: V, updated_at: V },
+      },
       error: null,
     };
     const res = await post("bridge.patients_.wardable", W);
@@ -178,12 +216,17 @@ describe("POST /api/public/bridge/patients/wardable", () => {
       },
     });
     expect(await res.json()).toEqual({
-      ok: true, status: "applied", desired_revision: "9007199254740993",
+      ok: true,
+      status: "applied",
+      desired_revision: "9007199254740993",
       patient: { id: PID, wardable: true, wardable_at: V, updated_at: V },
     });
   });
   it("a numeric revision in raw JSON is refused before the database", async () => {
-    const res = await post("bridge.patients_.wardable", `{"id":"${PID}","expected_updated_at":"${V}","wardable":true,"desired_revision":9007199254740993}`);
+    const res = await post(
+      "bridge.patients_.wardable",
+      `{"id":"${PID}","expected_updated_at":"${V}","wardable":true,"desired_revision":9007199254740993}`,
+    );
     expect(res.status).toBe(400);
     expect(spy.rpc).toHaveLength(0);
   });
@@ -224,14 +267,31 @@ describe("POST /api/public/bridge/patients/wardable", () => {
 
 describe("wardable response helpers (what the partner implements)", () => {
   it("success requires a complete patient object; wardable_at may be null but not missing", () => {
-    const ok = { ok: true, status: "applied", desired_revision: "5", patient: { id: PID, wardable: false, wardable_at: null, updated_at: V } };
+    const ok = {
+      ok: true,
+      status: "applied",
+      desired_revision: "5",
+      patient: { id: PID, wardable: false, wardable_at: null, updated_at: V },
+    };
     expect(wardableHttp(ok).status).toBe(200);
     const { wardable_at: _w, ...missing } = ok.patient;
     expect(wardableHttp({ ...ok, patient: missing }).status).toBe(503);
   });
   it("a 409 carrying a patient object, or an unknown code, is not trusted", () => {
-    expect(parseWardableResponse(409, { ok: false, code: "superseded", desired_revision: "2", patient: {} })).toEqual({ ok: false, code: "unknown" });
-    expect(parseWardableResponse(409, { ok: false, code: "replay" })).toEqual({ ok: false, code: "unknown" });
-    expect(parseWardableResponse(409, { ok: false, code: "superseded", desired_revision: "2" })).toEqual({ ok: false, code: "superseded", desired_revision: "2" });
+    expect(
+      parseWardableResponse(409, {
+        ok: false,
+        code: "superseded",
+        desired_revision: "2",
+        patient: {},
+      }),
+    ).toEqual({ ok: false, code: "unknown" });
+    expect(parseWardableResponse(409, { ok: false, code: "replay" })).toEqual({
+      ok: false,
+      code: "unknown",
+    });
+    expect(
+      parseWardableResponse(409, { ok: false, code: "superseded", desired_revision: "2" }),
+    ).toEqual({ ok: false, code: "superseded", desired_revision: "2" });
   });
 });
