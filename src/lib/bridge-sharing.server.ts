@@ -1,4 +1,5 @@
 import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
+import { tsKey } from "@/lib/bridge-contract";
 
 // Partner-sharing gate for bridge writes. Every read used for a conflict
 // answer and every mutation is filtered on shared_with_partner = true IN THE
@@ -48,15 +49,23 @@ export const isBedConflict = isBedUniqueViolation;
 
 export async function bridgeUpdateSharedPatient(
   admin: AdminClient,
-  args: { id: string; unitId: string; expectedUpdatedAt?: string; payload: Row },
+  /**
+   * expectedUpdatedAt is REQUIRED: the exact revision the caller last saw.
+   * There is no "blind" update and the server never substitutes its own
+   * fresh revision for a missing one.
+   */
+  args: { id: string; unitId: string; expectedUpdatedAt: string; payload: Row },
 ): Promise<BridgeUpdateOutcome> {
   const payload: Row = { ...args.payload };
   for (const k of PROTECTED_WRITE_COLUMNS) delete payload[k];
+  const expectedKey = tsKey(args.expectedUpdatedAt);
+  if (expectedKey === null) return { kind: "error", error: new Error("expected revision required") };
 
   const { data: current, error: readErr } = await readShared(admin, args.id, args.unitId);
   if (readErr) return { kind: "error", error: readErr };
   if (!current) return { kind: "not_found" };
-  if (args.expectedUpdatedAt && current.updated_at !== args.expectedUpdatedAt) {
+  // Microsecond-exact comparison, whatever the textual form.
+  if (tsKey(current.updated_at) !== expectedKey) {
     return { kind: "conflict", current };
   }
 
@@ -99,12 +108,16 @@ export async function bridgeUpdateSharedPatient(
   return { kind: "conflict", current: fresh };
 }
 
-/** Investigations may only be added to shared patients (atomic in SQL). */
+/** Investigations may only be added to shared patients in the bridge unit (atomic in SQL). */
 export async function bridgeInsertInvestigation(
   admin: AdminClient,
   rec: { patient_id: string; category: string; findings: string; result_at?: string | null },
 ): Promise<
-  { kind: "created"; row: Row } | { kind: "not_found" } | { kind: "error"; error: unknown }
+  | { kind: "created"; row: Row }
+  | { kind: "not_found" }
+  /** Bridge unit not resolvable (staged 0006 helper): refuse, never widen. */
+  | { kind: "unavailable" }
+  | { kind: "error"; error: unknown }
 > {
   const { data, error } = await admin.rpc("bridge_insert_investigation", {
     _patient_id: rec.patient_id,
@@ -112,7 +125,10 @@ export async function bridgeInsertInvestigation(
     _findings: rec.findings,
     _result_at: rec.result_at || new Date().toISOString(),
   });
-  if (error) return { kind: "error", error };
+  if (error) {
+    if ((error as { code?: string }).code === "PT503") return { kind: "unavailable" };
+    return { kind: "error", error };
+  }
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return { kind: "not_found" };
   return { kind: "created", row };

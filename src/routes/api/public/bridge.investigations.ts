@@ -97,7 +97,9 @@ export const Route = createFileRoute("/api/public/bridge/investigations")({
         const supabaseAdmin = await getAdmin();
         const { bridgeInsertInvestigation } = await import("@/lib/bridge-sharing.server");
         const outcome = await bridgeInsertInvestigation(supabaseAdmin, parsed);
-        if (outcome.kind === "error") return (console.error("[bridge]", outcome.error), json({ error: "Internal server error" }, 500));
+        if (outcome.kind === "unavailable") return json({ error: "Service unavailable" }, 503);
+        // Code only: a database error can echo request values.
+        if (outcome.kind === "error") return (console.error("[bridge] investigation insert failed"), json({ error: "Internal server error" }, 500));
         if (outcome.kind === "not_found") return json({ error: "Patient not found" }, 404);
         const data = outcome.row;
         await writeAudit(supabaseAdmin, {
