@@ -65,13 +65,21 @@ given; each aborts without changes if its preflight fails):
    restricted to shared patients in the bridge unit.
 3. `docs/security/staged-migrations/0007_bridge_wardable_fence.sql` — wardable
    fence ledger and `bridge_set_wardable` (service role only).
+4. `docs/security/staged-migrations/0008_bridge_read_exports.sql` — partner
+   clinical read exports (`bridge_export_investigations`, `_microbiology`,
+   `_referrals`, `_notifications`, `_audit`). Each checks "bridge-unit patient,
+   still shared" in the same statement that reads the rows; audit entries are
+   typed (`patients` / `referrals`). Service role only; adds functions only.
 
 Behaviour before they are applied (if the frontend were published first):
 bed moves are refused ("not available yet") rather than done as two writes;
 scheduled imports report `import_unavailable` and write nothing; the wardable
 endpoint answers 503; the existing partner investigation insert keeps its
-current (shared-only) rule. Recommended order: apply 0005–0007, verify with
-the queries below, then publish the frontend, then enable the CCC side.
+current (shared-only) rule; the partner clinical READ feeds (investigations,
+microbiology, referrals, notifications, audit) answer 503 "Service
+unavailable" — never an unscoped or empty list — until 0008 exists.
+Recommended order: apply 0005–0008, verify with the queries below, then
+publish the frontend, then enable the CCC side.
 
 Verification (metadata only):
 
@@ -83,6 +91,12 @@ SELECT p.proname, p.prosecdef, p.proconfig FROM pg_proc p
 SELECT has_function_privilege('authenticated','public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)','EXECUTE') AS must_be_false,
        has_function_privilege('service_role','public.bridge_set_wardable(uuid,timestamptz,boolean,text,jsonb)','EXECUTE') AS must_be_true,
        has_function_privilege('authenticated','public.bridge_insert_investigation(uuid,text,text,timestamptz)','EXECUTE') AS must_be_false_2;
+SELECT p.proname, p.prosecdef, p.proconfig,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') AS must_be_false,
+       has_function_privilege('anon', p.oid, 'EXECUTE') AS must_be_false_2,
+       has_function_privilege('service_role', p.oid, 'EXECUTE') AS must_be_true
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public' AND p.proname LIKE 'bridge_export_%';
 SELECT has_table_privilege('authenticated','private.bridge_referral_provenance','SELECT') AS must_be_false,
        has_table_privilege('authenticated','private.bridge_wardable_fence','SELECT') AS must_be_false_2;
 ```
