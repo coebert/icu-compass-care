@@ -14,7 +14,9 @@ vi.mock("@/lib/sync.functions", () => ({
   runBridgeSyncFn: () => h.run(),
 }));
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: { access_token: "synthetic" } } }) } },
+  supabase: {
+    auth: { getSession: async () => ({ data: { session: { access_token: "synthetic" } } }) },
+  },
 }));
 
 import { SyncStatusPanel } from "@/components/SyncStatusPanel";
@@ -104,7 +106,9 @@ describe("sync status panel", () => {
   });
 
   it("valid empty pulls on every stream read as synced, no invented next run", async () => {
-    h.status.mockResolvedValue(granted(["patients", "investigations", "referrals", "microbiology"].map((e) => res(e))));
+    h.status.mockResolvedValue(
+      granted(["patients", "investigations", "referrals", "microbiology"].map((e) => res(e))),
+    );
     mount();
     const trigger = await screen.findByRole("button", { name: /synced 2 min ago/i });
     fireEvent.click(trigger);
@@ -121,7 +125,12 @@ describe("sync status panel", () => {
   it("Trust admin retry is offered on failure but not triggered by rendering", async () => {
     h.status.mockResolvedValue(
       granted(
-        [res("patients", { unavailable: true }), res("investigations"), res("referrals"), res("microbiology")],
+        [
+          res("patients", { unavailable: true }),
+          res("investigations"),
+          res("referrals"),
+          res("microbiology"),
+        ],
         true,
       ),
     );

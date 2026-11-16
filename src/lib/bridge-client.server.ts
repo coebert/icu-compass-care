@@ -91,7 +91,11 @@ export function expectRecords<T>(body: unknown, key: string): T[] {
       Array.isArray(rec) ||
       typeof rec.id !== "string" ||
       rec.id === "" ||
-      !(rec.updated_at === undefined || rec.updated_at === null || typeof rec.updated_at === "string")
+      !(
+        rec.updated_at === undefined ||
+        rec.updated_at === null ||
+        typeof rec.updated_at === "string"
+      )
     ) {
       throw new BridgeFetchError("malformed_record");
     }

@@ -16,7 +16,10 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: () => (opts: Record<string, unknown>) => ({ ...opts, useSearch: () => h.search }),
+  createFileRoute: () => (opts: Record<string, unknown>) => ({
+    ...opts,
+    useSearch: () => h.search,
+  }),
   Link: ({ children, ...rest }: { children: ReactNode }) => (
     <a href="#" {...(rest as Record<string, unknown>)}>
       {children}
@@ -36,7 +39,9 @@ vi.mock("@/lib/patients.functions", () => ({
 vi.mock("@/lib/beds.functions", () => ({ listBeds: () => h.listBeds() }));
 vi.mock("@/lib/observations.functions", () => ({ listLatestObservations: async () => [] }));
 vi.mock("@/lib/investigations.functions", () => ({ listLatestKeyInvestigations: async () => [] }));
-vi.mock("@/hooks/use-checklist-alerts", () => ({ useChecklistAlerts: () => ({ missed: [], overdue: [] }) }));
+vi.mock("@/hooks/use-checklist-alerts", () => ({
+  useChecklistAlerts: () => ({ missed: [], overdue: [] }),
+}));
 vi.mock("@/components/ChecklistAlertsPanel", () => ({ ChecklistAlertsPanel: () => null }));
 vi.mock("@/components/HandoverPreviewModal", () => ({ HandoverPreviewModal: () => null }));
 vi.mock("@/components/patient/chart-scanner", () => ({ ScanChartDialog: () => null }));
@@ -67,7 +72,14 @@ function renderBoard() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Board = (Route as any).component as () => JSX.Element;
-  return { qc, ...render(<QueryClientProvider client={qc}><Board /></QueryClientProvider>) };
+  return {
+    qc,
+    ...render(
+      <QueryClientProvider client={qc}>
+        <Board />
+      </QueryClientProvider>,
+    ),
+  };
 }
 
 beforeEach(() => {
@@ -95,7 +107,9 @@ describe("patient board states", () => {
     expect(document.activeElement).toBe(retry);
     h.listPatients = () => Promise.resolve([]);
     fireEvent.click(retry);
-    await waitFor(() => expect(screen.queryByText("The patient board couldn't be loaded")).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText("The patient board couldn't be loaded")).toBeNull(),
+    );
   });
 
   it("confirmed empty: beds shown as empty only after a successful load", async () => {
@@ -143,7 +157,9 @@ describe("patient board states", () => {
     h.listPatients = () => Promise.resolve([pt("a", "1", "female")]);
     h.listBeds = () => Promise.reject(new Error("offline"));
     renderBoard();
-    expect((await screen.findByRole("alert")).textContent).toContain("The bed layout couldn't be loaded");
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "The bed layout couldn't be loaded",
+    );
     expect(screen.queryByText("Empty")).toBeNull();
   });
 });

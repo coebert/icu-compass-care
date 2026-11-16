@@ -1,12 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { availabilityConfirmed, emptyKind, queryDataState, splitOccupancy } from "@/lib/board-data-state";
+import {
+  availabilityConfirmed,
+  emptyKind,
+  queryDataState,
+  splitOccupancy,
+} from "@/lib/board-data-state";
 
 describe("patient board data state", () => {
   it("initial load failure is 'failed', never an empty board", () => {
-    expect(queryDataState({ data: undefined, isPending: false, isError: true, dataUpdatedAt: 0 })).toEqual({ kind: "failed" });
+    expect(
+      queryDataState({ data: undefined, isPending: false, isError: true, dataUpdatedAt: 0 }),
+    ).toEqual({ kind: "failed" });
   });
   it("refresh failure keeps same-session data as stale with its age", () => {
-    expect(queryDataState({ data: [], isPending: false, isError: true, dataUpdatedAt: 1000 })).toEqual({
+    expect(
+      queryDataState({ data: [], isPending: false, isError: true, dataUpdatedAt: 1000 }),
+    ).toEqual({
       kind: "stale",
       lastGoodAt: 1000,
     });

@@ -13,7 +13,13 @@ import {
 const NOW = Date.parse("2026-11-16T12:00:00Z");
 const ago = (min: number) => new Date(NOW - min * 60_000).toISOString();
 
-type Ev = { entity: string; status: "success" | "error"; created_at: string; error_message?: string | null; record_count?: number };
+type Ev = {
+  entity: string;
+  status: "success" | "error";
+  created_at: string;
+  error_message?: string | null;
+  record_count?: number;
+};
 function eventsDb(events: Ev[], failEntity?: string) {
   return fakeSupabase((c: FakeCall): FakeResult => {
     const entity = c.filters.find(([o, k]) => o === "eq" && k === "entity")?.[2];
@@ -30,7 +36,9 @@ const trust = { isTrustAdmin: true, isAuditor: false };
 describe("sync status — evidence query", () => {
   it("is restricted (and reads nothing) for staff who cannot see sync events", async () => {
     const d = eventsDb([]);
-    expect(await readSyncStatus(d, { isTrustAdmin: false, isAuditor: false })).toEqual({ access: "restricted" });
+    expect(await readSyncStatus(d, { isTrustAdmin: false, isAuditor: false })).toEqual({
+      access: "restricted",
+    });
     expect(d.calls).toHaveLength(0);
   });
 
@@ -45,7 +53,12 @@ describe("sync status — evidence query", () => {
       expect(hasFilter(c, "eq", "actor_role", INBOUND_SYNC_ACTOR_ROLE)).toBe(true);
     }
     const entities = new Set(d.calls.map((c) => c.filters.find(([, k]) => k === "entity")?.[2]));
-    expect([...entities].sort()).toEqual(["investigations", "microbiology", "patients", "referrals"]);
+    expect([...entities].sort()).toEqual([
+      "investigations",
+      "microbiology",
+      "patients",
+      "referrals",
+    ]);
   });
 
   it("auditors can view but not retry; Trust admins can retry", async () => {
@@ -57,11 +70,22 @@ describe("sync status — evidence query", () => {
 
   it("maps legacy raw error text to a withheld code", async () => {
     const s = await readSyncStatus(
-      eventsDb([{ entity: "patients", status: "error", created_at: ago(1), error_message: "Partner said SYN-ZZ" }]),
+      eventsDb([
+        {
+          entity: "patients",
+          status: "error",
+          created_at: ago(1),
+          error_message: "Partner said SYN-ZZ",
+        },
+      ]),
       trust,
     );
     const p = s.access === "granted" ? s.resources[0] : null;
-    expect(p).toMatchObject({ entity: "patients", lastAttemptOk: false, lastAttemptCode: "unknown" });
+    expect(p).toMatchObject({
+      entity: "patients",
+      lastAttemptOk: false,
+      lastAttemptCode: "unknown",
+    });
     expect(JSON.stringify(s)).not.toContain("SYN-ZZ");
   });
 
@@ -96,20 +120,47 @@ describe("sync status — per-resource state", () => {
     expect(resourceState(ev({ lastSuccessCount: 0 }), NOW, 30)).toBe("ok");
   });
   it("latest attempt failed is failed even with an older success", () => {
-    expect(resourceState(ev({ lastAttemptAt: ago(1), lastAttemptOk: false, lastAttemptCode: "partner_http_error", lastSuccessAt: ago(10) }), NOW, 30)).toBe("failed");
+    expect(
+      resourceState(
+        ev({
+          lastAttemptAt: ago(1),
+          lastAttemptOk: false,
+          lastAttemptCode: "partner_http_error",
+          lastSuccessAt: ago(10),
+        }),
+        NOW,
+        30,
+      ),
+    ).toBe("failed");
   });
   it("partial write failure reads as incomplete", () => {
-    expect(resourceState(ev({ lastAttemptOk: false, lastAttemptCode: "partial_write_failure" }), NOW, 30)).toBe("incomplete");
+    expect(
+      resourceState(
+        ev({ lastAttemptOk: false, lastAttemptCode: "partial_write_failure" }),
+        NOW,
+        30,
+      ),
+    ).toBe("incomplete");
   });
   it("no success for longer than the threshold is delayed", () => {
-    expect(resourceState(ev({ lastAttemptAt: ago(45), lastSuccessAt: ago(45) }), NOW, 30)).toBe("delayed");
+    expect(resourceState(ev({ lastAttemptAt: ago(45), lastSuccessAt: ago(45) }), NOW, 30)).toBe(
+      "delayed",
+    );
   });
   it("no attempts is 'never'; query error is 'unavailable'", () => {
-    expect(resourceState(ev({ lastAttemptAt: null, lastSuccessAt: null, lastAttemptOk: null }), NOW, 30)).toBe("never");
+    expect(
+      resourceState(ev({ lastAttemptAt: null, lastSuccessAt: null, lastAttemptOk: null }), NOW, 30),
+    ).toBe("never");
     expect(resourceState(ev({ unavailable: true }), NOW, 30)).toBe("unavailable");
   });
   it("recovery: a newer success after a failure is ok again", () => {
-    expect(resourceState(ev({ lastAttemptAt: ago(1), lastAttemptOk: true, lastSuccessAt: ago(1) }), NOW, 30)).toBe("ok");
+    expect(
+      resourceState(
+        ev({ lastAttemptAt: ago(1), lastAttemptOk: true, lastSuccessAt: ago(1) }),
+        NOW,
+        30,
+      ),
+    ).toBe("ok");
   });
   it("a success on another stream cannot hide a failure", () => {
     expect(overallState(["ok", "ok", "failed", "ok"])).toBe("failed");

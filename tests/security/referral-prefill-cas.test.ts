@@ -58,7 +58,9 @@ function world(opts: {
   return fakeSupabase((c: FakeCall): FakeResult => {
     if (c.table === "referrals") return { data: referral(opts.referralAt ?? "r1") };
     if (c.table === "patients" && c.op === "update") {
-      return opts.updateMatches === false ? { data: null } : { data: { ...patient("v2"), ...(c.payload as object) } };
+      return opts.updateMatches === false
+        ? { data: null }
+        : { data: { ...patient("v2"), ...(c.payload as object) } };
     }
     if (c.table === "patients" && c.op === "select") {
       reads++;
@@ -110,7 +112,10 @@ describe("referral prefill — compare-and-set against the previewed version", (
   });
 
   it("still fills only blank fields", async () => {
-    const d = world({ patientAt: "v1", patientExtra: { current_admission: "Existing synthetic text" } });
+    const d = world({
+      patientAt: "v1",
+      patientExtra: { current_admission: "Existing synthetic text" },
+    });
     const res = await applyReferralPrefill(ctx(d), input());
     expect(res.applied_fields).not.toContain("current_admission");
     expect(res.skipped_fields).toContain("current_admission");

@@ -118,7 +118,8 @@ function composeTepDetails(ref: ReferralPrefillSource): string | null {
 
 function composeDnacprDetails(ref: ReferralPrefillSource): string | null {
   if (ref.resus_status === "dnacpr") return "DNACPR documented on critical care referral.";
-  if (ref.dnacpr_respect === true) return "ReSPECT / DNACPR form recorded on critical care referral.";
+  if (ref.dnacpr_respect === true)
+    return "ReSPECT / DNACPR form recorded on critical care referral.";
   return null;
 }
 

@@ -43,13 +43,19 @@ import { BridgeFetchError, expectRecords } from "@/lib/bridge-client.server";
 import { INBOUND_SYNC_ACTOR_ROLE } from "@/lib/sync-status";
 
 const SYN_PHI = "SYNTHETIC-SECRET-VALUE-ZZ";
-const rec = (id: string, updated_at = "2026-02-01T00:00:00Z", extra: Record<string, unknown> = {}) => ({
+const rec = (
+  id: string,
+  updated_at = "2026-02-01T00:00:00Z",
+  extra: Record<string, unknown> = {},
+) => ({
   id,
   updated_at,
   ...extra,
 });
 
-function db(opts: { local?: Record<string, unknown[]>; failUpsertIds?: string[]; readError?: string[] } = {}) {
+function db(
+  opts: { local?: Record<string, unknown[]>; failUpsertIds?: string[]; readError?: string[] } = {},
+) {
   return fakeSupabase((c: FakeCall): FakeResult => {
     if (c.table === "bridge_sync_events") return { data: null };
     if (c.op === "select") {
@@ -58,7 +64,9 @@ function db(opts: { local?: Record<string, unknown[]>; failUpsertIds?: string[];
     }
     if (c.op === "upsert") {
       const id = (c.payload as { id: string }).id;
-      return opts.failUpsertIds?.includes(id) ? { error: { message: `violates fk ${SYN_PHI}` } } : { data: null };
+      return opts.failUpsertIds?.includes(id)
+        ? { error: { message: `violates fk ${SYN_PHI}` } }
+        : { data: null };
     }
     return { data: null };
   });
@@ -81,10 +89,19 @@ afterEach(() => errSpy.mockRestore());
 describe("inbound sync — outcomes are counted honestly", () => {
   it("a failed upsert is counted as failed, not unchanged, and makes the run not ok", async () => {
     remote.referrals = [rec("r1"), rec("r2"), rec("r3")];
-    const d = db({ failUpsertIds: ["r2"], local: { referrals: [rec("r3", "2026-02-01T00:00:00Z")] } });
+    const d = db({
+      failUpsertIds: ["r2"],
+      local: { referrals: [rec("r3", "2026-02-01T00:00:00Z")] },
+    });
     const run = await runBridgeSync(d);
     const r = run.results.find((x) => x.entity === "referrals")!;
-    expect(r).toMatchObject({ fetched: 3, applied: 1, skipped: 1, failed: 1, error: "partial_write_failure" });
+    expect(r).toMatchObject({
+      fetched: 3,
+      applied: 1,
+      skipped: 1,
+      failed: 1,
+      error: "partial_write_failure",
+    });
     expect(run.ok).toBe(false);
     const ev = events(d).find((e) => e.entity === "referrals")!;
     expect(ev).toMatchObject({
@@ -136,7 +153,8 @@ describe("inbound sync — outcomes are counted honestly", () => {
     const d = db({ failUpsertIds: ["p1"], readError: [] });
     const run = await runBridgeSync(d);
     expect(run.results.find((r) => r.entity === "microbiology")!.error).toBe("unexpected");
-    const everything = JSON.stringify(events(d)) + JSON.stringify(run) + JSON.stringify(errSpy.mock.calls);
+    const everything =
+      JSON.stringify(events(d)) + JSON.stringify(run) + JSON.stringify(errSpy.mock.calls);
     expect(everything).not.toContain(SYN_PHI);
   });
 
@@ -144,13 +162,19 @@ describe("inbound sync — outcomes are counted honestly", () => {
     remote.patients = [rec("p1")];
     const d = db({ readError: ["patients"] });
     const run = await runBridgeSync(d);
-    expect(run.results[0]).toMatchObject({ entity: "patients", error: "local_read_failed", applied: 0 });
+    expect(run.results[0]).toMatchObject({
+      entity: "patients",
+      error: "local_read_failed",
+      applied: 0,
+    });
     expect(d.calls.some((c) => c.table === "patients" && c.op === "upsert")).toBe(false);
   });
 
   it("stays idempotent: equal or older partner copies are skipped, not rewritten", async () => {
     remote.patients = [rec("p1", "2026-02-01T00:00:00Z"), rec("p2", "2026-01-01T00:00:00Z")];
-    const d = db({ local: { patients: [rec("p1", "2026-02-01T00:00:00Z"), rec("p2", "2026-03-01T00:00:00Z")] } });
+    const d = db({
+      local: { patients: [rec("p1", "2026-02-01T00:00:00Z"), rec("p2", "2026-03-01T00:00:00Z")] },
+    });
     const run = await runBridgeSync(d);
     expect(run.results[0]).toMatchObject({ applied: 0, skipped: 2, failed: 0 });
     expect(d.calls.some((c) => c.op === "upsert")).toBe(false);
@@ -178,7 +202,10 @@ describe("inbound sync — outcomes are counted honestly", () => {
     expect(first.ok).toBe(false);
     const second = await runBridgeSync(db());
     expect(second.ok).toBe(true);
-    expect(second.results.find((r) => r.entity === "referrals")).toMatchObject({ applied: 1, failed: 0 });
+    expect(second.results.find((r) => r.entity === "referrals")).toMatchObject({
+      applied: 1,
+      failed: 0,
+    });
   });
 });
 
@@ -193,7 +220,9 @@ describe("partner feed parsing — missing or malformed lists are rejected", () 
   };
   it("accepts a present array, including an empty one", () => {
     expect(expectRecords({ patients: [] }, "patients")).toEqual([]);
-    expect(expectRecords({ patients: [{ id: "a", updated_at: null }] }, "patients")).toHaveLength(1);
+    expect(expectRecords({ patients: [{ id: "a", updated_at: null }] }, "patients")).toHaveLength(
+      1,
+    );
   });
   it("rejects a missing, null or non-array list instead of treating it as empty", () => {
     expect(code(() => expectRecords({}, "patients"))).toBe("malformed_response");
@@ -204,8 +233,12 @@ describe("partner feed parsing — missing or malformed lists are rejected", () 
   });
   it("rejects records without a usable id or with a non-text updated_at", () => {
     expect(code(() => expectRecords({ patients: [null] }, "patients"))).toBe("malformed_record");
-    expect(code(() => expectRecords({ patients: [{ id: "" }] }, "patients"))).toBe("malformed_record");
-    expect(code(() => expectRecords({ patients: [{ id: 5 }] }, "patients"))).toBe("malformed_record");
+    expect(code(() => expectRecords({ patients: [{ id: "" }] }, "patients"))).toBe(
+      "malformed_record",
+    );
+    expect(code(() => expectRecords({ patients: [{ id: 5 }] }, "patients"))).toBe(
+      "malformed_record",
+    );
     expect(code(() => expectRecords({ patients: [{ id: "a", updated_at: 1 }] }, "patients"))).toBe(
       "malformed_record",
     );

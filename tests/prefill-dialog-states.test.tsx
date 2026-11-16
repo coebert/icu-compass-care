@@ -45,7 +45,9 @@ const previewAt = (v: string) => ({
 
 const onDone = vi.fn();
 function open() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   render(
     <QueryClientProvider client={qc}>
       <PrefillFromReferral patientId={PID} linked={false} onDone={onDone} />
@@ -72,7 +74,10 @@ describe("prefill dialog states", () => {
     // The dialog retries once automatically before reporting failure.
     const alert = await screen.findByRole("alert", {}, { timeout: 4000 });
     expect(alert.textContent).toContain("Referrals couldn't be loaded");
-    expect(screen.getByRole("button", { name: "Preview changes" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Preview changes" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     const retry = screen.getByRole("button", { name: /try again/i });
     retry.focus();
     expect(document.activeElement).toBe(retry);
@@ -96,7 +101,10 @@ describe("prefill dialog states", () => {
     expect((await screen.findByRole("alert", {}, { timeout: 4000 })).textContent).toContain(
       "preview couldn't be loaded",
     );
-    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     expect(h.apply).not.toHaveBeenCalled();
   });
 
@@ -121,12 +129,18 @@ describe("prefill dialog states", () => {
       expected_patient_updated_at: "v1",
       expected_referral_updated_at: "r1",
     });
-    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+      "disabled",
+      true,
+    );
     expect(onDone).toHaveBeenCalledTimes(1); // refreshes the record behind the dialog
 
     fireEvent.click(screen.getByRole("button", { name: /reload preview/i }));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty("disabled", false),
+      expect(screen.getByRole("button", { name: "Confirm prefill" })).toHaveProperty(
+        "disabled",
+        false,
+      ),
     );
     fireEvent.click(screen.getByRole("button", { name: "Confirm prefill" }));
     await waitFor(() => expect(h.apply).toHaveBeenCalledTimes(2));

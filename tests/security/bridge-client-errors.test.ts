@@ -34,9 +34,9 @@ describe("partner client errors carry codes only", () => {
   it("HTTP error", async () => {
     vi.stubGlobal("fetch", async () => new Response(`{"detail":"${SYN_PHI}"}`, { status: 500 }));
     expect(await codeOf(fetchPartnerPatients())).toBe("partner_http_error");
-    expect(JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls)).not.toContain(
-      SYN_PHI,
-    );
+    expect(
+      JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls),
+    ).not.toContain(SYN_PHI);
   });
   it("network failure", async () => {
     vi.stubGlobal("fetch", async () => {
