@@ -318,7 +318,7 @@ function PatientDetail() {
           )}
           <PrefillFromReferral
             patientId={patientId}
-            linked={Boolean(patient.source_referral_id)}
+            linkedReferralId={(patient.source_referral_id as string | null) ?? null}
             onDone={() => {
               qc.invalidateQueries({ queryKey: ["patient", patientId] });
               qc.invalidateQueries({ queryKey: ["patients"] });

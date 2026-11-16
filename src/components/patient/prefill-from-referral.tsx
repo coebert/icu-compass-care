@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { fmtDate } from "@/lib/icu";
 import {
+  getPartnerReferralBase,
   listReferralCandidates,
   prefillPatientFromReferral,
   previewReferralPrefill,
@@ -11,15 +12,19 @@ import {
   referralCandidateSummary,
   PREFILL_FIELD_LABEL,
   type PrefillDecision,
+  type PrefillLinkState,
   PREFILL_STALE_MESSAGE,
+  REFERRAL_LINK_REQUIRED_MESSAGE,
+  partnerReferralUrl,
 } from "@/lib/referral-prefill";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, ClipboardPlus, RefreshCw } from "lucide-react";
+import { AlertTriangle, ClipboardPlus, ExternalLink, Info, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-type PrefillPreview = {
+type LinkedPreview = {
+  link: "linked";
   applied_fields: string[];
   skipped_fields: string[];
   patch: Record<string, string | boolean>;
@@ -27,14 +32,10 @@ type PrefillPreview = {
   patient_updated_at: string;
   referral_updated_at: string | null;
 };
+type BlockedPreview = { link: Exclude<PrefillLinkState, "linked">; partner_referral_url: string | null };
+type PrefillPreview = LinkedPreview | BlockedPreview;
 
-function InlineAlert({
-  children,
-  action,
-}: {
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
+function InlineAlert({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div
       role="alert"
@@ -43,6 +44,49 @@ function InlineAlert({
       <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
       <div className="min-w-0 flex-1">{children}</div>
       {action}
+    </div>
+  );
+}
+
+/** Opens the referral in Critical Care Connect (opaque referral id only). */
+function OpenInCcc({ href, compact }: { href: string | null; compact?: boolean }) {
+  if (!href) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Open it in Critical Care Connect (link not configured here).
+      </span>
+    );
+  }
+  return (
+    <Button asChild variant="outline" size="sm" className={compact ? "h-10 gap-1.5 sm:h-8" : "h-11 gap-1.5 sm:h-10"}>
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+        Open in Critical Care Connect
+        <span className="sr-only"> (opens in a new tab)</span>
+      </a>
+    </Button>
+  );
+}
+
+function LinkRequired({ href, state }: { href: string | null; state: PrefillLinkState }) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm"
+    >
+      <div className="flex gap-2">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+        <p>
+          {state === "mismatch"
+            ? "This patient is linked to a different referral, so nothing can be copied from this one."
+            : "This patient isn't linked to this referral, so nothing can be copied here."}{" "}
+          Confirm the match in Critical Care Connect, which checks the hospital number against this
+          record. Nothing has been changed.
+        </p>
+      </div>
+      <div>
+        <OpenInCcc href={href} />
+      </div>
     </div>
   );
 }
@@ -61,52 +105,63 @@ type ReferralCandidate = {
 
 export function PrefillFromReferral({
   patientId,
-  linked,
+  linkedReferralId,
   onDone,
 }: {
   patientId: string;
-  linked: boolean;
+  /** The referral this patient is already linked to (set via Critical Care Connect), if any. */
+  linkedReferralId: string | null;
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [step, setStep] = useState<"pick" | "preview">("pick");
-  // Set when "Confirm" was refused because the record changed after preview.
   const [stale, setStale] = useState(false);
+  const [linkLost, setLinkLost] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   // Referral-documented decisions the user has explicitly ticked.
   const [accepted, setAccepted] = useState<string[]>([]);
   const listFn = useServerFn(listReferralCandidates);
   const previewFn = useServerFn(previewReferralPrefill);
   const prefillFn = useServerFn(prefillPatientFromReferral);
+  const baseFn = useServerFn(getPartnerReferralBase);
+  const linked = !!linkedReferralId;
 
+  const baseQ = useQuery({
+    queryKey: ["partner-referral-base"],
+    queryFn: () => baseFn() as Promise<{ origin: string | null }>,
+    enabled: open,
+    staleTime: 10 * 60_000,
+    retry: 1,
+  });
+  const linkFor = (id: string) => partnerReferralUrl(baseQ.data?.origin ?? null, id);
+
+  // Unlinked: the list only helps find the referral in CCC; nothing is copied.
   const candidatesQ = useQuery({
     queryKey: ["referral-candidates"],
     queryFn: () => listFn() as Promise<ReferralCandidate[]>,
-    enabled: open,
+    enabled: open && !linked,
     retry: 1,
   });
   const candidates = candidatesQ.data;
 
   const previewQ = useQuery({
-    queryKey: ["referral-prefill-preview", patientId, selected],
+    queryKey: ["referral-prefill-preview", patientId, linkedReferralId],
     queryFn: () =>
       previewFn({
-        data: { patient_id: patientId, referral_id: selected! },
+        data: { patient_id: patientId, referral_id: linkedReferralId! },
       }) as Promise<PrefillPreview>,
-    enabled: open && step === "preview" && !!selected,
+    enabled: open && linked,
     retry: 1,
     // A preview is only good for the version it was computed from.
     gcTime: 0,
   });
   const preview = previewQ.data;
   const previewLoading = previewQ.isFetching;
+  const ready = preview && preview.link === "linked" ? preview : null;
 
   const resetAndClose = () => {
     setOpen(false);
-    setSelected(null);
-    setStep("pick");
     setStale(false);
+    setLinkLost(false);
     setApplyError(null);
     setAccepted([]);
   };
@@ -120,7 +175,7 @@ export function PrefillFromReferral({
   };
 
   const prefillMut = useMutation({
-    mutationFn: (p: { referral_id: string; preview: PrefillPreview; accept: string[] }) =>
+    mutationFn: (p: { referral_id: string; preview: LinkedPreview; accept: string[] }) =>
       prefillFn({
         data: {
           patient_id: patientId,
@@ -135,9 +190,7 @@ export function PrefillFromReferral({
       if (applied.length) {
         toast.success("Prefilled from referral", { description: applied.join(", ") });
       } else {
-        toast.info("Linked to referral", {
-          description: "No blank fields to fill — existing entries were kept.",
-        });
+        toast.info("Nothing to fill", { description: "Existing entries were kept." });
       }
       resetAndClose();
       onDone();
@@ -149,17 +202,17 @@ export function PrefillFromReferral({
         onDone();
         return;
       }
+      if (e.message === REFERRAL_LINK_REQUIRED_MESSAGE) {
+        setLinkLost(true);
+        onDone();
+        return;
+      }
       setApplyError(e.message || "The prefill could not be saved.");
     },
   });
 
   const canConfirm =
-    !!selected &&
-    !!preview &&
-    previewQ.isSuccess &&
-    !previewLoading &&
-    !stale &&
-    !prefillMut.isPending;
+    !!ready && previewQ.isSuccess && !previewLoading && !stale && !linkLost && !prefillMut.isPending;
 
   const fmtPatchValue = (v: string | boolean): string =>
     typeof v === "boolean" ? (v ? "Yes" : "No") : v;
@@ -173,20 +226,24 @@ export function PrefillFromReferral({
         <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {step === "pick"
-                ? "Prefill from critical care referral"
-                : "Review fields to be populated"}
+              {linked ? "Review fields to be populated" : "Prefill from critical care referral"}
             </DialogTitle>
           </DialogHeader>
 
-          {step === "pick" && (
+          {!linked && (
             <>
-              <p className="text-sm text-muted-foreground">
-                Select the referral that matches this patient. Only blank fields are filled —
-                existing entries are never overwritten. Filled text is marked as referral
-                information that needs review. Detailed referral history stays in Critical Care
-                Connect.
-              </p>
+              <div
+                role="status"
+                className="flex gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm"
+              >
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <p>
+                  This patient isn't linked to a referral yet, so nothing can be copied here. Find
+                  the referral below and open it in Critical Care Connect to confirm the match —
+                  it checks the hospital number against this record. Once linked, come back here
+                  to fill blank fields.
+                </p>
+              </div>
               {candidatesQ.isPending && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Loading referrals…
@@ -218,51 +275,38 @@ export function PrefillFromReferral({
                   No synced referrals available.
                 </p>
               )}
-              <div className="space-y-2" role="group" aria-label="Referrals">
+              <ul className="space-y-2" aria-label="Referrals">
                 {(candidatesQ.isError ? [] : (candidates ?? [])).map((r) => (
-                  <button
+                  <li
                     key={r.id}
-                    type="button"
-                    aria-pressed={selected === r.id}
-                    onClick={() => setSelected(r.id)}
-                    className={`w-full rounded-lg border p-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      selected === r.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                    }`}
+                    className="flex flex-col gap-2 rounded-lg border p-3 text-sm sm:flex-row sm:items-center"
                   >
-                    <div className="font-medium">{referralCandidateSummary(r)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {r.status ?? "referral"}
-                      {r.referral_received_at
-                        ? ` · received ${fmtDate(r.referral_received_at)}`
-                        : ""}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{referralCandidateSummary(r)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {r.status ?? "referral"}
+                        {r.referral_received_at ? ` · received ${fmtDate(r.referral_received_at)}` : ""}
+                      </div>
                     </div>
-                  </button>
+                    <OpenInCcc href={linkFor(r.id)} compact />
+                  </li>
                 ))}
-              </div>
+              </ul>
               <div className="flex justify-end gap-2 border-t pt-4">
                 <Button variant="outline" className="h-11 sm:h-10" onClick={resetAndClose}>
-                  Cancel
-                </Button>
-                <Button
-                  className="h-11 sm:h-10"
-                  disabled={!selected || !candidates?.some((c) => c.id === selected)}
-                  onClick={() => {
-                    setStale(false);
-                    setApplyError(null);
-                    setStep("preview");
-                  }}
-                >
-                  Preview changes
+                  Close
                 </Button>
               </div>
             </>
           )}
 
-          {step === "preview" && (
+          {linked && (
             <>
               <p className="text-sm text-muted-foreground">
-                These are the exact fields that will be populated. Fields already containing data
-                are left untouched.
+                These are the exact fields that will be populated from the linked referral. Fields
+                already containing data are left untouched. Filled text is marked as referral
+                information that needs review. Detailed referral history stays in Critical Care
+                Connect.
               </p>
               {previewLoading && (
                 <p role="status" className="text-sm text-muted-foreground">
@@ -287,6 +331,12 @@ export function PrefillFromReferral({
                   changed.
                 </InlineAlert>
               )}
+              {preview && preview.link !== "linked" && !previewLoading && (
+                <LinkRequired href={preview.partner_referral_url} state={preview.link} />
+              )}
+              {linkLost && (
+                <LinkRequired href={linkFor(linkedReferralId!)} state="unlinked" />
+              )}
               {stale && (
                 <InlineAlert
                   action={
@@ -308,43 +358,42 @@ export function PrefillFromReferral({
               {applyError && !stale && (
                 <InlineAlert>The prefill could not be saved: {applyError}</InlineAlert>
               )}
-              {preview && !previewQ.isError && !stale && (
+              {ready && !previewQ.isError && !stale && !linkLost && (
                 <div className="space-y-4">
                   <div>
                     <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                      Will be filled ({preview.applied_fields.length})
+                      Will be filled ({ready.applied_fields.length})
                     </div>
-                    {preview.applied_fields.length === 0 ? (
+                    {ready.applied_fields.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Nothing to fill — all mapped fields already have values. Confirming will
-                        just link this patient to the referral.
+                        Nothing to fill — all mapped fields already have values.
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {preview.applied_fields.map((f) => (
+                        {ready.applied_fields.map((f) => (
                           <div key={f} className="rounded-lg border p-3 text-sm">
                             <div className="font-medium">{PREFILL_FIELD_LABEL[f] ?? f}</div>
                             <div className="whitespace-pre-wrap text-muted-foreground">
-                              {fmtPatchValue(preview.patch[f])}
+                              {fmtPatchValue(ready.patch[f])}
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                  {(preview.decisions ?? []).length > 0 && (
+                  {(ready.decisions ?? []).length > 0 && (
                     <fieldset className="space-y-2">
                       <legend className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
                         Decision recorded on the referral — not applied unless you tick it
                       </legend>
-                      {(preview.decisions ?? []).map((d) => {
+                      {(ready.decisions ?? []).map((d) => {
                         const id = `prefill-decision-${d.field}`;
                         const on = accepted.includes(d.field);
                         return (
                           <label
                             key={d.field}
                             htmlFor={id}
-                            className="flex cursor-pointer items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm"
+                            className="flex cursor-pointer items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm"
                           >
                             <input
                               id={id}
@@ -374,13 +423,13 @@ export function PrefillFromReferral({
                       })}
                     </fieldset>
                   )}
-                  {preview.skipped_fields.length > 0 && (
+                  {ready.skipped_fields.length > 0 && (
                     <div>
                       <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                        Kept as-is ({preview.skipped_fields.length})
+                        Kept as-is ({ready.skipped_fields.length})
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {preview.skipped_fields.map((f) => (
+                        {ready.skipped_fields.map((f) => (
                           <Badge key={f} variant="outline">
                             {PREFILL_FIELD_LABEL[f] ?? f}
                           </Badge>
@@ -391,24 +440,16 @@ export function PrefillFromReferral({
                 </div>
               )}
               <div className="flex justify-end gap-2 border-t pt-4">
-                <Button
-                  variant="outline"
-                  className="h-11 sm:h-10"
-                  onClick={() => {
-                    setStale(false);
-                    setApplyError(null);
-                    setStep("pick");
-                  }}
-                >
-                  Back
+                <Button variant="outline" className="h-11 sm:h-10" onClick={resetAndClose}>
+                  Cancel
                 </Button>
                 <Button
                   className="h-11 sm:h-10"
                   disabled={!canConfirm}
                   onClick={() => {
-                    if (!selected || !preview) return;
+                    if (!linkedReferralId || !ready) return;
                     setApplyError(null);
-                    prefillMut.mutate({ referral_id: selected, preview, accept: accepted });
+                    prefillMut.mutate({ referral_id: linkedReferralId, preview: ready, accept: accepted });
                   }}
                 >
                   {prefillMut.isPending ? "Prefilling…" : "Confirm prefill"}
