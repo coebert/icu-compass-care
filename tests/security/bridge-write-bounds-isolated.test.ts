@@ -96,6 +96,7 @@ describe("partner write endpoints refuse oversized input before validation", () 
     const POST = await handler("bridge.patients");
     const body = JSON.stringify({
       id: PID,
+      expected_updated_at: "2026-11-16T10:00:00.123456+00:00",
       full_name: "Z.Q.",
       resp_support: ["hfno"],
       sedative_agents: ["propofol"],

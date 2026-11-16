@@ -89,24 +89,24 @@ beforeEach(() => {
 
 describe("generic partner patient POST", () => {
   it("an update by id without expected_updated_at is refused — never a fresh server version", async () => {
-    const res = await post("bridge.patients", { id: PID, current_plan: "x" });
+    const res = await post("bridge.patients", { id: PID, outstanding_tasks: "x" });
     expect(res.status).toBe(400);
     expect(spy.updates).toHaveLength(0);
   });
   it.each(["yesterday", "2026-11-16 10:00:00", "2026-11-16T10:00:00", "", 1731751200000])(
     "a malformed expected_updated_at (%j) is refused",
     async (v) => {
-      const res = await post("bridge.patients", { id: PID, current_plan: "x", expected_updated_at: v });
+      const res = await post("bridge.patients", { id: PID, outstanding_tasks: "x", expected_updated_at: v });
       expect(res.status).toBe(400);
       expect(spy.updates).toHaveLength(0);
     },
   );
   it("a partial update without full_name uses exactly the caller's version and the bridge unit", async () => {
-    const res = await post("bridge.patients", { id: PID, current_plan: "x", expected_updated_at: V });
+    const res = await post("bridge.patients", { id: PID, outstanding_tasks: "x", expected_updated_at: V });
     expect(res.status).toBe(200);
     expect(spy.updates).toHaveLength(1);
     expect(spy.updates[0]).toMatchObject({ id: PID, unitId: UNIT, expectedUpdatedAt: V });
-    expect(spy.updates[0]!.payload).toEqual({ current_plan: "x" });
+    expect(spy.updates[0]!.payload).toEqual({ outstanding_tasks: "x" });
   });
   it.each(["wardable", "wardable_at", "wardable_by"])("refuses %s (fenced endpoint only)", async (k) => {
     const res = await post("bridge.patients", { id: PID, expected_updated_at: V, [k]: k === "wardable" ? true : null });
@@ -116,13 +116,13 @@ describe("generic partner patient POST", () => {
   });
   it("can't move a patient to another unit, change sharing or the id via the payload", async () => {
     for (const extra of [{ unit_id: UNIT }, { shared_with_partner: false }, { new_id: PID }]) {
-      const res = await post("bridge.patients", { id: PID, expected_updated_at: V, current_plan: "x", ...extra });
+      const res = await post("bridge.patients", { id: PID, expected_updated_at: V, outstanding_tasks: "x", ...extra });
       expect(res.status).toBe(400);
     }
     expect(spy.updates).toHaveLength(0);
   });
   it("a create without a valid name is refused", async () => {
-    const res = await post("bridge.patients", { current_plan: "x" });
+    const res = await post("bridge.patients", { outstanding_tasks: "x" });
     expect(res.status).toBe(400);
   });
 });
