@@ -508,4 +508,22 @@ d("bed moves under real concurrency", () => {
     expect(d1).toBe("deleted");
     expect(await filled()).toBe("CIPHER");
   });
+
+  it("prefill: a clinician's patient edit in flight makes the apply wait, then refuse as stale", async () => {
+    const rid = RID(13);
+    await admin`INSERT INTO public.referrals (id, status, reason_category) VALUES (${rid}, 'pending', 'sepsis')`;
+    await linkTo(rid);
+    const [pAt, rAt] = [await prev(), await rrev(rid)];
+    const edit = a.begin(async (tx) => {
+      await tx`UPDATE public.patients SET current_management_enc = 'LOCAL EDIT' WHERE id = ${PP}`;
+      await sleep(400);
+    });
+    await sleep(100);
+    const ap = b.begin((tx) => apply(tx, rid, pAt, rAt));
+    const [, r] = await Promise.all([edit, ap]);
+    expect(r).toEqual({ ok: false, code: "stale" });
+    expect(await filled()).toBeNull();
+    const row = await admin`SELECT current_management_enc AS m FROM public.patients WHERE id = ${PP}`;
+    expect(row[0]!.m).toBe("LOCAL EDIT");
+  });
 });
