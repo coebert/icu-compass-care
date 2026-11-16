@@ -35,9 +35,7 @@ export const listReferralCandidates = createServerFn({ method: "GET" })
 export const previewReferralPrefill = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z
-      .object({ patient_id: z.string().uuid(), referral_id: z.string().uuid() })
-      .parse(input),
+    z.object({ patient_id: z.string().uuid(), referral_id: z.string().uuid() }).parse(input),
   )
   .handler(async ({ context, data }) => {
     const { data: patient, error: pErr } = await context.supabase
@@ -67,8 +65,7 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
       ceiling_of_care: ref.ceiling_of_care ?? null,
       resus_status: ref.resus_status ?? null,
       dnacpr_respect: ref.dnacpr_respect ?? null,
-      anticipated_interventions:
-        (ref.anticipated_interventions as string[] | null) ?? null,
+      anticipated_interventions: (ref.anticipated_interventions as string[] | null) ?? null,
       allergies: ref.allergies ?? null,
       weight_kg: ref.weight_kg ?? null,
       admission_urgency: ref.admission_urgency ?? null,
