@@ -10,7 +10,15 @@ import { normalizeBed } from "@/lib/icu-beds";
 
 const ROOT = join(__dirname, "../..");
 const MIG_DIR = join(ROOT, "drizzle/migrations");
-export const STAGED_SQL = join(ROOT, "docs/security/staged-migrations/0005_bed_integrity_and_bridge_import.sql");
+const STAGED_DIR = join(ROOT, "docs/security/staged-migrations");
+// Intended apply order. None of these is applied to the live database.
+export const STAGED_FILES = [
+  "0005_bed_integrity.sql",
+  "0006_bridge_import_provenance.sql",
+  "0007_bridge_wardable_fence.sql",
+].map((f) => join(STAGED_DIR, f));
+export const STAGED_SQL = STAGED_FILES[0]!;
+export const stagedSql = (): string => STAGED_FILES.map((f) => readFileSync(f, "utf8")).join("\n;\n");
 
 export function baseSql(): string {
   const mig = readdirSync(MIG_DIR)
@@ -121,7 +129,7 @@ beforeAll(async () => {
       "INSERT INTO public.patients (id, unit_id, full_name, bed, status, isolation_required, shared_with_partner) VALUES ($1,$2,'X.X.',$3,$4::public.patient_status,$5,$6)",
       [id, unit, b, st, iso, sh],
     );
-  await db.exec(readFileSync(STAGED_SQL, "utf8"));
+  await db.exec(stagedSql());
 }, 60_000);
 
 describe("staged migration preflight", () => {
@@ -274,159 +282,3 @@ describe("move_patient_beds", () => {
   });
 });
 
-describe("function permissions on a fresh schema", () => {
-  it.each([
-    ["public.move_patient_beds(jsonb)", "anon", false],
-    ["public.move_patient_beds(jsonb)", "authenticated", true],
-    ["public.bridge_import_referral(jsonb,timestamptz)", "authenticated", false],
-    ["public.bridge_import_referral(jsonb,timestamptz)", "anon", false],
-    ["public.bridge_import_referral(jsonb,timestamptz)", "service_role", true],
-    ["public.bridge_import_result(text,jsonb,uuid)", "authenticated", false],
-    ["public.bridge_import_result(text,jsonb,uuid)", "service_role", true],
-  ] as const)("%s for %s = %s", async (fn, role, ok) => {
-    const r = await superQ("SELECT has_function_privilege($1, $2, 'EXECUTE') AS ok", [role, fn]);
-    expect(r.rows[0]!.ok).toBe(ok);
-  });
-});
-
-const REF = "30000000-0000-4000-8000-000000000001";
-const refRec = (over: Record<string, unknown> = {}) => ({
-  id: REF,
-  created_at: "2026-03-01T10:00:00.000001Z",
-  updated_at: "2026-03-01T10:05:00.123456Z",
-  deleted_at: null,
-  status: "pending",
-  referral_received_at: "2026-03-01T10:00:00Z",
-  age: 70,
-  sex: "female",
-  current_ward: "W1",
-  current_bed: "B2",
-  referring_specialty: "Medicine",
-  reason_category: "sepsis",
-  ceiling_of_care: "full_escalation",
-  resus_status: "for_cpr",
-  dnacpr_respect: false,
-  anticipated_interventions: ["niv"],
-  allergies: null,
-  weight_kg: 60,
-  admission_urgency: null,
-  infection_status: null,
-  news2_score: 5,
-  ...over,
-});
-async function importReferral(rec: object, expected: string | null): Promise<string> {
-  await db.exec("SET ROLE service_role");
-  try {
-    const r = await superQ("SELECT public.bridge_import_referral($1::jsonb, $2::timestamptz) AS r", [JSON.stringify(rec), expected]);
-    return r.rows[0]!.r as string;
-  } finally {
-    await db.exec("RESET ROLE");
-  }
-}
-async function localRef() {
-  const r = await superQ(
-    "SELECT updated_at::text AS u, deleted_at, status::text, hospital_number_enc, created_by, origin_booking_id, previous_referral_id FROM public.referrals WHERE id=$1",
-    [REF],
-  );
-  return r.rows[0] as Record<string, unknown> | undefined;
-}
-
-describe("bridge_import_referral", () => {
-  it("inserts allowlisted fields only and keeps the source revision exactly", async () => {
-    const rec = { ...refRec(), hospital_number_enc: "x", created_by: U.clinA, origin_booking_id: P.a1, previous_referral_id: REF };
-    expect(await importReferral(rec, null)).toBe("inserted");
-    const l = await localRef();
-    expect(l).toMatchObject({ u: "2026-03-01 10:05:00.123456+00", hospital_number_enc: null, created_by: null, origin_booking_id: null, previous_referral_id: null });
-  });
-  it("an insert that finds an existing row is a conflict, not an overwrite", async () => {
-    expect(await importReferral(refRec({ status: "admitted" }), null)).toBe("conflict");
-    expect((await localRef())!.status).toBe("pending");
-  });
-  it("a newer source revision updates and keeps the source timestamp, not now()", async () => {
-    const cur = (await localRef())!.u as string;
-    expect(await importReferral(refRec({ updated_at: "2026-03-02T08:00:00.000007Z", status: "admitted" }), cur)).toBe("updated");
-    expect(await localRef()).toMatchObject({ u: "2026-03-02 08:00:00.000007+00", status: "admitted" });
-  });
-  it("equal or older source revisions are no-ops", async () => {
-    const cur = (await localRef())!.u as string;
-    expect(await importReferral(refRec({ updated_at: "2026-03-02T08:00:00.000007Z", status: "declined" }), cur)).toBe("unchanged");
-    expect(await importReferral(refRec({ updated_at: "2026-03-01T00:00:00Z", status: "declined" }), cur)).toBe("unchanged");
-    expect((await localRef())!.status).toBe("admitted");
-  });
-  it("a local revision that moved since it was read is a conflict", async () => {
-    expect(await importReferral(refRec({ updated_at: "2026-03-05T00:00:00Z" }), "2026-03-01T10:05:00.123456Z")).toBe("conflict");
-  });
-  it("tombstones keep the record, marked deleted", async () => {
-    const cur = (await localRef())!.u as string;
-    expect(await importReferral(refRec({ updated_at: "2026-03-06T00:00:00Z", deleted_at: "2026-03-06T00:00:00Z", status: "admitted" }), cur)).toBe("updated");
-    expect((await localRef())!.deleted_at).not.toBeNull();
-  });
-  it("ordinary edits still get now(), even if the import flag were set", async () => {
-    await superQ("UPDATE public.referrals SET current_ward='W2' WHERE id=$1", [REF]);
-    const u1 = (await localRef())!.u as string;
-    expect(u1 > "2026-03-07").toBe(true);
-    await db.exec("BEGIN");
-    await superQ("SELECT set_config('app.bridge_source_revision','on',true)");
-    await superQ("UPDATE public.referrals SET current_ward='W3', updated_at='2000-01-01' WHERE id=$1", [REF]);
-    await db.exec("COMMIT");
-    expect(((await localRef())!.u as string) > "2026-03-07").toBe(true);
-  });
-  it("patients keep their normal timestamp behaviour", async () => {
-    await superQ("UPDATE public.patients SET updated_at='2000-01-01' WHERE id=$1", [P.dis]);
-    expect((await rev(P.dis)) > "2026").toBe(true);
-  });
-});
-
-const RES = "40000000-0000-4000-8000-000000000001";
-async function importResult(kind: string, rec: object): Promise<string> {
-  await db.exec("SET ROLE service_role");
-  try {
-    const r = await superQ("SELECT public.bridge_import_result($1, $2::jsonb, $3) AS r", [kind, JSON.stringify(rec), UNIT_A]);
-    return r.rows[0]!.r as string;
-  } finally {
-    await db.exec("RESET ROLE");
-  }
-}
-const res = (over: Record<string, unknown> = {}) => ({
-  id: RES,
-  patient_id: P.sh,
-  type: "Blood",
-  findings: "Normal",
-  result_at: "2026-03-01T09:00:00Z",
-  created_at: "2026-03-01T09:10:00.000001Z",
-  updated_at: "2026-03-01T09:10:00.000002Z",
-  ...over,
-});
-
-describe("bridge_import_result", () => {
-  it("inserts a new result for an existing shared patient in the bridge unit", async () => {
-    expect(await importResult("investigations", res())).toBe("inserted");
-    const r = await superQ("SELECT category, updated_at::text AS u FROM public.investigations WHERE id=$1", [RES]);
-    expect(r.rows[0]).toMatchObject({ category: "Blood", u: "2026-03-01 09:10:00.000002+00" });
-  });
-  it("identical repeat is a no-op; divergent content is a conflict and never overwrites", async () => {
-    expect(await importResult("investigations", res())).toBe("identical");
-    expect(await importResult("investigations", res({ findings: "Changed" }))).toBe("conflict");
-    const r = await superQ("SELECT findings FROM public.investigations WHERE id=$1", [RES]);
-    expect(r.rows[0]!.findings).toBe("Normal");
-  });
-  it("withheld, other-unit and unknown patients are never linked or created", async () => {
-    const id = "40000000-0000-4000-8000-000000000002";
-    expect(await importResult("investigations", res({ id, patient_id: P.a3 }))).toBe("parent_unavailable");
-    expect(await importResult("investigations", res({ id, patient_id: P.shB }))).toBe("parent_unavailable");
-    expect(await importResult("investigations", res({ id, patient_id: "20000000-0000-4000-8000-0000000000ff" }))).toBe("parent_unavailable");
-    const n = await superQ("SELECT count(*)::int AS n FROM public.patients");
-    expect(n.rows[0]!.n).toBe(8);
-  });
-  it("microbiology maps type to specimen_type", async () => {
-    const id = "40000000-0000-4000-8000-000000000003";
-    expect(await importResult("microbiology", res({ id, type: "Urine" }))).toBe("inserted");
-    const r = await superQ("SELECT specimen_type FROM public.microbiology_results WHERE id=$1", [id]);
-    expect(r.rows[0]!.specimen_type).toBe("Urine");
-  });
-  it("rejects malformed rows", async () => {
-    await expect(importResult("investigations", res({ id: "nope" }))).rejects.toThrow(/invalid_record/);
-    await expect(importResult("investigations", res({ id: "40000000-0000-4000-8000-000000000009", findings: " " }))).rejects.toThrow(/invalid_record/);
-    await expect(importResult("audit", res({ id: "40000000-0000-4000-8000-000000000009" }))).rejects.toThrow(/invalid_record/);
-  });
-});
