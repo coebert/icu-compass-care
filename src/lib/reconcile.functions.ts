@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertTrustAdmin } from "@/lib/roles.server";
+import { assertReconcileAccess } from "@/lib/roles.server";
 
 export type ReconEntity = "notifications" | "referrals" | "audit_log";
 
@@ -75,7 +75,7 @@ export type ReconcileResult = {
 export const getReconciliation = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<EntityRecon[]> => {
-    await assertTrustAdmin(context);
+    await assertReconcileAccess(context);
     const { buildReconciliation } = await import("@/lib/reconcile.server");
     return buildReconciliation();
   });
@@ -93,7 +93,7 @@ export const reconcilePartner = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ context, data }): Promise<ReconcileResult> => {
-    await assertTrustAdmin(context);
+    await assertReconcileAccess(context);
     const { reconcilePullReferrals } = await import("@/lib/reconcile.server");
     return reconcilePullReferrals(data.ids);
   });

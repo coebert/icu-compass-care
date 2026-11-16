@@ -145,6 +145,15 @@ export async function assertTrustAdmin(context: Ctx): Promise<Actor> {
   return actor;
 }
 
+/**
+ * Cross-project sync review and referral pull. The review reads every unit's
+ * notifications and audit metadata through the service role, and a pull
+ * writes referrals, so this is Trust-wide: unit administrators are refused.
+ */
+export async function assertReconcileAccess(context: Ctx): Promise<Actor> {
+  return assertTrustAdmin(context);
+}
+
 /** Oversight surfaces (audit, access log, bridge security): admins + auditors. */
 export async function assertOversight(context: Ctx): Promise<Actor> {
   const actor = await loadActor(context);
