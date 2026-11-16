@@ -156,7 +156,7 @@ export function PrefillFromReferral({
   });
   const preview = previewQ.data;
   const previewLoading = previewQ.isFetching;
-  const ready = preview && preview.link === "linked" ? preview : null;
+  const ready: LinkedPreview | null = preview?.link === "linked" ? (preview as LinkedPreview) : null;
 
   const resetAndClose = () => {
     setOpen(false);
