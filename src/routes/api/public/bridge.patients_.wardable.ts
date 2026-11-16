@@ -50,7 +50,8 @@ export const Route = createFileRoute("/api/public/bridge/patients_/wardable")({
             actor_role: auth.actor.role,
             actor_email: auth.actor.email ?? null,
           });
-          return json({ ok: false, code: "replay" }, 409);
+          // 401, not 409: the 409 codes are reserved for the fence outcomes.
+          return json({ ok: false, code: "replay" }, 401);
         }
 
         let raw: unknown;
