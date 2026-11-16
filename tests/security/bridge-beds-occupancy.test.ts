@@ -65,7 +65,7 @@ function world(opts: {
 }) {
   return fakeSupabase((c: FakeCall): FakeResult => {
     if (c.table === "icu_units")
-      return opts.unitError ? { error: { message: "x" } } : { data: { id: UNIT } };
+      return opts.unitError ? { error: { message: "x" } } : { data: { id: UNIT, code: "SDH-RADNOR" } };
     if (c.table === "icu_beds")
       return opts.rosterError ? { error: { message: "x" } } : { data: opts.roster ?? roster };
     if (c.table === "patients" && c.columns === OCCUPANCY_FACT_COLUMNS) {
