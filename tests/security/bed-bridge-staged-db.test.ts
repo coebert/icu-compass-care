@@ -314,12 +314,6 @@ const refRec = (over: Record<string, unknown> = {}) => ({
   news2_score: 5,
   ...over,
 });
-const importRef = async (rec: object, expected: string | null) =>
-  (await superQ("SET ROLE service_role; SELECT public.bridge_import_referral($1::jsonb, $2::timestamptz) AS r", [JSON.stringify(rec), expected]).catch(async (e) => {
-    await superQ("RESET ROLE");
-    throw e;
-  })) as Q;
-
 async function importReferral(rec: object, expected: string | null): Promise<string> {
   await db.exec("SET ROLE service_role");
   try {
@@ -329,7 +323,6 @@ async function importReferral(rec: object, expected: string | null): Promise<str
     await db.exec("RESET ROLE");
   }
 }
-void importRef;
 async function localRef() {
   const r = await superQ(
     "SELECT updated_at::text AS u, deleted_at, status::text, hospital_number_enc, created_by, origin_booking_id, previous_referral_id FROM public.referrals WHERE id=$1",
