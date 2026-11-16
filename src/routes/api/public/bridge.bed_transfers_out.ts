@@ -11,7 +11,12 @@ export const Route = createFileRoute("/api/public/bridge/bed_transfers_out")({
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders() }),
 
       GET: async ({ request }) => {
-        const auth = await authorizeBridge(request, "", { write: false }, "/bridge/bed_transfers_out");
+        const auth = await authorizeBridge(
+          request,
+          "",
+          { write: false },
+          "/bridge/bed_transfers_out",
+        );
         if (!auth.ok) return auth.response;
 
         const supabaseAdmin = await getAdmin();
@@ -30,10 +35,16 @@ export const Route = createFileRoute("/api/public/bridge/bed_transfers_out")({
           .eq("shared_with_partner", true)
           .order("updated_at", { ascending: false })
           .limit(requestLimit(request));
-        if (error) return (console.error("[bridge] transfers unavailable", error.code ?? "unknown"), json({ error: "Service unavailable" }, 503));
+        if (error)
+          return (
+            console.error("[bridge] transfers unavailable", error.code ?? "unknown"),
+            json({ error: "Service unavailable" }, 503)
+          );
 
         const bed_transfers_out = (
-          decryptPatientRows(data as Array<Record<string, unknown>> | null) as unknown as BridgePatient[]
+          decryptPatientRows(
+            data as Array<Record<string, unknown>> | null,
+          ) as unknown as BridgePatient[]
         ).map((p) => ({
           ...occupantView(p),
           discharge_date: p.discharge_date ?? null,

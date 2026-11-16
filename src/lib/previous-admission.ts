@@ -28,7 +28,10 @@ export type PreviousAdmission = {
 
 /** Same canonical form as the server's lookup hash (trim, upper case, A-Z0-9 only). */
 export function normaliseHospitalNumber(value: string | null | undefined): string {
-  return (value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return (value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 /** Records whose own hospital number exactly matches the entered one. */

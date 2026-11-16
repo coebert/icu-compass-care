@@ -129,9 +129,16 @@ describe("staged 0008: child results", () => {
   });
   it("investigations: exact table row keys (response contract unchanged)", async () => {
     const rows = await exportAs("service_role", "bridge_export_investigations");
-    expect(Object.keys(rows[0]!).sort()).toEqual(
-      ["category", "created_at", "created_by", "findings", "id", "patient_id", "result_at", "updated_at"],
-    );
+    expect(Object.keys(rows[0]!).sort()).toEqual([
+      "category",
+      "created_at",
+      "created_by",
+      "findings",
+      "id",
+      "patient_id",
+      "result_at",
+      "updated_at",
+    ]);
   });
   it("investigations: patient and category filters; wrong-unit patient id returns nothing", async () => {
     const one = await exportAs(
@@ -153,20 +160,32 @@ describe("staged 0008: child results", () => {
   });
   it("sharing revoked before the statement is honoured (no stale id list)", async () => {
     expect(
-      await patientOf("investigations", await exportAs("service_role", "bridge_export_investigations")),
+      await patientOf(
+        "investigations",
+        await exportAs("service_role", "bridge_export_investigations"),
+      ),
     ).toContain(P.revoked);
     await q("UPDATE public.patients SET shared_with_partner=false WHERE id=$1", [P.revoked]);
     expect(
-      await patientOf("investigations", await exportAs("service_role", "bridge_export_investigations")),
+      await patientOf(
+        "investigations",
+        await exportAs("service_role", "bridge_export_investigations"),
+      ),
     ).not.toContain(P.revoked);
     expect(
-      await patientOf("microbiology_results", await exportAs("service_role", "bridge_export_microbiology")),
+      await patientOf(
+        "microbiology_results",
+        await exportAs("service_role", "bridge_export_microbiology"),
+      ),
     ).toEqual([P.shared]);
   });
   it("patient moved to another unit stops exporting", async () => {
     await q("UPDATE public.patients SET unit_id=$2 WHERE id=$1", [P.revoked, OTHER]);
     expect(
-      await patientOf("microbiology_results", await exportAs("service_role", "bridge_export_microbiology")),
+      await patientOf(
+        "microbiology_results",
+        await exportAs("service_role", "bridge_export_microbiology"),
+      ),
     ).toEqual([P.shared]);
   });
   it("empty success: nothing shared returns an empty set, not an error", async () => {
@@ -190,9 +209,15 @@ describe("staged 0008: referral-linked feeds", () => {
   it("notifications: shared Radnor referral only; orphan, other unit, unlinked and internal excluded", async () => {
     const rows = await exportAs("service_role", "bridge_export_notifications");
     expect(rows.map((r) => r.referral_id).sort()).toEqual([REF.revoked, REF.shared].sort());
-    expect(Object.keys(rows[0]!).sort()).toEqual(
-      ["created_at", "id", "kind", "message", "read_at", "referral_id", "user_id"],
-    );
+    expect(Object.keys(rows[0]!).sort()).toEqual([
+      "created_at",
+      "id",
+      "kind",
+      "message",
+      "read_at",
+      "referral_id",
+      "user_id",
+    ]);
   });
   it("identity collision: a referral id equal to a shared patient id is not a shared referral", async () => {
     const rows = await exportAs("service_role", "bridge_export_referrals");
@@ -258,8 +283,7 @@ describe("staged 0008: unit resolution and privileges", () => {
   });
   it("browser roles cannot execute any export", async () => {
     for (const role of ["anon", "authenticated"])
-      for (const fn of ALL)
-        await expect(exportAs(role, fn)).rejects.toThrow(/permission denied/);
+      for (const fn of ALL) await expect(exportAs(role, fn)).rejects.toThrow(/permission denied/);
   });
   it("functions are SECURITY DEFINER with an empty search_path; no table grants widened", async () => {
     const fns = await q(

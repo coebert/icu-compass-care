@@ -3,7 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
 import { resolveBridgeUnitId } from "@/lib/scope.server";
-import { bedBoardUnavailableResponse, buildBridgeBedBoard, occupantView, requestLimit, type BridgePatient } from "@/lib/bridge-beds";
+import {
+  bedBoardUnavailableResponse,
+  buildBridgeBedBoard,
+  occupantView,
+  requestLimit,
+  type BridgePatient,
+} from "@/lib/bridge-beds";
 
 export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
   server: {
@@ -34,10 +40,16 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
           .eq("shared_with_partner", true)
           .order("updated_at", { ascending: false })
           .limit(requestLimit(request));
-        if (error) return (console.error("[bridge] outliers unavailable", error.code ?? "unknown"), json({ error: "Service unavailable" }, 503));
+        if (error)
+          return (
+            console.error("[bridge] outliers unavailable", error.code ?? "unknown"),
+            json({ error: "Service unavailable" }, 503)
+          );
 
         const ward_outliers = (
-          decryptPatientRows(data as Array<Record<string, unknown>> | null) as unknown as BridgePatient[]
+          decryptPatientRows(
+            data as Array<Record<string, unknown>> | null,
+          ) as unknown as BridgePatient[]
         ).map(occupantView);
         const bed_outliers = [...board.unassigned, ...ward_outliers];
 

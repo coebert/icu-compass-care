@@ -79,7 +79,10 @@ export function PreviousAdmissionBanner({
       className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10"
     >
       <div className="flex items-start gap-2">
-        <History className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
+        <History
+          className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300"
+          aria-hidden
+        />
         <div className="min-w-0 flex-1 space-y-3 text-amber-900 dark:text-amber-100">
           <p className="font-medium">
             {unique
@@ -165,12 +168,7 @@ export function PreviousAdmissionBanner({
                   </Link>
                 </Button>
               )}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setDismissedFor(mrn)}
-              >
+              <Button type="button" size="sm" variant="ghost" onClick={() => setDismissedFor(mrn)}>
                 Dismiss
               </Button>
             </div>

@@ -44,7 +44,12 @@ const rec = (over: Partial<PreviousAdmission> = {}): PreviousAdmission => ({
 
 type Form = Pick<
   PatientFormValues,
-  "hospital_number" | "full_name" | "age" | "past_medical_history" | "tep_in_place" | "dnacpr_decision"
+  | "hospital_number"
+  | "full_name"
+  | "age"
+  | "past_medical_history"
+  | "tep_in_place"
+  | "dnacpr_decision"
 >;
 let latest: Form;
 let setFormRef: (f: Form) => void;
@@ -58,7 +63,11 @@ function Harness({ initial }: { initial: Form }) {
       onApply={(patch, verifiedFor) =>
         setForm((f) =>
           patch.past_medical_history
-            ? applyHistoricalPatch(f, { past_medical_history: patch.past_medical_history }, verifiedFor)
+            ? applyHistoricalPatch(
+                f,
+                { past_medical_history: patch.past_medical_history },
+                verifiedFor,
+              )
             : f,
         )
       }
@@ -108,7 +117,9 @@ describe("PreviousAdmissionBanner", () => {
     h.find.mockResolvedValue([rec()]);
     mount({ hospital_number: "syn-1234" });
     expect(await screen.findByText(/with this hospital number/)).toBeTruthy();
-    expect(screen.getByText(/TEP then:/).closest("p")!.textContent).toContain("Yes — Synthetic TEP");
+    expect(screen.getByText(/TEP then:/).closest("p")!.textContent).toContain(
+      "Yes — Synthetic TEP",
+    );
     expect(screen.getByText(/Not copied/)).toBeTruthy();
     fireEvent.click(copyBtn());
     expect(latest.past_medical_history).toBe(
