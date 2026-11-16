@@ -14,6 +14,7 @@ import { BRIDGE_INPUT_BOUNDS, BRIDGE_MAX_BODY_BYTES, findBoundsViolation } from 
 import { bridgeUpdateSharedPatient, stripSharingFlags } from "@/lib/bridge-sharing.server";
 import { bedTakenInUnit, isBedUniqueViolation, occupiesBed } from "@/lib/bed-occupancy.server";
 import { resolveBridgeUnitId } from "@/lib/scope.server";
+import { isInstant } from "@/lib/bridge-contract";
 
 // The bridge deliberately keeps a LOOSER schema than the app (see patient-schema.ts):
 // the partner system is trusted, may send longer names, treats every field as
@@ -21,9 +22,6 @@ import { resolveBridgeUnitId } from "@/lib/scope.server";
 // fields are spread in from PATIENT_ARRAY_FIELDS so this stays in step with the app
 // model whenever new structured fields are added.
 const patientFields = z.object({
-  // Optimistic concurrency: the updated_at the caller last saw. When present on
-  // an update, the write is rejected (409) if the record changed since then.
-  expected_updated_at: z.string().max(64).optional(),
   // This app stores patient INITIALS ONLY. The partner system may still send a
   // longer name, so anything that isn't already initials is reduced to initials
   // here, before it ever reaches the database (which also enforces the rule).
@@ -66,11 +64,9 @@ const patientFields = z.object({
   nok_contact: z.string().trim().max(200).optional().nullable(),
   nok_last_updated: z.string().optional().nullable(),
   nok_last_updated_by: z.string().trim().max(200).optional().nullable(),
-  // Ready-for-ward marker + server-stamped transition timestamps. Sent
-  // across the bridge so the partner app sees the same wait-time signal.
-  wardable: z.boolean().optional(),
-  wardable_at: z.string().optional().nullable(),
-  wardable_by: z.string().trim().max(200).optional().nullable(),
+  // wardable / wardable_at / wardable_by are NOT accepted here: the partner
+  // changes "ready for ward" only through the fenced
+  // POST /api/public/bridge/patients/wardable protocol.
   // Structured clinical fields, kept in sync with the app model.
   ...PATIENT_ARRAY_FIELDS,
 });
@@ -80,7 +76,14 @@ const patientCreate = patientFields;
 // Update by id: a bounded PARTIAL change (e.g. a bed move or prefill) — any
 // subset of fields; a name, if sent, must still be valid. id, unit and
 // sharing are never writable (stripped again in bridgeUpdateSharedPatient).
-const patientUpdate = patientFields.partial().extend({ id: z.string().uuid() });
+// expected_updated_at is REQUIRED: the exact revision the caller last saw.
+// A missing one is refused — never replaced by the current server revision.
+const patientUpdate = patientFields.partial().extend({
+  id: z.string().uuid(),
+  expected_updated_at: z.string().max(64).refine(isInstant),
+});
+/** Fields only the fenced wardable protocol may change. */
+export const BRIDGE_WARDABLE_FIELDS = ["wardable", "wardable_at", "wardable_by"] as const;
 const statusParam = z.enum(["referred", "admitted", "discharged", "died"]);
 
 function stripGovernance(p: Record<string, unknown>) {
@@ -180,8 +183,19 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           if (findBoundsViolation(raw, BRIDGE_INPUT_BOUNDS)) {
             return json({ error: "Invalid patient payload" }, 400);
           }
-          const hasId =
-            !!raw && typeof raw === "object" && !Array.isArray(raw) && "id" in (raw as object);
+          if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+            return json({ error: "Invalid patient payload" }, 400);
+          }
+          if (BRIDGE_WARDABLE_FIELDS.some((k) => k in (raw as object))) {
+            return json(
+              {
+                error: "wardable_not_accepted",
+                message: "Ready-for-ward changes use POST /api/public/bridge/patients/wardable.",
+              },
+              400,
+            );
+          }
+          const hasId = "id" in (raw as object);
           parsed = hasId
             ? { mode: "update" as const, value: patientUpdate.parse(raw) }
             : { mode: "create" as const, value: patientCreate.parse(raw) };
@@ -210,7 +224,7 @@ export const Route = createFileRoute("/api/public/bridge/patients")({
           const outcome = await bridgeUpdateSharedPatient(supabaseAdmin, {
             id: targetId,
             unitId,
-            expectedUpdatedAt: expected_updated_at,
+            expectedUpdatedAt: expected_updated_at as string,
             payload: encryptPatientPayload(changes) as Record<string, unknown>,
           });
           if (outcome.kind === "bed_conflict") return bedOccupied();
