@@ -9,6 +9,7 @@ import { createHmac } from "crypto";
 import type { SyncErrorCode } from "@/lib/sync-status";
 import {
   ContractError,
+  LEGACY_REVIEW_LIMIT,
   parseLegacyRecords,
   parseSyncPage,
   SyncPageCollector,
@@ -158,21 +159,27 @@ export async function fetchSyncV1(
   }
 }
 
+/** Path for a legacy review feed, always with the explicit row bound. */
+export function legacyReviewPath(resource: "notifications" | "audit"): string {
+  return `/api/public/bridge/${resource}?${new URLSearchParams({ limit: String(LEGACY_REVIEW_LIMIT) })}`;
+}
+
 /**
  * Legacy `{records:[...]}` review feeds (cross-app reconciliation review only;
- * never imported). Malformed or truncated feeds fail instead of looking empty.
+ * never imported). We ask for at most LEGACY_REVIEW_LIMIT rows; a malformed
+ * feed, or one that may have been cut short at that bound, fails instead of
+ * looking empty or complete.
  */
-async function fetchLegacy(path: string): Promise<Record<string, unknown>[]> {
-  const body = await getJson(path);
+async function fetchLegacy(resource: "notifications" | "audit"): Promise<Record<string, unknown>[]> {
+  const body = await getJson(legacyReviewPath(resource));
   try {
-    return parseLegacyRecords(body);
+    return parseLegacyRecords(body, LEGACY_REVIEW_LIMIT);
   } catch (e) {
     return asFetchError(e);
   }
 }
 
-export const fetchPartnerNotificationsForReview = () =>
-  fetchLegacy("/api/public/bridge/notifications");
-export const fetchPartnerAuditLogForReview = () => fetchLegacy("/api/public/bridge/audit");
+export const fetchPartnerNotificationsForReview = () => fetchLegacy("notifications");
+export const fetchPartnerAuditLogForReview = () => fetchLegacy("audit");
 
 export const bridgeSystemActor = SYSTEM_ACTOR;
