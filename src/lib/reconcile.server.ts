@@ -108,13 +108,19 @@ function safeText(e: unknown): string {
   return "Records could not be compared right now.";
 }
 
+// Local rows read for comparison. A read that comes back full may have been
+// cut short, so it is refused rather than reporting false "only on one side".
+export const LOCAL_REVIEW_LIMIT = 5000;
+
 async function compareEntity(admin: Admin, spec: Spec): Promise<EntityRecon> {
   const [remote, localRes] = await Promise.all([
     spec.fetchRemote(),
-    admin.from(spec.table).select(spec.localColumns).limit(5000),
+    admin.from(spec.table).select(spec.localColumns).limit(LOCAL_REVIEW_LIMIT + 1),
   ]);
   if (localRes.error) throw safeDbError(localRes.error, "read local records for reconciliation");
-  const local: Record0[] = localRes.data ?? [];
+  if (!Array.isArray(localRes.data)) throw new ImportStepError("local_read_failed");
+  if (localRes.data.length > LOCAL_REVIEW_LIMIT) throw new ImportStepError("review_truncated");
+  const local: Record0[] = localRes.data;
 
   const localById = new Map(local.map((r) => [String(r.id).toLowerCase(), r]));
   const remoteById = new Map(remote.map((r) => [String(r.id).toLowerCase(), r]));
