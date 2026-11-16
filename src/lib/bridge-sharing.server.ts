@@ -26,6 +26,8 @@ export function stripSharingFlags<T extends Row>(row: T): T {
 export type BridgeUpdateOutcome =
   | { kind: "updated"; before: Row; after: Row }
   | { kind: "conflict"; current: Row }
+  /** Another active patient in this unit holds the requested bed. No identity is returned. */
+  | { kind: "bed_conflict" }
   | { kind: "not_found" }
   | { kind: "error"; error: unknown };
 
