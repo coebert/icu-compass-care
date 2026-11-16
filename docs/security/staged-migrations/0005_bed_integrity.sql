@@ -288,8 +288,8 @@ BEGIN
   LOOP
     v_c := v_cur -> v_p.id::text;
     v_changed := ARRAY[]::text[];
-    IF (v_c ->> 'bed') IS DISTINCT FROM v_p.bed THEN v_changed := v_changed || 'bed'; END IF;
-    IF (v_c ->> 'loc') IS DISTINCT FROM v_p.loc THEN v_changed := v_changed || 'location_type'; END IF;
+    IF (v_c ->> 'bed') IS DISTINCT FROM v_p.bed THEN v_changed := array_append(v_changed, 'bed'); END IF;
+    IF (v_c ->> 'loc') IS DISTINCT FROM v_p.loc THEN v_changed := array_append(v_changed, 'location_type'); END IF;
     INSERT INTO public.record_audit
       (entity, record_id, action, source, actor_id, actor_role, actor_email, changed_fields, before, after)
     VALUES ('patients', v_p.id, 'update', 'app', v_uid, NULL, v_email, v_changed,
