@@ -78,11 +78,30 @@ export interface PatientPrefillTarget {
   dnacpr_details: string | null;
 }
 
+/** A decision explicitly documented on the referral, offered for confirmation. */
+export interface PrefillDecision {
+  field: "dnacpr_decision";
+  value: boolean;
+  /** Plain-language description of what the referral records. */
+  label: string;
+}
+export const PREFILL_DECISION_FIELDS = ["dnacpr_decision"] as const;
+
 export interface ReferralPrefillPlan {
+  /** Fill-blank TEXT only: referral information labelled as needing review. */
   patch: Record<string, string | boolean>;
   applied_fields: string[];
   skipped_fields: string[];
+  /**
+   * Decisions explicitly documented on the referral, offered ONLY when the
+   * patient's field is genuinely unset (null). Never applied unless the user
+   * ticks them in the preview and confirms.
+   */
+  decisions: PrefillDecision[];
 }
+
+/** Prefix on every prefilled text: it is referral information, not a local decision. */
+export const REFERRAL_INFO_PREFIX = "From critical care referral — needs review:";
 
 function isBlank(v: unknown): boolean {
   if (v == null) return true;
@@ -94,7 +113,7 @@ function composeCurrentManagement(ref: ReferralPrefillSource): string | null {
   const parts: string[] = [];
   if (ref.anticipated_interventions && ref.anticipated_interventions.length) {
     parts.push(
-      `Anticipated interventions: ${ref.anticipated_interventions
+      `Anticipated interventions (referrer's expectation, not a plan): ${ref.anticipated_interventions
         .map((v) => label(ANTICIPATED_INTERVENTION_LABEL, v))
         .join(", ")}.`,
     );
@@ -103,90 +122,85 @@ function composeCurrentManagement(ref: ReferralPrefillSource): string | null {
   if (ref.weight_kg != null) parts.push(`Weight: ${ref.weight_kg} kg.`);
   const urg = label(ADMISSION_URGENCY_LABEL, ref.admission_urgency);
   if (urg) parts.push(`Admission urgency: ${urg}.`);
-  return parts.length ? parts.join("\n") : null;
+  return parts.length ? `${REFERRAL_INFO_PREFIX}\n${parts.join("\n")}` : null;
 }
 
+// Escalation information as recorded on the referral. Explicitly NOT a
+// completed treatment escalation plan for this admission.
 function composeTepDetails(ref: ReferralPrefillSource): string | null {
   const bits: string[] = [];
   const c = label(CEILING_OF_CARE_LABEL, ref.ceiling_of_care);
   const r = label(RESUS_STATUS_LABEL, ref.resus_status);
-  if (c) bits.push(`Ceiling of care: ${c}`);
-  if (r) bits.push(`Resus status: ${r}`);
+  if (c) bits.push(`Ceiling of care: ${c}.`);
+  if (r) bits.push(`Resus status: ${r}.`);
+  if (ref.dnacpr_respect === true) bits.push("A ReSPECT form is recorded on the referral.");
   if (!bits.length) return null;
-  return `${bits.join(". ")}. (Auto-populated from critical care referral.)`;
+  return `${REFERRAL_INFO_PREFIX} ${bits.join(" ")} Not a completed TEP for this admission.`;
 }
 
 function composeDnacprDetails(ref: ReferralPrefillSource): string | null {
-  if (ref.resus_status === "dnacpr") return "DNACPR documented on critical care referral.";
-  if (ref.dnacpr_respect === true)
-    return "ReSPECT / DNACPR form recorded on critical care referral.";
+  // Only an explicit DNACPR resus status. A ReSPECT form does NOT mean DNACPR.
+  if (ref.resus_status === "dnacpr") {
+    return `${REFERRAL_INFO_PREFIX} the referral records a DNACPR decision. Confirm and document it locally.`;
+  }
   return null;
 }
 
 /**
- * Decide, fill-blanks-only, which patient fields the referral would populate.
- * Mirrors the partner's prefill contract so behaviour is consistent whichever
- * app initiates it.
+ * Decide, fill-blanks-only, what a referral would add to a patient.
+ *
+ * - Text fields are filled only when blank, always labelled as referral
+ *   information needing review.
+ * - tep_in_place is never set: anticipated interventions, "not documented"
+ *   or a generic resus status don't mean a TEP was completed.
+ * - dnacpr_decision is never set automatically. An explicit referral resus
+ *   status (DNACPR / for CPR) is OFFERED as a decision only when the
+ *   patient's field is null; an explicit false (or true) is left alone. A
+ *   ReSPECT form does not imply DNACPR.
  */
 export function computeReferralPrefill(
   ref: ReferralPrefillSource,
   patient: PatientPrefillTarget,
 ): ReferralPrefillPlan {
-  const wantsDnacpr = ref.resus_status === "dnacpr" || ref.dnacpr_respect === true;
-  const wantsTep =
-    !!ref.ceiling_of_care ||
-    !!ref.resus_status ||
-    wantsDnacpr ||
-    (ref.anticipated_interventions?.length ?? 0) > 0;
-
-  const proposed: Record<string, string | boolean | null | undefined> = {
-    current_admission: label(REASON_CATEGORY_LABEL, ref.reason_category),
+  const reason = label(REASON_CATEGORY_LABEL, ref.reason_category);
+  const proposed: Record<string, string | null> = {
+    current_admission: reason ? `${REFERRAL_INFO_PREFIX} referral reason: ${reason}.` : null,
     current_management: composeCurrentManagement(ref),
-    tep_in_place: wantsTep ? true : undefined,
     tep_details: composeTepDetails(ref),
-    dnacpr_decision: wantsDnacpr ? true : undefined,
     dnacpr_details: composeDnacprDetails(ref),
   };
 
   const applied: string[] = [];
   const skipped: string[] = [];
   const patch: Record<string, string | boolean> = {};
-
-  const textFields = [
-    "current_admission",
-    "current_management",
-    "tep_details",
-    "dnacpr_details",
-  ] as const;
-  for (const k of textFields) {
-    const val = proposed[k];
+  for (const [k, val] of Object.entries(proposed)) {
     if (val == null || val === "") continue;
     if (isBlank((patient as unknown as Record<string, unknown>)[k])) {
-      patch[k] = val as string;
+      patch[k] = val;
       applied.push(k);
     } else {
       skipped.push(k);
     }
   }
 
-  if (proposed.tep_in_place === true) {
-    if (!patient.tep_in_place) {
-      patch.tep_in_place = true;
-      applied.push("tep_in_place");
-    } else {
-      skipped.push("tep_in_place");
-    }
-  }
-  if (proposed.dnacpr_decision === true) {
-    if (!patient.dnacpr_decision) {
-      patch.dnacpr_decision = true;
-      applied.push("dnacpr_decision");
+  const decisions: PrefillDecision[] = [];
+  const explicit =
+    ref.resus_status === "dnacpr" ? true : ref.resus_status === "for_cpr" ? false : null;
+  if (explicit !== null) {
+    if (patient.dnacpr_decision === null || patient.dnacpr_decision === undefined) {
+      decisions.push({
+        field: "dnacpr_decision",
+        value: explicit,
+        label: explicit
+          ? "The referral records DNACPR in place."
+          : "The referral records the patient as for CPR (no DNACPR).",
+      });
     } else {
       skipped.push("dnacpr_decision");
     }
   }
 
-  return { patch, applied_fields: applied, skipped_fields: skipped };
+  return { patch, applied_fields: applied, skipped_fields: skipped, decisions };
 }
 
 export const PREFILL_FIELD_LABEL: Record<string, string> = {
