@@ -188,6 +188,7 @@ describe("wardable request parsing", () => {
   it("revision bounds are exact strings, never JS numbers", () => {
     expect(parseDesiredRevision("9223372036854775807")).toBe("9223372036854775807");
     expect(parseDesiredRevision("9007199254740993")).toBe("9007199254740993");
+    // eslint-disable-next-line no-loss-of-precision -- deliberately a JS number that cannot hold the value
     expect(parseDesiredRevision(9007199254740993)).toBeNull();
   });
 });
