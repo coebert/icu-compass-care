@@ -10,7 +10,13 @@ import {
   type PatientStatus,
 } from "@/lib/patient-schema";
 import { getAdmin } from "@/lib/admin-db.server";
-import { normalizeBed } from "@/lib/icu-beds";
+import { bedTakenInUnit, isBedUniqueViolation } from "@/lib/bed-occupancy.server";
+import {
+  bedMoveError,
+  bedMoveErrorCode,
+  type BedMove,
+  type BedMoveResult,
+} from "@/lib/bed-moves";
 import { loadActor } from "@/lib/roles.server";
 import {
   decryptPatientRow,
@@ -46,33 +52,29 @@ export type PreviousAdmission = {
 const SEALED_COLUMNS: ReadonlySet<string> = new Set<string>(PATIENT_ENCRYPTED_FIELDS);
 
 // Reject bed collisions before writing so two active patients can't share a
-// bed via the form, drag-and-drop, or the bridge write path. `excludeId` skips
-// the patient being edited so re-saving their own row doesn't self-conflict.
+// bed. Scoped to the patient's own unit and compared with normalizeBed (the
+// database's unique active-bed rule once migration 0005 is applied). Reads
+// only id + bed: no other patient's identity is fetched or decrypted.
+// `excludeId` skips the patient being edited.
 async function assertBedFree(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
+  unitId: string,
   bed: string,
   excludeId: string | null,
 ): Promise<void> {
-  const target = normalizeBed(bed);
-  if (!target) return;
-  let q = supabase
-    .from("patients")
-    .select(withCryptoColumns("id, full_name, hospital_number"))
-    .eq("location_type", "icu")
-    .in("status", ["admitted", "referred"])
-    .ilike("bed", bed.trim());
-  if (excludeId) q = q.neq("id", excludeId);
-  const { data, error } = await q.limit(1);
-  if (error) throw safeDbError(error);
-  const other = data?.[0] ? decryptPatientRow(data[0] as Record<string, unknown>) : null;
-  if (other) {
-    const who = (other.full_name as string | null) ?? (other.hospital_number as string | null) ?? "another patient";
-    throw new Error(
-      `Bed ${bed} is already occupied by ${who}. Move or discharge them first.`,
-    );
+  let taken: boolean;
+  try {
+    taken = await bedTakenInUnit(supabase, unitId, bed, excludeId);
+  } catch {
+    throw new Error("Bed availability couldn't be checked, so nothing was saved. Please try again.");
   }
+  if (taken) throw new Error(bedTakenMessage(bed));
 }
+const bedTakenMessage = (bed: string) =>
+  `Bed ${bed.trim()} is already occupied. Move or discharge that patient first.`;
+export const PATIENT_CONFLICT_MESSAGE =
+  "CONFLICT: This patient was updated by someone else (possibly the linked app). Reload to see the latest before saving.";
 
 export const listPatients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -109,9 +111,6 @@ export const createPatient = createServerFn({ method: "POST" })
     const status = cleaned.status as string | undefined;
     const locType = cleaned.location_type as string | undefined;
     const bed = cleaned.bed as string | null | undefined;
-    if (bed && locType === "icu" && (status === "admitted" || status === "referred")) {
-      await assertBedFree(context.supabase, bed, null);
-    }
     // Unit scope: RLS rejects a write outside the caller's granted units, so
     // resolve it explicitly rather than relying on a database default.
     const { resolveWriteUnitId } = await import("@/lib/scope.server");
@@ -120,6 +119,9 @@ export const createPatient = createServerFn({ method: "POST" })
       context.userId,
       (cleaned.unit_id as string | null | undefined) ?? null,
     );
+    if (bed && locType === "icu" && (status === "admitted" || status === "referred")) {
+      await assertBedFree(context.supabase, unitId, bed, null);
+    }
     const { data: row, error } = await context.supabase
       .from("patients")
       .insert(encryptPatientPayload({
@@ -131,7 +133,10 @@ export const createPatient = createServerFn({ method: "POST" })
 
       .select()
       .single();
-    if (error) throw safeDbError(error);
+    if (error) {
+      if (isBedUniqueViolation(error) && bed) throw new Error(bedTakenMessage(bed));
+      throw safeDbError(error);
+    }
     const supabaseAdmin = await getAdmin();
     await writeAudit(supabaseAdmin, {
       entity: "patients",
@@ -190,10 +195,8 @@ export const updatePatient = createServerFn({ method: "POST" })
     const currentPlain = decryptPatientRow(current);
 
     // Optimistic concurrency — block overwriting a newer change from either app.
-    if (expected_updated_at && current.updated_at !== expected_updated_at) {
-      throw new Error(
-        "CONFLICT: This patient was updated by someone else (possibly the linked app). Reload to see the latest before saving.",
-      );
+    if (expected_updated_at && !sameInstant(current.updated_at, expected_updated_at)) {
+      throw new Error(PATIENT_CONFLICT_MESSAGE);
     }
 
     // Validate the lifecycle transition + per-status required fields against
@@ -209,7 +212,7 @@ export const updatePatient = createServerFn({ method: "POST" })
       merged.location_type === "icu" &&
       (merged.status === "admitted" || merged.status === "referred")
     ) {
-      await assertBedFree(context.supabase, mBed, id);
+      await assertBedFree(context.supabase, current.unit_id as string, mBed, id);
     }
 
     // Auto-stamp the "ready for the ward" transition so the ward-wait timer
@@ -230,13 +233,21 @@ export const updatePatient = createServerFn({ method: "POST" })
       }
     }
 
+    // Compare-and-set on the revision this request validated against, so a
+    // concurrent edit between the read above and this write can't be
+    // silently overwritten. No row back = someone else changed it.
     const { data: row, error } = await context.supabase
       .from("patients")
       .update(patch as never)
       .eq("id", id)
+      .eq("updated_at", current.updated_at as string)
       .select()
-      .single();
-    if (error) throw safeDbError(error);
+      .maybeSingle();
+    if (error) {
+      if (isBedUniqueViolation(error) && mBed) throw new Error(bedTakenMessage(mBed));
+      throw safeDbError(error, "save this patient");
+    }
+    if (!row) throw new Error(PATIENT_CONFLICT_MESSAGE);
 
     const supabaseAdmin = await getAdmin();
     const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
@@ -267,6 +278,80 @@ export const updatePatient = createServerFn({ method: "POST" })
       sealedColumns: SEALED_COLUMNS,
     });
     return rowPlain;
+  });
+
+/** Same instant, whatever the textual form (µs precision is preserved). */
+function sameInstant(a: unknown, b: unknown): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a === b) return true;
+  const micros = (s: string): string | null => {
+    const m = /\.(\d{1,6})/.exec(s);
+    const ms = Date.parse(s);
+    if (!Number.isFinite(ms)) return null;
+    return `${Math.floor(ms / 1000)}.${(m?.[1] ?? "").padEnd(6, "0")}`;
+  };
+  const ka = micros(a);
+  return ka !== null && ka === micros(b);
+}
+
+const bedMoveSchema = z
+  .array(
+    z
+      .object({
+        id: z.string().uuid(),
+        expected_updated_at: z.string().min(1).max(64),
+        location_type: z.enum(["icu", "outlier"]),
+        bed: z
+          .string()
+          .max(50)
+          .regex(/^[ -~]*$/)
+          .nullable(),
+      })
+      .strict(),
+  )
+  .min(1)
+  .max(2);
+
+// One move, or an exact two-bed swap, or an undo — all in ONE database
+// transaction with every involved revision checked. If the database routine
+// isn't installed yet this refuses; it never falls back to separate writes.
+export const movePatientBeds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { moves: BedMove[] }) =>
+    z.object({ moves: bedMoveSchema }).strict().parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: out, error } = await context.supabase.rpc(
+      "move_patient_beds" as never,
+      { _moves: data.moves } as never,
+    );
+    if (error) {
+      const code = bedMoveErrorCode(error as { code?: string; message?: string });
+      // Code only — never the request (patient ids / beds) or raw detail.
+      console.warn("[bed-move] refused", code);
+      throw bedMoveError(code);
+    }
+    const results = (Array.isArray(out) ? out : []) as BedMoveResult[];
+    if (results.length !== data.moves.length) throw bedMoveError("failed");
+    // Audit the intended final positions only (never the transient cleared bed).
+    const supabaseAdmin = await getAdmin();
+    const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
+    for (const r of results) {
+      const before = { bed: r.previous_bed, location_type: r.previous_location_type };
+      const after = { bed: r.bed, location_type: r.location_type };
+      await writeAudit(supabaseAdmin, {
+        entity: "patients",
+        recordId: r.id,
+        action: "update",
+        source: "app",
+        actor,
+        before,
+        after,
+        changedFields: diffFields(before, after),
+      });
+      await writePatientFieldChanges(supabaseAdmin, { patientId: r.id, before, after, actor });
+    }
+    return results;
   });
 
 export const deletePatient = createServerFn({ method: "POST" })

@@ -32,6 +32,8 @@ export async function bedTakenInUnit(
     .not("bed", "is", null)
     .limit(MAX_ACTIVE_ROWS);
   if (error || !Array.isArray(data)) throw new BedCheckError();
+  // A full page could hide the colliding row: treat as unknown, not free.
+  if (data.length >= MAX_ACTIVE_ROWS) throw new BedCheckError();
   return (data as Array<{ id: string; bed: string | null }>).some(
     (r) => r.id !== excludeId && normalizeBed(r.bed) === key,
   );
