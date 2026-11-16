@@ -114,8 +114,9 @@ describe("partner write endpoints refuse oversized input before validation", () 
     const res = await POST({ request: req(body) });
     expect(res.status).toBe(200);
     expect(spy.updates).toHaveLength(1);
+    expect((spy.updates[0] as { id: string }).id).toBe(PID);
     expect((spy.updates[0] as { payload: Record<string, unknown> }).payload).toMatchObject({
-      id: PID,
+      
       full_name: "Z.Q.",
       resp_support: ["hfno"],
       sedative_agents: ["propofol"],
