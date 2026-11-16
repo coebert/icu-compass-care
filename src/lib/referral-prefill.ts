@@ -217,3 +217,11 @@ export function referralCandidateSummary(r: {
   if (r.current_ward) bits.push(r.current_ward);
   return bits.join(" · ") || "Referral";
 }
+
+/**
+ * Shown when "Confirm prefill" is pressed on a preview that no longer matches
+ * the record (someone edited the patient, or the referral re-synced, after the
+ * preview was loaded). Nothing is written; the user must reload and reconfirm.
+ */
+export const PREFILL_STALE_MESSAGE =
+  "This record changed after the preview was shown. Nothing was changed — reload the preview and confirm again.";

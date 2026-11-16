@@ -13,8 +13,15 @@ import { diffFields, writeAudit, writePatientFieldChanges } from "@/lib/audit";
 import { getAdmin } from "@/lib/admin-db.server";
 import {
   computeReferralPrefill,
+  PREFILL_STALE_MESSAGE,
   type ReferralPrefillSource,
 } from "@/lib/referral-prefill";
+
+const REFERRAL_PREFILL_COLUMNS =
+  "id, updated_at, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency";
+
+// Version strings come straight back from a preview; bounded and opaque.
+const versionString = z.string().min(1).max(64);
 
 const CANDIDATE_COLUMNS =
   "id, age, sex, current_ward, current_bed, referring_specialty, referral_received_at, status, reason_category, ceiling_of_care, resus_status, dnacpr_respect, admission_urgency, weight_kg, allergies, anticipated_interventions, infection_status, news2_score";
@@ -47,7 +54,7 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
       .from("patients")
       .select(
         withCryptoColumns(
-          "current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
+          "updated_at, current_admission, current_management, tep_in_place, tep_details, dnacpr_decision, dnacpr_details",
         ),
       )
       .eq("id", data.patient_id)
@@ -58,9 +65,7 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
 
     const { data: ref, error: rErr } = await context.supabase
       .from("referrals")
-      .select(
-        "id, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency",
-      )
+      .select(REFERRAL_PREFILL_COLUMNS)
       .eq("id", data.referral_id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -92,15 +97,25 @@ export const previewReferralPrefill = createServerFn({ method: "GET" })
       applied_fields: plan.applied_fields,
       skipped_fields: plan.skipped_fields,
       patch: plan.patch,
+      // Echoed back on confirm so a stale preview can't be applied.
+      patient_updated_at: String((patient as unknown as { updated_at: string }).updated_at),
+      referral_updated_at: (ref.updated_at as string | null) ?? null,
     };
   });
 
 // Fill-blanks-only prefill of a patient record from a chosen referral.
+// Compare-and-set: applies only if the patient (and referral) are exactly the
+// versions the user previewed; otherwise nothing is written.
 export const prefillPatientFromReferral = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
-      .object({ patient_id: z.string().uuid(), referral_id: z.string().uuid() })
+      .object({
+        patient_id: z.string().uuid(),
+        referral_id: z.string().uuid(),
+        expected_patient_updated_at: versionString,
+        expected_referral_updated_at: versionString.nullable(),
+      })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
@@ -111,18 +126,22 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
       .maybeSingle();
     if (pErr) throw safeDbError(pErr);
     if (!patient) throw new Error("Patient not found");
+    if (patient.updated_at !== data.expected_patient_updated_at) {
+      throw new Error(PREFILL_STALE_MESSAGE);
+    }
     const patientPlain = decryptPatientRow(patient);
 
     const { data: ref, error: rErr } = await context.supabase
       .from("referrals")
-      .select(
-        "id, reason_category, ceiling_of_care, resus_status, dnacpr_respect, anticipated_interventions, allergies, weight_kg, admission_urgency",
-      )
+      .select(REFERRAL_PREFILL_COLUMNS)
       .eq("id", data.referral_id)
       .is("deleted_at", null)
       .maybeSingle();
     if (rErr) throw safeDbError(rErr);
     if (!ref) throw new Error("Referral not found");
+    if (((ref.updated_at as string | null) ?? null) !== data.expected_referral_updated_at) {
+      throw new Error(PREFILL_STALE_MESSAGE);
+    }
 
     const source: ReferralPrefillSource = {
       reason_category: ref.reason_category ?? null,
@@ -149,13 +168,26 @@ export const prefillPatientFromReferral = createServerFn({ method: "POST" })
     // if every mapped field was already populated.
     const updatePayload = { ...patch, source_referral_id: data.referral_id, updated_by: context.userId };
 
+    // The updated_at predicate makes the write atomic against a concurrent
+    // edit landing between our read and this update.
     const { data: row, error } = await context.supabase
       .from("patients")
       .update(encryptPatientPayload(updatePayload) as never)
       .eq("id", data.patient_id)
+      .eq("updated_at", data.expected_patient_updated_at)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw safeDbError(error);
+    if (!row) {
+      const { data: still, error: sErr } = await context.supabase
+        .from("patients")
+        .select("id")
+        .eq("id", data.patient_id)
+        .maybeSingle();
+      if (sErr) throw safeDbError(sErr);
+      if (!still) throw new Error("Patient not found");
+      throw new Error(PREFILL_STALE_MESSAGE);
+    }
 
     const supabaseAdmin = await getAdmin();
     const actor = { id: context.userId, email: (context.claims.email as string) ?? null };
