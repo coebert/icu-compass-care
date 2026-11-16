@@ -22,7 +22,15 @@ ALTER TABLE public.patients
   ADD COLUMN wardable boolean NOT NULL DEFAULT false,
   ADD COLUMN wardable_at timestamptz,
   ADD COLUMN wardable_by uuid,
-  ADD COLUMN source_referral_id uuid;
+  ADD COLUMN source_referral_id uuid,
+  -- Narrative fields: plain column (always NULL after encryption) + *_enc.
+  ADD COLUMN current_admission text, ADD COLUMN current_admission_enc text,
+  ADD COLUMN current_management text, ADD COLUMN current_management_enc text,
+  ADD COLUMN tep_details text, ADD COLUMN tep_details_enc text,
+  ADD COLUMN dnacpr_details text, ADD COLUMN dnacpr_details_enc text,
+  -- Live: NOT NULL DEFAULT false (metadata read), so "unset" never occurs there.
+  ADD COLUMN tep_in_place boolean NOT NULL DEFAULT false,
+  ADD COLUMN dnacpr_decision boolean NOT NULL DEFAULT false;
 
 -- Verbatim live trigger function.
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
