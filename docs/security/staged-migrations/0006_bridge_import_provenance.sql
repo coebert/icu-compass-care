@@ -52,7 +52,8 @@ END
 $$;
 REVOKE ALL ON FUNCTION private.bridge_unit_id() FROM PUBLIC, anon, authenticated;
 
--- Strict ISO-8601 instant with an explicit zone. PostgreSQL's own timestamptz
+-- Strict ISO-8601 instant with an explicit zone (same rule as isInstant in
+-- src/lib/bridge-contract.ts: 'T' or space, up to microseconds). PostgreSQL's own timestamptz
 -- input also accepts words like 'now', 'today' or 'yesterday', and zone-less
 -- local times; none of those may ever come from the partner.
 CREATE OR REPLACE FUNCTION private.bridge_is_instant(_v text)
@@ -62,7 +63,7 @@ IMMUTABLE
 SET search_path = ''
 AS $$
   SELECT _v IS NOT NULL
-     AND _v ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+     AND _v ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$'
 $$;
 REVOKE ALL ON FUNCTION private.bridge_is_instant(text) FROM PUBLIC, anon, authenticated;
 
