@@ -2,7 +2,14 @@ import { decryptPatientRows } from "@/lib/patient-crypto.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { corsHeaders, json, authorizeBridge, logSync } from "@/lib/api-bridge.server";
 import { getAdmin } from "@/lib/admin-db.server";
-import { bedBoardUnavailableResponse, buildBridgeBedBoard, occupantView, requestLimit, type BridgePatient } from "@/lib/bridge-beds";
+import { resolveBridgeUnitId } from "@/lib/scope.server";
+import {
+  bedBoardUnavailableResponse,
+  buildBridgeBedBoard,
+  occupantView,
+  requestLimit,
+  type BridgePatient,
+} from "@/lib/bridge-beds";
 
 export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
   server: {
@@ -15,8 +22,10 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
 
         const supabaseAdmin = await getAdmin();
         let board;
+        let unitId: string;
         try {
           board = await buildBridgeBedBoard(supabaseAdmin);
+          unitId = await resolveBridgeUnitId(supabaseAdmin);
         } catch (error) {
           // Fail closed: never claim capacity from a doubtful snapshot.
           return bedBoardUnavailableResponse(error);
@@ -25,15 +34,22 @@ export const Route = createFileRoute("/api/public/bridge/bed_outliers")({
         const { data, error } = await supabaseAdmin
           .from("patients")
           .select("*")
+          .eq("unit_id", unitId)
           .eq("location_type", "outlier")
           .in("status", ["admitted", "referred"])
           .eq("shared_with_partner", true)
           .order("updated_at", { ascending: false })
           .limit(requestLimit(request));
-        if (error) return (console.error("[bridge]", error), json({ error: "Internal server error" }, 500));
+        if (error)
+          return (
+            console.error("[bridge] outliers unavailable", error.code ?? "unknown"),
+            json({ error: "Service unavailable" }, 503)
+          );
 
         const ward_outliers = (
-          decryptPatientRows(data as Array<Record<string, unknown>> | null) as unknown as BridgePatient[]
+          decryptPatientRows(
+            data as Array<Record<string, unknown>> | null,
+          ) as unknown as BridgePatient[]
         ).map(occupantView);
         const bed_outliers = [...board.unassigned, ...ward_outliers];
 

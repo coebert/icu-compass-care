@@ -54,16 +54,18 @@ const previewAt = (v: string, extra: Record<string, unknown> = {}) => ({
 });
 
 const onDone = vi.fn();
-function open(linkedReferralId: string | null) {
+function open(linkedReferralId: string | null, patientId = PID) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  render(
+  const ui = (pid: string, rid: string | null) => (
     <QueryClientProvider client={qc}>
-      <PrefillFromReferral patientId={PID} linkedReferralId={linkedReferralId} onDone={onDone} />
-    </QueryClientProvider>,
+      <PrefillFromReferral patientId={pid} linkedReferralId={rid} onDone={onDone} />
+    </QueryClientProvider>
   );
+  const r = render(ui(patientId, linkedReferralId));
   fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+  return { qc, rerender: (pid: string, rid: string | null) => r.rerender(ui(pid, rid)) };
 }
 
 beforeEach(() => {
@@ -217,5 +219,164 @@ describe("linked patient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm prefill" }));
     await waitFor(() => expect(h.apply).toHaveBeenCalledTimes(2));
     expect(h.apply.mock.calls[1][0].data.expected_patient_updated_at).toBe("v2");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Confirmation is bound to the exact preview on screen.
+// ---------------------------------------------------------------------------
+const PID2 = "00000000-0000-4000-8000-000000000011";
+const RID2 = "00000000-0000-4000-8000-000000000012";
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+const withDecision = (pv: string, rv: string, value = true) =>
+  previewAt(pv, {
+    referral_updated_at: rv,
+    decisions: [{ field: "dnacpr_decision", value, label: "The referral records DNACPR." }],
+  });
+const confirmBtn = () => screen.getByRole("button", { name: /confirm prefill|prefilling/i });
+const dialogTitle = () => screen.queryByText("Review fields to be populated");
+
+describe("confirmation bound to patient, referral and both revisions", () => {
+  it("background refetch with a changed source decision clears the tick; controls locked while fetching", async () => {
+    const second = deferred<unknown>();
+    h.preview
+      .mockResolvedValueOnce(withDecision("v1", "r1", true))
+      .mockReturnValueOnce(second.promise);
+    h.apply.mockResolvedValue({ applied_fields: [], skipped_fields: [] });
+    const { qc } = open(RID);
+    const box = await screen.findByRole("checkbox");
+    fireEvent.click(box);
+    expect(box).toHaveProperty("checked", true);
+    // Simulates the window-focus / background refetch.
+    void qc.refetchQueries({ queryKey: ["referral-prefill-preview"] });
+    await waitFor(() => expect(screen.getByRole("checkbox")).toHaveProperty("disabled", true));
+    expect(confirmBtn()).toHaveProperty("disabled", true);
+    second.resolve(withDecision("v1", "r2", false));
+    await waitFor(() => expect(screen.getByRole("checkbox")).toHaveProperty("disabled", false));
+    expect(screen.getByRole("checkbox")).toHaveProperty("checked", false);
+    expect(screen.getByText(/Also record .*: No/)).toBeTruthy();
+    fireEvent.click(confirmBtn());
+    await waitFor(() => expect(h.apply).toHaveBeenCalledTimes(1));
+    expect(h.apply.mock.calls[0][0].data).toMatchObject({
+      expected_referral_updated_at: "r2",
+      accept_decisions: [],
+    });
+  });
+
+  it("a refetch returning the same revision keeps the tick (same visible preview)", async () => {
+    h.preview.mockResolvedValue(withDecision("v1", "r1"));
+    h.apply.mockResolvedValue({ applied_fields: ["dnacpr_decision"], skipped_fields: [] });
+    const { qc } = open(RID);
+    fireEvent.click(await screen.findByRole("checkbox"));
+    await qc.refetchQueries({ queryKey: ["referral-prefill-preview"] });
+    await waitFor(() => expect(screen.getByRole("checkbox")).toHaveProperty("disabled", false));
+    expect(screen.getByRole("checkbox")).toHaveProperty("checked", true);
+    fireEvent.click(confirmBtn());
+    await waitFor(() => expect(h.apply).toHaveBeenCalled());
+    expect(h.apply.mock.calls[0][0].data.accept_decisions).toEqual(["dnacpr_decision"]);
+  });
+
+  it("close and reopen never inherits a tick, and a late earlier preview is ignored", async () => {
+    const first = deferred<unknown>();
+    h.preview
+      .mockResolvedValueOnce(withDecision("v1", "r1"))
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValueOnce(withDecision("v3", "r3"));
+    h.apply.mockResolvedValue({ applied_fields: [], skipped_fields: [] });
+    open(RID);
+    fireEvent.click(await screen.findByRole("checkbox"));
+    // Close; reopen (request #2 hangs); close; reopen (request #3 answers).
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+    await waitFor(() => expect(h.preview).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+    await waitFor(() => expect(h.preview).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(confirmBtn()).toHaveProperty("disabled", false));
+    first.resolve(withDecision("v2", "r2")); // out of order, from a closed session
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole("checkbox")).toHaveProperty("checked", false);
+    fireEvent.click(confirmBtn());
+    await waitFor(() => expect(h.apply).toHaveBeenCalledTimes(1));
+    expect(h.apply.mock.calls[0][0].data).toMatchObject({
+      expected_patient_updated_at: "v3",
+      expected_referral_updated_at: "r3",
+      accept_decisions: [],
+    });
+  });
+
+  it("a write that finishes after close/reopen does not dismiss the new dialog or show its result", async () => {
+    const write = deferred<unknown>();
+    h.preview.mockResolvedValue(withDecision("v1", "r1"));
+    h.apply.mockReturnValueOnce(write.promise);
+    open(RID);
+    await waitFor(() => expect(confirmBtn()).toHaveProperty("disabled", false));
+    fireEvent.click(confirmBtn());
+    await waitFor(() => expect(h.apply).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+    expect(dialogTitle()).toBeTruthy();
+    write.resolve({ applied_fields: ["current_admission"], skipped_fields: [] });
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1)); // data refresh only
+    expect(dialogTitle()).toBeTruthy();
+    expect(screen.getByRole("checkbox")).toHaveProperty("checked", false);
+  });
+
+  it("a stale rejection from an earlier session does not mark the new dialog stale", async () => {
+    const write = deferred<unknown>();
+    h.preview.mockResolvedValue(previewAt("v1"));
+    h.apply.mockReturnValueOnce(write.promise);
+    open(RID);
+    await waitFor(() => expect(confirmBtn()).toHaveProperty("disabled", false));
+    fireEvent.click(confirmBtn());
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+    write.reject(new Error(PREFILL_STALE_MESSAGE));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText(PREFILL_STALE_MESSAGE)).toBeNull();
+    await waitFor(() => expect(confirmBtn()).toHaveProperty("disabled", false));
+  });
+
+  it("switching patient while a write is pending closes the dialog and never completes the new target", async () => {
+    const write = deferred<unknown>();
+    h.preview.mockResolvedValue(withDecision("v1", "r1"));
+    h.apply.mockReturnValueOnce(write.promise);
+    const { rerender } = open(RID);
+    fireEvent.click(await screen.findByRole("checkbox"));
+    await waitFor(() => expect(confirmBtn()).toHaveProperty("disabled", false));
+    fireEvent.click(confirmBtn());
+    rerender(PID2, RID2);
+    await waitFor(() => expect(dialogTitle()).toBeNull());
+    write.resolve({ applied_fields: ["dnacpr_decision"], skipped_fields: [] });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onDone).not.toHaveBeenCalled();
+    // The new patient's dialog starts clean and previews the new target.
+    fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+    await waitFor(() =>
+      expect(h.preview.mock.calls.at(-1)![0].data).toEqual({
+        patient_id: PID2,
+        referral_id: RID2,
+      }),
+    );
+    expect(await screen.findByRole("checkbox")).toHaveProperty("checked", false);
+  });
+
+  it("a different referral for the same patient does not inherit the tick", async () => {
+    h.preview.mockResolvedValue(withDecision("v1", "r1"));
+    const { rerender } = open(RID);
+    fireEvent.click(await screen.findByRole("checkbox"));
+    rerender(PID, RID2);
+    fireEvent.click(screen.getByRole("button", { name: /referral/i }));
+    const box = await screen.findByRole("checkbox");
+    expect(box).toHaveProperty("checked", false);
+    expect(h.preview.mock.calls.at(-1)![0].data.referral_id).toBe(RID2);
   });
 });

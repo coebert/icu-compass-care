@@ -130,3 +130,16 @@ CREATE POLICY "read beds" ON public.icu_beds FOR SELECT TO authenticated USING (
 -- Live record_audit / patient_field_changes are written only by server code
 -- (service role) and SECURITY DEFINER helpers; mirror "no direct writes".
 REVOKE INSERT, UPDATE, DELETE ON public.record_audit FROM anon, authenticated;
+
+-- Live notifications columns (metadata only).
+CREATE TABLE public.notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  referral_id uuid,
+  kind text NOT NULL,
+  message text NOT NULL,
+  read_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.notifications TO authenticated, service_role;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;

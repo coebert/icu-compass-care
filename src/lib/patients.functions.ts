@@ -23,26 +23,7 @@ import {
 import { decryptFieldSafe, encryptField } from "@/lib/crypto.server";
 import { PATIENT_ENCRYPTED_FIELDS } from "@/lib/patient-crypto.server";
 
-export type PreviousAdmission = {
-  id: string;
-  full_name: string | null;
-  hospital_number: string | null;
-  age: number | null;
-  status: string;
-  admission_date: string | null;
-  discharge_date: string | null;
-  discharge_destination: string | null;
-  date_of_death: string | null;
-  past_medical_history: string | null;
-  allergies: Array<Record<string, string | null>> | null;
-  tep_in_place: boolean | null;
-  tep_details: string | null;
-  tep_exclusions: string[] | null;
-  dnacpr_decision: boolean | null;
-  dnacpr_details: string | null;
-  dnacpr_date: string | null;
-  updated_at: string;
-};
+export type { PreviousAdmission } from "@/lib/previous-admission";
 
 const SEALED_COLUMNS: ReadonlySet<string> = new Set<string>(PATIENT_ENCRYPTED_FIELDS);
 
@@ -538,59 +519,27 @@ export const listAntimicrobialNames = createServerFn({ method: "GET" })
   });
 
 // Look up previous critical care admissions for the same person when a new
-// patient is being added. Matched by hospital number (preferred) or by
-// initials + age when no MRN is available. Returns discharged/died records
-// only — an active admission with the same MRN is a data-entry error, not a
-// readmission, and we surface that through the normal patient list.
+// patient is being added. Identity is an exact normalised hospital-number
+// match only (src/lib/previous-admission.ts); initials + age are accepted in
+// the input for older clients but never used to match anyone. Returns
+// discharged/died records only — an active admission with the same number is
+// a data-entry error, not a readmission.
 export const findPreviousAdmissions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({
-        hospital_number: z.string().trim().optional(),
-        full_name: z.string().trim().optional(),
-        age: z.union([z.string(), z.number()]).optional(),
+        hospital_number: z.string().trim().max(64).optional(),
+        full_name: z.string().trim().max(200).optional(),
+        age: z.union([z.string().max(10), z.number()]).optional(),
         exclude_id: z.string().uuid().optional(),
       })
       .parse(input),
   )
   .handler(async ({ context, data }) => {
-    const mrn = data.hospital_number?.trim();
-    const name = data.full_name?.trim();
-    const age =
-      typeof data.age === "number"
-        ? data.age
-        : typeof data.age === "string" && data.age.trim() !== ""
-          ? Number(data.age)
-          : null;
-
-    // Need at least an MRN, or (initials + age) — otherwise the match would
-    // be too broad and could surface unrelated patients.
-    if (!mrn && !(name && age != null && Number.isFinite(age))) return [];
-
-    let query = context.supabase
-      .from("patients")
-      .select(
-        withCryptoColumns(
-          "id, full_name, hospital_number, age, status, admission_date, discharge_date, discharge_destination, date_of_death, past_medical_history, allergies, tep_in_place, tep_details, tep_exclusions, dnacpr_decision, dnacpr_details, dnacpr_date, updated_at",
-        ),
-      )
-      .in("status", ["discharged", "died"])
-      .order("updated_at", { ascending: false })
-      .limit(5);
-
-    // Identifiers are encrypted, so matching uses the keyed-hash fingerprint
-    // column (HMAC of the normalised value) rather than a text comparison.
-    if (mrn) {
-      query = query.eq("hospital_number_hash", patientLookupHash(mrn) as string);
-    } else if (name && age != null) {
-      query = query.eq("full_name_hash", patientLookupHash(name) as string).eq("age", age);
-    }
-    if (data.exclude_id) query = query.neq("id", data.exclude_id);
-
-    const { data: rows, error } = await query;
-    if (error) throw safeDbError(error);
-    return decryptPatientRows(
-      rows as unknown as Array<Record<string, unknown>> | null,
-    ) as unknown as PreviousAdmission[];
+    const { findVerifiedPreviousAdmissions } = await import("@/lib/previous-admission.server");
+    return findVerifiedPreviousAdmissions(context.supabase, {
+      hospital_number: data.hospital_number,
+      exclude_id: data.exclude_id,
+    });
   });

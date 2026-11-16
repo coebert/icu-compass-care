@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { fmtDate } from "@/lib/icu";
 import {
@@ -37,6 +37,23 @@ type BlockedPreview = {
   partner_referral_url: string | null;
 };
 type PrefillPreview = LinkedPreview | BlockedPreview;
+/** A preview tagged with the exact target it was fetched for. */
+type TaggedPreview = { patientId: string; referralId: string; result: PrefillPreview };
+
+/**
+ * The exact identity a confirmation is bound to: target patient, referral,
+ * both revisions and the documented decisions offered. Any change means a
+ * different preview, so earlier ticks never carry over.
+ */
+function previewIdentity(patientId: string, referralId: string, p: LinkedPreview): string {
+  return JSON.stringify([
+    patientId,
+    referralId,
+    p.patient_updated_at,
+    p.referral_updated_at,
+    (p.decisions ?? []).map((d) => [d.field, d.value]),
+  ]);
+}
 
 function InlineAlert({
   children,
@@ -131,8 +148,14 @@ export function PrefillFromReferral({
   const [stale, setStale] = useState(false);
   const [linkLost, setLinkLost] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
-  // Referral-documented decisions the user has explicitly ticked.
-  const [accepted, setAccepted] = useState<string[]>([]);
+  // Referral-documented decisions the user has explicitly ticked, bound to the
+  // exact preview identity they were ticked against.
+  const [accepted, setAccepted] = useState<{ identity: string; fields: string[] } | null>(null);
+  // Bumped on every open, close and target change. A late response or
+  // mutation from an earlier session must not touch the current dialog.
+  const sessionRef = useRef(0);
+  const targetRef = useRef({ patientId, linkedReferralId });
+  const qc = useQueryClient();
   const listFn = useServerFn(listReferralCandidates);
   const previewFn = useServerFn(previewReferralPrefill);
   const prefillFn = useServerFn(prefillPatientFromReferral);
@@ -159,48 +182,113 @@ export function PrefillFromReferral({
 
   const previewQ = useQuery({
     queryKey: ["referral-prefill-preview", patientId, linkedReferralId],
-    queryFn: () =>
-      previewFn({
+    queryFn: async (): Promise<TaggedPreview> => ({
+      patientId,
+      referralId: linkedReferralId!,
+      result: (await previewFn({
         data: { patient_id: patientId, referral_id: linkedReferralId! },
-      }) as Promise<PrefillPreview>,
+      })) as PrefillPreview,
+    }),
     enabled: open && linked,
     retry: 1,
     // A preview is only good for the version it was computed from.
     gcTime: 0,
   });
-  const preview = previewQ.data;
+  // Only a preview fetched for THIS patient and referral is ever shown.
+  const tagged = previewQ.data;
+  const preview: PrefillPreview | undefined =
+    tagged && tagged.patientId === patientId && tagged.referralId === linkedReferralId
+      ? tagged.result
+      : undefined;
   const previewLoading = previewQ.isFetching;
   const ready: LinkedPreview | null =
     preview?.link === "linked" ? (preview as LinkedPreview) : null;
+  const identity =
+    ready && linkedReferralId ? previewIdentity(patientId, linkedReferralId, ready) : null;
+  // Ticks from any other preview (earlier revision, other patient/referral,
+  // previous opening) are ignored rather than inherited.
+  const acceptedFields = identity && accepted?.identity === identity ? accepted.fields : [];
 
+  const clearSessionState = () => {
+    setStale(false);
+    setLinkLost(false);
+    setApplyError(null);
+    setAccepted(null);
+  };
+  const dropPreview = () => {
+    // A late in-flight preview must not populate the next opening.
+    void qc.cancelQueries({ queryKey: ["referral-prefill-preview"] });
+    qc.removeQueries({ queryKey: ["referral-prefill-preview"] });
+  };
+
+  const openDialog = () => {
+    sessionRef.current += 1;
+    clearSessionState();
+    dropPreview();
+    setOpen(true);
+  };
   const resetAndClose = () => {
+    sessionRef.current += 1;
+    setOpen(false);
+    clearSessionState();
+    dropPreview();
+  };
+
+  // A different target patient or referral is a new session: close, forget.
+  useEffect(() => {
+    const prev = targetRef.current;
+    targetRef.current = { patientId, linkedReferralId };
+    if (prev.patientId === patientId && prev.linkedReferralId === linkedReferralId) return;
+    sessionRef.current += 1;
     setOpen(false);
     setStale(false);
     setLinkLost(false);
     setApplyError(null);
-    setAccepted([]);
-  };
+    setAccepted(null);
+    void qc.cancelQueries({ queryKey: ["referral-prefill-preview"] });
+    qc.removeQueries({ queryKey: ["referral-prefill-preview"] });
+  }, [patientId, linkedReferralId, qc]);
 
   const reloadPreview = async () => {
     setStale(false);
     setApplyError(null);
     // A decision must be re-ticked against the fresh preview.
-    setAccepted([]);
+    setAccepted(null);
     await previewQ.refetch();
   };
 
+  type PrefillVars = {
+    session: number;
+    patient_id: string;
+    referral_id: string;
+    preview: LinkedPreview;
+    accept: string[];
+  };
+  /** True only while the dialog that started this write is still the one on screen. */
+  const isCurrent = (v: PrefillVars) =>
+    v.session === sessionRef.current &&
+    v.patient_id === targetRef.current.patientId &&
+    v.referral_id === targetRef.current.linkedReferralId;
+
   const prefillMut = useMutation({
-    mutationFn: (p: { referral_id: string; preview: LinkedPreview; accept: string[] }) =>
+    mutationFn: (p: PrefillVars) =>
       prefillFn({
         data: {
-          patient_id: patientId,
+          patient_id: p.patient_id,
           referral_id: p.referral_id,
           expected_patient_updated_at: p.preview.patient_updated_at,
           expected_referral_updated_at: p.preview.referral_updated_at,
           accept_decisions: p.accept as "dnacpr_decision"[],
         },
       }),
-    onSuccess: (res: { applied_fields: string[]; skipped_fields: string[] }) => {
+    onSuccess: (res: { applied_fields: string[]; skipped_fields: string[] }, vars) => {
+      if (!isCurrent(vars)) {
+        // The record changed behind a dialog that is no longer this one:
+        // refresh data only; never close, toast or mark another target done.
+        if (vars.patient_id === targetRef.current.patientId) onDone();
+        void qc.invalidateQueries({ queryKey: ["referral-prefill-preview"] });
+        return;
+      }
       const applied = res.applied_fields.map((f) => PREFILL_FIELD_LABEL[f] ?? f);
       if (applied.length) {
         toast.success("Prefilled from referral", { description: applied.join(", ") });
@@ -210,7 +298,8 @@ export function PrefillFromReferral({
       resetAndClose();
       onDone();
     },
-    onError: (e: Error) => {
+    onError: (e: Error, vars) => {
+      if (!isCurrent(vars)) return;
       if (e.message === PREFILL_STALE_MESSAGE) {
         // Refresh the record behind the dialog; the user reloads and reconfirms.
         setStale(true);
@@ -226,8 +315,12 @@ export function PrefillFromReferral({
     },
   });
 
+  // Decisions and confirm are locked while anything is in flight, so a tick
+  // can only ever be made against the preview currently on screen.
+  const controlsLocked = previewLoading || prefillMut.isPending;
   const canConfirm =
     !!ready &&
+    !!identity &&
     previewQ.isSuccess &&
     !previewLoading &&
     !stale &&
@@ -239,7 +332,7 @@ export function PrefillFromReferral({
 
   return (
     <>
-      <Button variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
+      <Button variant="outline" className="gap-1.5" onClick={openDialog}>
         <ClipboardPlus className="h-4 w-4" /> {linked ? "Referral" : "From referral"}
       </Button>
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : resetAndClose())}>
@@ -410,7 +503,7 @@ export function PrefillFromReferral({
                       </legend>
                       {(ready.decisions ?? []).map((d) => {
                         const id = `prefill-decision-${d.field}`;
-                        const on = accepted.includes(d.field);
+                        const on = acceptedFields.includes(d.field);
                         return (
                           <label
                             key={d.field}
@@ -422,13 +515,17 @@ export function PrefillFromReferral({
                               type="checkbox"
                               className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
                               checked={on}
-                              onChange={(e) =>
-                                setAccepted((cur) =>
-                                  e.target.checked
-                                    ? [...cur, d.field]
+                              disabled={controlsLocked}
+                              onChange={(e) => {
+                                if (!identity || controlsLocked) return;
+                                const cur = accepted?.identity === identity ? accepted.fields : [];
+                                setAccepted({
+                                  identity,
+                                  fields: e.target.checked
+                                    ? [...cur.filter((x) => x !== d.field), d.field]
                                     : cur.filter((x) => x !== d.field),
-                                )
-                              }
+                                });
+                              }}
                             />
                             <span>
                               <span className="block font-medium">
@@ -469,12 +566,15 @@ export function PrefillFromReferral({
                   className="h-11 sm:h-10"
                   disabled={!canConfirm}
                   onClick={() => {
-                    if (!linkedReferralId || !ready) return;
+                    if (!linkedReferralId || !ready || !identity || !canConfirm) return;
                     setApplyError(null);
+                    // Exactly what is on screen: this preview and the ticks made on it.
                     prefillMut.mutate({
+                      session: sessionRef.current,
+                      patient_id: patientId,
                       referral_id: linkedReferralId,
                       preview: ready,
-                      accept: accepted,
+                      accept: acceptedFields,
                     });
                   }}
                 >

@@ -89,6 +89,7 @@ d("bed moves under real concurrency", () => {
       "0005_bed_integrity.sql",
       "0006_bridge_import_provenance.sql",
       "0007_bridge_wardable_fence.sql",
+      "0008_bridge_read_exports.sql",
     ])
       await admin.unsafe(readFileSync(join(ROOT, "docs/security/staged-migrations", f), "utf8"));
   }, 120_000);

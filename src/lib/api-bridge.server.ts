@@ -482,46 +482,6 @@ export async function logSyncError(
   }
 }
 
-// Returns the set of patient ids an administrator has marked as shared with the
-// partner app. Child clinical entities (investigations, microbiology) must be
-// gated to this set so PHI for non-shared patients never leaves this backend.
-export async function sharedPatientIds(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  admin: any,
-): Promise<string[]> {
-  const { data, error } = await admin
-    .from("patients")
-    .select("id")
-    .eq("shared_with_partner", true);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r: { id: string }) => r.id);
-}
-
-/**
- * Returns the set of referral ids the partner app may see: the referrals that
- * produced a patient record an administrator has explicitly marked as shared.
- * A referral that has not been converted into a shared patient carries no
- * sharing consent, so it stays inside this backend.
- *
- * Referral-derived feeds (referrals, notifications, audit) must be gated to
- * this set for the same reason child clinical entities are gated to
- * sharedPatientIds.
- */
-export async function sharedReferralIds(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  admin: any,
-): Promise<string[]> {
-  const { data, error } = await admin
-    .from("patients")
-    .select("source_referral_id")
-    .eq("shared_with_partner", true)
-    .not("source_referral_id", "is", null);
-  if (error) throw new Error(error.message);
-  return Array.from(
-    new Set(
-      (data ?? [])
-        .map((r: { source_referral_id: string | null }) => r.source_referral_id)
-        .filter((v: string | null): v is string => !!v),
-    ),
-  );
-}
+// Clinical read exports are gated in SQL, in the same statement that reads the
+// rows (src/lib/bridge-exports.server.ts). Do not reintroduce a helper that
+// returns shared ids for a later, separate query.
