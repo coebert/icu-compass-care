@@ -7,6 +7,7 @@ export type SyncResource = (typeof SYNC_RESOURCES)[number];
 
 export const SYNC_ERROR_CODES = [
   "not_configured",
+  "partner_url_invalid",
   "partner_unreachable",
   "partner_http_error",
   "malformed_response",
@@ -28,6 +29,8 @@ export type SyncErrorCode = (typeof SYNC_ERROR_CODES)[number];
 
 export const SYNC_ERROR_TEXT: Record<SyncErrorCode | "unknown", string> = {
   not_configured: "The partner link is not configured.",
+  partner_url_invalid:
+    "The partner link address is set incorrectly (it points at this app, or isn't a plain web address). Nothing was imported.",
   partner_unreachable: "The partner system could not be reached.",
   partner_http_error: "The partner system returned an error.",
   malformed_response: "The partner system sent an unexpected response.",

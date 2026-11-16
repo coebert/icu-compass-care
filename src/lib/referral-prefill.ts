@@ -273,14 +273,9 @@ export function partnerReferralUrl(
   partnerBase: string | null | undefined,
   referralId: string,
 ): string | null {
-  if (!partnerBase || !UUID_RE.test(referralId)) return null;
-  let origin: string;
-  try {
-    const u = new URL(partnerBase);
-    if (u.protocol !== "https:") return null;
-    origin = u.origin;
-  } catch {
-    return null;
-  }
-  return `${origin}/referrals/${referralId.toLowerCase()}`;
+  if (!UUID_RE.test(referralId)) return null;
+  // Never link to this app itself or to a malformed base.
+  const base = parsePartnerBase(partnerBase);
+  if (!base.ok) return null;
+  return `${base.origin}/referrals/${referralId.toLowerCase()}`;
 }

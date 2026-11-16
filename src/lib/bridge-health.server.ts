@@ -58,12 +58,14 @@ export type BridgeHealthResult = {
 };
 
 function config() {
-  const baseUrl = process.env.PARTNER_BRIDGE_URL;
+  const raw = process.env.PARTNER_BRIDGE_URL;
+  const base = parsePartnerBase(raw);
   const secret = process.env.HANDOVER_API_SECRET;
   return {
-    baseUrl: baseUrl ? baseUrl.replace(/\/$/, "") : "",
+    baseUrl: base.ok ? base.origin : "",
+    urlProblem: base.ok || base.reason === "missing" ? null : base.reason,
     secret: secret ?? "",
-    hasUrl: Boolean(baseUrl),
+    hasUrl: Boolean(raw),
     hasSecret: Boolean(secret),
     rotationWindowActive: Boolean(process.env.HANDOVER_API_SECRET_PREVIOUS),
   };
